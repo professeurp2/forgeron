@@ -1,71 +1,93 @@
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
 
-/// Service de calcul cinématique pour machine CNC 5-axes (Configuration Trunnion)
-/// Gère le RTCP (Remote Tool Center Point) et les transformations de repères.
+/// Service Cinématique Industriel pour configuration Table-Table (Trunnion A/C).
+/// Supporte le Remote Tool Center Point (RTCP) et la détection de singularités.
 class KinematicsService {
-  // --- Paramètres Machine (Valeurs par défaut issues du PFE) ---
-  
-  /// Distance entre le pivot de l'axe A et la surface du plateau (en mm)
-  final double pivotToTableOffset;
-  
-  /// Longueur de l'outil (du nez de broche à la pointe)
-  final double toolLength;
+  final double pivotToTableOffset; // Distance Z entre le centre de rotation A et le plateau
+  final double toolLength;        // Longueur totale de l'outil (offset H)
 
   KinematicsService({
-    this.pivotToTableOffset = 45.0, // Ajustable selon la machine réelle
-    this.toolLength = 30.0,
+    this.pivotToTableOffset = 45.0,
+    this.toolLength = 0.0,
   });
 
-  /// Calcule la position Machine (Xm, Ym, Zm) nécessaire pour atteindre 
-  /// une position Pièce (Xw, Yw, Zw) avec des angles A et C donnés.
-  /// C'est le cœur de l'algorithme RTCP (G43.4).
-  Vector3 calculateMachinePosition(Vector3 workPos, double angleA, double angleC) {
+  /// --- CINÉMATIQUE DIRECTE (Forward Kinematics) ---
+  /// Calcule la position de la pointe de l'outil dans le repère pièce (Work)
+  /// à partir des coordonnées machine (X, Y, Z, A, C).
+  Vector3 forward(Vector3 mPos, double angleA, double angleC) {
     final aRad = angleA * math.pi / 180;
     final cRad = angleC * math.pi / 180;
 
-    // 1. Rotation de la pièce par l'axe C (Plateau)
-    // 2. Rotation par l'axe A (Berceau)
-    // 3. Translation par rapport au pivot
+    // 1. Position relative au pivot de l'axe A
+    // On considère que machine Z=0 est le niveau du pivot.
+    // La pointe de l'outil est à Z_machine - toolLength.
+    double zRel = mPos.z - toolLength;
+
+    // 2. Inversion des rotations de la table
+    // La table tourne de C puis A. Pour trouver le point dans le repère pièce,
+    // on applique les rotations inverses dans l'ordre inverse.
+    final rotC = Matrix4.identity()..rotateZ(-cRad);
+    final rotA = Matrix4.identity()..rotateX(-aRad);
+
+    // Position par rapport au centre de la table (Translation de l'offset pivot)
+    final posInCradle = Vector3(mPos.x, mPos.y, zRel + pivotToTableOffset);
     
-    // Matrice de rotation combinée C puis A
+    // Application des rotations inverses
+    final posAfterA = rotA.transform3(posInCradle);
+    final posInWork = rotC.transform3(posAfterA);
+
+    return posInWork;
+  }
+
+  /// --- CINÉMATIQUE INVERSE (Inverse Kinematics / RTCP) ---
+  /// Calcule les coordonnées machine (Xm, Ym, Zm) pour atteindre 
+  /// une position pièce cible (Xw, Yw, Zw) avec des angles A et C donnés.
+  Vector3 inverseRTCP(Vector3 wPos, double angleA, double angleC) {
+    final aRad = angleA * math.pi / 180;
+    final cRad = angleC * math.pi / 180;
+
+    // 1. Rotation de la position pièce par le plateau (C) puis le berceau (A)
     final rotMat = Matrix4.identity()
       ..rotateX(aRad)
       ..rotateZ(cRad);
 
-    // Position du point sur la pièce après rotations
-    final rotatedPos = rotMat.transform3(workPos);
+    final rotatedWorkPos = rotMat.transform3(wPos);
 
-    // Compensation du pivot : 
-    // Le pivot de l'axe A est à Z=0 dans le modèle machine.
-    // La table est à -pivotToTableOffset.
-    final compensation = Vector3(
-      rotatedPos.x,
-      rotatedPos.y,
-      rotatedPos.z - pivotToTableOffset,
-    );
+    // 2. Transformation vers le repère machine
+    // On doit compenser l'offset du pivot et la longueur de l'outil.
+    final machineX = rotatedWorkPos.x;
+    final machineY = rotatedWorkPos.y;
+    // Z_m = Z_rotated - offset_pivot + tool_length
+    final machineZ = rotatedWorkPos.z - pivotToTableOffset + toolLength;
 
-    // En RTCP, la machine doit déplacer X, Y, Z pour que la pointe de l'outil 
-    // (fixe en rotation) touche ce point compensé.
-    return compensation;
+    return Vector3(machineX, machineY, machineZ);
   }
 
-  /// Cinématique Inverse simplifiée pour le visualiseur
-  /// Transforme les positions machine en positions relatives à la pièce
-  Vector3 calculateWorkPosition(Vector3 machinePos, double angleA, double angleC) {
-    final aRad = -angleA * math.pi / 180;
-    final cRad = -angleC * math.pi / 180;
+  /// --- DÉTECTION DE SINGULARITÉ ---
+  /// Calcule le risque de singularité (Gimbal Lock).
+  /// Dans une config Trunnion, la singularité se produit à A = 0.
+  /// Risque = 1.0 (Critique) si A ≈ 0, 0.0 si A est éloigné.
+  double calculateSingularityRisk(double angleA) {
+    // On définit une zone de danger de ±5 degrés
+    const double dangerZone = 5.0;
+    final absA = angleA.abs();
+    
+    if (absA >= dangerZone) return 0.0;
+    
+    // Courbe de risque exponentielle pour alerter avant le blocage
+    return math.pow(1.0 - (absA / dangerZone), 2).toDouble();
+  }
 
-    final invRotMat = Matrix4.identity()
-      ..rotateZ(cRad)
-      ..rotateX(aRad);
-
-    final posRelativeToPivot = Vector3(
-      machinePos.x,
-      machinePos.y,
-      machinePos.z + pivotToTableOffset,
-    );
-
-    return invRotMat.transform3(posRelativeToPivot);
+  /// Calcule le vecteur normal à la surface de la pièce en coordonnées machine
+  Vector3 getSurfaceNormal(double angleA, double angleC) {
+    final aRad = angleA * math.pi / 180;
+    final cRad = angleC * math.pi / 180;
+    
+    final rotMat = Matrix4.identity()
+      ..rotateX(aRad)
+      ..rotateZ(cRad);
+      
+    return rotMat.transform3(Vector3(0, 0, 1));
   }
 }

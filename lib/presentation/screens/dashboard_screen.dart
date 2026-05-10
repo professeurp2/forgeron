@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
@@ -10,6 +9,7 @@ import '../widgets/trunnion_visualizer.dart';
 import '../../domain/models/macro.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../../core/utils/file_picker_service.dart';
+import '../../core/utils/gcode_parser.dart'; // Ajouté pour ScrollController
 
 final isWorkshopModeProvider = StateProvider<bool>((ref) => false);
 
@@ -149,7 +149,30 @@ class _TelemetryPanel extends ConsumerWidget {
     final state = ref.watch(machineStateProvider).valueOrNull;
     return GlassPanel(title: 'Telemetry', titleTrailing: const Icon(Icons.waves, color: AppColors.primary, size: 14), child: Column(children: [_telemetryRow('MACHINE STATUS', state?.status.name.toUpperCase() ?? 'OFFLINE', '', AppColors.textPrimary), _telemetryRow('TEMP CORE', state?.coreTemp.toStringAsFixed(1) ?? '--', '°C', AppColors.textPrimary), _telemetryRow('RTCP (G43.4)', (state?.isRtcpActive ?? false) ? 'ACTIVE' : 'INACTIVE', '', AppColors.success)]));
   }
-  Widget _telemetryRow(String label, String value, String unit, Color color) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)), const Spacer(), Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')), if (unit.isNotEmpty) ...[const SizedBox(width: 4), Text(unit, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9))]]));
+  Widget _telemetryRow(String label, String value, String unit, Color color) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)),
+            const Spacer(),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+                    if (unit.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Text(unit, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _VisualizerPanel extends ConsumerWidget {
@@ -183,7 +206,36 @@ class _DROPanel extends ConsumerWidget {
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('DIGITAL READOUT', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), const SizedBox(height: 12), for (int i = 0; i < 3; i++) _coordCard(['X', 'Y', 'Z'][i], wPos[i], [AppColors.axisX, AppColors.axisY, AppColors.axisZ][i]), Row(children: [Expanded(child: _coordCard('A', wPos[3], AppColors.axisA, small: true)), const SizedBox(width: 8), Expanded(child: _coordCard('C', wPos[4], AppColors.axisC, small: true))])]);
   }
-  Widget _coordCard(String a, double v, Color c, {bool small = false}) => Container(margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(4), border: Border(left: BorderSide(color: c, width: 3))), child: Row(children: [Text(a, style: TextStyle(color: c, fontSize: small ? 14 : 18, fontWeight: FontWeight.w900)), const Spacer(), Text(v.toStringAsFixed(3), style: TextStyle(color: AppColors.textPrimary, fontSize: small ? 20 : 28, fontWeight: FontWeight.w900))]));
+  Widget _coordCard(String a, double v, Color c, {bool small = false}) => Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: EdgeInsets.all(small ? 8 : 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border(left: BorderSide(color: c, width: 3)),
+        ),
+        child: Row(
+          children: [
+            Text(a, style: TextStyle(color: c, fontSize: small ? 12 : 16, fontWeight: FontWeight.w900)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  v.toStringAsFixed(3),
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: small ? 18 : 24,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _OverridesPanel extends ConsumerWidget {
@@ -193,16 +245,51 @@ class _OverridesPanel extends ConsumerWidget {
     final ov = state?.overrides ?? [100, 100, 100];
     return GlassPanel(title: 'OVERRIDES', child: Column(children: [_ovRow('FEED', ov[0], AppColors.primary), _ovRow('RAPID', ov[1], AppColors.axisZ), _ovRow('SPINDLE', ov[2], AppColors.secondary)]));
   }
-  Widget _ovRow(String l, int v, Color c) => Row(children: [Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)), const Spacer(), Text('$v%', style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.bold))]);
+  Widget _ovRow(String l, int v, Color c) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('$v%', style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+            ),
+          ],
+        ),
+      );
 }
 
 class _DynamicsPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(machineStateProvider).valueOrNull;
-    return GlassPanel(title: 'DYNAMIQUE', child: Column(children: [_dynRow('FEEDRATE', 'F${state?.feedrate.toInt() ?? 0}', AppColors.textPrimary), _dynRow('SPINDLE', '${state?.spindleSpeed.toInt() ?? 0} RPM', AppColors.secondary)]));
+    return GlassPanel(
+      title: 'DYNAMIQUE',
+      child: Column(
+        children: [
+          _dynRow('FEEDRATE', 'F${state?.feedrate.toInt() ?? 0}', AppColors.textPrimary),
+          _dynRow('SPINDLE', '${state?.spindleSpeed.toInt() ?? 0} RPM', AppColors.secondary),
+        ],
+      ),
+    );
   }
-  Widget _dynRow(String l, String v, Color c) => Row(children: [Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10)), const Spacer(), Text(v, style: TextStyle(color: c, fontSize: 13, fontWeight: FontWeight.bold))]);
+
+  Widget _dynRow(String l, String v, Color c) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(v, style: TextStyle(color: c, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _WorkshopLayout extends ConsumerWidget {
@@ -222,11 +309,11 @@ class _MacrosPanel extends ConsumerWidget {
 class _GCodeConsolePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lines = ref.watch(activeGCodeProvider);
-    final state = ref.watch(machineStateProvider).valueOrNull;
-    final currentIndex = (state?.activeLineIndex ?? 0) - 1; // 1-based to 0-based
+    final gcodeState = ref.watch(gcodeProvider);
+    final scrollController = ref.watch(gcodeScrollControllerProvider);
+    
     return GlassPanel(
-      title: 'FLUX G-CODE TEMPS RÉEL',
+      title: 'FLUX G-CODE INDUSTRIEL',
       expand: true,
       titleTrailing: IconButton(
         icon: const Icon(Icons.file_open, color: AppColors.primary, size: 14),
@@ -234,16 +321,18 @@ class _GCodeConsolePanel extends ConsumerWidget {
         tooltip: 'Charger un fichier G-Code',
       ),
       child: ListView.builder(
-        itemCount: lines.length,
+        controller: scrollController,
+        itemCount: gcodeState.allLines.length,
+        itemExtent: 24, // Virtualisation haute performance
         itemBuilder: (ctx, i) {
-          final isCurrent = i == currentIndex;
+          final isCurrent = i == gcodeState.currentLineIndex;
           return Container(
             color: isCurrent ? AppColors.primary.withOpacity(0.1) : null,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
-              SizedBox(width: 30, child: Text('${lines[i].number}', style: TextStyle(color: isCurrent ? AppColors.primary : AppColors.textDisabled, fontSize: 9, fontFamily: 'JetBrains Mono'))),
+              SizedBox(width: 40, child: Text('${i + 1}', style: TextStyle(color: isCurrent ? AppColors.primary : AppColors.textDisabled, fontSize: 9, fontFamily: 'JetBrains Mono'))),
               const SizedBox(width: 8),
-              Expanded(child: Text(lines[i].content, style: TextStyle(color: isCurrent ? AppColors.primary : AppColors.textPrimary, fontSize: 11, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, fontFamily: 'JetBrains Mono'))),
+              Expanded(child: Text(gcodeState.allLines[i], style: TextStyle(color: isCurrent ? Colors.white : AppColors.textDisabled, fontSize: 11, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, fontFamily: 'JetBrains Mono'))),
               if (isCurrent) const Icon(Icons.chevron_left, color: AppColors.primary, size: 14),
             ]),
           );
@@ -255,21 +344,8 @@ class _GCodeConsolePanel extends ConsumerWidget {
   Future<void> _pickFile(WidgetRef ref) async {
     final content = await FilePickerService.pickGCodeContent();
     if (content != null) {
-      final rawLines = content.split('\n');
-      final List<GCodeLine> newLines = [];
-      final List<String> stringLines = [];
-      
-      for (int i = 0; i < rawLines.length; i++) {
-        final line = rawLines[i].trim();
-        if (line.isNotEmpty) {
-          newLines.add(GCodeLine(number: i + 1, content: line));
-          stringLines.add(line);
-        }
-      }
-      
-      ref.read(activeGCodeProvider.notifier).state = newLines;
-      // Synchroniser avec le repository pour la simulation
-      await ref.read(machineRepositoryProvider).sendGCodeBatch(stringLines);
+      // Chargement optimisé via Isolate
+      await ref.read(gcodeProvider.notifier).loadFile(content);
     }
   }
 }

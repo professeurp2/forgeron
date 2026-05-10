@@ -30,4 +30,10 @@ abstract class MachineRepository {
   
   /// Resets the machine controller (soft reset).
   Future<void> reset();
+
+  /// Sets the feed rate override percentage (10-200%).
+  Future<void> setFeedOverride(int percent);
+
+  /// Sets the spindle speed override percentage (10-200%).
+  Future<void> setSpindleOverride(int percent);
 }

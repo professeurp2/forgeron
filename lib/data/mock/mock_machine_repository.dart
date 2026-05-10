@@ -22,7 +22,7 @@ class MockMachineRepository implements MachineRepository {
 
   bool _isDemoActive = false;
   double _demoProgress = 0.0;
-  List<GCodeLine> _currentProgram = [];
+  List<String> _currentProgram = [];
   int _currentProgramIndex = 0;
 
   MockMachineRepository() {
@@ -56,7 +56,7 @@ class MockMachineRepository implements MachineRepository {
 
         // --- SIMULATION PROGRAMME CHARGÉ ---
         if (_currentProgram.isNotEmpty && _currentProgramIndex < _currentProgram.length) {
-          final line = _currentProgram[_currentProgramIndex].content.toUpperCase();
+          final line = _currentProgram[_currentProgramIndex].toUpperCase();
           
           // Extraction simplifiée des coordonnées (X, Y, Z, A, C)
           final newPos = List<double>.from(_currentState.mPos);
@@ -128,7 +128,7 @@ class MockMachineRepository implements MachineRepository {
 
   @override
   Future<void> sendGCodeBatch(List<String> lines) async {
-    _currentProgram = lines.asMap().entries.map((e) => GCodeLine(number: e.key + 1, content: e.value)).toList();
+    _currentProgram = lines;
     _currentProgramIndex = 0;
     _isDemoActive = false;
     _updateState(_currentState.copyWith(status: MachineStatus.idle, sdPercent: 0, activeLineIndex: 0));
@@ -176,5 +176,21 @@ class MockMachineRepository implements MachineRepository {
   Future<void> reset() async {
     debugPrint('Mock Reset');
     _updateState(_currentState.copyWith(status: MachineStatus.idle));
+  }
+
+  @override
+  Future<void> setFeedOverride(int percent) async {
+    debugPrint('Mock Feed Override: $percent%');
+    final overrides = List<int>.from(_currentState.overrides);
+    overrides[0] = percent;
+    _updateState(_currentState.copyWith(overrides: overrides));
+  }
+
+  @override
+  Future<void> setSpindleOverride(int percent) async {
+    debugPrint('Mock Spindle Override: $percent%');
+    final overrides = List<int>.from(_currentState.overrides);
+    overrides[2] = percent;
+    _updateState(_currentState.copyWith(overrides: overrides));
   }
 }

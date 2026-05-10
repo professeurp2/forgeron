@@ -1,26 +1,75 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/gcode_parser.dart';
 
-class GCodeLine {
-  final int number;
-  final String content;
-  final bool isCurrent;
+/// State pour la gestion de fichiers G-Code massifs.
+/// Stocke les données brutes et expose une "fenêtre" pour l'UI.
+class LargeGCodeState {
+  final List<String> allLines;
+  final List<List<double>> toolpath;
+  final int currentLineIndex;
+  final bool isLoading;
 
-  const GCodeLine({required this.number, required this.content, this.isCurrent = false});
+  LargeGCodeState({
+    this.allLines = const [],
+    this.toolpath = const [],
+    this.currentLineIndex = 0,
+    this.isLoading = false,
+  });
+
+  /// Retourne une fenêtre de lignes autour de l'index actuel (ex: ±50 lignes)
+  List<String> get windowLines {
+    if (allLines.isEmpty) return [];
+    final start = (currentLineIndex - 50).clamp(0, allLines.length);
+    final end = (currentLineIndex + 50).clamp(0, allLines.length);
+    return allLines.sublist(start, end);
+  }
+
+  LargeGCodeState copyWith({
+    List<String>? allLines,
+    List<List<double>>? toolpath,
+    int? currentLineIndex,
+    bool? isLoading,
+  }) {
+    return LargeGCodeState(
+      allLines: allLines ?? this.allLines,
+      toolpath: toolpath ?? this.toolpath,
+      currentLineIndex: currentLineIndex ?? this.currentLineIndex,
+      isLoading: isLoading ?? this.isLoading,
+    );
+  }
 }
 
-final activeGCodeProvider = StateProvider<List<GCodeLine>>((ref) => [
-  const GCodeLine(number: 1, content: 'G90 G21 G17'),
-  const GCodeLine(number: 2, content: 'G54'),
-  const GCodeLine(number: 3, content: 'M3 S12000'),
-  const GCodeLine(number: 4, content: 'G0 X10 Y20 Z5', isCurrent: true),
-  const GCodeLine(number: 5, content: 'G1 Z-1 F200'),
-  const GCodeLine(number: 6, content: 'G1 X50 Y20 F800'),
-  const GCodeLine(number: 7, content: 'G1 X50 Y50'),
-  const GCodeLine(number: 8, content: 'G1 X10 Y50'),
-  const GCodeLine(number: 9, content: 'G1 X10 Y20'),
-  const GCodeLine(number: 10, content: 'G0 Z10'),
-  const GCodeLine(number: 11, content: 'M5'),
-  const GCodeLine(number: 12, content: 'M30'),
-]);
+class GCodeNotifier extends StateNotifier<LargeGCodeState> {
+  GCodeNotifier() : super(LargeGCodeState());
 
-final currentGCodeLineIndexProvider = StateProvider<int>((ref) => 3); // Index 0-based
+  /// Charge un fichier volumineux via un Isolate pour ne pas bloquer l'UI
+  Future<void> loadFile(String content) async {
+    state = state.copyWith(isLoading: true);
+    
+    // Appel du parseur optimisé (Isolate)
+    final analyzed = await GCodeParser.parseLargeFile(content);
+    
+    state = state.copyWith(
+      allLines: analyzed.lines,
+      toolpath: analyzed.toolpath,
+      isLoading: false,
+      currentLineIndex: 0,
+    );
+  }
+
+  void updateCurrentLine(int index) {
+    if (index != state.currentLineIndex) {
+      state = state.copyWith(currentLineIndex: index);
+    }
+  }
+}
+
+final gcodeProvider = StateNotifierProvider<GCodeNotifier, LargeGCodeState>((ref) {
+  return GCodeNotifier();
+});
+
+/// Provider dédié à la fenêtre de visualisation (pour éviter les rebuilds massifs)
+final gcodeWindowProvider = Provider((ref) {
+  return ref.watch(gcodeProvider).windowLines;
+});
