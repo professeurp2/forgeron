@@ -31,18 +31,32 @@ mixin _$MachineState {
   List<double> get wPos => throw _privateConstructorUsedError; // Work Position
   List<double> get wco =>
       throw _privateConstructorUsedError; // WCS Offset (WPos = MPos - WCO)
+  List<double> get targetPos =>
+      throw _privateConstructorUsedError; // Planned/Ghost Position
+  double get singularityRisk =>
+      throw _privateConstructorUsedError; // 0.0 to 1.0 risk level
   // --- Dynamique ---
   double get feedrate => throw _privateConstructorUsedError; // mm/min
   double get spindleSpeed => throw _privateConstructorUsedError; // RPM
+  double get spindleLoad =>
+      throw _privateConstructorUsedError; // % ou kW (simulé)
+  double get coreTemp => throw _privateConstructorUsedError; // °C
+  bool get isRtcpActive => throw _privateConstructorUsedError; // G43.4 status
   // --- Overrides (%) ---
   List<int> get overrides =>
       throw _privateConstructorUsedError; // [Feed, Rapid, Spindle]
   // --- Contexte modal ---
   String get activeWCS => throw _privateConstructorUsedError; // G54..G59.3
   int get activeToolNum => throw _privateConstructorUsedError; // T0..T99
-  // --- Fins de course (X, Y, Z, A, C) ---
-  List<bool> get limitSwitches =>
-      throw _privateConstructorUsedError; // --- Buffers FluidNC (Bf:blocks,bytes) ---
+  List<bool> get limitSwitches => throw _privateConstructorUsedError;
+  bool get probeTriggered => throw _privateConstructorUsedError;
+  bool get emergencyTriggered =>
+      throw _privateConstructorUsedError; // --- Progression SD (FluidNC) ---
+  double get sdPercent => throw _privateConstructorUsedError;
+  String? get sdFilename => throw _privateConstructorUsedError;
+  int get activeLineIndex =>
+      throw _privateConstructorUsedError; // Index de la ligne G-Code en cours d'exécution
+  // --- Buffers FluidNC (Bf:blocks,bytes) ---
   int get plannerBuffer =>
       throw _privateConstructorUsedError; // Blocs disponibles dans la file
   int get rxBuffer => throw _privateConstructorUsedError;
@@ -70,12 +84,22 @@ abstract class $MachineStateCopyWith<$Res> {
     List<double> mPos,
     List<double> wPos,
     List<double> wco,
+    List<double> targetPos,
+    double singularityRisk,
     double feedrate,
     double spindleSpeed,
+    double spindleLoad,
+    double coreTemp,
+    bool isRtcpActive,
     List<int> overrides,
     String activeWCS,
     int activeToolNum,
     List<bool> limitSwitches,
+    bool probeTriggered,
+    bool emergencyTriggered,
+    double sdPercent,
+    String? sdFilename,
+    int activeLineIndex,
     int plannerBuffer,
     int rxBuffer,
   });
@@ -101,12 +125,22 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
     Object? mPos = null,
     Object? wPos = null,
     Object? wco = null,
+    Object? targetPos = null,
+    Object? singularityRisk = null,
     Object? feedrate = null,
     Object? spindleSpeed = null,
+    Object? spindleLoad = null,
+    Object? coreTemp = null,
+    Object? isRtcpActive = null,
     Object? overrides = null,
     Object? activeWCS = null,
     Object? activeToolNum = null,
     Object? limitSwitches = null,
+    Object? probeTriggered = null,
+    Object? emergencyTriggered = null,
+    Object? sdPercent = null,
+    Object? sdFilename = freezed,
+    Object? activeLineIndex = null,
     Object? plannerBuffer = null,
     Object? rxBuffer = null,
   }) {
@@ -132,6 +166,14 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.wco
                 : wco // ignore: cast_nullable_to_non_nullable
                       as List<double>,
+            targetPos: null == targetPos
+                ? _value.targetPos
+                : targetPos // ignore: cast_nullable_to_non_nullable
+                      as List<double>,
+            singularityRisk: null == singularityRisk
+                ? _value.singularityRisk
+                : singularityRisk // ignore: cast_nullable_to_non_nullable
+                      as double,
             feedrate: null == feedrate
                 ? _value.feedrate
                 : feedrate // ignore: cast_nullable_to_non_nullable
@@ -140,6 +182,18 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.spindleSpeed
                 : spindleSpeed // ignore: cast_nullable_to_non_nullable
                       as double,
+            spindleLoad: null == spindleLoad
+                ? _value.spindleLoad
+                : spindleLoad // ignore: cast_nullable_to_non_nullable
+                      as double,
+            coreTemp: null == coreTemp
+                ? _value.coreTemp
+                : coreTemp // ignore: cast_nullable_to_non_nullable
+                      as double,
+            isRtcpActive: null == isRtcpActive
+                ? _value.isRtcpActive
+                : isRtcpActive // ignore: cast_nullable_to_non_nullable
+                      as bool,
             overrides: null == overrides
                 ? _value.overrides
                 : overrides // ignore: cast_nullable_to_non_nullable
@@ -156,6 +210,26 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.limitSwitches
                 : limitSwitches // ignore: cast_nullable_to_non_nullable
                       as List<bool>,
+            probeTriggered: null == probeTriggered
+                ? _value.probeTriggered
+                : probeTriggered // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            emergencyTriggered: null == emergencyTriggered
+                ? _value.emergencyTriggered
+                : emergencyTriggered // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            sdPercent: null == sdPercent
+                ? _value.sdPercent
+                : sdPercent // ignore: cast_nullable_to_non_nullable
+                      as double,
+            sdFilename: freezed == sdFilename
+                ? _value.sdFilename
+                : sdFilename // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            activeLineIndex: null == activeLineIndex
+                ? _value.activeLineIndex
+                : activeLineIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
             plannerBuffer: null == plannerBuffer
                 ? _value.plannerBuffer
                 : plannerBuffer // ignore: cast_nullable_to_non_nullable
@@ -185,12 +259,22 @@ abstract class _$$MachineStateImplCopyWith<$Res>
     List<double> mPos,
     List<double> wPos,
     List<double> wco,
+    List<double> targetPos,
+    double singularityRisk,
     double feedrate,
     double spindleSpeed,
+    double spindleLoad,
+    double coreTemp,
+    bool isRtcpActive,
     List<int> overrides,
     String activeWCS,
     int activeToolNum,
     List<bool> limitSwitches,
+    bool probeTriggered,
+    bool emergencyTriggered,
+    double sdPercent,
+    String? sdFilename,
+    int activeLineIndex,
     int plannerBuffer,
     int rxBuffer,
   });
@@ -215,12 +299,22 @@ class __$$MachineStateImplCopyWithImpl<$Res>
     Object? mPos = null,
     Object? wPos = null,
     Object? wco = null,
+    Object? targetPos = null,
+    Object? singularityRisk = null,
     Object? feedrate = null,
     Object? spindleSpeed = null,
+    Object? spindleLoad = null,
+    Object? coreTemp = null,
+    Object? isRtcpActive = null,
     Object? overrides = null,
     Object? activeWCS = null,
     Object? activeToolNum = null,
     Object? limitSwitches = null,
+    Object? probeTriggered = null,
+    Object? emergencyTriggered = null,
+    Object? sdPercent = null,
+    Object? sdFilename = freezed,
+    Object? activeLineIndex = null,
     Object? plannerBuffer = null,
     Object? rxBuffer = null,
   }) {
@@ -246,6 +340,14 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value._wco
             : wco // ignore: cast_nullable_to_non_nullable
                   as List<double>,
+        targetPos: null == targetPos
+            ? _value._targetPos
+            : targetPos // ignore: cast_nullable_to_non_nullable
+                  as List<double>,
+        singularityRisk: null == singularityRisk
+            ? _value.singularityRisk
+            : singularityRisk // ignore: cast_nullable_to_non_nullable
+                  as double,
         feedrate: null == feedrate
             ? _value.feedrate
             : feedrate // ignore: cast_nullable_to_non_nullable
@@ -254,6 +356,18 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value.spindleSpeed
             : spindleSpeed // ignore: cast_nullable_to_non_nullable
                   as double,
+        spindleLoad: null == spindleLoad
+            ? _value.spindleLoad
+            : spindleLoad // ignore: cast_nullable_to_non_nullable
+                  as double,
+        coreTemp: null == coreTemp
+            ? _value.coreTemp
+            : coreTemp // ignore: cast_nullable_to_non_nullable
+                  as double,
+        isRtcpActive: null == isRtcpActive
+            ? _value.isRtcpActive
+            : isRtcpActive // ignore: cast_nullable_to_non_nullable
+                  as bool,
         overrides: null == overrides
             ? _value._overrides
             : overrides // ignore: cast_nullable_to_non_nullable
@@ -270,6 +384,26 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value._limitSwitches
             : limitSwitches // ignore: cast_nullable_to_non_nullable
                   as List<bool>,
+        probeTriggered: null == probeTriggered
+            ? _value.probeTriggered
+            : probeTriggered // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        emergencyTriggered: null == emergencyTriggered
+            ? _value.emergencyTriggered
+            : emergencyTriggered // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        sdPercent: null == sdPercent
+            ? _value.sdPercent
+            : sdPercent // ignore: cast_nullable_to_non_nullable
+                  as double,
+        sdFilename: freezed == sdFilename
+            ? _value.sdFilename
+            : sdFilename // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        activeLineIndex: null == activeLineIndex
+            ? _value.activeLineIndex
+            : activeLineIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
         plannerBuffer: null == plannerBuffer
             ? _value.plannerBuffer
             : plannerBuffer // ignore: cast_nullable_to_non_nullable
@@ -292,17 +426,28 @@ class _$MachineStateImpl implements _MachineState {
     final List<double> mPos = const [0.0, 0.0, 0.0, 0.0, 0.0],
     final List<double> wPos = const [0.0, 0.0, 0.0, 0.0, 0.0],
     final List<double> wco = const [0.0, 0.0, 0.0, 0.0, 0.0],
+    final List<double> targetPos = const [0.0, 0.0, 0.0, 0.0, 0.0],
+    this.singularityRisk = 0.0,
     this.feedrate = 0.0,
     this.spindleSpeed = 0.0,
+    this.spindleLoad = 0.0,
+    this.coreTemp = 40.0,
+    this.isRtcpActive = false,
     final List<int> overrides = const [100, 100, 100],
     this.activeWCS = 'G54',
     this.activeToolNum = 0,
     final List<bool> limitSwitches = const [false, false, false, false, false],
+    this.probeTriggered = false,
+    this.emergencyTriggered = false,
+    this.sdPercent = 0.0,
+    this.sdFilename,
+    this.activeLineIndex = 0,
     this.plannerBuffer = 15,
     this.rxBuffer = 128,
   }) : _mPos = mPos,
        _wPos = wPos,
        _wco = wco,
+       _targetPos = targetPos,
        _overrides = overrides,
        _limitSwitches = limitSwitches;
 
@@ -351,6 +496,21 @@ class _$MachineStateImpl implements _MachineState {
   }
 
   // WCS Offset (WPos = MPos - WCO)
+  final List<double> _targetPos;
+  // WCS Offset (WPos = MPos - WCO)
+  @override
+  @JsonKey()
+  List<double> get targetPos {
+    if (_targetPos is EqualUnmodifiableListView) return _targetPos;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_targetPos);
+  }
+
+  // Planned/Ghost Position
+  @override
+  @JsonKey()
+  final double singularityRisk;
+  // 0.0 to 1.0 risk level
   // --- Dynamique ---
   @override
   @JsonKey()
@@ -360,9 +520,21 @@ class _$MachineStateImpl implements _MachineState {
   @JsonKey()
   final double spindleSpeed;
   // RPM
+  @override
+  @JsonKey()
+  final double spindleLoad;
+  // % ou kW (simulé)
+  @override
+  @JsonKey()
+  final double coreTemp;
+  // °C
+  @override
+  @JsonKey()
+  final bool isRtcpActive;
+  // G43.4 status
   // --- Overrides (%) ---
   final List<int> _overrides;
-  // RPM
+  // G43.4 status
   // --- Overrides (%) ---
   @override
   @JsonKey()
@@ -382,10 +554,8 @@ class _$MachineStateImpl implements _MachineState {
   @JsonKey()
   final int activeToolNum;
   // T0..T99
-  // --- Fins de course (X, Y, Z, A, C) ---
   final List<bool> _limitSwitches;
   // T0..T99
-  // --- Fins de course (X, Y, Z, A, C) ---
   @override
   @JsonKey()
   List<bool> get limitSwitches {
@@ -394,6 +564,22 @@ class _$MachineStateImpl implements _MachineState {
     return EqualUnmodifiableListView(_limitSwitches);
   }
 
+  @override
+  @JsonKey()
+  final bool probeTriggered;
+  @override
+  @JsonKey()
+  final bool emergencyTriggered;
+  // --- Progression SD (FluidNC) ---
+  @override
+  @JsonKey()
+  final double sdPercent;
+  @override
+  final String? sdFilename;
+  @override
+  @JsonKey()
+  final int activeLineIndex;
+  // Index de la ligne G-Code en cours d'exécution
   // --- Buffers FluidNC (Bf:blocks,bytes) ---
   @override
   @JsonKey()
@@ -405,7 +591,7 @@ class _$MachineStateImpl implements _MachineState {
 
   @override
   String toString() {
-    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, feedrate: $feedrate, spindleSpeed: $spindleSpeed, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, limitSwitches: $limitSwitches, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
+    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, emergencyTriggered: $emergencyTriggered, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
   }
 
   @override
@@ -419,10 +605,22 @@ class _$MachineStateImpl implements _MachineState {
             const DeepCollectionEquality().equals(other._mPos, _mPos) &&
             const DeepCollectionEquality().equals(other._wPos, _wPos) &&
             const DeepCollectionEquality().equals(other._wco, _wco) &&
+            const DeepCollectionEquality().equals(
+              other._targetPos,
+              _targetPos,
+            ) &&
+            (identical(other.singularityRisk, singularityRisk) ||
+                other.singularityRisk == singularityRisk) &&
             (identical(other.feedrate, feedrate) ||
                 other.feedrate == feedrate) &&
             (identical(other.spindleSpeed, spindleSpeed) ||
                 other.spindleSpeed == spindleSpeed) &&
+            (identical(other.spindleLoad, spindleLoad) ||
+                other.spindleLoad == spindleLoad) &&
+            (identical(other.coreTemp, coreTemp) ||
+                other.coreTemp == coreTemp) &&
+            (identical(other.isRtcpActive, isRtcpActive) ||
+                other.isRtcpActive == isRtcpActive) &&
             const DeepCollectionEquality().equals(
               other._overrides,
               _overrides,
@@ -435,6 +633,16 @@ class _$MachineStateImpl implements _MachineState {
               other._limitSwitches,
               _limitSwitches,
             ) &&
+            (identical(other.probeTriggered, probeTriggered) ||
+                other.probeTriggered == probeTriggered) &&
+            (identical(other.emergencyTriggered, emergencyTriggered) ||
+                other.emergencyTriggered == emergencyTriggered) &&
+            (identical(other.sdPercent, sdPercent) ||
+                other.sdPercent == sdPercent) &&
+            (identical(other.sdFilename, sdFilename) ||
+                other.sdFilename == sdFilename) &&
+            (identical(other.activeLineIndex, activeLineIndex) ||
+                other.activeLineIndex == activeLineIndex) &&
             (identical(other.plannerBuffer, plannerBuffer) ||
                 other.plannerBuffer == plannerBuffer) &&
             (identical(other.rxBuffer, rxBuffer) ||
@@ -443,22 +651,32 @@ class _$MachineStateImpl implements _MachineState {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     status,
     alarmCode,
     const DeepCollectionEquality().hash(_mPos),
     const DeepCollectionEquality().hash(_wPos),
     const DeepCollectionEquality().hash(_wco),
+    const DeepCollectionEquality().hash(_targetPos),
+    singularityRisk,
     feedrate,
     spindleSpeed,
+    spindleLoad,
+    coreTemp,
+    isRtcpActive,
     const DeepCollectionEquality().hash(_overrides),
     activeWCS,
     activeToolNum,
     const DeepCollectionEquality().hash(_limitSwitches),
+    probeTriggered,
+    emergencyTriggered,
+    sdPercent,
+    sdFilename,
+    activeLineIndex,
     plannerBuffer,
     rxBuffer,
-  );
+  ]);
 
   /// Create a copy of MachineState
   /// with the given fields replaced by the non-null parameter values.
@@ -481,12 +699,22 @@ abstract class _MachineState implements MachineState {
     final List<double> mPos,
     final List<double> wPos,
     final List<double> wco,
+    final List<double> targetPos,
+    final double singularityRisk,
     final double feedrate,
     final double spindleSpeed,
+    final double spindleLoad,
+    final double coreTemp,
+    final bool isRtcpActive,
     final List<int> overrides,
     final String activeWCS,
     final int activeToolNum,
     final List<bool> limitSwitches,
+    final bool probeTriggered,
+    final bool emergencyTriggered,
+    final double sdPercent,
+    final String? sdFilename,
+    final int activeLineIndex,
     final int plannerBuffer,
     final int rxBuffer,
   }) = _$MachineStateImpl;
@@ -506,11 +734,21 @@ abstract class _MachineState implements MachineState {
   List<double> get wPos; // Work Position
   @override
   List<double> get wco; // WCS Offset (WPos = MPos - WCO)
+  @override
+  List<double> get targetPos; // Planned/Ghost Position
+  @override
+  double get singularityRisk; // 0.0 to 1.0 risk level
   // --- Dynamique ---
   @override
   double get feedrate; // mm/min
   @override
   double get spindleSpeed; // RPM
+  @override
+  double get spindleLoad; // % ou kW (simulé)
+  @override
+  double get coreTemp; // °C
+  @override
+  bool get isRtcpActive; // G43.4 status
   // --- Overrides (%) ---
   @override
   List<int> get overrides; // [Feed, Rapid, Spindle]
@@ -519,9 +757,19 @@ abstract class _MachineState implements MachineState {
   String get activeWCS; // G54..G59.3
   @override
   int get activeToolNum; // T0..T99
-  // --- Fins de course (X, Y, Z, A, C) ---
   @override
-  List<bool> get limitSwitches; // --- Buffers FluidNC (Bf:blocks,bytes) ---
+  List<bool> get limitSwitches;
+  @override
+  bool get probeTriggered;
+  @override
+  bool get emergencyTriggered; // --- Progression SD (FluidNC) ---
+  @override
+  double get sdPercent;
+  @override
+  String? get sdFilename;
+  @override
+  int get activeLineIndex; // Index de la ligne G-Code en cours d'exécution
+  // --- Buffers FluidNC (Bf:blocks,bytes) ---
   @override
   int get plannerBuffer; // Blocs disponibles dans la file
   @override

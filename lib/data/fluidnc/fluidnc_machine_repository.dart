@@ -26,10 +26,12 @@ class FluidNCMachineRepository implements MachineRepository {
   // GRBL accepte jusqu'à 128 octets dans son buffer RX.
   // On attend un 'ok' ou 'error' avant d'envoyer la suivante.
   final _cmdQueue = Queue<String>();
-  bool _waitingForOk = false;
+  final _sentCommands = Queue<int>(); // Stocke la longueur des commandes en attente d'ok
+  int _bufferCount = 0; // Octets actuellement dans le buffer FluidNC
+  static const int _maxBufferSize = 127; // Limite GRBL/FluidNC
 
-  // ── Jog continu ──────────────────────────────────────────────────────────
   bool _isJogging = false;
+  bool _waitingForOk = false; // Utilisé pour compatibilité et logique simple
 
   FluidNCMachineRepository(this._connection) {
     _connection.connect();
@@ -39,12 +41,15 @@ class FluidNCMachineRepository implements MachineRepository {
       if (!isConnected) {
         _currentState = _currentState.copyWith(status: MachineStatus.offline);
         _stateController.add(_currentState);
-        _waitingForOk = false;
+        _bufferCount = 0;
         _cmdQueue.clear();
+        _sentCommands.clear();
       } else {
-        // Demander l'état modal au démarrage
+        // Séquence d'initialisation "Ingénieuse"
         Future.delayed(const Duration(milliseconds: 500), () {
-          _connection.send('\$G\n'); // Demande [GC:...] état modal
+          _connection.send('\$G\n');   // État modal
+          _connection.send('\$#\n');   // Offsets de travail (G54-G59)
+          _connection.send('[ESP110]\n'); // WiFi info
         });
       }
     });
@@ -61,9 +66,12 @@ class FluidNCMachineRepository implements MachineRepository {
   void _handleMessage(String message) {
     final trimmed = message.trim();
 
-    // Contrôle de flux : déverrouiller la queue sur ok/error
+    // Contrôle de flux : déverrouiller le buffer sur ok/error
     if (trimmed == 'ok' || trimmed.startsWith('error:')) {
-      _waitingForOk = false;
+      if (_sentCommands.isNotEmpty) {
+        final len = _sentCommands.removeFirst();
+        _bufferCount -= len;
+      }
       _processQueue();
       return;
     }
@@ -83,10 +91,19 @@ class FluidNCMachineRepository implements MachineRepository {
   }
 
   void _processQueue() {
-    if (_waitingForOk || _cmdQueue.isEmpty) return;
-    final cmd = _cmdQueue.removeFirst();
-    _waitingForOk = true;
-    _connection.send(cmd);
+    while (_cmdQueue.isNotEmpty) {
+      final cmd = _cmdQueue.first;
+      final len = cmd.length;
+
+      if (_bufferCount + len <= _maxBufferSize) {
+        _cmdQueue.removeFirst();
+        _sentCommands.add(len);
+        _bufferCount += len;
+        _connection.send(cmd);
+      } else {
+        break; // Buffer plein, on attend un 'ok'
+      }
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -104,6 +121,18 @@ class FluidNCMachineRepository implements MachineRepository {
     // ⚠️ Correction bug : plus de préfixe $N — envoi direct du G-code
     final cmd = gcode.endsWith('\n') ? gcode : '$gcode\n';
     _enqueue(cmd);
+  }
+
+  @override
+  Future<void> sendGCodeBatch(List<String> lines) async {
+    for (var line in lines) {
+      // Optimisation textuelle agressive pour le streaming
+      String optimized = line.split(';')[0].trim(); // Retrait commentaires
+      optimized = optimized.replaceAll(' ', '');   // Retrait espaces
+      if (optimized.isNotEmpty) {
+        _enqueue('$optimized\n');
+      }
+    }
   }
 
   @override

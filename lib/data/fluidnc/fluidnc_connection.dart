@@ -21,7 +21,8 @@ class FluidNCConnection {
     if (_isConnected) return;
     
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(url));
+      debugPrint('Attempting WebSocket connection to: $url');
+      _channel = WebSocketChannel.connect(Uri.parse(url), protocols: ['arduino']);
       
       _isConnected = true;
       _statusController.add(true);

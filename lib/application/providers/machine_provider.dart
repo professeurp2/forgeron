@@ -4,22 +4,39 @@ import '../../domain/models/machine_state.dart';
 import '../../domain/repositories/machine_repository.dart';
 import '../../data/fluidnc/fluidnc_connection.dart';
 import '../../data/fluidnc/fluidnc_machine_repository.dart';
+import '../../data/mock/mock_machine_repository.dart';
 
-// ── Configuration réseau (persistée) ────────────────────────────────────────
+// ── Configuration réseau et simulation ──────────────────────────────────────
 
 /// Adresse IP de l'ESP32 FluidNC
 final espIpProvider = StateProvider<String>((ref) => '192.168.1.100');
 final wsPortProvider = StateProvider<int>((ref) => 81);
 final httpPortProvider = StateProvider<int>((ref) => 80);
 
-// ── Repository production (FluidNC réel uniquement) ─────────────────────────
+/// Mode simulation pour tester sans ESP32 physique
+final isSimulationModeProvider = StateProvider<bool>((ref) => true);
+
+// ── Repository selection (Réel ou Mock) ─────────────────────────────────────
 
 final machineRepositoryProvider = Provider<MachineRepository>((ref) {
+  final isSim = ref.watch(isSimulationModeProvider);
+
+  if (isSim) {
+    return MockMachineRepository();
+  }
+
   final ip = ref.watch(espIpProvider);
   final wsPort = ref.watch(wsPortProvider);
   final wsUrl = 'ws://$ip:$wsPort';
   final conn = FluidNCConnection(wsUrl);
-  return FluidNCMachineRepository(conn);
+  final repo = FluidNCMachineRepository(conn);
+
+  // Crucial : Arrêter les timers et fermer le socket quand on change de mode
+  ref.onDispose(() {
+    repo.dispose();
+  });
+
+  return repo;
 });
 
 // ── État machine (Stream temps réel) ────────────────────────────────────────

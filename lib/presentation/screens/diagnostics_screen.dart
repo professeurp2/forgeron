@@ -81,6 +81,12 @@ class DiagnosticsScreen extends ConsumerWidget {
             _healthCard('UPTIME', '14h 22m', Icons.schedule, AppColors.primary),
             _healthCard('WiFi RSSI', '-64 dBm', Icons.wifi, AppColors.success),
           ]),
+          const SizedBox(height: 24),
+          const Text('AMDEC & PREVENTIVE MAINT.', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+          const SizedBox(height: 12),
+          _AmdecRiskPanel(),
+          const SizedBox(height: 12),
+          _MaintenanceForecastCard(),
         ]),
       ),
       // Zone B+C — config.yaml + Axis params
@@ -200,6 +206,84 @@ class DiagnosticsScreen extends ConsumerWidget {
         const Spacer(),
         Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
         Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)),
+      ]),
+    );
+  }
+}
+
+class _AmdecRiskPanel extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(machineStateProvider).valueOrNull;
+    final singularityRisk = state?.singularityRisk ?? 0.0;
+    final temp = state?.coreTemp ?? 40.0;
+    
+    final risks = [
+      ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
+      ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
+      ('Latence UDP', 0.15, 'Faible'),
+      ('Perte de Pas (Open Loop)', 0.05, 'Faible'),
+    ];
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(12),
+      child: Column(children: [
+        for (final r in risks)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.$1, style: const TextStyle(color: AppColors.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text('Gravité : ${r.$3}', style: const TextStyle(color: AppColors.textDisabled, fontSize: 8)),
+                ]),
+              ),
+              SizedBox(
+                width: 80,
+                child: LinearProgressIndicator(
+                  value: r.$2.clamp(0.0, 1.0),
+                  backgroundColor: AppColors.surfaceBright,
+                  color: r.$2 > 0.8 ? AppColors.error : (r.$2 > 0.5 ? AppColors.warning : AppColors.success),
+                  minHeight: 4,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ]),
+          ),
+      ]),
+    );
+  }
+}
+
+class _MaintenanceForecastCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.surfaceBorder)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.engineering, color: AppColors.primary, size: 14),
+          SizedBox(width: 8),
+          Text('PREVISION MAINTENANCE', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 12),
+        _maintRow('Graissage Vis à Billes', 85, '12j'),
+        _maintRow('Tension Courroies', 42, '45j'),
+        _maintRow('Calibration Trunnion', 95, '2j'),
+      ]),
+    );
+  }
+
+  Widget _maintRow(String label, double health, String timeLeft) {
+    final color = health < 20 ? AppColors.error : (health < 60 ? AppColors.warning : AppColors.success);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Expanded(child: Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9))),
+        Text(timeLeft, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 8),
+        SizedBox(width: 40, child: LinearProgressIndicator(value: health / 100, backgroundColor: AppColors.surfaceBright, color: color, minHeight: 2)),
       ]),
     );
   }

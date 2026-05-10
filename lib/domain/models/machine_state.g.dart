@@ -27,8 +27,17 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => (e as num).toDouble())
               .toList() ??
           const [0.0, 0.0, 0.0, 0.0, 0.0],
+      targetPos:
+          (json['targetPos'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [0.0, 0.0, 0.0, 0.0, 0.0],
+      singularityRisk: (json['singularityRisk'] as num?)?.toDouble() ?? 0.0,
       feedrate: (json['feedrate'] as num?)?.toDouble() ?? 0.0,
       spindleSpeed: (json['spindleSpeed'] as num?)?.toDouble() ?? 0.0,
+      spindleLoad: (json['spindleLoad'] as num?)?.toDouble() ?? 0.0,
+      coreTemp: (json['coreTemp'] as num?)?.toDouble() ?? 40.0,
+      isRtcpActive: json['isRtcpActive'] as bool? ?? false,
       overrides:
           (json['overrides'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
@@ -41,6 +50,11 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as bool)
               .toList() ??
           const [false, false, false, false, false],
+      probeTriggered: json['probeTriggered'] as bool? ?? false,
+      emergencyTriggered: json['emergencyTriggered'] as bool? ?? false,
+      sdPercent: (json['sdPercent'] as num?)?.toDouble() ?? 0.0,
+      sdFilename: json['sdFilename'] as String?,
+      activeLineIndex: (json['activeLineIndex'] as num?)?.toInt() ?? 0,
       plannerBuffer: (json['plannerBuffer'] as num?)?.toInt() ?? 15,
       rxBuffer: (json['rxBuffer'] as num?)?.toInt() ?? 128,
     );
@@ -52,12 +66,22 @@ Map<String, dynamic> _$$MachineStateImplToJson(_$MachineStateImpl instance) =>
       'mPos': instance.mPos,
       'wPos': instance.wPos,
       'wco': instance.wco,
+      'targetPos': instance.targetPos,
+      'singularityRisk': instance.singularityRisk,
       'feedrate': instance.feedrate,
       'spindleSpeed': instance.spindleSpeed,
+      'spindleLoad': instance.spindleLoad,
+      'coreTemp': instance.coreTemp,
+      'isRtcpActive': instance.isRtcpActive,
       'overrides': instance.overrides,
       'activeWCS': instance.activeWCS,
       'activeToolNum': instance.activeToolNum,
       'limitSwitches': instance.limitSwitches,
+      'probeTriggered': instance.probeTriggered,
+      'emergencyTriggered': instance.emergencyTriggered,
+      'sdPercent': instance.sdPercent,
+      'sdFilename': instance.sdFilename,
+      'activeLineIndex': instance.activeLineIndex,
       'plannerBuffer': instance.plannerBuffer,
       'rxBuffer': instance.rxBuffer,
     };

@@ -6,6 +6,7 @@ import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../domain/models/jog_command.dart';
 import '../../core/widgets/split_view.dart';
+import '../widgets/calibration_wizard.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
   const ProbingScreen({super.key});
@@ -175,7 +176,6 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
   }
 }
 
-// ── Jog Panel 5-axes Trunnion ─────────────────────────────────────────────────
 class _JogPanel5Axes extends ConsumerStatefulWidget {
   @override
   ConsumerState<_JogPanel5Axes> createState() => _JogPanel5AxesState();
@@ -186,35 +186,28 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
   Widget build(BuildContext context) {
     final jog = ref.watch(jogProvider);
     final jogN = ref.read(jogProvider.notifier);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // ── Sélecteur de pas ──────────────────────────────────────────────
         _sectionTitle('PAS LINÉAIRE (mm)'),
         const SizedBox(height: 8),
         Wrap(spacing: 6, children: [
           for (final s in LinearJogStep.steps)
-            _stepChip(s.toString(), s == jog.linearStep, AppColors.axisX,
-                () => jogN.setLinearStep(s)),
+            _stepChip(s.toString(), s == jog.linearStep, AppColors.axisX, () => jogN.setLinearStep(s)),
         ]),
         const SizedBox(height: 12),
         _sectionTitle('PAS ROTATIF (°)'),
         const SizedBox(height: 8),
         Wrap(spacing: 6, children: [
           for (final s in RotaryJogStep.steps)
-            _stepChip('$s°', s == jog.rotaryStep, AppColors.axisA,
-                () => jogN.setRotaryStep(s)),
+            _stepChip('$s°', s == jog.rotaryStep, AppColors.axisA, () => jogN.setRotaryStep(s)),
         ]),
         const SizedBox(height: 20),
-        // ── Axes linéaires X/Y/Z ─────────────────────────────────────────
         _sectionTitle('AXES LINÉAIRES'),
         const SizedBox(height: 8),
-        // Jog XY en grille
         Row(children: [
           Expanded(child: _linearGroup()),
           const SizedBox(width: 16),
-          // Z vertical
           Column(children: [
             _jogBtn('Z+', AppColors.axisZ, () => jogN.jogLinear('Z', 1)),
             const SizedBox(height: 8),
@@ -222,11 +215,9 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
           ]),
         ]),
         const SizedBox(height: 20),
-        // ── Axes rotatifs A/C ────────────────────────────────────────────
         _sectionTitle('AXES ROTATIFS — TRUNNION'),
         const SizedBox(height: 8),
         Row(children: [
-          // Axe A (tilt broche)
           Expanded(
             child: GlassPanel(
               title: 'A — TILT BROCHE',
@@ -241,7 +232,6 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
             ),
           ),
           const SizedBox(width: 12),
-          // Axe C (rotation plateau)
           Expanded(
             child: GlassPanel(
               title: 'C — ROTATION PLATEAU',
@@ -257,19 +247,12 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
           ),
         ]),
         const SizedBox(height: 16),
-        // ── JOG STOP ─────────────────────────────────────────────────────
         SizedBox(
-          width: double.infinity,
-          height: 52,
+          width: double.infinity, height: 52,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.stop, size: 20),
-            label: const Text('JOG STOP  (0x85)',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
+            label: const Text('JOG STOP  (0x85)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
             onPressed: () => jogN.stopJog(),
           ),
         ),
@@ -280,68 +263,29 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
   Widget _linearGroup() {
     final jogN = ref.read(jogProvider.notifier);
     return Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        _jogBtn('Y+', AppColors.axisY, () => jogN.jogLinear('Y', 1)),
-      ]),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [_jogBtn('Y+', AppColors.axisY, () => jogN.jogLinear('Y', 1))]),
       const SizedBox(height: 6),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         _jogBtn('X-', AppColors.axisX, () => jogN.jogLinear('X', -1)),
         const SizedBox(width: 8),
-        Container(width: 32, height: 32,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceBright, border: Border.all(color: AppColors.surfaceBorder)),
-            child: const Center(child: Icon(Icons.add, size: 12, color: AppColors.textDisabled))),
+        Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceBright, border: Border.all(color: AppColors.surfaceBorder)), child: const Center(child: Icon(Icons.add, size: 12, color: AppColors.textDisabled))),
         const SizedBox(width: 8),
         _jogBtn('X+', AppColors.axisX, () => jogN.jogLinear('X', 1)),
       ]),
       const SizedBox(height: 6),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        _jogBtn('Y-', AppColors.axisY, () => jogN.jogLinear('Y', -1)),
-      ]),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [_jogBtn('Y-', AppColors.axisY, () => jogN.jogLinear('Y', -1))]),
     ]);
   }
 
-  Widget _sectionTitle(String t) => Text(t,
-      style: const TextStyle(color: AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5));
-
+  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(color: AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5));
   Widget _stepChip(String label, bool selected, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.18) : AppColors.surface,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: selected ? color : AppColors.surfaceBorder, width: selected ? 1.5 : 1),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? color : AppColors.textDisabled,
-                fontSize: 10, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-      ),
-    );
+    return GestureDetector(onTap: onTap, child: AnimatedContainer(duration: const Duration(milliseconds: 150), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: selected ? color.withValues(alpha: 0.18) : AppColors.surface, borderRadius: BorderRadius.circular(3), border: Border.all(color: selected ? color : AppColors.surfaceBorder, width: selected ? 1.5 : 1)), child: Text(label, style: TextStyle(color: selected ? color : AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono'))));
   }
-
   Widget _jogBtn(String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56, height: 40,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Center(
-          child: Text(label,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-        ),
-      ),
-    );
+    return GestureDetector(onTap: onTap, child: Container(width: 56, height: 40, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.4))), child: Center(child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')))));
   }
 }
 
-// ── Homing séquencé Trunnion ─────────────────────────────────────────────────
 class _HomingSequencePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -349,8 +293,7 @@ class _HomingSequencePanel extends ConsumerWidget {
     return GlassPanel(
       title: 'HOMING TRUNNION',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Séquence recommandée : Z → X → Y → A → C',
-            style: TextStyle(color: AppColors.textDisabled, fontSize: 9, height: 1.5)),
+        const Text('Séquence recommandée : Z → X → Y → A → C', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, height: 1.5)),
         const SizedBox(height: 16),
         for (final e in [
           ('HOME Z', 'Dégager broche', AppColors.axisZ, () => jogN.homeAxis('Z')),
@@ -365,36 +308,18 @@ class _HomingSequencePanel extends ConsumerWidget {
               width: double.infinity, height: 38,
               child: OutlinedButton(
                 onPressed: e.$4,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: e.$3.withValues(alpha: 0.5)),
-                  foregroundColor: e.$3,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: Row(children: [
-                  Text(e.$1, style: TextStyle(color: e.$3, fontWeight: FontWeight.w900, fontSize: 11, fontFamily: 'JetBrains Mono')),
-                  const SizedBox(width: 12),
-                  Text(e.$2, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)),
-                ]),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: e.$3.withValues(alpha: 0.5)), foregroundColor: e.$3, alignment: Alignment.centerLeft, padding: const EdgeInsets.symmetric(horizontal: 12)),
+                child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontWeight: FontWeight.w900, fontSize: 11, fontFamily: 'JetBrains Mono')), const SizedBox(width: 12), Text(e.$2, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9))]),
               ),
             ),
           ),
         const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity, height: 44,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.home, size: 16),
-            label: const Text('HOME ALL (\$H)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.axisZ, foregroundColor: Colors.white),
-            onPressed: () => jogN.homeAll(),
-          ),
-        ),
+        SizedBox(width: double.infinity, height: 44, child: ElevatedButton.icon(icon: const Icon(Icons.home, size: 16), label: const Text('HOME ALL (\$H)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.axisZ, foregroundColor: Colors.white), onPressed: () => jogN.homeAll())),
       ]),
     );
   }
 }
 
-// ── Z-Probe Tab ───────────────────────────────────────────────────────────────
 class _ZProbeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -403,39 +328,37 @@ class _ZProbeTab extends ConsumerWidget {
       child: GlassPanel(
         title: 'Z-Probe Configuration',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final e in [
-            ('PROBE FEED', '50 mm/min'),
-            ('MAX DEPTH', '-50.000 mm'),
-            ('RETRACT', '2.000 mm'),
-            ('TOOL OFFSET', 'G43 H3'),
-          ])
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(children: [
-                Text(e.$1, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)),
-                const Spacer(),
-                Text(e.$2, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
-              ]),
-            ),
+          for (final e in [('PROBE FEED', '50 mm/min'), ('MAX DEPTH', '-50.000 mm'), ('RETRACT', '2.000 mm'), ('TOOL OFFSET', 'G43 H3')])
+            Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [Text(e.$1, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)), const Spacer(), Text(e.$2, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))])),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity, height: 48,
-            child: ElevatedButton.icon(
-              onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G38.2 Z-50 F50'),
-              icon: const Icon(Icons.sensors),
-              label: const Text('LANCER Z-PROBE', style: TextStyle(fontWeight: FontWeight.w900)),
-            ),
-          ),
+          SizedBox(width: double.infinity, height: 48, child: ElevatedButton.icon(onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G38.2 Z-50 F50'), icon: const Icon(Icons.sensors), label: const Text('LANCER Z-PROBE', style: TextStyle(fontWeight: FontWeight.w900)))),
         ]),
       ),
     );
   }
 }
 
-// ── Alignement A/C Tab ────────────────────────────────────────────────────────
-class _AlignementTab extends ConsumerWidget {
+class _AlignementTab extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AlignementTab> createState() => _AlignementTabState();
+}
+
+class _AlignementTabState extends ConsumerState<_AlignementTab> {
+  bool _showWizard = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showWizard) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: GlassPanel(
+          title: 'ASSISTANT DE CALIBRATION',
+          titleTrailing: IconButton(icon: const Icon(Icons.close, size: 14), onPressed: () => setState(() => _showWizard = false)),
+          child: const CalibrationWizard(),
+        ),
+      );
+    }
+
     final state = ref.watch(machineStateProvider).valueOrNull;
     final aPos = state?.wPos[3] ?? 0.0;
     final cPos = state?.wPos[4] ?? 0.0;
@@ -445,27 +368,10 @@ class _AlignementTab extends ConsumerWidget {
       child: GlassPanel(
         title: 'Alignement Axes Rotatifs',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final e in [
-            ('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', AppColors.axisA),
-            ('AXE C (Rotation plateau)', '${cPos.toStringAsFixed(3)}°', AppColors.axisC),
-          ])
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(children: [
-                Text(e.$1, style: TextStyle(color: e.$3, fontSize: 11, fontWeight: FontWeight.w900)),
-                const Spacer(),
-                Text(e.$2, style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
-              ]),
-            ),
+          for (final e in [('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', AppColors.axisA), ('AXE C (Rotation plateau)', '${cPos.toStringAsFixed(3)}°', AppColors.axisC)])
+            Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontSize: 11, fontWeight: FontWeight.w900)), const Spacer(), Text(e.$2, style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900))])),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity, height: 48,
-            child: ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.rotate_right),
-              label: const Text('CALIBRER A/C', style: TextStyle(fontWeight: FontWeight.w900)),
-            ),
-          ),
+          SizedBox(width: double.infinity, height: 48, child: ElevatedButton.icon(onPressed: () => setState(() => _showWizard = true), icon: const Icon(Icons.rotate_right), label: const Text('LANCER L\'ASSISTANT DE CALIBRATION', style: TextStyle(fontWeight: FontWeight.w900)))),
         ]),
       ),
     );

@@ -120,39 +120,8 @@ class _ConnectionSettingsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Badge mode production ─────────────────────────────────
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppColors.success.withValues(alpha: 0.4)),
-                  ),
-                  child: const Row(children: [
-                    Icon(Icons.settings_ethernet,
-                        color: AppColors.success, size: 20),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('MODE PRODUCTION — ESP32 FluidNC',
-                                style: TextStyle(
-                                    color: AppColors.success,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1)),
-                            SizedBox(height: 2),
-                            Text(
-                                'Connexion WebSocket temps réel vers le contrôleur CNC 5-axes.',
-                                style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 10)),
-                          ]),
-                    ),
-                  ]),
-                ),
+                _buildModeBadge(ref),
+
                 const SizedBox(height: 32),
 
                 // ── Paramètres réseau ─────────────────────────────────────
@@ -362,6 +331,55 @@ class _ConnectionSettingsScreenState
     if (axis.contains('Z')) return AppColors.axisZ;
     if (axis.contains('A')) return AppColors.axisA;
     return AppColors.axisC;
+  }
+
+  Widget _buildModeBadge(WidgetRef ref) {
+    final isSim = ref.watch(isSimulationModeProvider);
+    final color = isSim ? AppColors.axisA : AppColors.success;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(children: [
+        Icon(isSim ? Icons.science : Icons.settings_ethernet,
+            color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    isSim
+                        ? 'MODE SIMULATION — MOCK MACHINE'
+                        : 'MODE PRODUCTION — ESP32 FluidNC',
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1)),
+                const SizedBox(height: 2),
+                Text(
+                    isSim
+                        ? 'Utilisation d\'un simulateur logiciel pour tester l\'interface sans machine.'
+                        : 'Connexion WebSocket temps réel vers le contrôleur CNC 5-axes.',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12)),
+              ]),
+        ),
+        Switch(
+          value: isSim,
+          activeColor: AppColors.axisA,
+          onChanged: (val) {
+            ref.read(isSimulationModeProvider.notifier).state = val;
+          },
+        ),
+      ]),
+    );
   }
 }
 

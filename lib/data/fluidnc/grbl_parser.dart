@@ -29,6 +29,10 @@ class GrblParser {
     List<bool> limitSwitches = List.from(currentState.limitSwitches);
     int plannerBuffer = currentState.plannerBuffer;
     int rxBuffer = currentState.rxBuffer;
+    bool probeTriggered = currentState.probeTriggered;
+    bool emergencyTriggered = currentState.emergencyTriggered;
+    double sdPercent = currentState.sdPercent;
+    String? sdFilename = currentState.sdFilename;
 
     for (int i = 1; i < parts.length; i++) {
       final field = parts[i];
@@ -78,6 +82,21 @@ class GrblParser {
         final bf = field.substring(3).split(',').map(int.tryParse).toList();
         if (bf.isNotEmpty && bf[0] != null) plannerBuffer = bf[0]!;
         if (bf.length > 1 && bf[1] != null) rxBuffer = bf[1]!;
+      } else if (field.startsWith('Pn:')) {
+        // État des broches : Pn:P (Probe), Pn:E (E-Stop), Pn:S (Start), etc.
+        final pn = field.substring(3).toUpperCase();
+        probeTriggered = pn.contains('P');
+        emergencyTriggered = pn.contains('E');
+        if (pn.contains('X')) limitSwitches[0] = true;
+        if (pn.contains('Y')) limitSwitches[1] = true;
+        if (pn.contains('Z')) limitSwitches[2] = true;
+        if (pn.contains('A')) limitSwitches[3] = true;
+        if (pn.contains('C')) limitSwitches[4] = true;
+      } else if (field.startsWith('SD:')) {
+        // Progression SD : SD:percent,filename
+        final sdParts = field.substring(3).split(',');
+        if (sdParts.isNotEmpty) sdPercent = double.tryParse(sdParts[0]) ?? 0.0;
+        if (sdParts.length > 1) sdFilename = sdParts[1];
       } else if (field.startsWith('Lim:')) {
         // Fins de course : Lim:XYZAC (lettres présentes = actif)
         final lim = field.substring(4).toUpperCase();
@@ -100,6 +119,10 @@ class GrblParser {
       spindleSpeed: spindleSpeed,
       overrides: overrides,
       limitSwitches: limitSwitches,
+      probeTriggered: probeTriggered,
+      emergencyTriggered: emergencyTriggered,
+      sdPercent: sdPercent,
+      sdFilename: sdFilename,
       plannerBuffer: plannerBuffer,
       rxBuffer: rxBuffer,
       alarmCode: null, // reset alarme si statut normal

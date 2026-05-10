@@ -74,8 +74,7 @@ class GlassPanel extends StatelessWidget {
               letterSpacing: 1.2,
             ),
           ),
-          const Spacer(),
-          ?titleTrailing,
+          if (titleTrailing != null) titleTrailing!,
         ],
       ),
     );
