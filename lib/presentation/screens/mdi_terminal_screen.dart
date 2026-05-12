@@ -27,15 +27,15 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
   }
 
   static const _logLines = [
-    ('14:02:11.04', 'INFO', 'System initialized. Connected to GRBL v1.1h', AppColors.secondary),
+    ('14:02:11.04', 'INFO', 'Système initialisé. Connecté à GRBL v1.1h', AppColors.secondary),
     ('14:02:12.10', '>>>', '\$H', AppColors.primary),
     ('14:02:15.80', 'ok', '', AppColors.success),
     ('14:03:01.00', '>>>', 'G90 G21', AppColors.primary),
     ('14:03:01.00', 'ok', '', AppColors.success),
-    ('14:05:22.45', 'MSG', '[MSG: Spindle RPM target reached]', AppColors.warning),
+    ('14:05:22.45', 'MSG', '[MSG: Vitesse broche atteinte]', AppColors.warning),
     ('14:06:10.11', '>>>', 'G0 X100 Y50 Z10', AppColors.primary),
     ('14:06:10.11', 'ok', '', AppColors.success),
-    ('14:08:45.90', 'ERR', '[ERR: Soft limit Z-axis min exceeded]', AppColors.error),
+    ('14:08:45.90', 'ERR', '[ERR: Limite logicielle Z min dépassée]', AppColors.error),
     ('14:08:50.00', '>>>', 'M5', AppColors.primary),
     ('14:08:50.01', 'ok', '', AppColors.success),
     ('14:09:00.00', '>>>', 'G0 Z50', AppColors.primary),
@@ -43,21 +43,21 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
   ];
 
   static const _macros = [
-    (Icons.home, 'HOME ALL', AppColors.primary),
-    (Icons.gps_fixed, 'GOTO ZERO', AppColors.primary),
-    (Icons.sensors, 'PROBE Z', AppColors.secondary),
-    (Icons.rotate_right, 'SPIN CW', AppColors.success),
-    (Icons.stop_circle, 'SPIN OFF', AppColors.error),
-    (Icons.rotate_left, 'SPIN CCW', AppColors.success),
-    (Icons.water_drop, 'COOLANT ON', AppColors.primary),
-    (Icons.water_drop_outlined, 'COOL OFF', AppColors.textDisabled),
-    (Icons.air, 'AIR BLAST', AppColors.secondary),
-    (Icons.vertical_align_top, 'Z SAFE', AppColors.primary),
-    (Icons.local_parking, 'PARK', AppColors.textSecondary),
-    (Icons.build, 'TOOL CHG', AppColors.warning),
-    (Icons.play_arrow, 'RESUME', AppColors.success),
+    (Icons.home, 'ORIGINES', AppColors.primary),
+    (Icons.gps_fixed, 'ZÉRO PIÈCE', AppColors.primary),
+    (Icons.sensors, 'PALPAGE Z', AppColors.secondary),
+    (Icons.rotate_right, 'BROCHE H', AppColors.success),
+    (Icons.stop_circle, 'ARRÊT B.', AppColors.error),
+    (Icons.rotate_left, 'BROCHE AH', AppColors.success),
+    (Icons.water_drop, 'ARROSAGE ON', AppColors.primary),
+    (Icons.water_drop_outlined, 'ARROSAGE OFF', AppColors.textDisabled),
+    (Icons.air, 'SOUFFLAGE', AppColors.secondary),
+    (Icons.vertical_align_top, 'Z SÉCU', AppColors.primary),
+    (Icons.local_parking, 'PARKING', AppColors.textSecondary),
+    (Icons.build, 'CHG OUTIL', AppColors.warning),
+    (Icons.play_arrow, 'REPRENDRE', AppColors.success),
     (Icons.pause, 'PAUSE', AppColors.warning),
-    (Icons.cancel, 'ABORT', AppColors.error),
+    (Icons.cancel, 'ANNULER', AppColors.error),
   ];
 
   static const _history = [
@@ -76,7 +76,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       left: Column(children: [
         // Terminal header
         Container(height: 36, padding: const EdgeInsets.symmetric(horizontal: 16), decoration: const BoxDecoration(color: AppColors.surfaceBright, border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
-          child: const Row(children: [Icon(Icons.terminal, color: AppColors.textDisabled, size: 14), SizedBox(width: 8), Text('MDI TERMINAL / LOG', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)), Spacer(), Text('BUFFER: 127/128', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontFamily: 'JetBrains Mono'))])),
+          child: const Row(children: [Icon(Icons.terminal, color: AppColors.textDisabled, size: 14), SizedBox(width: 8), Text('TERMINAL MDI / LOGS', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)), Spacer(), Text('BUFFER: 127/128', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontFamily: 'JetBrains Mono'))])),
         // Log
         Expanded(child: Container(color: AppColors.terminalBg, child: ListView.builder(padding: const EdgeInsets.all(16), itemCount: _logLines.length, itemBuilder: (ctx, i) {
           final l = _logLines[i];
@@ -97,7 +97,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               child: Align(alignment: Alignment.centerLeft, child: TextField(
                 controller: _controller,
                 style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontFamily: 'JetBrains Mono'),
-                decoration: const InputDecoration(border: InputBorder.none, hintText: 'G0 X0 Y0 Z50', hintStyle: TextStyle(color: AppColors.textDisabled)),
+                decoration: const InputDecoration(border: InputBorder.none, hintText: 'Saisir commande G-Code...', hintStyle: TextStyle(color: AppColors.textDisabled)),
                 onSubmitted: _sendCommand,
               )))),
             const SizedBox(width: 12),
@@ -112,10 +112,10 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
         GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8,
           children: _macros.map((m) => InkWell(onTap: () {
             // Very simple mapping to simulate macro sending
-            if (m.$2 == 'HOME ALL') ref.read(machineRepositoryProvider).home([]);
+            if (m.$2 == 'ORIGINES') ref.read(machineRepositoryProvider).home([]);
             if (m.$2 == 'PAUSE') ref.read(machineRepositoryProvider).pause();
-            if (m.$2 == 'RESUME') ref.read(machineRepositoryProvider).resume();
-            if (m.$2 == 'ABORT') ref.read(machineRepositoryProvider).emergencyStop();
+            if (m.$2 == 'REPRENDRE') ref.read(machineRepositoryProvider).resume();
+            if (m.$2 == 'ANNULER') ref.read(machineRepositoryProvider).emergencyStop();
           }, child: Container(
             decoration: BoxDecoration(color: m.$3.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8), border: Border.all(color: m.$3.withValues(alpha: 0.25))),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(m.$1, color: m.$3, size: 22), const SizedBox(height: 6), Text(m.$2, style: TextStyle(color: m.$3, fontSize: 9, fontWeight: FontWeight.w900))]),

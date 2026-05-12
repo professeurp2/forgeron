@@ -1,14 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/trajectory_validator.dart';
-import '../services/streaming_service.dart';
+import '../../core/utils/gcode_parser.dart';
 import 'gcode_provider.dart';
 import 'machine_provider.dart';
 
 /// Provider pour orchestrer le streaming industriel sécurisé.
-final streamingProvider = Provider((ref) {
-  final machineRepo = ref.watch(machineRepositoryProvider);
-  // Note: GCodeStreamingService nécessite une instance de FluidNCConnection.
-  // On simplifie ici pour l'architecture Riverpod.
+final streamingProvider = StateNotifierProvider<StreamingController, bool>((ref) {
+  return StreamingController(ref);
 });
 
 class StreamingController extends StateNotifier<bool> {
@@ -22,7 +20,11 @@ class StreamingController extends StateNotifier<bool> {
 
     // 1. Validation Lookahead avant de commencer
     final result = TrajectoryValidator.validate(
-      AnalyzedGCode(lines: [], toolpath: [], modalStates: {})
+      AnalyzedGCode(
+        lines: gcodeState.allLines, 
+        toolpath: gcodeState.toolpath, 
+        modalStates: {},
+      ),
     );
 
     if (!result.isValid) {

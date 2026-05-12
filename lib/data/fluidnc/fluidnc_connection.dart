@@ -15,6 +15,7 @@ class FluidNCConnection {
   WebSocketChannel? _channel;
   final _messageController = StreamController<String>.broadcast();
   final _statusController = StreamController<bool>.broadcast();
+  final _trafficController = StreamController<String>.broadcast();
   
   bool _isConnected = false;
   int _retryCount = 0;
@@ -31,6 +32,7 @@ class FluidNCConnection {
 
   Stream<String> get messages => _messageController.stream;
   Stream<bool> get status => _statusController.stream;
+  Stream<String> get traffic => _trafficController.stream;
   bool get isConnected => _isConnected;
 
   /// Tente une connexion avec Exponential Backoff
@@ -82,6 +84,7 @@ class FluidNCConnection {
   void _handleIncomingMessage(dynamic message) {
     final msg = message.toString();
     _lastResponseTime = DateTime.now();
+    _trafficController.add('RX: $msg');
     
     // Détection des acquittements pour la gestion du buffer
     if (msg.trim() == 'ok' || msg.startsWith('error:')) {
@@ -140,6 +143,7 @@ class FluidNCConnection {
   /// Envoi brut (pour commandes temps réel comme ?, !, ~)
   void sendRaw(String data) {
     if (_isConnected && _channel != null) {
+      _trafficController.add('TX: $data');
       _channel!.sink.add(data);
     }
   }

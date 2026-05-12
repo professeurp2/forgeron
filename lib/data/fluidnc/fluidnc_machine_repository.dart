@@ -47,6 +47,12 @@ class FluidNCMachineRepository implements MachineRepository {
   Stream<MachineState> get stateStream => _stateController.stream;
 
   @override
+  Stream<String> get messageStream => _connection.messages;
+
+  /// Stream of raw network traffic (TX/RX) for diagnostics.
+  Stream<String> get trafficStream => _connection.traffic;
+
+  @override
   MachineState get currentState => _currentState;
 
   @override

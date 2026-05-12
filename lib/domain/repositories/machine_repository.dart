@@ -4,6 +4,12 @@ abstract class MachineRepository {
   /// Stream of machine states.
   Stream<MachineState> get stateStream;
 
+  /// Stream of raw messages from the machine.
+  Stream<String> get messageStream;
+
+  /// Stream of raw network traffic (TX/RX) for diagnostics.
+  Stream<String> get trafficStream;
+
   /// Current machine state.
   MachineState get currentState;
 

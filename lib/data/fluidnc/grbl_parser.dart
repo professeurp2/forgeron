@@ -208,6 +208,25 @@ class GrblParser {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // PROBE REPORT : [PRB:100.000,50.000,-10.000:1]
+  // ──────────────────────────────────────────────────────────────────────────
+  static Map<String, dynamic>? parseProbeReport(String message) {
+    if (!message.startsWith('[PRB:') || !message.endsWith(']')) return null;
+    
+    final content = message.substring(5, message.length - 1);
+    final parts = content.split(':');
+    if (parts.length < 2) return null;
+
+    final coords = parts[0].split(',').map(double.tryParse).toList();
+    final success = parts[1] == '1';
+
+    return {
+      'coords': coords.whereType<double>().toList(),
+      'success': success,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Point d'entrée unique — dispatch selon le type de message
   // ──────────────────────────────────────────────────────────────────────────
   static MachineState? parse(String message, MachineState currentState) {
@@ -219,6 +238,6 @@ class GrblParser {
     } else if (trimmed.startsWith('[GC:')) {
       return parseModalState(trimmed, currentState);
     }
-    return null; // ok, error, MSG: → ignorés ici
+    return null; // ok, error, [PRB:], MSG: → ignorés ici
   }
 }

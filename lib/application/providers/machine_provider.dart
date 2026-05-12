@@ -71,7 +71,14 @@ Future<void> saveNetworkPreferences(
     WidgetRef ref, String ip, int wsPort) async {
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;
+  await persistNetworkSettings(ip, wsPort);
+}
+
+/// Persiste les paramètres réseau sans nécessiter un WidgetRef.
+/// Utilisé par les providers internes (ex: auto-discovery).
+Future<void> persistNetworkSettings(String ip, int wsPort) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString('esp_ip', ip);
   await prefs.setInt('ws_port', wsPort);
 }
+

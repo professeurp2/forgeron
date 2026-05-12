@@ -1,5 +1,5 @@
 export class FontFaceObject {
-    constructor(translatedData: any, inspectFont: null | undefined, extra: any, charProcOperatorList: any);
+    constructor(translatedData: any, inspectFont: null | undefined, charProcOperatorList: any, extra: any);
     compiledGlyphs: any;
     _inspectFont: any;
     charProcOperatorList: any;
@@ -8,6 +8,7 @@ export class FontFaceObject {
     getPathGenerator(objs: any, character: any): any;
     get black(): any;
     get bold(): any;
+    set disableFontFace(value: any);
     get disableFontFace(): any;
     get fontExtraProperties(): any;
     get isInvalidPDFjsFont(): any;

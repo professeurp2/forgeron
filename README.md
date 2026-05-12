@@ -1,5 +1,9 @@
 # Forgeron — Contrôleur CNC 5-Axes Industriel
 
+<p align="center">
+  <img src="assets/logo.png" width="200" alt="Forgeron Logo">
+</p>
+
 **Forgeron** est une application Flutter de grade industriel conçue pour le pilotage haute performance de machines CNC 5-axes (configuration Trunnion X,Y,Z,A,C). Optimisée pour le firmware **FluidNC**, elle garantit un usinage sans saccades et une sécurité matérielle accrue.
 
 ## 🚀 Fonctionnalités Avancées

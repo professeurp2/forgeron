@@ -31,7 +31,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   ];
 
   static const _navItems = [
-    _NavDef(Icons.dashboard, 'DASHBOARD'),
+    _NavDef(Icons.dashboard, 'TABLEAU DE BORD'),
     _NavDef(Icons.center_focus_strong, 'PALPAGE & ORIGINES'),
     _NavDef(Icons.build, 'MAGASIN D\'OUTILS'),
     _NavDef(Icons.folder_open, 'ESPACE DE TRAVAIL'),
@@ -120,7 +120,7 @@ class _HeaderBar extends ConsumerWidget {
     final isOnline = state?.status != null &&
         state?.status != MachineStatus.offline;
     final statusLabel =
-        state?.status.name.toUpperCase() ?? 'OFFLINE';
+        state?.status.name.toUpperCase() ?? 'HORS LIGNE';
     final statusColor = _statusColor(state?.status ?? MachineStatus.offline);
     final ip = ref.watch(espIpProvider);
 
@@ -140,6 +140,8 @@ class _HeaderBar extends ConsumerWidget {
             onPressed: onMenuToggle,
           ),
           const SizedBox(width: 8),
+          Image.asset('assets/logo.png', height: 32),
+          const SizedBox(width: 12),
           const Text(
             'FORGERON',
             style: TextStyle(
@@ -153,7 +155,7 @@ class _HeaderBar extends ConsumerWidget {
           const SizedBox(width: 24),
           // Connexion dynamique
           _StatusBadge(
-            label: isOnline ? 'ONLINE' : 'OFFLINE',
+            label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
             color: isOnline ? AppColors.success : AppColors.error,
             isActive: isOnline,
           ),
@@ -176,7 +178,7 @@ class _HeaderBar extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.settings_ethernet,
                 color: AppColors.textSecondary, size: 20),
-            tooltip: 'Configuration connexion ESP32',
+            tooltip: 'Configuration de la connexion ESP32',
             onPressed: onSettingsPressed,
           ),
           const SizedBox(width: 8),
@@ -198,7 +200,7 @@ class _HeaderBar extends ConsumerWidget {
               ),
               onPressed: onEmergencyStop,
               icon: const Icon(Icons.warning_amber, size: 18),
-              label: const Text('EMERGENCY STOP',
+              label: const Text('ARRÊT D\'URGENCE',
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0,
@@ -303,25 +305,32 @@ class _Sidebar extends StatelessWidget {
                 border: Border(
                     bottom: BorderSide(color: AppColors.surfaceBorder))),
             child: isExpanded
-                ? const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ? Row(
                     children: [
-                      Text('CNC_TRUNNION_5X',
-                          style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900)),
-                      SizedBox(height: 2),
-                      Text('AXES: X Y Z A C',
-                          style: TextStyle(
-                              color: AppColors.success,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'JetBrains Mono')),
+                      Image.asset('assets/logo.png', height: 32),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('CNC_TRUNNION_5X',
+                                style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900)),
+                            SizedBox(height: 2),
+                            Text('AXES: X Y Z A C',
+                                style: TextStyle(
+                                    color: AppColors.success,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'JetBrains Mono')),
+                          ],
+                        ),
+                      ),
                     ],
                   )
-                : const Icon(Icons.precision_manufacturing,
-                    color: AppColors.primary, size: 24),
+                : Image.asset('assets/logo.png', height: 28),
           ),
           const SizedBox(height: 8),
           ...List.generate(items.length, (i) {
@@ -364,7 +373,7 @@ class _Sidebar extends StatelessWidget {
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10)),
-                        Text('AUTH_LVL: ADMIN',
+                        Text('NIV_AUTH: ADMIN',
                             style: TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 8,
@@ -510,7 +519,7 @@ class _StatusFooter extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isOnline ? 'ESP32 CONNECTED' : 'DISCONNECTED',
+                  isOnline ? 'ESP32 CONNECTÉ' : 'DÉCONNECTÉ',
                   style: TextStyle(
                       color: isOnline ? AppColors.success : AppColors.error,
                       fontSize: 10,

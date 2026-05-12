@@ -43,6 +43,7 @@ class GCodeParser {
     final Map<int, GCodeModalState> modalStates = {};
 
     double lastX = 0, lastY = 0, lastZ = 0, lastA = 0, lastC = 0;
+    double lastType = 1.0; // 0: G0, 1: G1/G2/G3
     GCodeModalState currentModal = GCodeModalState();
 
     for (int i = 0; i < lines.length; i++) {
@@ -59,6 +60,10 @@ class GCodeParser {
 
       modalStates[i] = currentModal;
 
+      // --- Extraction du type de mouvement ---
+      if (line.startsWith('G0 ') || line == 'G0') lastType = 0.0;
+      else if (line.startsWith('G1 ') || line == 'G1' || line.startsWith('G2 ') || line.startsWith('G3 ')) lastType = 1.0;
+
       // --- Extraction des coordonnées pour le toolpath ---
       if (line.startsWith('G0') || line.startsWith('G1') || line.startsWith('G2') || line.startsWith('G3') || line.contains('X') || line.contains('Y') || line.contains('Z')) {
         final x = _extractCoord(line, 'X', lastX);
@@ -67,7 +72,7 @@ class GCodeParser {
         final a = _extractCoord(line, 'A', lastA);
         final c = _extractCoord(line, 'C', lastC);
 
-        toolpath.add([x, y, z, a, c]);
+        toolpath.add([x, y, z, a, c, lastType]);
         
         lastX = x; lastY = y; lastZ = z; lastA = a; lastC = c;
       }

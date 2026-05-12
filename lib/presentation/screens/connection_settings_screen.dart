@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../core/theme/app_colors.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/discovery_provider.dart';
+import '../../application/services/auto_discovery_service.dart';
 
 /// Écran de configuration de la connexion à l'ESP32/FluidNC
+/// avec découverte automatique du réseau local.
 class ConnectionSettingsScreen extends ConsumerStatefulWidget {
   const ConnectionSettingsScreen({super.key});
   @override
@@ -13,12 +16,14 @@ class ConnectionSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectionSettingsScreenState
-    extends ConsumerState<ConnectionSettingsScreen> {
+    extends ConsumerState<ConnectionSettingsScreen>
+    with SingleTickerProviderStateMixin {
   late TextEditingController _ipCtrl;
   late TextEditingController _wsPortCtrl;
   bool _testing = false;
   String? _testResult;
   bool _testSuccess = false;
+  late AnimationController _pulseController;
 
   @override
   void initState() {
@@ -26,12 +31,22 @@ class _ConnectionSettingsScreenState
     _ipCtrl = TextEditingController(text: ref.read(espIpProvider));
     _wsPortCtrl =
         TextEditingController(text: ref.read(wsPortProvider).toString());
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    // Lancer le scan automatiquement à l'ouverture
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(discoveryProvider.notifier).scan();
+    });
   }
 
   @override
   void dispose() {
     _ipCtrl.dispose();
     _wsPortCtrl.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -52,7 +67,8 @@ class _ConnectionSettingsScreenState
       if (response.statusCode < 500) {
         setState(() {
           _testSuccess = true;
-          _testResult = '✅ ESP32 FluidNC détecté à $ip:$port (HTTP ${response.statusCode})';
+          _testResult =
+              '✅ ESP32 FluidNC détecté à $ip:$port (HTTP ${response.statusCode})';
         });
       } else {
         setState(() {
@@ -81,8 +97,40 @@ class _ConnectionSettingsScreenState
     Navigator.of(context).pop();
   }
 
+  void _selectDevice(DiscoveredDevice device) {
+    _ipCtrl.text = device.ip;
+    _wsPortCtrl.text = device.wsPort.toString();
+    setState(() {
+      _testSuccess = true;
+      _testResult =
+          '✅ ${device.firmwareInfo ?? "ESP32"} détecté à ${device.ip} (${device.responseTime.inMilliseconds}ms)';
+    });
+  }
+
+  void _connectDevice(DiscoveredDevice device) {
+    _ipCtrl.text = device.ip;
+    _wsPortCtrl.text = device.wsPort.toString();
+
+    // Sauvegarder et basculer en mode production
+    final ip = device.ip;
+    final wsPort = device.wsPort;
+    ref.read(espIpProvider.notifier).state = ip;
+    ref.read(wsPortProvider.notifier).state = wsPort;
+    ref.read(isSimulationModeProvider.notifier).state = false;
+    saveNetworkPreferences(ref, ip, wsPort);
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+          '✅ Connecté à ${device.firmwareInfo ?? "ESP32"} @ $ip — Mode Production activé'),
+      backgroundColor: AppColors.success,
+    ));
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final discovery = ref.watch(discoveryProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -119,13 +167,18 @@ class _ConnectionSettingsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Badge mode production ─────────────────────────────────
+                // ── Badge mode ─────────────────────────────────────
                 _buildModeBadge(ref),
+                const SizedBox(height: 24),
 
+                // ══════════════════════════════════════════════════
+                // SECTION DÉCOUVERTE AUTOMATIQUE
+                // ══════════════════════════════════════════════════
+                _buildDiscoverySection(discovery),
                 const SizedBox(height: 32),
 
-                // ── Paramètres réseau ─────────────────────────────────────
-                _SectionTitle('CONFIGURATION RÉSEAU ESP32'),
+                // ── Paramètres réseau manuels ─────────────────────
+                _SectionTitle('CONFIGURATION MANUELLE'),
                 const SizedBox(height: 12),
                 _SettingsCard(children: [
                   _Field(
@@ -177,7 +230,7 @@ class _ConnectionSettingsScreenState
                   ),
                 ]),
                 const SizedBox(height: 16),
-                // ── Test de connexion ─────────────────────────────────────
+                // ── Test de connexion ─────────────────────────────
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -215,13 +268,15 @@ class _ConnectionSettingsScreenState
                           : AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: _testSuccess ? AppColors.success : AppColors.error,
+                        color:
+                            _testSuccess ? AppColors.success : AppColors.error,
                       ),
                     ),
                     child: Text(
                       _testResult!,
                       style: TextStyle(
-                        color: _testSuccess ? AppColors.success : AppColors.error,
+                        color:
+                            _testSuccess ? AppColors.success : AppColors.error,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -230,7 +285,7 @@ class _ConnectionSettingsScreenState
                 ],
 
                 const SizedBox(height: 32),
-                // ── Axes machine ──────────────────────────────────────────
+                // ── Axes machine ──────────────────────────────────
                 _SectionTitle('MACHINE CNC 5-AXES — TRUNNION'),
                 const SizedBox(height: 12),
                 _SettingsCard(children: [
@@ -288,15 +343,15 @@ class _ConnectionSettingsScreenState
                 ]),
 
                 const SizedBox(height: 32),
-                // ── Protocole FluidNC ─────────────────────────────────────
+                // ── Protocole FluidNC ─────────────────────────────
                 _SectionTitle('PROTOCOLE FLUIDNC'),
                 const SizedBox(height: 12),
                 _SettingsCard(children: [
                   for (final e in [
                     ('Firmware', 'FluidNC v3.7+', AppColors.primary),
-                    ('Status poll', '?  → toutes les 200ms', AppColors.axisZ),
-                    ('E-STOP', '0x18 (Ctrl+X) via WS', AppColors.danger),
-                    ('Jog cancel', '0x85 via WS', AppColors.axisA),
+                    ('État', 'Interrogation toutes les 200ms', AppColors.axisZ),
+                    ('URGENCE', '0x18 (Ctrl+X) via WS', AppColors.danger),
+                    ('Jog annuler', '0x85 via WS', AppColors.axisA),
                     ('G-Code SD', '\$SD/Run=filename', AppColors.success),
                   ])
                     Padding(
@@ -321,6 +376,257 @@ class _ConnectionSettingsScreenState
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // WIDGET DÉCOUVERTE AUTOMATIQUE
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDiscoverySection(DiscoveryState discovery) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Titre avec bouton scan
+        Row(
+          children: [
+            const Icon(Icons.radar, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const _SectionTitle('DÉCOUVERTE AUTOMATIQUE'),
+            const Spacer(),
+            if (discovery.isScanning)
+              TextButton.icon(
+                icon: const SizedBox(
+                  width: 12, height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.danger,
+                  ),
+                ),
+                label: const Text('ARRÊTER'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  textStyle: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+                onPressed: () => ref.read(discoveryProvider.notifier).stop(),
+              )
+            else
+              TextButton.icon(
+                icon: const Icon(Icons.refresh, size: 14),
+                label: const Text('SCANNER'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  textStyle: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+                onPressed: () => ref.read(discoveryProvider.notifier).scan(),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Barre de progression
+        if (discovery.isScanning) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: discovery.progress > 0 ? discovery.progress : null,
+              backgroundColor: AppColors.surfaceBorder,
+              color: AppColors.primary,
+              minHeight: 3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            discovery.statusMessage ?? 'Scan en cours...',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Liste des appareils découverts
+        if (discovery.devices.isNotEmpty)
+          ...discovery.devices.map((device) => _buildDeviceCard(device)),
+
+        // Message si rien trouvé (scan terminé)
+        if (!discovery.isScanning && discovery.devices.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.surfaceBorder,
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.wifi_find,
+                    size: 32,
+                    color: AppColors.textDisabled.withValues(alpha: 0.5)),
+                const SizedBox(height: 8),
+                Text(
+                  discovery.statusMessage ?? 'Appuyez sur SCANNER pour chercher l\'ESP32',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceCard(DiscoveredDevice device) {
+    final isFluidNC = device.firmwareInfo?.contains('FluidNC') == true ||
+        device.firmwareInfo?.contains('GRBL') == true;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, child) {
+          final glow = isFluidNC ? _pulseController.value * 0.15 : 0.0;
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isFluidNC
+                    ? AppColors.success.withValues(alpha: 0.6 + glow)
+                    : AppColors.surfaceBorder,
+                width: isFluidNC ? 1.5 : 1,
+              ),
+              boxShadow: isFluidNC
+                  ? [
+                      BoxShadow(
+                        color: AppColors.success.withValues(alpha: 0.08 + glow * 0.3),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                // Icône statut
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (isFluidNC ? AppColors.success : AppColors.axisZ)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isFluidNC ? Icons.developer_board : Icons.device_hub,
+                    color: isFluidNC ? AppColors.success : AppColors.axisZ,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Infos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            device.ip,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'JetBrains Mono',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: (isFluidNC
+                                      ? AppColors.success
+                                      : AppColors.textSecondary)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              device.firmwareInfo ?? 'HTTP',
+                              style: TextStyle(
+                                color: isFluidNC
+                                    ? AppColors.success
+                                    : AppColors.textSecondary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Réponse: ${device.responseTime.inMilliseconds}ms — Port WS: ${device.wsPort}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Boutons d'action
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Bouton Sélectionner (remplir les champs)
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 16),
+                      tooltip: 'Remplir les champs',
+                      color: AppColors.textSecondary,
+                      onPressed: () => _selectDevice(device),
+                    ),
+                    // Bouton Connecter (direct)
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.bolt, size: 14),
+                      label: const Text('CONNECTER'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isFluidNC
+                            ? AppColors.success
+                            : AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        textStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      onPressed: () => _connectDevice(device),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -467,7 +773,8 @@ class _Field extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            borderSide:
+                const BorderSide(color: AppColors.primary, width: 1.5),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -499,3 +806,4 @@ class _InfoRow extends StatelessWidget {
         ),
       ]);
 }
+

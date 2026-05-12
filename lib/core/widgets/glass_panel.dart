@@ -65,16 +65,22 @@ class GlassPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
-            title!.toUpperCase(),
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+          Expanded(
+            child: Text(
+              title!.toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (titleTrailing != null) titleTrailing!,
+          if (titleTrailing != null) ...[
+            const SizedBox(width: 8),
+            titleTrailing!,
+          ],
         ],
       ),
     );

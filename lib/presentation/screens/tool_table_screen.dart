@@ -298,7 +298,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                   side: const BorderSide(color: AppColors.secondary),
                   minimumSize: const Size(0, 32)),
               icon: const Icon(Icons.straighten, size: 12, color: AppColors.secondary),
-              label: Text('G43 H$toolNum  (Offset L)',
+              label: Text('G43 H$toolNum  (Décalage L)',
                   style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
@@ -382,7 +382,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
     ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       backgroundColor: AppColors.secondary,
-      content: Text('✓ G43 H$toolNum appliqué (offset longueur outil)'),
+      content: Text('✓ G43 H$toolNum appliqué (décalage longueur outil)'),
     ));
   }
 
@@ -484,9 +484,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         ),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: _paramCard('OFFSET Z', '-0.015', 'mm')),
+          Expanded(child: _paramCard('DÉCALAGE Z', '-0.015', 'mm')),
           const SizedBox(width: 16),
-          Expanded(child: _paramCard('OFFSET R', '0.008', 'mm')),
+          Expanded(child: _paramCard('DÉCALAGE R', '0.008', 'mm')),
         ]),
         const SizedBox(height: 24),
         const Text('COMMANDES G-CODE CORRECTEURS',
@@ -496,7 +496,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2)),
         const SizedBox(height: 12),
-        for (final cmd in ['G43.1 Z-0.015', 'G49 (annuler offsets)'])
+        for (final cmd in ['G43.1 Z-0.015', 'G49 (annuler décalages)'])
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

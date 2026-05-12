@@ -12,6 +12,20 @@ class Macro {
     required this.icon,
     this.color = Colors.blue,
   });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'gcode': gcode,
+    'icon': icon.codePoint,
+    'color': color.value,
+  };
+
+  factory Macro.fromJson(Map<String, dynamic> json) => Macro(
+    name: json['name'],
+    gcode: json['gcode'],
+    icon: IconData(json['icon'], fontFamily: 'MaterialIcons'),
+    color: Color(json['color']),
+  );
 }
 
 final defaultMacros = [

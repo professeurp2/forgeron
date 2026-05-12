@@ -8,10 +8,17 @@ import '../../application/providers/gcode_provider.dart';
 
 class MockMachineRepository implements MachineRepository {
   final _stateController = StreamController<MachineState>.broadcast();
+  final _messageController = StreamController<String>.broadcast();
+  final _trafficController = StreamController<String>.broadcast();
   MachineState _currentState = const MachineState(status: MachineStatus.idle);
   
   @override
   Stream<MachineState> get stateStream => _stateController.stream;
+
+  @override
+  Stream<String> get messageStream => _messageController.stream;
+
+  Stream<String> get trafficStream => _trafficController.stream;
 
   @override
   MachineState get currentState => _currentState;

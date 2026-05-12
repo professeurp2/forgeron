@@ -1,107 +1,67 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/models/jog_command.dart';
-import '../../domain/repositories/machine_repository.dart';
-import 'machine_provider.dart';
+import '../../application/providers/machine_provider.dart';
 
-// ── État du jog ─────────────────────────────────────────────────────────────
-
+/// Notifier pour le contrôle manuel sécurisé (Jogging).
+/// Utilise $J= (Continuous Jog) et \x85 (Jog Cancel).
 class JogState {
-  final double linearStep;   // mm
-  final double rotaryStep;   // degrés
-  final double linearFeed;   // mm/min
-  final double rotaryFeed;   // °/min
+  final double linearStep;
+  final double rotaryStep;
   final bool isJogging;
 
-  const JogState({
-    this.linearStep = 1.0,
-    this.rotaryStep = 5.0,
-    this.linearFeed = 1000.0,
-    this.rotaryFeed = 200.0,
-    this.isJogging = false,
-  });
+  JogState({this.linearStep = 10.0, this.rotaryStep = 5.0, this.isJogging = false});
 
-  JogState copyWith({
-    double? linearStep,
-    double? rotaryStep,
-    double? linearFeed,
-    double? rotaryFeed,
-    bool? isJogging,
-  }) {
+  JogState copyWith({double? linearStep, double? rotaryStep, bool? isJogging}) {
     return JogState(
       linearStep: linearStep ?? this.linearStep,
       rotaryStep: rotaryStep ?? this.rotaryStep,
-      linearFeed: linearFeed ?? this.linearFeed,
-      rotaryFeed: rotaryFeed ?? this.rotaryFeed,
       isJogging: isJogging ?? this.isJogging,
     );
   }
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
-
 class JogNotifier extends StateNotifier<JogState> {
-  final MachineRepository _repo;
+  final Ref _ref;
 
-  JogNotifier(this._repo) : super(const JogState());
+  JogNotifier(this._ref) : super(JogState());
 
-  // ── Changer les pas ─────────────────────────────────────────────────────
   void setLinearStep(double step) => state = state.copyWith(linearStep: step);
   void setRotaryStep(double step) => state = state.copyWith(rotaryStep: step);
-  void setLinearFeed(double feed) => state = state.copyWith(linearFeed: feed);
-  void setRotaryFeed(double feed) => state = state.copyWith(rotaryFeed: feed);
 
-  // ── Jog axes linéaires ───────────────────────────────────────────────────
-  Future<void> jogLinear(String axis, double direction) async {
+  /// Déclenche un mouvement continu sur un axe.
+  void startContinuousJog(String axis, int direction, {double feed = 1000.0}) {
+    if (state.isJogging) return; 
+    
+    state = state.copyWith(isJogging: true);
+    final distance = 500.0 * direction;
+    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F${feed.toStringAsFixed(0)}';
+    _ref.read(machineRepositoryProvider).sendGCode(cmd);
+  }
+
+  /// Déclenche un mouvement par pas (Incremental Jog).
+  Future<void> jogLinear(String axis, int direction) async {
     final distance = state.linearStep * direction;
-    state = state.copyWith(isJogging: true);
-    await _repo.jog(axis, distance, state.linearFeed);
+    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F1000';
+    await _ref.read(machineRepositoryProvider).sendGCode(cmd);
+  }
+
+  Future<void> jogRotary(String axis, int direction) async {
+    final distance = state.rotaryStep * direction;
+    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F3600';
+    await _ref.read(machineRepositoryProvider).sendGCode(cmd);
+  }
+
+  /// Arrête immédiatement le mouvement.
+  void stopJog() {
+    _ref.read(machineRepositoryProvider).jog('', 0, 0); 
     state = state.copyWith(isJogging: false);
   }
 
-  // ── Jog axes rotatifs ────────────────────────────────────────────────────
-  Future<void> jogRotary(String axis, double direction) async {
-    final degrees = state.rotaryStep * direction;
-    state = state.copyWith(isJogging: true);
-    await _repo.jog(axis, degrees, state.rotaryFeed);
-    state = state.copyWith(isJogging: false);
-  }
-
-  /// Jog continu : envoyer une grande distance, arrêter sur jogStop()
-  Future<void> startContinuousJog(String axis, double direction) async {
-    final isRotary = JogCommand.rotaryAxes.contains(axis.toUpperCase());
-    final bigDistance = isRotary ? direction * 999.0 : direction * 9999.0;
-    final feed = isRotary ? state.rotaryFeed : state.linearFeed;
-    state = state.copyWith(isJogging: true);
-    await _repo.jog(axis, bigDistance, feed);
-  }
-
-  /// Arrêter le jog continu (0x85)
-  Future<void> stopJog() async {
-    final repo = _repo;
-    try {
-      await (repo as dynamic).jogCancel();
-    } catch (_) {}
-    state = state.copyWith(isJogging: false);
-  }
-
-  // ── Homing ───────────────────────────────────────────────────────────────
-  Future<void> homeAll() => _repo.home([]);
-
-  Future<void> homeTrunnionSequence() async {
-    final repo = _repo;
-    try {
-      await (repo as dynamic).homeTrunnionSequence();
-    } catch (_) {
-      await _repo.home([]);
-    }
-  }
-
-  Future<void> homeAxis(String axis) => _repo.home([axis]);
+  Future<void> homeAll() async => _ref.read(machineRepositoryProvider).home();
+  Future<void> homeAxis(String axis) async => _ref.read(machineRepositoryProvider).home([axis]);
 }
 
-// ── Provider ─────────────────────────────────────────────────────────────────
-
-final jogProvider = StateNotifierProvider<JogNotifier, JogState>((ref) {
-  final repo = ref.watch(machineRepositoryProvider);
-  return JogNotifier(repo);
+final secureJogProvider = StateNotifierProvider<JogNotifier, JogState>((ref) {
+  return JogNotifier(ref);
 });
