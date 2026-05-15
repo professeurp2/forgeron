@@ -82,6 +82,7 @@ flutter:
     - web/js/three.min.js
     - web/js/OrbitControls.js
     - assets/logo.png
+    - assets/images/tools/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

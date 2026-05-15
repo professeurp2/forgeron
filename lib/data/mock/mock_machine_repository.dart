@@ -149,7 +149,7 @@ class MockMachineRepository implements MachineRepository {
     _currentProgram = lines;
     _currentProgramIndex = 0;
     _isDemoActive = false;
-    _updateState(_currentState.copyWith(status: MachineStatus.idle, sdPercent: 0, activeLineIndex: 0));
+    _updateState(_currentState.copyWith(status: MachineStatus.run, sdPercent: 0, activeLineIndex: 0));
   }
 
   @override

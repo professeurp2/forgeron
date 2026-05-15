@@ -9,6 +9,9 @@ import '../../application/providers/probing_provider.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/widgets/split_view.dart';
 import '../widgets/calibration_wizard.dart';
+import '../widgets/trunnion_visualizer.dart';
+import '../../application/providers/gcode_provider.dart';
+import '../screens/dashboard_screen.dart' show showVectorsProvider;
 import '../tutorial/tutorial_keys.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
@@ -25,7 +28,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -49,9 +52,12 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(machineStateProvider);
     final wPos = state.valueOrNull?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    final mPos = state.valueOrNull?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    final gcodeState = ref.watch(gcodeProvider);
+    final showVectors = ref.watch(showVectorsProvider);
 
     return ResizableSplitView(
-      initialRatio: 0.28,
+      initialRatio: 0.22, // Slightly smaller left column for more 3D space
       left: SingleChildScrollView(
         key: TutorialKeys.wcsCards,
         padding: const EdgeInsets.all(16),
@@ -59,7 +65,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
           const Text('SYSTÈMES DE COORDONNÉES (WCS)',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
           const SizedBox(height: 12),
-          for (int i = 0; i < _wcsData.length; i++) _wcsCard(i),
+          for (int i = 0; i < _wcsData.length; i++) _wcsCard(i, state.valueOrNull?.activeWCS ?? 'G54'),
           const SizedBox(height: 24),
           const Text('DRO EN DIRECT',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
@@ -93,9 +99,28 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
         ]),
       ),
       right: ResizableSplitView(
-        initialRatio: 0.6,
-        left: Column(children: [
+        initialRatio: 0.55, // 55% for 3D Visualizer, 45% for Controls
+        left: Container(
+          margin: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.surfaceBorder, width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: TrunnionVisualizer(
+              mPos: mPos,
+              targetPos: state.valueOrNull?.targetPos,
+              toolpath: gcodeState.toolpath,
+              activeIndex: state.valueOrNull?.activeLineIndex ?? 0,
+              showVectors: showVectors,
+            ),
+          ),
+        ),
+        right: Column(children: [
           Container(
+            margin: const EdgeInsets.only(top: 16, right: 16),
             decoration: const BoxDecoration(
                 color: AppColors.surface,
                 border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
@@ -106,34 +131,47 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textDisabled,
               tabs: const [
-                Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG 5 AXES'),
-                Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE Z/CENTRE'),
-                Tab(icon: Icon(Icons.rotate_right, size: 16), text: 'ALIGNEMENT A/C'),
+                Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG'),
+                Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE'),
+                Tab(icon: Icon(Icons.rotate_right, size: 16), text: 'ALIGNER'),
+                Tab(icon: Icon(Icons.home, size: 16), text: 'HOMING'),
               ],
             ),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabCtrl,
-              children: [_JogPanel5Axes(), _ProbingWizardTab(), _AlignementTab()],
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _JogPanel5Axes(), 
+                  _ProbingWizardTab(), 
+                  _AlignementTab(),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _HomingSequencePanel(),
+                  ),
+                ],
+              ),
             ),
           ),
         ]),
-        right: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _HomingSequencePanel(),
-          ]),
-        ),
       ),
     );
   }
 
-  Widget _wcsCard(int i) {
-    final sel = i == _selectedWCS;
+  Widget _wcsCard(int i, String activeWcs) {
     final d = _wcsData[i];
+    final sel = d.$1 == activeWcs;
     return InkWell(
-      onTap: () => setState(() => _selectedWCS = i),
+      onTap: () {
+        ref.read(machineRepositoryProvider).sendGCode(d.$1);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('WCS actif défini sur ${d.$1}'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ));
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),

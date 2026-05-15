@@ -199,18 +199,32 @@ class _ActionGrid extends ConsumerWidget {
         GridView.count(
           crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
           children: [
-            _actionBtn(Icons.play_arrow, 'REPRENDRE', AppColors.success, () => repo.resume()),
-            _actionBtn(Icons.pause, 'PAUSE', AppColors.warning, () => repo.pause()),
-            _actionBtn(Icons.stop, 'ARRÊT', AppColors.danger, () => repo.emergencyStop()),
+            _actionBtn(Icons.play_arrow, 'REPRENDRE', AppColors.success, () {
+              repo.resume();
+              _showFeedback(context, 'Reprise (Cycle Start)');
+            }),
+            _actionBtn(Icons.pause, 'PAUSE', AppColors.warning, () {
+              repo.pause();
+              _showFeedback(context, 'Pause (Feed Hold)');
+            }),
+            _actionBtn(Icons.stop, 'ARRÊT', AppColors.danger, () {
+              repo.emergencyStop();
+              _showFeedback(context, 'Arrêt / Reset');
+            }),
             _actionBtn(Icons.refresh, 'RESET', AppColors.textDisabled, () {
               repo.sendRaw('\x18'); // Soft reset
               Future.delayed(const Duration(milliseconds: 500), () => repo.sendRaw('\$X\n')); // Unlock alarm
+              _showFeedback(context, 'Soft Reset & Déverrouillage');
             }),
             _actionBtn(Icons.home, 'ORIGINE TOUS', AppColors.axisZ, () {
               repo.sendRaw('\$X\n'); // Unlock alarm d'abord
               Future.delayed(const Duration(milliseconds: 300), () => repo.home([]));
+              _showFeedback(context, 'Homing global initié (\$H)');
             }),
-            _actionBtn(Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () => repo.sendGCode('G90 G0 X0 Y0 Z0')),
+            _actionBtn(Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () {
+              repo.sendGCode('G90 G0 X0 Y0 Z0 A0 C0');
+              _showFeedback(context, 'Retour à l\'origine pièce (G0)');
+            }),
           ],
         ),
         if (isSim) ...[
@@ -242,6 +256,14 @@ class _ActionGrid extends ConsumerWidget {
   }
   Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(onTap: onTap, child: Container(decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withOpacity(0.3))), child: FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 16), const SizedBox(width: 8), Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0))])))));
+  }
+
+  void _showFeedback(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: AppColors.surfaceBright,
+      duration: const Duration(seconds: 2),
+    ));
   }
 }
 
@@ -942,9 +964,20 @@ class _MacrosPanel extends ConsumerWidget {
           child: InkWell(
             onTap: () {
               final repo = ref.read(machineRepositoryProvider);
-              if (m.gcode == 'MOCK_DEMO') {
-                // Demo spécial: envoie une séquence de test
-                repo.sendGCode('G90 G0 X10 Y10 Z-5');
+              if (m.gcode == 'EXEC_LOADED_GCODE') {
+                final gcodeState = ref.read(gcodeProvider);
+                if (gcodeState.allLines.isNotEmpty) {
+                  repo.sendGCodeBatch(gcodeState.allLines);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('▶ Exécution du G-Code lancée'),
+                    backgroundColor: AppColors.primary,
+                  ));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('⚠️ Aucun G-Code chargé à exécuter'),
+                    backgroundColor: AppColors.warning,
+                  ));
+                }
                 return;
               }
               // Envoyer les lignes une par une avec délai
@@ -979,6 +1012,21 @@ class _GCodeConsolePanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final gcodeState = ref.watch(gcodeProvider);
     final scrollController = ref.watch(gcodeScrollControllerProvider);
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final currentIndex = machineState?.activeLineIndex ?? 0;
+
+    ref.listen(machineStateProvider, (previous, next) {
+      final oldIndex = previous?.valueOrNull?.activeLineIndex ?? 0;
+      final newIndex = next.valueOrNull?.activeLineIndex ?? 0;
+      if (newIndex != oldIndex && scrollController.hasClients) {
+        final targetOffset = (newIndex * 24.0) - 100;
+        scrollController.animateTo(
+          targetOffset > 0 ? targetOffset : 0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
+      }
+    });
     
     return GlassPanel(
       key: TutorialKeys.gcodeConsole,
@@ -994,7 +1042,7 @@ class _GCodeConsolePanel extends ConsumerWidget {
         itemCount: gcodeState.allLines.length,
         itemExtent: 24, // Virtualisation haute performance
         itemBuilder: (ctx, i) {
-          final isCurrent = i == gcodeState.currentLineIndex;
+          final isCurrent = i == currentIndex;
           return Container(
             color: isCurrent ? AppColors.primary.withOpacity(0.1) : null,
             padding: const EdgeInsets.symmetric(horizontal: 16),

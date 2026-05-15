@@ -5,6 +5,7 @@ import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/split_view.dart';
 import '../../application/providers/machine_provider.dart';
 import '../tutorial/tutorial_keys.dart';
+import '../widgets/tool_preview.dart';
 
 class ToolTableScreen extends ConsumerStatefulWidget {
   const ToolTableScreen({super.key});
@@ -394,39 +395,60 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
   Widget _geomTab((String, String, double, double, Color, String) t) {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('PARAMÈTRES PHYSIQUES',
-            style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0)),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(child: _paramCard('LONGUEUR (L)', t.$3.toStringAsFixed(3), 'mm')),
-          const SizedBox(width: 16),
-          Expanded(child: _paramCard('DIAMÈTRE (D)', t.$4.toStringAsFixed(3), 'mm')),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: _paramCard('RAYON (R)', (t.$4 / 2).toStringAsFixed(3), 'mm')),
-          const SizedBox(width: 16),
-          Expanded(child: _paramCard('ANGLE COUPE', '30', '°')),
-        ]),
-        const SizedBox(height: 24),
-        const Text('PARAMÈTRES DE COUPE DÉFAUT',
-            style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0)),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(child: _paramCard('AVANCE (F)', '1200', 'mm/min')),
-          const SizedBox(width: 16),
-          Expanded(child: _paramCard('BROCHE (S)', '18000', 'RPM')),
-        ]),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Graphic Preview
+          Expanded(
+            flex: 3,
+            child: ToolPreview(
+              toolName: t.$2,
+              length: t.$3,
+              diameter: t.$4,
+            ),
+          ),
+          const SizedBox(width: 24),
+          // Parameters
+          Expanded(
+            flex: 5,
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('PARAMÈTRES PHYSIQUES',
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0)),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _paramCard('LONGUEUR (L)', t.$3.toStringAsFixed(3), 'mm')),
+                  const SizedBox(width: 16),
+                  Expanded(child: _paramCard('DIAMÈTRE (D)', t.$4.toStringAsFixed(3), 'mm')),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _paramCard('RAYON (R)', (t.$4 / 2).toStringAsFixed(3), 'mm')),
+                  const SizedBox(width: 16),
+                  Expanded(child: _paramCard('ANGLE COUPE', '30', '°')),
+                ]),
+                const SizedBox(height: 24),
+                const Text('PARAMÈTRES DE COUPE DÉFAUT',
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0)),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _paramCard('AVANCE (F)', '1200', 'mm/min')),
+                  const SizedBox(width: 16),
+                  Expanded(child: _paramCard('BROCHE (S)', '18000', 'RPM')),
+                ]),
+              ]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

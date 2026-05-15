@@ -28,7 +28,7 @@
     <div class="btn-container">
         <button id="mode-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span id="mode-text">MACHINE PHYSIQUE</span>
+            <span id="mode-text">PARCOURS OUTILS</span>
         </button>
         <button id="fs-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -101,41 +101,73 @@
         toolpathGroup.add(highlightLine);
         let toolpathData = []; 
 
-        // --- MACHINE COMPONENTS (C-FRAME KINEMATICS) ---
-        const matAlu = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5, metalness: 0.5 });
-        const matDark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
-        const matMotor = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9, metalness: 0.1 });
-        const matTool = new THREE.MeshStandardMaterial({ color: 0x58a6ff, roughness: 0.3, metalness: 0.9 });
+        // --- MATERIALS & AESTHETICS ---
+        const matExtrusion = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.7, roughness: 0.3 }); // Aluminum profile
+        const matPlate = new THREE.MeshStandardMaterial({ color: 0x2c3e50, metalness: 0.5, roughness: 0.6 }); // Dark anodized steel
+        const matMotor = new THREE.MeshStandardMaterial({ color: 0x17202a, metalness: 0.3, roughness: 0.8 }); // Black matte stepper
+        const matAccent = new THREE.MeshStandardMaterial({ color: 0x95a5a6, metalness: 0.8, roughness: 0.4 }); // Silver accents (Chuck/Platter)
+        const matTool = new THREE.MeshStandardMaterial({ color: 0xe67e22, metalness: 0.9, roughness: 0.2 }); // Titanium endmill
+        const matTable = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.4, roughness: 0.6 }); // Iron tables
+        const matWorkpiece = new THREE.MeshStandardMaterial({ color: 0xecf0f1, metalness: 0.1, roughness: 0.9 }); // Stock
 
+        // Wrapper to add CAD-like edges to structural parts
+        function createMesh(geometry, material, addEdges = true) {
+            const mesh = new THREE.Mesh(geometry, material);
+            if (addEdges) {
+                const edges = new THREE.EdgesGeometry(geometry);
+                const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 1, transparent: true, opacity: 0.5 }));
+                mesh.add(line);
+            }
+            return mesh;
+        }
+
+        // --- MACHINE COMPONENTS (C-FRAME KINEMATICS) ---
         // Base L-Shape (Floor Rails + Vertical Column)
-        const baseFloor = new THREE.Mesh(new THREE.BoxGeometry(100, 300, 20), matAlu);
+        const baseFloor = createMesh(new THREE.BoxGeometry(100, 300, 20), matTable);
         baseFloor.position.set(0, -50, -10);
         machineGroup.add(baseFloor);
 
-        const baseColumn = new THREE.Mesh(new THREE.BoxGeometry(100, 60, 350), matAlu);
+        const baseColumn = createMesh(new THREE.BoxGeometry(100, 60, 350), matExtrusion);
         baseColumn.position.set(0, 130, 165);
         machineGroup.add(baseColumn);
 
-        // Tool Chain: Base Column -> Z Axis -> Spindle
+        // Column Extension Arm
+        // Connects Column (Y=100) to Z Rail (Y=50)
+        const extensionArm = createMesh(new THREE.BoxGeometry(40, 50, 80), matExtrusion);
+        extensionArm.position.set(0, 75, 200); 
+        machineGroup.add(extensionArm);
+
+        // Fixed Z Rail and Motor (Behind Spindle)
+        const zRailGroup = new THREE.Group();
+        zRailGroup.position.set(0, 40, 200); // Center Y=40, Z=200
+        machineGroup.add(zRailGroup);
+
+        const zExtrusion = createMesh(new THREE.BoxGeometry(40, 20, 200), matExtrusion);
+        zRailGroup.add(zExtrusion);
+
+        const zStepper = createMesh(new THREE.BoxGeometry(40, 40, 40), matMotor);
+        zStepper.position.set(0, 0, 100 + 20); // Top of extrusion
+        zRailGroup.add(zStepper);
+
+        // Moving Z Carriage
         const zAxis = new THREE.Group();
-        zAxis.position.set(0, 130, 200); // Rides on front of column
+        zAxis.position.set(0, 0, 200); // Initial height at Y=0
         machineGroup.add(zAxis);
 
-        const zExtrusion = new THREE.Mesh(new THREE.BoxGeometry(60, 20, 200), matAlu);
-        zAxis.add(zExtrusion);
+        const spindleMount = createMesh(new THREE.BoxGeometry(45, 10, 70), matPlate);
+        spindleMount.position.set(0, 25, 0); // Connects Motor(Y=20) to Rail(Y=30)
 
-        // Spindle Assembly (Compact)
-        const spindleMount = new THREE.Mesh(new THREE.BoxGeometry(60, 40, 50), matDark);
-        spindleMount.position.set(0, -10, -50);
-        const spindleMotor = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 80, 16), matMotor);
+        const spindleMotor = createMesh(new THREE.CylinderGeometry(20, 20, 90, 32), matMotor, false);
         spindleMotor.rotation.x = Math.PI / 2;
-        spindleMotor.position.set(0, -35, -20);
-        const spindleChuck = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 20, 16), matAlu);
+        spindleMotor.position.set(0, 0, 0); // Y=0 relative to zAxis
+
+        const spindleChuck = createMesh(new THREE.CylinderGeometry(8, 8, 25, 16), matAccent, false);
         spindleChuck.rotation.x = Math.PI / 2;
-        spindleChuck.position.set(0, -35, -70);
-        const toolBit = new THREE.Mesh(new THREE.CylinderGeometry(2, 0, 15, 16), matTool);
+        spindleChuck.position.set(0, 0, -57.5);
+
+        const toolBit = createMesh(new THREE.CylinderGeometry(2, 0, 20, 16), matTool, false);
         toolBit.rotation.x = Math.PI / 2;
-        toolBit.position.set(0, -35, -85);
+        toolBit.position.set(0, 0, -80);
 
         zAxis.add(spindleMount, spindleMotor, spindleChuck, toolBit);
 
@@ -144,7 +176,7 @@
         yAxis.position.set(0, 0, 0); // Rides on base floor
         machineGroup.add(yAxis);
 
-        const yTable = new THREE.Mesh(new THREE.BoxGeometry(100, 160, 10), matAlu);
+        const yTable = createMesh(new THREE.BoxGeometry(100, 160, 10), matTable);
         yTable.position.set(0, 0, 5); // Table surface at Z=5
         yAxis.add(yTable);
 
@@ -152,39 +184,39 @@
         xAxis.position.set(0, 0, 10); // Rides on Y table
         yAxis.add(xAxis);
 
-        const xTable = new THREE.Mesh(new THREE.BoxGeometry(160, 100, 10), matDark);
-        xTable.position.set(0, 0, 5); // Surface at Z=15
+        const xTable = createMesh(new THREE.BoxGeometry(140, 80, 5), matPlate);
+        xTable.position.set(0, 0, 2.5); // Surface at Z=5
         xAxis.add(xTable);
 
         const trunnionBase = new THREE.Group();
-        trunnionBase.position.set(0, 0, 10); // Sits on X table
+        trunnionBase.position.set(0, 0, 5); // Sits on X table
         xAxis.add(trunnionBase);
 
-        const tSupportL = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 80), matDark);
-        tSupportL.position.set(-70, 0, 40);
-        const tSupportR = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 80), matDark);
-        tSupportR.position.set(70, 0, 40);
+        const tSupportL = createMesh(new THREE.BoxGeometry(10, 40, 50), matPlate);
+        tSupportL.position.set(-65, 0, 25);
+        const tSupportR = createMesh(new THREE.BoxGeometry(10, 40, 50), matPlate);
+        tSupportR.position.set(65, 0, 25);
         trunnionBase.add(tSupportL, tSupportR);
 
         const aAxis = new THREE.Group();
-        aAxis.position.set(0, 0, 60); // Pivot height
+        aAxis.position.set(0, 0, 40); // Pivot height
         trunnionBase.add(aAxis);
 
-        const cradle = new THREE.Mesh(new THREE.BoxGeometry(120, 50, 15), matAlu);
-        cradle.position.set(0, 0, -20);
+        const cradle = createMesh(new THREE.BoxGeometry(110, 35, 10), matPlate);
+        cradle.position.set(0, 0, -15);
         aAxis.add(cradle);
 
         const cAxis = new THREE.Group();
         cAxis.position.set(0, 0, -10); // Platter surface relative to cradle center
         aAxis.add(cAxis);
 
-        const platter = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 10, 32), matDark);
+        const platter = createMesh(new THREE.CylinderGeometry(30, 30, 5, 32), matAccent, false);
         platter.rotation.x = Math.PI / 2;
         cAxis.add(platter);
 
-        const dummyWorkpiece = new THREE.Mesh(new THREE.CylinderGeometry(20, 20, 25, 16), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
+        const dummyWorkpiece = createMesh(new THREE.CylinderGeometry(15, 15, 20, 16), matWorkpiece, false);
         dummyWorkpiece.rotation.x = Math.PI / 2;
-        dummyWorkpiece.position.set(0, 0, 17.5); // Resting on platter
+        dummyWorkpiece.position.set(0, 0, 12.5); // Resting on platter
         cAxis.add(dummyWorkpiece);
 
         // --- LIMITS BOUNDING BOX ---
@@ -209,12 +241,12 @@
         modeBtn.addEventListener('click', () => {
             if (viewMode === 'machine') {
                 viewMode = 'toolpath';
-                modeText.innerText = 'PARCOURS OUTILS';
+                modeText.innerText = 'MACHINE PHYSIQUE';
                 machineGroup.visible = false;
                 toolpathGroup.visible = true;
             } else {
                 viewMode = 'machine';
-                modeText.innerText = 'MACHINE PHYSIQUE';
+                modeText.innerText = 'PARCOURS OUTILS';
                 machineGroup.visible = true;
                 toolpathGroup.visible = false;
             }
@@ -255,6 +287,8 @@
         window.addEventListener('message', (event) => handleMessage(event.data));
         if (window.chrome && window.chrome.webview) {
             window.chrome.webview.addEventListener('message', (event) => handleMessage(event.data));
+            // Fullscreen API is not supported in the Windows webview wrapper
+            fsBtn.style.display = 'none';
         }
 
         // --- TOOLPATH RENDERING ---
@@ -348,12 +382,15 @@
             }
 
             // --- PHYSICAL MACHINE KINEMATICS ---
-            // Tool axes (Fixed column)
-            zAxis.position.z = mPos[2]; // Z moves along its rail
+            // Tool axes (Fixed rail, moving carriage)
+            zAxis.position.z = 200 + mPos[2]; // Base Z offset + Z displacement
 
             // Workpiece axes (Cross-slide table)
-            yAxis.position.y = mPos[1];
-            xAxis.position.x = mPos[0];
+            // Tool moves X+ -> Table moves Left (-X)
+            xAxis.position.x = -mPos[0];
+            // Tool moves Y+ -> Table moves Front (-Y).
+            yAxis.position.y = -mPos[1];
+
             
             // A tilts the cradle around X
             aAxis.rotation.x = mPos[3] * Math.PI / 180;

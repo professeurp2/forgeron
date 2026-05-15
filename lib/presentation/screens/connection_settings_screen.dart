@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../../application/services/auto_discovery_service.dart';
@@ -170,7 +171,7 @@ class _ConnectionSettingsScreenState
               children: [
                 // ── Badge mode ─────────────────────────────────────
                 _buildModeBadge(ref),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
                 // ══════════════════════════════════════════════════
                 // SECTION DÉCOUVERTE AUTOMATIQUE
@@ -179,83 +180,95 @@ class _ConnectionSettingsScreenState
                 const SizedBox(height: 32),
 
                 // ── Paramètres réseau manuels ─────────────────────
-                _SectionTitle('CONFIGURATION MANUELLE'),
-                const SizedBox(height: 12),
-                _SettingsCard(
+                GlassPanel(
                   key: TutorialKeys.networkConfig,
-                  children: [
-                  _Field(
-                    label: 'Adresse IP de l\'ESP32',
-                    hint: '192.168.1.100',
-                    controller: _ipCtrl,
-                    icon: Icons.router,
+                  title: 'CONFIGURATION MANUELLE',
+                  child: Column(
+                    children: [
+                      _Field(
+                        label: 'Adresse IP de l\'ESP32',
+                        hint: '192.168.1.100',
+                        controller: _ipCtrl,
+                        icon: Icons.router,
+                      ),
+                      const SizedBox(height: 16),
+                      _Field(
+                        label: 'Port WebSocket (défaut: 80)',
+                        hint: '80',
+                        controller: _wsPortCtrl,
+                        icon: Icons.cable,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 24),
+                      // URLs déduites
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.background.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.surfaceBorder),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Connexions déduites',
+                                style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 12),
+                            _InfoRow('WebSocket',
+                                'ws://${_ipCtrl.text}:${_wsPortCtrl.text}',
+                                AppColors.primary),
+                            const SizedBox(height: 8),
+                            _InfoRow('HTTP REST',
+                                'http://${_ipCtrl.text}:80', AppColors.axisZ),
+                            const SizedBox(height: 8),
+                            _InfoRow('Fichiers',
+                                'http://${_ipCtrl.text}/files', AppColors.axisY),
+                            const SizedBox(height: 8),
+                            _InfoRow('Config',
+                                'http://${_ipCtrl.text}/config', AppColors.axisA),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  _Field(
-                    label: 'Port WebSocket (défaut: 80)',
-                    hint: '80',
-                    controller: _wsPortCtrl,
-                    icon: Icons.cable,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  // URLs déduites
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.surfaceBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Connexions déduites',
-                            style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 8),
-                        _InfoRow('WebSocket',
-                            'ws://${_ipCtrl.text}:${_wsPortCtrl.text}',
-                            AppColors.primary),
-                        const SizedBox(height: 4),
-                        _InfoRow('HTTP REST',
-                            'http://${_ipCtrl.text}:80', AppColors.axisZ),
-                        const SizedBox(height: 4),
-                        _InfoRow('Fichiers',
-                            'http://${_ipCtrl.text}/files', AppColors.axisY),
-                        const SizedBox(height: 4),
-                        _InfoRow('Config',
-                            'http://${_ipCtrl.text}/config', AppColors.axisA),
-                      ],
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 24),
                 // ── Test de connexion ─────────────────────────────
-                SizedBox(
+                Container(
                   width: double.infinity,
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: -5,
+                      )
+                    ]
+                  ),
                   child: ElevatedButton.icon(
                     icon: _testing
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: AppColors.background))
-                        : const Icon(Icons.wifi_tethering, size: 16),
+                        : const Icon(Icons.wifi_tethering, size: 20),
                     label: Text(_testing
-                        ? 'Test en cours...'
+                        ? 'TEST EN COURS...'
                         : 'TESTER LA CONNEXION'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: AppColors.background,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       textStyle: const TextStyle(
                           fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          letterSpacing: 1),
+                          fontSize: 14,
+                          letterSpacing: 2),
                     ),
                     onPressed: _testing ? null : _testConnection,
                   ),
@@ -287,11 +300,11 @@ class _ConnectionSettingsScreenState
                   ),
                 ],
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 48),
                 // ── Axes machine ──────────────────────────────────
-                _SectionTitle('MACHINE CNC 5-AXES — TRUNNION'),
-                const SizedBox(height: 12),
-                _SettingsCard(children: [
+                GlassPanel(
+                  title: 'MACHINE CNC 5-AXES — TRUNNION',
+                  child: Column(children: [
                   for (final row in [
                     ('Axe X', 'Linéaire', 'mm'),
                     ('Axe Y', 'Linéaire', 'mm'),
@@ -299,16 +312,23 @@ class _ConnectionSettingsScreenState
                     ('Axe A', 'Rotatif — Basculement broche', '°'),
                     ('Axe C', 'Rotatif — Rotation plateau', '°'),
                   ])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
                       child: Row(children: [
                         Container(
-                          width: 32,
-                          height: 32,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color:
                                 _axisColor(row.$1).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: _axisColor(row.$1).withOpacity(0.3)),
                           ),
                           child: Center(
                             child: Text(
@@ -316,40 +336,44 @@ class _ConnectionSettingsScreenState
                               style: TextStyle(
                                 color: _axisColor(row.$1),
                                 fontWeight: FontWeight.w900,
+                                fontSize: 16,
                                 fontFamily: 'JetBrains Mono',
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Text(row.$2,
                               style: const TextStyle(
                                   color: AppColors.textPrimary,
-                                  fontSize: 12)),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold)),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceBright,
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(row.$3,
                               style: const TextStyle(
                                   color: AppColors.textSecondary,
-                                  fontSize: 10,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
                                   fontFamily: 'JetBrains Mono')),
                         ),
                       ]),
                     ),
-                ]),
+                  ]),
+                ),
 
                 const SizedBox(height: 32),
                 // ── Protocole FluidNC ─────────────────────────────
-                _SectionTitle('PROTOCOLE FLUIDNC'),
-                const SizedBox(height: 12),
-                _SettingsCard(children: [
+                GlassPanel(
+                  title: 'PROTOCOLE FLUIDNC',
+                  child: Column(children: [
                   for (final e in [
                     ('Firmware', 'FluidNC v3.7+', AppColors.primary),
                     ('État', 'Interrogation toutes les 200ms', AppColors.axisZ),
@@ -357,24 +381,30 @@ class _ConnectionSettingsScreenState
                     ('Jog annuler', '0x85 via WS', AppColors.axisA),
                     ('G-Code SD', '\$SD/Run=filename', AppColors.success),
                   ])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       child: Row(children: [
                         Text(e.$1,
                             style: const TextStyle(
                                 color: AppColors.textDisabled,
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w900)),
                         const Spacer(),
                         Text(e.$2,
                             style: TextStyle(
                                 color: e.$3,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontFamily: 'JetBrains Mono',
                                 fontWeight: FontWeight.bold)),
                       ]),
                     ),
-                ]),
+                  ]),
+                ),
               ],
             ),
           ),
@@ -391,44 +421,39 @@ class _ConnectionSettingsScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Titre avec bouton scan
-        Row(
-          children: [
-            const Icon(Icons.radar, size: 16, color: AppColors.primary),
-            const SizedBox(width: 8),
-            const _SectionTitle('DÉCOUVERTE AUTOMATIQUE'),
-            const Spacer(),
-            if (discovery.isScanning)
-              TextButton.icon(
-                icon: const SizedBox(
-                  width: 12, height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.danger,
+        // Titre de la section
+        GlassPanel(
+          title: 'DÉCOUVERTE AUTOMATIQUE',
+          titleTrailing: discovery.isScanning
+              ? TextButton.icon(
+                  icon: const SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.danger,
+                    ),
                   ),
+                  label: const Text('ARRÊTER'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    textStyle: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w900),
+                  ),
+                  onPressed: () => ref.read(discoveryProvider.notifier).stop(),
+                )
+              : TextButton.icon(
+                  key: TutorialKeys.scannerBtn,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('SCANNER'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    textStyle: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w900),
+                  ),
+                  onPressed: () => ref.read(discoveryProvider.notifier).scan(),
                 ),
-                label: const Text('ARRÊTER'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.danger,
-                  textStyle: const TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w900),
-                ),
-                onPressed: () => ref.read(discoveryProvider.notifier).stop(),
-              )
-            else
-              TextButton.icon(
-                key: TutorialKeys.scannerBtn,
-                icon: const Icon(Icons.refresh, size: 14),
-                label: const Text('SCANNER'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  textStyle: const TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w900),
-                ),
-                onPressed: () => ref.read(discoveryProvider.notifier).scan(),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
         // Barre de progression
         if (discovery.isScanning) ...[
@@ -461,9 +486,9 @@ class _ConnectionSettingsScreenState
         if (!discovery.isScanning && discovery.devices.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.background.withOpacity(0.5),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: AppColors.surfaceBorder,
@@ -473,20 +498,24 @@ class _ConnectionSettingsScreenState
             child: Column(
               children: [
                 Icon(Icons.wifi_find,
-                    size: 32,
-                    color: AppColors.textDisabled.withValues(alpha: 0.5)),
-                const SizedBox(height: 8),
+                    size: 48,
+                    color: AppColors.textDisabled.withValues(alpha: 0.3)),
+                const SizedBox(height: 16),
                 Text(
                   discovery.statusMessage ?? 'Appuyez sur SCANNER pour chercher l\'ESP32',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -695,36 +724,7 @@ class _ConnectionSettingsScreenState
 
 // ── Widgets utilitaires ──────────────────────────────────────────────────────
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2),
-      );
-}
-
-class _SettingsCard extends StatelessWidget {
-  final List<Widget> children;
-  const _SettingsCard({super.key, required this.children});
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.surfaceBorder),
-        ),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: children),
-      );
-}
+// (Removed _SectionTitle and _SettingsCard)
 
 class _Field extends StatelessWidget {
   final String label;

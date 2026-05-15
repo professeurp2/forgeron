@@ -54,9 +54,9 @@ final defaultMacros = [
     color: Colors.red,
   ),
   const Macro(
-    name: 'LANCER LE DEMO',
+    name: 'EXECUTER G-CODE',
     icon: Icons.play_circle_filled,
-    gcode: 'MOCK_DEMO',
+    gcode: 'EXEC_LOADED_GCODE',
     color: Colors.blue,
   ),
 ];
