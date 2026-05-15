@@ -16,6 +16,9 @@ abstract class MachineRepository {
   /// Sends a raw G-code string to the machine.
   Future<void> sendGCode(String gcode);
 
+  /// Sends a raw real-time command (e.g., '~', '!', '\x18', '$X').
+  void sendRaw(String data);
+
   /// Sends multiple G-code lines optimized for high-speed streaming.
   Future<void> sendGCodeBatch(List<String> lines);
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/models/machine_state.dart';
@@ -10,7 +11,7 @@ import '../../data/mock/mock_machine_repository.dart';
 
 /// Adresse IP de l'ESP32 FluidNC
 final espIpProvider = StateProvider<String>((ref) => '192.168.1.100');
-final wsPortProvider = StateProvider<int>((ref) => 81);
+final wsPortProvider = StateProvider<int>((ref) => 80);
 final httpPortProvider = StateProvider<int>((ref) => 80);
 
 /// Mode simulation pour tester sans ESP32 physique
@@ -22,17 +23,20 @@ final machineRepositoryProvider = Provider<MachineRepository>((ref) {
   final isSim = ref.watch(isSimulationModeProvider);
 
   if (isSim) {
+    debugPrint('[MachineProvider] Mode SIMULATION actif');
     return MockMachineRepository();
   }
 
   final ip = ref.watch(espIpProvider);
   final wsPort = ref.watch(wsPortProvider);
-  final wsUrl = 'ws://$ip:$wsPort';
+  final wsUrl = 'ws://$ip:$wsPort/';
+  debugPrint('[MachineProvider] Mode PRODUCTION → connexion à $wsUrl');
   final conn = FluidNCConnection(wsUrl);
   final repo = FluidNCMachineRepository(conn);
 
   // Crucial : Arrêter les timers et fermer le socket quand on change de mode
   ref.onDispose(() {
+    debugPrint('[MachineProvider] Disposing connection to $wsUrl');
     repo.dispose();
   });
 

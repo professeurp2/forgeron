@@ -9,10 +9,13 @@ import '../widgets/trunnion_visualizer.dart';
 import '../../domain/models/macro.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../../core/utils/file_picker_service.dart';
-import '../../core/utils/gcode_parser.dart'; // Ajouté pour ScrollController
+import '../../core/utils/gcode_parser.dart';
+import '../../data/mock/mock_machine_repository.dart';
+import '../tutorial/tutorial_keys.dart';
 
 final isWorkshopModeProvider = StateProvider<bool>((ref) => false);
 final isVisualizerFullScreenProvider = StateProvider<bool>((ref) => false);
+final simulationSpeedProvider = StateProvider<double>((ref) => 1.0);
 
 class ToolpathNotifier extends StateNotifier<List<List<double>>> {
   ToolpathNotifier() : super([]);
@@ -156,6 +159,7 @@ class _ConnectionHUD extends ConsumerWidget {
     final ip = ref.watch(espIpProvider);
     final isWorkshop = ref.watch(isWorkshopModeProvider);
     return GlassPanel(
+      key: TutorialKeys.statusCockpit,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Text('LIEN SYSTÈME', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
@@ -183,21 +187,58 @@ class _ActionGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.read(machineRepositoryProvider);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('ACTIONS MACHINE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
-      const SizedBox(height: 12),
-      GridView.count(
-        crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
-        children: [
-          _actionBtn(Icons.play_arrow, 'REPRENDRE', AppColors.success, () => repo.resume()),
-          _actionBtn(Icons.pause, 'PAUSE', AppColors.warning, () => repo.pause()),
-          _actionBtn(Icons.stop, 'ARRÊT', AppColors.danger, () => repo.emergencyStop()),
-          _actionBtn(Icons.refresh, 'RESET', AppColors.textDisabled, () => repo.reset()),
-          _actionBtn(Icons.home, 'ORIGINE TOUS', AppColors.axisZ, () => repo.home([])),
-          _actionBtn(Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () => repo.sendGCode('G0 X0 Y0 Z0')),
+    final speed = ref.watch(simulationSpeedProvider);
+    final isSim = ref.watch(isSimulationModeProvider);
+
+    return Column(
+      key: TutorialKeys.actionButtons,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('ACTIONS MACHINE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
+          children: [
+            _actionBtn(Icons.play_arrow, 'REPRENDRE', AppColors.success, () => repo.resume()),
+            _actionBtn(Icons.pause, 'PAUSE', AppColors.warning, () => repo.pause()),
+            _actionBtn(Icons.stop, 'ARRÊT', AppColors.danger, () => repo.emergencyStop()),
+            _actionBtn(Icons.refresh, 'RESET', AppColors.textDisabled, () {
+              repo.sendRaw('\x18'); // Soft reset
+              Future.delayed(const Duration(milliseconds: 500), () => repo.sendRaw('\$X\n')); // Unlock alarm
+            }),
+            _actionBtn(Icons.home, 'ORIGINE TOUS', AppColors.axisZ, () {
+              repo.sendRaw('\$X\n'); // Unlock alarm d'abord
+              Future.delayed(const Duration(milliseconds: 300), () => repo.home([]));
+            }),
+            _actionBtn(Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () => repo.sendGCode('G90 G0 X0 Y0 Z0')),
+          ],
+        ),
+        if (isSim) ...[
+          const SizedBox(height: 16),
+          const Text('VITESSE SIMULATION / OVERRIDES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+          Container(
+            key: TutorialKeys.overridesPanel,
+            child: Row(children: [
+            Expanded(
+              child: Slider(
+                value: speed,
+                min: 0.1,
+                max: 20.0,
+                onChanged: (v) {
+                  ref.read(simulationSpeedProvider.notifier).state = v;
+                  if (repo is MockMachineRepository) {
+                    repo.setSimulationSpeed(v);
+                  }
+                },
+                activeColor: AppColors.primary,
+              ),
+            ),
+            Text('${speed.toStringAsFixed(1)}x', style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+          ]),
+          ),
         ],
-      ),
-    ]);
+      ],
+    );
   }
   Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(onTap: onTap, child: Container(decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withOpacity(0.3))), child: FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 16), const SizedBox(width: 8), Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0))])))));
@@ -260,38 +301,49 @@ class _VisualizerPanel extends ConsumerWidget {
     final gcodeState = ref.watch(gcodeProvider);
     final showVectors = ref.watch(showVectorsProvider);
     final activeIndex = state?.activeLineIndex ?? 0;
+    final progress = state?.sdPercent ?? 0.0;
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Text('VISUALISEUR 3D WEBGL', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), 
-        const Spacer(),
-        IconButton(
-          icon: const Icon(Icons.fullscreen, color: AppColors.textSecondary, size: 18),
-          onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = true,
-          tooltip: 'Plein Écran',
-        ),
-        const SizedBox(width: 8),
-        const Text('VECTEURS', style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
-        Switch(
-          value: showVectors, 
-          onChanged: (v) => ref.read(showVectorsProvider.notifier).state = v,
-          activeColor: AppColors.primary,
-          activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
-        ),
-      ]),
-      const SizedBox(height: 12),
-      Expanded(child: GlassPanel(expand: true, padding: EdgeInsets.zero, child: Stack(children: [
-        TrunnionVisualizer(
-          mPos: mPos, 
-          targetPos: state?.targetPos, 
-          toolpath: gcodeState.toolpath,
-          activeIndex: activeIndex,
-          showVectors: showVectors,
-        ), 
-        if ((state?.singularityRisk ?? 0.0) > 0.5) 
-          Positioned(top: 12, left: 12, right: 12, child: _SingularityAlert(risk: state!.singularityRisk))
-      ]))),
-    ]);
+    return Column(
+      key: TutorialKeys.trunnionViz,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Text('VISUALISEUR 3D WEBGL', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), 
+          const Spacer(),
+          if (progress > 0 && progress < 100) ...[
+            Text('${progress.toStringAsFixed(1)}%', style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+            const SizedBox(width: 8),
+            SizedBox(width: 60, child: LinearProgressIndicator(value: progress / 100, minHeight: 2, backgroundColor: AppColors.surfaceBorder, color: AppColors.primary)),
+            const SizedBox(width: 16),
+          ],
+          IconButton(
+            icon: const Icon(Icons.fullscreen, color: AppColors.textSecondary, size: 18),
+            onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = true,
+            tooltip: 'Plein Écran',
+          ),
+          const SizedBox(width: 8),
+          const Text('VECTEURS', style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+          Switch(
+            value: showVectors, 
+            onChanged: (v) => ref.read(showVectorsProvider.notifier).state = v,
+            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary.withOpacity(0.3),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Expanded(child: GlassPanel(expand: true, padding: EdgeInsets.zero, child: Stack(children: [
+          TrunnionVisualizer(
+            mPos: mPos, 
+            targetPos: state?.targetPos, 
+            toolpath: gcodeState.toolpath,
+            activeIndex: activeIndex,
+            showVectors: showVectors,
+          ), 
+          if ((state?.singularityRisk ?? 0.0) > 0.5) 
+            Positioned(top: 12, left: 12, right: 12, child: _SingularityAlert(risk: state!.singularityRisk))
+        ]))),
+      ],
+    );
   }
 }
 
@@ -310,7 +362,20 @@ class _DROPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(machineStateProvider).valueOrNull;
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('LECTURE DIGITALE (DRO)', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), const SizedBox(height: 12), for (int i = 0; i < 3; i++) _coordCard(['X', 'Y', 'Z'][i], wPos[i], [AppColors.axisX, AppColors.axisY, AppColors.axisZ][i]), Row(children: [Expanded(child: _coordCard('A', wPos[3], AppColors.axisA, small: true)), const SizedBox(width: 8), Expanded(child: _coordCard('C', wPos[4], AppColors.axisC, small: true))])]);
+    return Column(
+      key: TutorialKeys.droPanel,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('LECTURE DIGITALE (DRO)', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 12),
+        for (int i = 0; i < 3; i++) _coordCard(['X', 'Y', 'Z'][i], wPos[i], [AppColors.axisX, AppColors.axisY, AppColors.axisZ][i]),
+        Row(children: [
+          Expanded(child: _coordCard('A', wPos[3], AppColors.axisA, small: true)),
+          const SizedBox(width: 8),
+          Expanded(child: _coordCard('C', wPos[4], AppColors.axisC, small: true))
+        ])
+      ],
+    );
   }
   Widget _coordCard(String a, double v, Color c, {bool small = false}) => Container(
         margin: const EdgeInsets.only(bottom: 6),
@@ -358,7 +423,6 @@ class _OverridesPanel extends ConsumerWidget {
             Expanded(child: Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 8),
             FittedBox(
-              fit: BoxFit.scaleDown,
               child: Text('$v%', style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
             ),
           ],
@@ -407,6 +471,7 @@ class _WorkshopLayout extends ConsumerWidget {
     final gcodeState = ref.watch(gcodeProvider);
     final repo = ref.read(machineRepositoryProvider);
     final showVectors = ref.watch(showVectorsProvider);
+    final progress = state?.sdPercent ?? 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -453,6 +518,18 @@ class _WorkshopLayout extends ConsumerWidget {
                             activeIndex: state?.activeLineIndex ?? 0,
                             showVectors: showVectors,
                           ),
+                          if (progress > 0 && progress < 100)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: LinearProgressIndicator(
+                                value: progress / 100,
+                                minHeight: 4,
+                                backgroundColor: Colors.transparent,
+                                color: AppColors.primary,
+                              ),
+                            ),
                           Positioned(
                             bottom: 16,
                             right: 16,
@@ -461,15 +538,27 @@ class _WorkshopLayout extends ConsumerWidget {
                           Positioned(
                             top: 16,
                             right: 16,
-                            child: IconButton(
-                              icon: const Icon(Icons.fullscreen, color: Colors.white70, size: 24),
-                              onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = true,
-                              style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (progress > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                    child: Text('${progress.toStringAsFixed(1)}%', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+                                  ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.fullscreen, color: Colors.white70, size: 24),
+                                  onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = true,
+                                  style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                                ),
+                              ],
                             ),
                           ),
                           if ((state?.singularityRisk ?? 0.0) > 0.6)
                             Positioned(
-                              top: 20,
+                              top: 60,
                               left: 20,
                               right: 20,
                               child: _SingularityAlert(risk: state!.singularityRisk),
@@ -677,19 +766,53 @@ class _WorkshopGauges extends StatelessWidget {
   }
 }
 
-class _IndustrialControlPanel extends StatelessWidget {
+class _IndustrialControlPanel extends ConsumerWidget {
   final dynamic repo;
   const _IndustrialControlPanel({required this.repo});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gcodeState = ref.watch(gcodeProvider);
+    final isSimulation = ref.watch(isSimulationModeProvider);
+    final speed = ref.watch(simulationSpeedProvider);
+
     return Column(
       children: [
-        _hmiButton(Icons.play_arrow, 'DÉPART CYCLE', AppColors.success, () => repo.resume(), isLarge: true),
+        _hmiButton(
+          Icons.play_arrow,
+          'DÉPART CYCLE',
+          AppColors.success,
+          () {
+            if (isSimulation && gcodeState.allLines.isNotEmpty) {
+              repo.sendGCodeBatch(gcodeState.allLines);
+              repo.resume();
+            } else {
+              repo.resume();
+            }
+          },
+          isLarge: true,
+        ),
         const SizedBox(height: 12),
         _hmiButton(Icons.pause, 'ARRÊT AVANCE', AppColors.warning, () => repo.pause(), isLarge: true),
         const SizedBox(height: 12),
         _hmiButton(Icons.stop, 'ABANDON / RESET', AppColors.danger, () => repo.reset(), isLarge: true),
+        if (isSimulation) ...[
+          const SizedBox(height: 24),
+          const Text('VITESSE SIM', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold)),
+          Slider(
+            value: speed,
+            min: 0.1,
+            max: 20.0,
+            onChanged: (v) {
+              ref.read(simulationSpeedProvider.notifier).state = v;
+              if (repo is MockMachineRepository) {
+                repo.setSimulationSpeed(v);
+              }
+            },
+            activeColor: AppColors.primary,
+          ),
+          Text('${speed.toStringAsFixed(1)}x', style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+        ],
         const Spacer(),
         _hmiButton(Icons.home, 'ORIGINES', AppColors.axisZ, () => repo.home([]), isLarge: false),
         const SizedBox(height: 12),
@@ -807,7 +930,47 @@ class _CockpitStatusBadge extends StatelessWidget {
 class _MacrosPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('MACROS', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), const SizedBox(height: 12), for (final m in defaultMacros) Padding(padding: const EdgeInsets.only(bottom: 8), child: InkWell(onTap: () => ref.read(machineRepositoryProvider).sendGCode(m.gcode), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: m.color.withOpacity(0.1), border: Border.all(color: m.color.withOpacity(0.3)), borderRadius: BorderRadius.circular(4)), child: Row(children: [Icon(m.icon, color: m.color, size: 16), const SizedBox(width: 12), Text(m.name, style: TextStyle(color: m.color, fontSize: 10, fontWeight: FontWeight.bold))]))))]);
+    return Column(
+      key: TutorialKeys.macrosPanel,
+      crossAxisAlignment: CrossAxisAlignment.start, 
+      children: [
+      const Text('MACROS', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 12),
+      for (final m in defaultMacros)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: InkWell(
+            onTap: () {
+              final repo = ref.read(machineRepositoryProvider);
+              if (m.gcode == 'MOCK_DEMO') {
+                // Demo spécial: envoie une séquence de test
+                repo.sendGCode('G90 G0 X10 Y10 Z-5');
+                return;
+              }
+              // Envoyer les lignes une par une avec délai
+              final lines = m.gcode.split('\n').where((l) => l.trim().isNotEmpty).toList();
+              for (int i = 0; i < lines.length; i++) {
+                Future.delayed(Duration(milliseconds: i * 200), () {
+                  repo.sendGCode(lines[i].trim());
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: m.color.withOpacity(0.1),
+                border: Border.all(color: m.color.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(children: [
+                Icon(m.icon, color: m.color, size: 16),
+                const SizedBox(width: 12),
+                Text(m.name, style: TextStyle(color: m.color, fontSize: 10, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+          ),
+        ),
+    ]);
   }
 }
 
@@ -818,6 +981,7 @@ class _GCodeConsolePanel extends ConsumerWidget {
     final scrollController = ref.watch(gcodeScrollControllerProvider);
     
     return GlassPanel(
+      key: TutorialKeys.gcodeConsole,
       title: 'FLUX G-CODE INDUSTRIEL',
       expand: true,
       titleTrailing: IconButton(

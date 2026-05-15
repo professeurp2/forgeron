@@ -89,7 +89,7 @@ class AutoDiscoveryService {
         return DiscoveredDevice(
           ip: ip,
           httpPort: port,
-          wsPort: 81,
+          wsPort: 80,
           firmwareInfo: firmware ?? 'HTTP ${response.statusCode}',
           responseTime: sw.elapsed,
         );

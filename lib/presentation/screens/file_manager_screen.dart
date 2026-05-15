@@ -8,6 +8,7 @@ import '../../application/providers/machine_provider.dart';
 import '../../domain/models/gcode_file.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/utils/file_picker_service.dart';
+import '../tutorial/tutorial_keys.dart';
 
 class FileManagerScreen extends ConsumerStatefulWidget {
   const FileManagerScreen({super.key});
@@ -97,7 +98,9 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       Expanded(
         child: ResizableSplitView(
           initialRatio: 0.3,
-          left: filesAsync.when(
+          left: Container(
+            key: TutorialKeys.fileManager,
+            child: filesAsync.when(
             data: (files) => files.isEmpty
                 ? const Center(
                     child: Text('AUCUN FICHIER SUR LA SD',
@@ -128,6 +131,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                               color: AppColors.textDisabled, fontSize: 10)),
                       trailing: i == _selectedFile
                           ? IconButton(
+                              key: TutorialKeys.streamBtn,
                               icon: const Icon(Icons.play_circle_fill,
                                   color: AppColors.success, size: 24),
                               onPressed: () => _runFile(files[i]),
@@ -145,10 +149,13 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                     ),
                   ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, s) => Center(child: Text('Erreur: $e', style: const TextStyle(color: AppColors.error))),
+              error: (e, s) => Center(child: Text('Erreur: $e', style: const TextStyle(color: AppColors.error))),
+            ),
           ),
-          right: _loadingPreview
-              ? const Center(child: CircularProgressIndicator())
+          right: Container(
+            key: TutorialKeys.gcodePreview,
+            child: _loadingPreview
+                ? const Center(child: CircularProgressIndicator())
               : _previewContent.isEmpty
                   ? const Center(
                       child: Column(
@@ -174,6 +181,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                                   fontSize: 12,
                                   height: 1.4))),
                     ),
+          ),
         ),
       ),
     ]);

@@ -42,19 +42,20 @@ class JogNotifier extends StateNotifier<JogState> {
   /// Déclenche un mouvement par pas (Incremental Jog).
   Future<void> jogLinear(String axis, int direction) async {
     final distance = state.linearStep * direction;
-    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F1000';
-    await _ref.read(machineRepositoryProvider).sendGCode(cmd);
+    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F1000\n';
+    // Les commandes $J= doivent bypasser le buffer et aller directement sur le socket
+    _ref.read(machineRepositoryProvider).sendRaw(cmd);
   }
 
   Future<void> jogRotary(String axis, int direction) async {
     final distance = state.rotaryStep * direction;
-    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F3600';
-    await _ref.read(machineRepositoryProvider).sendGCode(cmd);
+    final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F3600\n';
+    _ref.read(machineRepositoryProvider).sendRaw(cmd);
   }
 
-  /// Arrête immédiatement le mouvement.
+  /// Arrête immédiatement le mouvement (Jog Cancel real-time command 0x85).
   void stopJog() {
-    _ref.read(machineRepositoryProvider).jog('', 0, 0); 
+    _ref.read(machineRepositoryProvider).sendRaw('\x85');
     state = state.copyWith(isJogging: false);
   }
 

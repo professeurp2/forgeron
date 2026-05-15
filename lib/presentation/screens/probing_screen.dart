@@ -7,7 +7,9 @@ import '../../application/providers/jog_provider.dart';
 import '../../domain/models/jog_command.dart';
 import '../../application/providers/probing_provider.dart';
 import '../../core/widgets/split_view.dart';
+import '../../core/widgets/split_view.dart';
 import '../widgets/calibration_wizard.dart';
+import '../tutorial/tutorial_keys.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
   const ProbingScreen({super.key});
@@ -51,6 +53,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
     return ResizableSplitView(
       initialRatio: 0.28,
       left: SingleChildScrollView(
+        key: TutorialKeys.wcsCards,
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('SYSTÈMES DE COORDONNÉES (WCS)',
@@ -65,22 +68,27 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
             _liveDroRow(_axisLabels[i], wPos[i], _axisColors[i],
                 i >= 3 ? '°' : 'mm'),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity, height: 40,
-            child: OutlinedButton(
-              onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.textDisabled)),
-              child: const Text('ALLER AU ZÉRO', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity, height: 40,
-            child: OutlinedButton(
-              onPressed: () => ref.read(secureJogProvider.notifier).homeAll(),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.axisZ)),
-              child: const Text('ORIGINES (TOUS)', style: TextStyle(color: AppColors.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
-            ),
+          Container(
+            key: TutorialKeys.probingOffsets,
+            child: Column(children: [
+              SizedBox(
+                width: double.infinity, height: 40,
+                child: OutlinedButton(
+                  onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.textDisabled)),
+                  child: const Text('ALLER AU ZÉRO', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity, height: 40,
+                child: OutlinedButton(
+                  onPressed: () => ref.read(secureJogProvider.notifier).homeAll(),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.axisZ)),
+                  child: const Text('ORIGINES (TOUS)', style: TextStyle(color: AppColors.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ]),
           ),
         ]),
       ),
@@ -328,6 +336,7 @@ class _ProbingWizardTab extends ConsumerWidget {
     final probingN = ref.read(probingProvider.notifier);
 
     return SingleChildScrollView(
+      key: TutorialKeys.probingTools,
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         GlassPanel(

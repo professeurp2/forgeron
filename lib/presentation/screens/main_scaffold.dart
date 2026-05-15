@@ -3,6 +3,9 @@ import '../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
+import '../tutorial/tutorial_overlay.dart';
+import '../tutorial/tutorial_keys.dart';
+import '../tutorial/tutorial_controller.dart';
 import 'dashboard_screen.dart';
 import 'probing_screen.dart';
 import 'tool_table_screen.dart';
@@ -11,6 +14,8 @@ import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'connection_settings_screen.dart';
 
+final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
+
 class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
   @override
@@ -18,8 +23,15 @@ class MainScaffold extends ConsumerStatefulWidget {
 }
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
-  int _selectedIndex = 0;
   bool _isSidebarExpanded = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(tutorialProvider.notifier).checkAutoStart();
+    });
+  }
 
   final List<Widget> _screens = const [
     DashboardScreen(),
@@ -42,49 +54,57 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     final machineState = ref.watch(machineStateProvider);
+    final selectedIndex = ref.watch(selectedNavIndexProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      bottomNavigationBar: _StatusFooter(machineState: machineState),
-      body: Column(
-        children: [
-          _HeaderBar(
-            isSidebarExpanded: _isSidebarExpanded,
-            onMenuToggle: () =>
-                setState(() => _isSidebarExpanded = !_isSidebarExpanded),
-            machineState: machineState,
-            onEmergencyStop: () {
-              final repo = ref.read(machineRepositoryProvider);
-              repo.emergencyStop();
-            },
-            onSettingsPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ConnectionSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                _Sidebar(
-                  selectedIndex: _selectedIndex,
-                  isExpanded: _isSidebarExpanded,
-                  items: _navItems,
-                  onItemSelected: (i) =>
-                      setState(() => _selectedIndex = i),
-                ),
-                Expanded(
-                  child: Container(
-                    color: AppColors.background,
-                    child: _screens[_selectedIndex],
+    return TutorialOverlay(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        bottomNavigationBar: _StatusFooter(
+          key: TutorialKeys.statusFooter,
+          machineState: machineState,
+        ),
+        body: Column(
+          children: [
+            _HeaderBar(
+              key: TutorialKeys.headerBar,
+              isSidebarExpanded: _isSidebarExpanded,
+              onMenuToggle: () =>
+                  setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+              machineState: machineState,
+              onEmergencyStop: () {
+                final repo = ref.read(machineRepositoryProvider);
+                repo.emergencyStop();
+              },
+              onSettingsPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ConnectionSettingsScreen(),
                   ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
-        ],
+            Expanded(
+              child: Row(
+                children: [
+                  _Sidebar(
+                    key: TutorialKeys.sidebar,
+                    selectedIndex: selectedIndex,
+                    isExpanded: _isSidebarExpanded,
+                    items: _navItems,
+                    onItemSelected: (i) =>
+                        ref.read(selectedNavIndexProvider.notifier).state = i,
+                  ),
+                  Expanded(
+                    child: Container(
+                      color: AppColors.background,
+                      child: _screens[selectedIndex],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -96,9 +116,6 @@ class _NavDef {
   const _NavDef(this.icon, this.title);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// HEADER BAR — avec connexion réelle et E-STOP fonctionnel
-// ═══════════════════════════════════════════════════════════════
 class _HeaderBar extends ConsumerWidget {
   final bool isSidebarExpanded;
   final VoidCallback onMenuToggle;
@@ -107,6 +124,7 @@ class _HeaderBar extends ConsumerWidget {
   final VoidCallback onSettingsPressed;
 
   const _HeaderBar({
+    super.key,
     required this.isSidebarExpanded,
     required this.onMenuToggle,
     required this.machineState,
@@ -134,6 +152,7 @@ class _HeaderBar extends ConsumerWidget {
       child: Row(
         children: [
           IconButton(
+            key: TutorialKeys.menuToggleBtn,
             icon: Icon(
                 isSidebarExpanded ? Icons.menu_open : Icons.menu,
                 color: AppColors.textPrimary),
@@ -153,7 +172,6 @@ class _HeaderBar extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 24),
-          // Connexion dynamique
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
             color: isOnline ? AppColors.success : AppColors.error,
@@ -174,22 +192,28 @@ class _HeaderBar extends ConsumerWidget {
                 fontFamily: 'JetBrains Mono'),
           ),
           const Spacer(),
-          // Bouton settings
           IconButton(
+            icon: const Icon(Icons.help_outline,
+                color: AppColors.textSecondary, size: 20),
+            tooltip: 'Tutoriel interactif',
+            onPressed: () => ref.read(tutorialProvider.notifier).start(),
+          ),
+          IconButton(
+            key: TutorialKeys.settingsBtn,
             icon: const Icon(Icons.settings_ethernet,
                 color: AppColors.textSecondary, size: 20),
             tooltip: 'Configuration de la connexion ESP32',
             onPressed: onSettingsPressed,
           ),
           const SizedBox(width: 8),
-          // E-STOP
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.danger.withValues(alpha: 0.1),
+              color: AppColors.danger.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ElevatedButton.icon(
+              key: TutorialKeys.emergencyStopBtn,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.danger,
                 foregroundColor: Colors.white,
@@ -242,7 +266,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withOpacity(0.5)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -271,9 +295,6 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SIDEBAR
-// ═══════════════════════════════════════════════════════════════
 class _Sidebar extends StatelessWidget {
   final int selectedIndex;
   final bool isExpanded;
@@ -281,6 +302,7 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<int> onItemSelected;
 
   const _Sidebar({
+    super.key,
     required this.selectedIndex,
     required this.isExpanded,
     required this.items,
@@ -416,7 +438,7 @@ class _NavItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.12)
+              ? AppColors.primary.withOpacity(0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border(
@@ -458,12 +480,9 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// STATUS FOOTER — données temps réel
-// ═══════════════════════════════════════════════════════════════
 class _StatusFooter extends StatelessWidget {
   final AsyncValue<MachineState> machineState;
-  const _StatusFooter({required this.machineState});
+  const _StatusFooter({super.key, required this.machineState});
 
   @override
   Widget build(BuildContext context) {

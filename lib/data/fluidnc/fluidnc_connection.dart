@@ -20,7 +20,9 @@ class FluidNCConnection {
   bool _isConnected = false;
   int _retryCount = 0;
   Timer? _heartbeatTimer;
+  Timer? _retryTimer;
   DateTime? _lastResponseTime;
+  bool _disposed = false;
 
   // Configuration Buffer (Backpressure)
   static const int maxBufferSize = 127;
@@ -37,19 +39,26 @@ class FluidNCConnection {
 
   /// Tente une connexion avec Exponential Backoff
   Future<void> connect() async {
-    if (_isConnected) return;
+    if (_isConnected || _disposed) return;
 
     try {
       final uri = Uri.parse(url);
-      debugPrint('Connecting to FluidNC at $url (Attempt ${_retryCount + 1})...');
+      debugPrint('[FluidNC] Connecting to $url (Attempt ${_retryCount + 1})...');
       
-      _channel = WebSocketChannel.connect(uri, protocols: ['arduino']);
+      // Tentative SANS sous-protocole (plus compatible)
+      _channel = WebSocketChannel.connect(uri);
       
-      // Attendre un premier message ou timeout
-      await _channel!.ready;
+      // Timeout de 5 secondes pour le handshake
+      await _channel!.ready.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw TimeoutException('WebSocket handshake timeout after 5s');
+        },
+      );
       
       _onConnected();
     } catch (e) {
+      debugPrint('[FluidNC] Connection failed: $e');
       _onConnectionFailed();
     }
   }
@@ -59,6 +68,7 @@ class FluidNCConnection {
     _retryCount = 0;
     _statusController.add(true);
     _lastResponseTime = DateTime.now();
+    debugPrint('[FluidNC] ✅ Connected to $url');
 
     _channel!.stream.listen(
       _handleIncomingMessage,
@@ -70,6 +80,7 @@ class FluidNCConnection {
   }
 
   void _onConnectionFailed() {
+    if (_disposed) return;
     _isConnected = false;
     _statusController.add(false);
     
@@ -77,13 +88,25 @@ class FluidNCConnection {
     final delay = math.min(math.pow(2, _retryCount).toInt(), 30);
     _retryCount++;
     
-    debugPrint('Connection failed. Retrying in ${delay}s...');
-    Future.delayed(Duration(seconds: delay), connect);
+    debugPrint('[FluidNC] ⏳ Retrying in ${delay}s... (attempt $_retryCount)');
+    _retryTimer?.cancel();
+    _retryTimer = Timer(Duration(seconds: delay), () {
+      if (!_disposed) connect();
+    });
   }
 
   void _handleIncomingMessage(dynamic message) {
-    final msg = message.toString();
+    String msg;
+    if (message is List<int>) {
+      // L'ESP32 FluidNC envoie des frames binaires WebSocket — convertir en UTF-8
+      msg = String.fromCharCodes(message).trim();
+    } else {
+      msg = message.toString().trim();
+    }
+    
+    if (msg.isEmpty) return;
     _lastResponseTime = DateTime.now();
+    debugPrint('[FluidNC RX] $msg');
     _trafficController.add('RX: $msg');
     
     // Détection des acquittements pour la gestion du buffer
@@ -101,7 +124,7 @@ class FluidNCConnection {
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (!_isConnected) {
+      if (!_isConnected || _disposed) {
         timer.cancel();
         return;
       }
@@ -109,9 +132,9 @@ class FluidNCConnection {
       // Envoyer un '?' pour forcer un retour de statut
       sendRaw('?');
 
-      // Si pas de réponse depuis plus de 5 secondes, on considère la connexion comme perdue
+      // Si pas de réponse depuis plus de 10 secondes, on considère la connexion comme perdue
       if (_lastResponseTime != null && 
-          DateTime.now().difference(_lastResponseTime!).inSeconds > 5) {
+          DateTime.now().difference(_lastResponseTime!).inSeconds > 10) {
         _handleDisconnect('Heartbeat timeout (Dead connection)');
       }
     });
@@ -143,25 +166,39 @@ class FluidNCConnection {
   /// Envoi brut (pour commandes temps réel comme ?, !, ~)
   void sendRaw(String data) {
     if (_isConnected && _channel != null) {
+      debugPrint('[FluidNC TX] $data');
       _trafficController.add('TX: $data');
       _channel!.sink.add(data);
     }
   }
 
   void _handleDisconnect(String reason) {
-    debugPrint('Disconnected: $reason');
+    if (!_isConnected && !_disposed) return; // Déjà déconnecté
+    debugPrint('[FluidNC] ❌ Disconnected: $reason');
     _isConnected = false;
     _statusController.add(false);
     _heartbeatTimer?.cancel();
     _channel?.sink.close();
-    _onConnectionFailed();
+    _channel = null;
+    
+    // Reset du buffer
+    _currentBufferSize = 0;
+    _sentLengths.clear();
+    _pendingQueue.clear();
+    
+    if (!_disposed) {
+      _onConnectionFailed();
+    }
   }
 
   void dispose() {
+    _disposed = true;
     _heartbeatTimer?.cancel();
+    _retryTimer?.cancel();
     _channel?.sink.close();
     _messageController.close();
     _statusController.close();
+    _trafficController.close();
   }
 }
 

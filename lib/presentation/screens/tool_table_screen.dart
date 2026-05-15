@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/split_view.dart';
 import '../../application/providers/machine_provider.dart';
+import '../tutorial/tutorial_keys.dart';
 
 class ToolTableScreen extends ConsumerStatefulWidget {
   const ToolTableScreen({super.key});
@@ -117,6 +118,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         ),
         // Liste des outils
         Expanded(
+          key: TutorialKeys.toolTable,
           child: ListView.builder(
             itemCount: _tools.length,
             itemBuilder: (ctx, i) {
@@ -212,7 +214,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
     final toolNum = int.tryParse(t.$1.replaceAll('T', '')) ?? -1;
     final isActiveOnMachine = toolNum == activeToolNum && activeToolNum > 0;
 
-    return Column(children: [
+    return Column(
+      key: TutorialKeys.calibrationWizard,
+      children: [
       // Header outil
       Container(
         padding: const EdgeInsets.all(20),

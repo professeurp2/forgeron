@@ -54,7 +54,7 @@ final defaultMacros = [
     color: Colors.red,
   ),
   const Macro(
-    name: 'LANCER DÉMO PFE',
+    name: 'LANCER LE DEMO',
     icon: Icons.play_circle_filled,
     gcode: 'MOCK_DEMO',
     color: Colors.blue,

@@ -11,6 +11,7 @@ class TrunnionVisualizer extends StatefulWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
+  final List<double> machineLimits;
 
   const TrunnionVisualizer({
     super.key,
@@ -19,6 +20,7 @@ class TrunnionVisualizer extends StatefulWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
+    this.machineLimits = const [200.0, 300.0, 150.0],
   });
 
   @override
@@ -39,7 +41,8 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
       ..src = 'three_viewer.html'
       ..style.border = 'none'
       ..style.width = '100%'
-      ..style.height = '100%';
+      ..style.height = '100%'
+      ..allowFullscreen = true;
 
     ui_web.platformViewRegistry.registerViewFactory(
       _viewId,
@@ -47,13 +50,12 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     );
 
     html.window.onMessage.listen((event) {
-      // Use dynamic to avoid Map casting issues with JS interop
-      final data = event.data;
-      if (data != null && data.toString().contains('viewer_ready')) {
-        _isReady = true;
+      if (event.data['type'] == 'viewer_ready') {
+        setState(() => _isReady = true);
         _sendToolpath();
         _updateMachine();
         _toggleVectors();
+        _sendLimits();
       }
     });
   }
@@ -69,7 +71,14 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     if (oldWidget.showVectors != widget.showVectors) {
       _toggleVectors();
     }
+    if (oldWidget.machineLimits != widget.machineLimits) {
+      _sendLimits();
+    }
     _updateMachine();
+  }
+
+  void _sendMessage(dynamic data) {
+    _iframeElement.contentWindow?.postMessage(data, '*');
   }
 
   void _sendToolpath() {
@@ -87,27 +96,38 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
       flatList[idx++] = p.length > 5 ? p[5] : 1.0; 
     }
 
-    _iframeElement.contentWindow?.postMessage({
+    _sendMessage({
       'type': 'load_toolpath',
       'payload': flatList,
-    }, '*');
+    });
   }
 
   void _updateMachine() {
-    _iframeElement.contentWindow?.postMessage({
+    _sendMessage({
       'type': 'update_machine',
       'payload': {
         'mPos': widget.mPos,
         'activeIndex': widget.activeIndex,
       },
-    }, '*');
+    });
   }
 
   void _toggleVectors() {
-    _iframeElement.contentWindow?.postMessage({
+    _sendMessage({
       'type': 'toggle_vectors',
       'payload': widget.showVectors,
-    }, '*');
+    });
+  }
+
+  void _sendLimits() {
+    _sendMessage({
+      'type': 'set_limits',
+      'payload': {
+        'x': widget.machineLimits[0],
+        'y': widget.machineLimits[1],
+        'z': widget.machineLimits[2],
+      },
+    });
   }
 
   @override

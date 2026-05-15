@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../core/widgets/split_view.dart';
+import '../tutorial/tutorial_keys.dart';
 
 class MDITerminalScreen extends ConsumerStatefulWidget {
   const MDITerminalScreen({super.key});
@@ -78,7 +79,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
         Container(height: 36, padding: const EdgeInsets.symmetric(horizontal: 16), decoration: const BoxDecoration(color: AppColors.surfaceBright, border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
           child: const Row(children: [Icon(Icons.terminal, color: AppColors.textDisabled, size: 14), SizedBox(width: 8), Text('TERMINAL MDI / LOGS', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900)), Spacer(), Text('BUFFER: 127/128', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontFamily: 'JetBrains Mono'))])),
         // Log
-        Expanded(child: Container(color: AppColors.terminalBg, child: ListView.builder(padding: const EdgeInsets.all(16), itemCount: _logLines.length, itemBuilder: (ctx, i) {
+        Expanded(key: TutorialKeys.mdiHistory, child: Container(color: AppColors.terminalBg, child: ListView.builder(padding: const EdgeInsets.all(16), itemCount: _logLines.length, itemBuilder: (ctx, i) {
           final l = _logLines[i];
           return Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(children: [
             Text(l.$1, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
@@ -89,7 +90,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           ]));
         }))),
         // Input bar
-        Container(height: 64, padding: const EdgeInsets.symmetric(horizontal: 16), decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.surfaceBorder))),
+        Container(key: TutorialKeys.mdiInput, height: 64, padding: const EdgeInsets.symmetric(horizontal: 16), decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.surfaceBorder))),
           child: Row(children: [
             const Text('❯', style: TextStyle(color: AppColors.primary, fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(width: 12),

@@ -12,6 +12,7 @@ class TrunnionVisualizer extends StatefulWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
+  final List<double> machineLimits; // [Lx, Ly, Lz]
 
   const TrunnionVisualizer({
     super.key,
@@ -20,6 +21,7 @@ class TrunnionVisualizer extends StatefulWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
+    this.machineLimits = const [200.0, 300.0, 150.0],
   });
 
   @override
@@ -55,6 +57,7 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
             _sendToolpath();
             _updateMachine();
             _toggleVectors();
+            _sendLimits();
           }
         } catch (e) {
           debugPrint('Error parsing web message: $e');
@@ -64,10 +67,21 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
       await _controller.setBackgroundColor(Colors.transparent);
       await _controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
 
-      // Load the local HTML file
-      // We'll use a data URI or load from assets if possible.
-      // webview_windows doesn't have a direct 'loadAsset', so we read it manually.
-      final htmlContent = await rootBundle.loadString('web/three_viewer.html');
+      // Load the local HTML file and inject scripts for true offline support
+      String htmlContent = await rootBundle.loadString('web/three_viewer.html');
+      final threeJs = await rootBundle.loadString('web/js/three.min.js');
+      final orbitControls = await rootBundle.loadString('web/js/OrbitControls.js');
+
+      // Replace relative script tags with inlined scripts
+      htmlContent = htmlContent.replaceFirst(
+        '<script src="js/three.min.js"></script>',
+        '<script>$threeJs</script>',
+      );
+      htmlContent = htmlContent.replaceFirst(
+        '<script src="js/OrbitControls.js"></script>',
+        '<script>$orbitControls</script>',
+      );
+
       await _controller.loadStringContent(htmlContent);
 
       if (mounted) {
@@ -90,6 +104,9 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     }
     if (oldWidget.showVectors != widget.showVectors) {
       _toggleVectors();
+    }
+    if (oldWidget.machineLimits != widget.machineLimits) {
+      _sendLimits();
     }
     _updateMachine();
   }
@@ -128,6 +145,17 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     _controller.postWebMessage(jsonEncode({
       'type': 'toggle_vectors',
       'payload': widget.showVectors,
+    }));
+  }
+
+  void _sendLimits() {
+    _controller.postWebMessage(jsonEncode({
+      'type': 'set_limits',
+      'payload': {
+        'x': widget.machineLimits[0],
+        'y': widget.machineLimits[1],
+        'z': widget.machineLimits[2],
+      },
     }));
   }
 

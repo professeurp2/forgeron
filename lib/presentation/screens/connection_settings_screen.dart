@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../../application/services/auto_discovery_service.dart';
+import '../tutorial/tutorial_keys.dart';
 
 /// Écran de configuration de la connexion à l'ESP32/FluidNC
 /// avec découverte automatique du réseau local.
@@ -180,7 +181,9 @@ class _ConnectionSettingsScreenState
                 // ── Paramètres réseau manuels ─────────────────────
                 _SectionTitle('CONFIGURATION MANUELLE'),
                 const SizedBox(height: 12),
-                _SettingsCard(children: [
+                _SettingsCard(
+                  key: TutorialKeys.networkConfig,
+                  children: [
                   _Field(
                     label: 'Adresse IP de l\'ESP32',
                     hint: '192.168.1.100',
@@ -189,8 +192,8 @@ class _ConnectionSettingsScreenState
                   ),
                   const SizedBox(height: 16),
                   _Field(
-                    label: 'Port WebSocket (défaut: 81)',
-                    hint: '81',
+                    label: 'Port WebSocket (défaut: 80)',
+                    hint: '80',
                     controller: _wsPortCtrl,
                     icon: Icons.cable,
                     keyboardType: TextInputType.number,
@@ -413,6 +416,7 @@ class _ConnectionSettingsScreenState
               )
             else
               TextButton.icon(
+                key: TutorialKeys.scannerBtn,
                 icon: const Icon(Icons.refresh, size: 14),
                 label: const Text('SCANNER'),
                 style: TextButton.styleFrom(
@@ -707,7 +711,7 @@ class _SectionTitle extends StatelessWidget {
 
 class _SettingsCard extends StatelessWidget {
   final List<Widget> children;
-  const _SettingsCard({required this.children});
+  const _SettingsCard({super.key, required this.children});
   @override
   Widget build(BuildContext context) => Container(
         width: double.infinity,

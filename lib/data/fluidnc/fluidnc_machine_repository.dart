@@ -21,6 +21,7 @@ class FluidNCMachineRepository implements MachineRepository {
 
     _connection.messages.listen(_handleMessage);
     _connection.status.listen((isConnected) {
+      if (_stateController.isClosed) return;
       if (!isConnected) {
         _currentState = _currentState.copyWith(status: MachineStatus.offline);
         _stateController.add(_currentState);
@@ -36,6 +37,7 @@ class FluidNCMachineRepository implements MachineRepository {
   }
 
   void _handleMessage(String message) {
+    if (_stateController.isClosed) return;
     final newState = GrblParser.parse(message, _currentState);
     if (newState != null) {
       _currentState = newState;
@@ -51,6 +53,9 @@ class FluidNCMachineRepository implements MachineRepository {
 
   /// Stream of raw network traffic (TX/RX) for diagnostics.
   Stream<String> get trafficStream => _connection.traffic;
+
+  @override
+  void sendRaw(String data) => _connection.sendRaw(data);
 
   @override
   MachineState get currentState => _currentState;
@@ -87,10 +92,17 @@ class FluidNCMachineRepository implements MachineRepository {
   @override
   Future<void> home([List<String> axes = const []]) async {
     if (axes.isEmpty) {
+      // Homing global — uniquement si des fins de course sont configurés
       _connection.sendGCode('\$H');
     } else {
       for (final axis in axes) {
-        _connection.sendGCode('\$H${axis.toUpperCase()}');
+        final a = axis.toUpperCase();
+        // $HA et $HC crashent FluidNC sans fins de course → zéro G92 à la place
+        if (a == 'A' || a == 'C') {
+          _connection.sendGCode('G92 ${a}0');
+        } else {
+          _connection.sendGCode('\$H$a');
+        }
       }
     }
   }

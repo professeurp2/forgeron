@@ -40,16 +40,33 @@ class GrblParser {
       if (field.startsWith('MPos:')) {
         final coords =
             field.substring(5).split(',').map(double.tryParse).toList();
-        for (int j = 0; j < coords.length && j < 5; j++) {
-          if (coords[j] != null) mPos[j] = coords[j]!;
+        if (coords.length >= 6) {
+          // FluidNC : X=0, Y=1, Z=2, A=3, B=4, C=5
+          if (coords[0] != null) mPos[0] = coords[0]!;
+          if (coords[1] != null) mPos[1] = coords[1]!;
+          if (coords[2] != null) mPos[2] = coords[2]!;
+          if (coords[3] != null) mPos[3] = coords[3]!;
+          if (coords[5] != null) mPos[4] = coords[5]!; // C axis
+        } else {
+          for (int j = 0; j < coords.length && j < 5; j++) {
+            if (coords[j] != null) mPos[j] = coords[j]!;
+          }
         }
         // Calculer wPos depuis mPos et wco
         wPos = [for (int j = 0; j < 5; j++) mPos[j] - wco[j]];
       } else if (field.startsWith('WPos:')) {
         final coords =
             field.substring(5).split(',').map(double.tryParse).toList();
-        for (int j = 0; j < coords.length && j < 5; j++) {
-          if (coords[j] != null) wPos[j] = coords[j]!;
+        if (coords.length >= 6) {
+          if (coords[0] != null) wPos[0] = coords[0]!;
+          if (coords[1] != null) wPos[1] = coords[1]!;
+          if (coords[2] != null) wPos[2] = coords[2]!;
+          if (coords[3] != null) wPos[3] = coords[3]!;
+          if (coords[5] != null) wPos[4] = coords[5]!; // C axis
+        } else {
+          for (int j = 0; j < coords.length && j < 5; j++) {
+            if (coords[j] != null) wPos[j] = coords[j]!;
+          }
         }
         // Calculer mPos depuis wPos et wco
         mPos = [for (int j = 0; j < 5; j++) wPos[j] + wco[j]];
@@ -57,8 +74,16 @@ class GrblParser {
         // Work Coordinate Offset
         final coords =
             field.substring(4).split(',').map(double.tryParse).toList();
-        for (int j = 0; j < coords.length && j < 5; j++) {
-          if (coords[j] != null) wco[j] = coords[j]!;
+        if (coords.length >= 6) {
+          if (coords[0] != null) wco[0] = coords[0]!;
+          if (coords[1] != null) wco[1] = coords[1]!;
+          if (coords[2] != null) wco[2] = coords[2]!;
+          if (coords[3] != null) wco[3] = coords[3]!;
+          if (coords[5] != null) wco[4] = coords[5]!; // C axis
+        } else {
+          for (int j = 0; j < coords.length && j < 5; j++) {
+            if (coords[j] != null) wco[j] = coords[j]!;
+          }
         }
         // Recalculer wPos avec le nouveau wco
         wPos = [for (int j = 0; j < 5; j++) mPos[j] - wco[j]];

@@ -6,6 +6,7 @@ import '../../application/providers/config_provider.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/services/logger_service.dart';
 import '../../core/widgets/split_view.dart';
+import '../tutorial/tutorial_keys.dart';
 
 class DiagnosticsScreen extends ConsumerWidget {
   const DiagnosticsScreen({super.key});
@@ -50,7 +51,7 @@ class DiagnosticsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Text('TÉLÉMÉTRIE RÉSEAU', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
           const SizedBox(height: 12),
-          GlassPanel(child: Column(children: [
+          GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
             const Center(child: Column(children: [
               Text('LATENCE', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
               SizedBox(height: 4),
@@ -76,12 +77,15 @@ class DiagnosticsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Text('SANTÉ SYSTÈME', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
           const SizedBox(height: 12),
-          GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.6, children: [
-            _healthCard('TEMP CPU', '58°C', Icons.thermostat, AppColors.warning),
-            _healthCard('USAGE RAM', '42%', Icons.memory, AppColors.success),
-            _healthCard('UPTIME', '14h 22m', Icons.schedule, AppColors.primary),
-            _healthCard('WiFi RSSI', '-64 dBm', Icons.wifi, AppColors.success),
-          ]),
+          Container(
+            key: TutorialKeys.performanceMetrics,
+            child: GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.6, children: [
+              _healthCard('TEMP CPU', '58°C', Icons.thermostat, AppColors.warning),
+              _healthCard('USAGE RAM', '42%', Icons.memory, AppColors.success),
+              _healthCard('UPTIME', '14h 22m', Icons.schedule, AppColors.primary),
+              _healthCard('WiFi RSSI', '-64 dBm', Icons.wifi, AppColors.success),
+            ]),
+          ),
           const SizedBox(height: 24),
           const Text('AMDEC & MAINT. PRÉVENTIVE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
           const SizedBox(height: 12),
