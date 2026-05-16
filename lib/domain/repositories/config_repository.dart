@@ -1,13 +1,13 @@
 abstract class ConfigRepository {
-  /// Gets the raw YAML configuration.
+  /// Récupère la configuration YAML brute.
   Future<String> getConfig();
 
-  /// Saves the YAML configuration to the machine.
+  /// Sauvegarde la configuration YAML sur la machine.
   Future<void> saveConfig(String yaml);
 
-  /// Backs up the current configuration.
+  /// Sauvegarde (backup) la configuration actuelle.
   Future<void> backupConfig();
 
-  /// Restores the configuration from a backup.
+  /// Restaure la configuration depuis une sauvegarde.
   Future<void> restoreConfig();
 }

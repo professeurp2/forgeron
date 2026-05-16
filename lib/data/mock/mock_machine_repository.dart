@@ -36,6 +36,7 @@ class MockMachineRepository implements MachineRepository {
     _startSimulation();
   }
 
+  @override
   void setSimulationSpeed(double speed) {
     _simulationSpeedMultiplier = speed;
   }

@@ -12,14 +12,14 @@ class MockFileRepository implements FileRepository {
 
   @override
   Future<List<GCodeFile>> listFiles({String path = '/'}) async {
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network latency
+    await Future.delayed(const Duration(milliseconds: 500)); // Simule la latence réseau
     return _files;
   }
 
   @override
   Future<String> readFile(String path) async {
     await Future.delayed(const Duration(milliseconds: 300));
-    return 'G90\nG21\nG54\nS12000 M3\nG0 X0 Y0 Z10\nG1 Z-5 F500\n...'; // Mock content
+    return 'G90\nG21\nG54\nS12000 M3\nG0 X0 Y0 Z10\nG1 Z-5 F500\n...'; // Contenu fictif
   }
 
   @override

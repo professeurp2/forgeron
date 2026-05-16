@@ -12,6 +12,7 @@ import '../widgets/calibration_wizard.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../screens/dashboard_screen.dart' show showVectorsProvider;
+import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
@@ -56,106 +57,129 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
     final gcodeState = ref.watch(gcodeProvider);
     final showVectors = ref.watch(showVectorsProvider);
 
-    return ResizableSplitView(
-      initialRatio: 0.22, // Slightly smaller left column for more 3D space
-      left: SingleChildScrollView(
-        key: TutorialKeys.wcsCards,
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('SYSTÈMES DE COORDONNÉES (WCS)',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
-          const SizedBox(height: 12),
-          for (int i = 0; i < _wcsData.length; i++) _wcsCard(i, state.valueOrNull?.activeWCS ?? 'G54'),
-          const SizedBox(height: 24),
-          const Text('DRO EN DIRECT',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
-          const SizedBox(height: 12),
-          for (int i = 0; i < 5; i++)
-            _liveDroRow(_axisLabels[i], wPos[i], _axisColors[i],
-                i >= 3 ? '°' : 'mm'),
-          const SizedBox(height: 16),
-          Container(
-            key: TutorialKeys.probingOffsets,
-            child: Column(children: [
-              SizedBox(
-                width: double.infinity, height: 40,
-                child: OutlinedButton(
-                  onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.textDisabled)),
-                  child: const Text('ALLER AU ZÉRO', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
-                ),
+    final leftColumn = SingleChildScrollView(
+      key: TutorialKeys.wcsCards,
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('SYSTÈMES DE COORDONNÉES (WCS)',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        const SizedBox(height: 12),
+        for (int i = 0; i < _wcsData.length; i++) _wcsCard(i, state.valueOrNull?.activeWCS ?? 'G54'),
+        const SizedBox(height: 24),
+        const Text('DRO EN DIRECT',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        const SizedBox(height: 12),
+        for (int i = 0; i < 5; i++)
+          _liveDroRow(_axisLabels[i], wPos[i], _axisColors[i],
+              i >= 3 ? '°' : 'mm'),
+        const SizedBox(height: 16),
+        Container(
+          key: TutorialKeys.probingOffsets,
+          child: Column(children: [
+            SizedBox(
+              width: double.infinity, height: 40,
+              child: OutlinedButton(
+                onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
+                style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.textDisabled)),
+                child: const Text('ALLER AU ZÉRO', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity, height: 40,
-                child: OutlinedButton(
-                  onPressed: () => ref.read(secureJogProvider.notifier).homeAll(),
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.axisZ)),
-                  child: const Text('ORIGINES (TOUS)', style: TextStyle(color: AppColors.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
-                ),
-              ),
-            ]),
-          ),
-        ]),
-      ),
-      right: ResizableSplitView(
-        initialRatio: 0.55, // 55% for 3D Visualizer, 45% for Controls
-        left: Container(
-          margin: const EdgeInsets.fromLTRB(0, 16, 0, 16),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.surfaceBorder, width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: TrunnionVisualizer(
-              mPos: mPos,
-              targetPos: state.valueOrNull?.targetPos,
-              toolpath: gcodeState.toolpath,
-              activeIndex: state.valueOrNull?.activeLineIndex ?? 0,
-              showVectors: showVectors,
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity, height: 40,
+              child: OutlinedButton(
+                onPressed: () => ref.read(secureJogProvider.notifier).homeAll(),
+                style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.axisZ)),
+                child: const Text('ORIGINES (TOUS)', style: TextStyle(color: AppColors.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+
+    final visualizer = Container(
+      margin: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder, width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: TrunnionVisualizer(
+          mPos: mPos,
+          targetPos: state.valueOrNull?.targetPos,
+          toolpath: gcodeState.toolpath,
+          activeIndex: state.valueOrNull?.activeLineIndex ?? 0,
+          showVectors: showVectors,
+        ),
+      ),
+    );
+
+    final tabsAndControls = Column(children: [
+      Container(
+        margin: const EdgeInsets.only(top: 16, right: 16),
+        decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+        child: TabBar(
+          controller: _tabCtrl,
+          isScrollable: true,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textDisabled,
+          tabs: const [
+            Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG'),
+            Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE'),
+            Tab(icon: Icon(Icons.rotate_right, size: 16), text: 'ALIGNER'),
+            Tab(icon: Icon(Icons.home, size: 16), text: 'HOMING'),
+          ],
+        ),
+      ),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: TabBarView(
+            controller: _tabCtrl,
+            children: [
+              _JogPanel5Axes(), 
+              _ProbingWizardTab(), 
+              _AlignementTab(),
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: _HomingSequencePanel(),
+              ),
+            ],
           ),
         ),
-        right: Column(children: [
-          Container(
-            margin: const EdgeInsets.only(top: 16, right: 16),
-            decoration: const BoxDecoration(
-                color: AppColors.surface,
-                border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
-            child: TabBar(
-              controller: _tabCtrl,
-              isScrollable: true,
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textDisabled,
-              tabs: const [
-                Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG'),
-                Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE'),
-                Tab(icon: Icon(Icons.rotate_right, size: 16), text: 'ALIGNER'),
-                Tab(icon: Icon(Icons.home, size: 16), text: 'HOMING'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: TabBarView(
-                controller: _tabCtrl,
-                children: [
-                  _JogPanel5Axes(), 
-                  _ProbingWizardTab(), 
-                  _AlignementTab(),
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _HomingSequencePanel(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ]),
+      ),
+    ]);
+
+    return ResponsiveLayout(
+      mobile: Column(
+        children: [
+          Expanded(flex: 1, child: leftColumn),
+          Expanded(flex: 2, child: tabsAndControls),
+        ],
+      ),
+      tablet: ResizableSplitView(
+        initialRatio: 0.22,
+        left: leftColumn,
+        right: ResizableSplitView(
+          initialRatio: 0.55,
+          left: visualizer,
+          right: tabsAndControls,
+        ),
+      ),
+      desktop: ResizableSplitView(
+        initialRatio: 0.22,
+        left: leftColumn,
+        right: ResizableSplitView(
+          initialRatio: 0.55,
+          left: visualizer,
+          right: tabsAndControls,
+        ),
       ),
     );
   }

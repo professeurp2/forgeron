@@ -129,6 +129,9 @@ class FluidNCMachineRepository implements MachineRepository {
   @override
   Future<void> setSpindleOverride(int percent) async => _connection.sendRaw(percent == 100 ? '\x99' : (percent > 100 ? '\x9A' : '\x9B'));
 
+  @override
+  void setSimulationSpeed(double speed) {} // Ignored for real hardware
+
   void dispose() {
     _stateController.close();
     _connection.dispose();

@@ -15,7 +15,7 @@ final wsPortProvider = StateProvider<int>((ref) => 80);
 final httpPortProvider = StateProvider<int>((ref) => 80);
 
 /// Mode simulation pour tester sans ESP32 physique
-final isSimulationModeProvider = StateProvider<bool>((ref) => true);
+final isSimulationModeProvider = StateProvider<bool>((ref) => false);
 
 // ── Repository selection (Réel ou Mock) ─────────────────────────────────────
 

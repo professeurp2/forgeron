@@ -13,6 +13,9 @@ import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'connection_settings_screen.dart';
+import '../../core/widgets/responsive_layout.dart';
+
+import '../../application/services/audio_service.dart';
 
 final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -31,6 +34,15 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(tutorialProvider.notifier).checkAutoStart();
     });
+  }
+
+  void _onNavItemTapped(int index) {
+    if (ref.read(selectedNavIndexProvider) != index) {
+      // Déclenche le warmUp au premier clic pour débloquer l'audio sur le Web
+      ref.read(audioServiceProvider).warmUp();
+      ref.read(audioServiceProvider).play(SoundEffect.navigation);
+      ref.read(selectedNavIndexProvider.notifier).state = index;
+    }
   }
 
   final List<Widget> _screens = const [
@@ -57,56 +69,121 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
     return TutorialOverlay(
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        bottomNavigationBar: _StatusFooter(
-          key: TutorialKeys.statusFooter,
-          machineState: machineState,
-        ),
-        body: Column(
-          children: [
-            _HeaderBar(
-              key: TutorialKeys.headerBar,
-              isSidebarExpanded: _isSidebarExpanded,
-              onMenuToggle: () =>
-                  setState(() => _isSidebarExpanded = !_isSidebarExpanded),
-              machineState: machineState,
-              onEmergencyStop: () {
-                final repo = ref.read(machineRepositoryProvider);
-                repo.emergencyStop();
-              },
-              onSettingsPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ConnectionSettingsScreen(),
+      child: ResponsiveLayout(
+        mobile: _buildMobileScaffold(machineState, selectedIndex),
+        tablet: _buildDesktopScaffold(machineState, selectedIndex, false),
+        desktop: _buildDesktopScaffold(machineState, selectedIndex, _isSidebarExpanded),
+      ),
+    );
+  }
+
+  Widget _buildDesktopScaffold(AsyncValue<MachineState> machineState, int selectedIndex, bool isExpanded) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      bottomNavigationBar: _StatusFooter(
+        key: TutorialKeys.statusFooter,
+        machineState: machineState,
+      ),
+      body: Column(
+        children: [
+          _HeaderBar(
+            key: TutorialKeys.headerBar,
+            isSidebarExpanded: isExpanded,
+            onMenuToggle: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+            machineState: machineState,
+            onEmergencyStop: () {
+              final repo = ref.read(machineRepositoryProvider);
+              repo.emergencyStop();
+            },
+            onSettingsPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()),
+              );
+            },
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                _Sidebar(
+                  key: TutorialKeys.sidebar,
+                  selectedIndex: selectedIndex,
+                  isExpanded: isExpanded,
+                  items: _navItems,
+                  onItemSelected: _onNavItemTapped,
+                ),
+                Expanded(
+                  child: Container(
+                    color: AppColors.background,
+                    child: _screens[selectedIndex],
                   ),
-                );
-              },
+                ),
+              ],
             ),
-            Expanded(
-              child: Row(
-                children: [
-                  _Sidebar(
-                    key: TutorialKeys.sidebar,
-                    selectedIndex: selectedIndex,
-                    isExpanded: _isSidebarExpanded,
-                    items: _navItems,
-                    onItemSelected: (i) =>
-                        ref.read(selectedNavIndexProvider.notifier).state = i,
-                  ),
-                  Expanded(
-                    child: Container(
-                      color: AppColors.background,
-                      child: _screens[selectedIndex],
-                    ),
-                  ),
-                ],
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
+    final state = machineState.valueOrNull;
+    final statusColor = _getMachineStatusColor(state?.status ?? MachineStatus.offline);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            Image.asset('assets/logo.png', height: 24),
+            const SizedBox(width: 8),
+            Container(
+              width: 10, height: 10,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_ethernet, color: AppColors.textSecondary),
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.warning_amber, color: AppColors.danger),
+            onPressed: () => ref.read(machineRepositoryProvider).emergencyStop(),
+          ),
+        ],
+      ),
+      body: Container(
+        color: AppColors.background,
+        child: _screens[selectedIndex],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: AppColors.surface,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.textDisabled,
+        currentIndex: selectedIndex,
+        onTap: _onNavItemTapped,
+        type: BottomNavigationBarType.fixed,
+        items: _navItems.map((item) => BottomNavigationBarItem(
+          icon: Icon(item.icon),
+          label: item.title.split(' ').first,
+        )).toList(),
       ),
     );
+  }
+
+  Color _getMachineStatusColor(MachineStatus s) {
+    switch (s) {
+      case MachineStatus.idle: return AppColors.success;
+      case MachineStatus.run: return AppColors.primary;
+      case MachineStatus.hold: return AppColors.warning;
+      case MachineStatus.alarm: return AppColors.error;
+      case MachineStatus.home: return AppColors.axisZ;
+      default: return AppColors.textDisabled;
+    }
   }
 }
 

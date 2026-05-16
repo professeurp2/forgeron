@@ -5,9 +5,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/file_provider.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/gcode_provider.dart';
 import '../../domain/models/gcode_file.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/utils/file_picker_service.dart';
+import '../../core/widgets/gcode_editor_controller.dart';
 import '../tutorial/tutorial_keys.dart';
 
 class FileManagerScreen extends ConsumerStatefulWidget {
@@ -17,19 +19,22 @@ class FileManagerScreen extends ConsumerStatefulWidget {
 }
 
 class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with SingleTickerProviderStateMixin {
-  int _selectedFile = 0;
-  late TabController _tabCtrl;
-  String _previewContent = '';
+  int? _selectedFileIndex;
+  late GCodeEditingController _editorCtrl;
+  bool _isEditing = false;
   bool _loadingPreview = false;
+  late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _editorCtrl = GCodeEditingController();
+    _tabCtrl = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
+    _editorCtrl.dispose();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -40,150 +45,290 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     try {
       await ref.read(fileRepositoryProvider).uploadFile(result.name, Uint8List.fromList(result.bytes));
       ref.invalidate(fileListProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('✅ Fichier ${result.name} chargé sur la SD'),
+        backgroundColor: AppColors.success,
+      ));
     } catch (e) {
-      print('Upload error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('❌ Erreur upload: $e'),
+        backgroundColor: AppColors.error,
+      ));
     }
   }
 
-  Future<void> _deleteFile(GCodeFile file) async {
-    try {
-      await ref.read(fileRepositoryProvider).deleteFile(file.name);
-      ref.invalidate(fileListProvider);
-    } catch (e) {
-      print('Delete error: $e');
-    }
-  }
-
-  Future<void> _runFile(GCodeFile file) async {
-    await ref.read(machineRepositoryProvider).sendGCode('\$SD/Run=${file.name}');
-  }
-
-  Future<void> _loadPreview(GCodeFile file) async {
+  Future<void> _loadFileIntoEditor(GCodeFile file) async {
     setState(() => _loadingPreview = true);
     try {
       final content = await ref.read(fileRepositoryProvider).readFile(file.name);
-      setState(() { _previewContent = content; _loadingPreview = false; });
+      await ref.read(gcodeProvider.notifier).loadFile(content);
+      _editorCtrl.text = content;
+      _tabCtrl.animateTo(1); // Basculer vers l'éditeur
+      setState(() => _loadingPreview = false);
     } catch (e) {
-      setState(() { _previewContent = '; Error: $e'; _loadingPreview = false; });
+      setState(() => _loadingPreview = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
+  Future<void> _saveEditorContent() async {
+    final content = _editorCtrl.text;
+    await ref.read(gcodeProvider.notifier).loadFile(content);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('✅ Programme mis à jour dans l\'unité de streaming'),
+      backgroundColor: AppColors.success,
+    ));
+    setState(() => _isEditing = false);
+  }
+
+  Future<void> _saveToSD() async {
+    final content = _editorCtrl.text;
+    // On demande un nom de fichier (par défaut le dernier chargé ou "edit.nc")
+    final fileName = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController(text: 'modified_program.nc');
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text('SAUVEGARDER SUR LA CARTE SD', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: ctrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(labelText: 'Nom du fichier', labelStyle: TextStyle(color: AppColors.textSecondary)),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ANNULER')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('SAUVEGARDER')),
+          ],
+        );
+      },
+    );
+
+    if (fileName != null && fileName.isNotEmpty) {
+      try {
+        final bytes = Uint8List.fromList(content.codeUnits);
+        await ref.read(fileRepositoryProvider).uploadFile(fileName, bytes);
+        ref.invalidate(fileListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Enregistré : $fileName'), backgroundColor: AppColors.success));
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur : $e'), backgroundColor: AppColors.error));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filesAsync = ref.watch(fileListProvider);
     return Column(children: [
+      // ── BARRE D'ONGLETS ────────────────────────────────────────────────
       Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
-        child: Row(children: [
-          const Icon(Icons.folder_open, color: AppColors.primary, size: 20),
-          const SizedBox(width: 12),
-          const Text('ESPACE DE TRAVAIL',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0)),
-          const Spacer(),
-          ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surfaceBright,
-                  foregroundColor: AppColors.primary),
-              onPressed: _uploadFile,
-              icon: const Icon(Icons.upload_file, size: 18),
-              label: const Text('CHARGER NC')),
-        ]),
+        color: AppColors.surface,
+        child: TabBar(
+          controller: _tabCtrl,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textDisabled,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+          tabs: const [
+            Tab(text: 'EXPLORATEUR SD', icon: Icon(Icons.sd_storage_rounded, size: 18)),
+            Tab(text: 'ÉDITEUR DE PROGRAMME', icon: Icon(Icons.edit_note_rounded, size: 20)),
+          ],
+        ),
       ),
+      
       Expanded(
-        child: ResizableSplitView(
-          initialRatio: 0.3,
-          left: Container(
-            key: TutorialKeys.fileManager,
-            child: filesAsync.when(
-            data: (files) => files.isEmpty
-                ? const Center(
-                    child: Text('AUCUN FICHIER SUR LA SD',
-                        style: TextStyle(color: AppColors.textDisabled)))
-                : ListView.separated(
-                    itemCount: files.length,
-                    separatorBuilder: (_, __) => const Divider(
-                        color: AppColors.surfaceBorder, height: 1),
-                    itemBuilder: (ctx, i) => ListTile(
-                      selected: i == _selectedFile,
-                      selectedTileColor: AppColors.primary.withOpacity(0.1),
-                      leading: Icon(Icons.insert_drive_file,
-                          color: i == _selectedFile
-                              ? AppColors.primary
-                              : AppColors.textDisabled,
-                          size: 18),
-                      title: Text(files[i].name,
-                          style: TextStyle(
-                              color: i == _selectedFile
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: i == _selectedFile
-                                  ? FontWeight.bold
-                                  : FontWeight.normal)),
-                      subtitle: Text('${(files[i].size / 1024).toStringAsFixed(1)} Ko',
-                          style: const TextStyle(
-                              color: AppColors.textDisabled, fontSize: 10)),
-                      trailing: i == _selectedFile
-                          ? IconButton(
-                              key: TutorialKeys.streamBtn,
-                              icon: const Icon(Icons.play_circle_fill,
-                                  color: AppColors.success, size: 24),
-                              onPressed: () => _runFile(files[i]),
-                              tooltip: 'Lancer l\'usinage',
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: AppColors.danger, size: 18),
-                              onPressed: () => _deleteFile(files[i]),
-                            ),
-                      onTap: () {
-                        setState(() => _selectedFile = i);
-                        _loadPreview(files[i]);
-                      },
-                    ),
-                  ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => Center(child: Text('Erreur: $e', style: const TextStyle(color: AppColors.error))),
-            ),
-          ),
-          right: Container(
-            key: TutorialKeys.gcodePreview,
-            child: _loadingPreview
-                ? const Center(child: CircularProgressIndicator())
-              : _previewContent.isEmpty
-                  ? const Center(
-                      child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.description,
-                            size: 48, color: AppColors.surfaceBorder),
-                        SizedBox(height: 16),
-                        Text('SÉLECTIONNEZ UN FICHIER POUR APERÇU',
-                            style: TextStyle(color: AppColors.textDisabled)),
-                      ],
-                    ))
-                  : Container(
-                      color: AppColors.terminalBg,
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(_previewContent,
-                              style: const TextStyle(
-                                  color: Color(0xFF00FF00),
-                                  fontFamily: 'JetBrains Mono',
-                                  fontSize: 12,
-                                  height: 1.4))),
-                    ),
-          ),
+        child: TabBarView(
+          controller: _tabCtrl,
+          children: [
+            _buildExplorerTab(),
+            _buildEditorTab(),
+          ],
         ),
       ),
     ]);
+  }
+
+  Widget _buildExplorerTab() {
+    final filesAsync = ref.watch(fileListProvider);
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: const BoxDecoration(
+            color: AppColors.background,
+            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+        child: Row(children: [
+          const Text('FICHIERS SUR CARTE SD', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: _uploadFile,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('AJOUTER'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: filesAsync.when(
+          data: (files) => ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: files.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (ctx, i) => _FileCard(
+              file: files[i],
+              onLoad: () => _loadFileIntoEditor(files[i]),
+              onDelete: () async {
+                await ref.read(fileRepositoryProvider).deleteFile(files[i].name);
+                ref.invalidate(fileListProvider);
+              },
+            ),
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Center(child: Text('Erreur: $e')),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildEditorTab() {
+    final gcodeState = ref.watch(gcodeProvider);
+    
+    if (gcodeState.allLines.isEmpty && !_isEditing) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.edit_document, size: 64, color: AppColors.surfaceBorder),
+            const SizedBox(height: 24),
+            const Text('AUCUN PROGRAMME CHARGÉ', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => _tabCtrl.animateTo(0),
+              child: const Text('CHARGER DEPUIS LA SD'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        color: AppColors.surfaceBright.withOpacity(0.5),
+        child: Row(children: [
+          const Icon(Icons.terminal, color: AppColors.primary, size: 16),
+          const SizedBox(width: 12),
+          const Text('ÉDITEUR TEMPS-RÉEL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          const Spacer(),
+          if (_isEditing) ...[
+            TextButton(onPressed: () => setState(() => _isEditing = false), child: const Text('ANNULER', style: TextStyle(color: AppColors.textDisabled))),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _saveEditorContent,
+              icon: const Icon(Icons.flash_on, size: 14),
+              label: const Text('APPLIQUER'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.black),
+            ),
+          ] else ...[
+            TextButton.icon(
+              onPressed: _saveToSD,
+              icon: const Icon(Icons.save, size: 14),
+              label: const Text('SAUVEGARDER SUR SD', style: TextStyle(fontSize: 10)),
+              style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () => setState(() => _isEditing = true),
+              icon: const Icon(Icons.edit, size: 14),
+              label: const Text('MODIFIER'),
+            ),
+          ],
+        ]),
+      ),
+      Expanded(
+        child: Container(
+          color: AppColors.terminalBg,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _isEditing
+              ? TextField(
+                  controller: _editorCtrl,
+                  maxLines: null,
+                  style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: AppColors.textPrimary, height: 1.5),
+                  decoration: const InputDecoration(border: InputBorder.none),
+                )
+              : ListView.builder(
+                  itemCount: gcodeState.allLines.length,
+                  itemBuilder: (context, index) {
+                    return _GCodeLine(
+                      index: index + 1,
+                      content: gcodeState.allLines[index],
+                      isCurrent: index == gcodeState.currentLineIndex,
+                    );
+                  },
+                ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _FileCard extends StatelessWidget {
+  final GCodeFile file;
+  final VoidCallback onLoad;
+  final VoidCallback onDelete;
+  const _FileCard({required this.file, required this.onLoad, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      child: Row(children: [
+        const Icon(Icons.insert_drive_file, color: AppColors.textSecondary),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(file.name, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            Text('${(file.size / 1024).toStringAsFixed(1)} Ko', style: const TextStyle(color: AppColors.textDisabled, fontSize: 10)),
+          ]),
+        ),
+        IconButton(onPressed: onLoad, icon: const Icon(Icons.file_open_rounded, color: AppColors.primary), tooltip: 'Charger dans l\'éditeur'),
+        IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, color: AppColors.danger)),
+      ]),
+    );
+  }
+}
+
+class _GCodeLine extends StatelessWidget {
+  final int index;
+  final String content;
+  final bool isCurrent;
+
+  const _GCodeLine({required this.index, required this.content, required this.isCurrent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: isCurrent ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text('$index', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
+          ),
+          Expanded(
+            child: Text(content, style: TextStyle(
+              color: isCurrent ? AppColors.primary : AppColors.textPrimary,
+              fontFamily: 'JetBrains Mono',
+              fontSize: 13,
+              height: 1.5,
+            )),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -10,12 +10,16 @@ import '../../domain/models/macro.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_parser.dart';
-import '../../data/mock/mock_machine_repository.dart';
 import '../tutorial/tutorial_keys.dart';
+
+import '../../application/services/audio_service.dart';
+
+import '../../core/widgets/responsive_layout.dart';
 
 final isWorkshopModeProvider = StateProvider<bool>((ref) => false);
 final isVisualizerFullScreenProvider = StateProvider<bool>((ref) => false);
 final simulationSpeedProvider = StateProvider<double>((ref) => 1.0);
+final show3DOnMobileProvider = StateProvider<bool>((ref) => false);
 
 class ToolpathNotifier extends StateNotifier<List<List<double>>> {
   ToolpathNotifier() : super([]);
@@ -40,6 +44,19 @@ class DashboardScreen extends ConsumerWidget {
     if (isFullScreen) return _FullScreenVisualizer();
     if (isWorkshop) return _WorkshopLayout();
 
+    return const ResponsiveLayout(
+      mobile: _MobileDashboard(),
+      tablet: _DesktopDashboard(),
+      desktop: _DesktopDashboard(),
+    );
+  }
+}
+
+class _DesktopDashboard extends StatelessWidget {
+  const _DesktopDashboard();
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: ResizableSplitView(
@@ -79,6 +96,55 @@ class DashboardScreen extends ConsumerWidget {
             ]),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MobileDashboard extends ConsumerWidget {
+  const _MobileDashboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final show3D = ref.watch(show3DOnMobileProvider);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ConnectionHUD(),
+          const SizedBox(height: 16),
+          _DROPanel(),
+          const SizedBox(height: 16),
+          
+          GlassPanel(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('VISUALISEUR 3D', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0)),
+                Switch(
+                  value: show3D,
+                  onChanged: (v) => ref.read(show3DOnMobileProvider.notifier).state = v,
+                  activeColor: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+          if (show3D) ...[
+            const SizedBox(height: 16),
+            SizedBox(height: 300, child: _VisualizerPanel()),
+          ],
+          
+          const SizedBox(height: 16),
+          _ActionGrid(),
+          const SizedBox(height: 16),
+          SizedBox(height: 350, child: _GCodeConsolePanel()),
+          const SizedBox(height: 16),
+          _OverridesPanel(),
+          const SizedBox(height: 16),
+          _MacrosPanel(),
+        ],
       ),
     );
   }
@@ -166,7 +232,10 @@ class _ConnectionHUD extends ConsumerWidget {
           const Spacer(),
           IconButton(
             icon: Icon(isWorkshop ? Icons.fullscreen_exit : Icons.touch_app, size: 16, color: AppColors.primary), 
-            onPressed: () => ref.read(isWorkshopModeProvider.notifier).state = !isWorkshop,
+            onPressed: () {
+              ref.read(audioServiceProvider).play(SoundEffect.navigation);
+              ref.read(isWorkshopModeProvider.notifier).state = !isWorkshop;
+            },
             tooltip: 'Mode Atelier / Cockpit',
           ),
         ]),
@@ -199,29 +268,29 @@ class _ActionGrid extends ConsumerWidget {
         GridView.count(
           crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
           children: [
-            _actionBtn(Icons.play_arrow, 'REPRENDRE', AppColors.success, () {
+            _actionBtn(ref, Icons.play_arrow, 'REPRENDRE', AppColors.success, () {
               repo.resume();
               _showFeedback(context, 'Reprise (Cycle Start)');
             }),
-            _actionBtn(Icons.pause, 'PAUSE', AppColors.warning, () {
+            _actionBtn(ref, Icons.pause, 'PAUSE', AppColors.warning, () {
               repo.pause();
               _showFeedback(context, 'Pause (Feed Hold)');
             }),
-            _actionBtn(Icons.stop, 'ARRÊT', AppColors.danger, () {
+            _actionBtn(ref, Icons.stop, 'ARRÊT', AppColors.danger, () {
               repo.emergencyStop();
               _showFeedback(context, 'Arrêt / Reset');
             }),
-            _actionBtn(Icons.refresh, 'RESET', AppColors.textDisabled, () {
+            _actionBtn(ref, Icons.refresh, 'RESET', AppColors.textDisabled, () {
               repo.sendRaw('\x18'); // Soft reset
               Future.delayed(const Duration(milliseconds: 500), () => repo.sendRaw('\$X\n')); // Unlock alarm
               _showFeedback(context, 'Soft Reset & Déverrouillage');
             }),
-            _actionBtn(Icons.home, 'ORIGINE TOUS', AppColors.axisZ, () {
+            _actionBtn(ref, Icons.home, 'ORIGINE TOUS', AppColors.axisZ, () {
               repo.sendRaw('\$X\n'); // Unlock alarm d'abord
               Future.delayed(const Duration(milliseconds: 300), () => repo.home([]));
               _showFeedback(context, 'Homing global initié (\$H)');
             }),
-            _actionBtn(Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () {
+            _actionBtn(ref, Icons.gps_fixed, 'ALLER ZÉRO', AppColors.secondary, () {
               repo.sendGCode('G90 G0 X0 Y0 Z0 A0 C0');
               _showFeedback(context, 'Retour à l\'origine pièce (G0)');
             }),
@@ -240,9 +309,7 @@ class _ActionGrid extends ConsumerWidget {
                 max: 20.0,
                 onChanged: (v) {
                   ref.read(simulationSpeedProvider.notifier).state = v;
-                  if (repo is MockMachineRepository) {
-                    repo.setSimulationSpeed(v);
-                  }
+                  repo.setSimulationSpeed(v);
                 },
                 activeColor: AppColors.primary,
               ),
@@ -254,8 +321,39 @@ class _ActionGrid extends ConsumerWidget {
       ],
     );
   }
-  Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(onTap: onTap, child: Container(decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withOpacity(0.3))), child: FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 16), const SizedBox(width: 8), Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0))])))));
+  Widget _actionBtn(WidgetRef ref, IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: () {
+        ref.read(audioServiceProvider).play(SoundEffect.click);
+        onTap();
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showFeedback(BuildContext context, String message) {
@@ -827,9 +925,7 @@ class _IndustrialControlPanel extends ConsumerWidget {
             max: 20.0,
             onChanged: (v) {
               ref.read(simulationSpeedProvider.notifier).state = v;
-              if (repo is MockMachineRepository) {
-                repo.setSimulationSpeed(v);
-              }
+              repo.setSimulationSpeed(v);
             },
             activeColor: AppColors.primary,
           ),

@@ -44,6 +44,7 @@ dependencies:
   vector_math: ^2.1.4
   flutter_cube: ^0.1.1
   webview_windows: ^0.4.0
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:
@@ -83,6 +84,7 @@ flutter:
     - web/js/OrbitControls.js
     - assets/logo.png
     - assets/images/tools/
+    - assets/audio/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
