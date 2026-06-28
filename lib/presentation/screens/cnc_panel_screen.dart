@@ -915,53 +915,30 @@ class _JogPanel5Axis extends ConsumerWidget {
                   const CncSectionLabel('AXES ROTATIFS'),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Axe A
-                      Column(
-                        children: [
-                          ArcGauge(
-                            value: wPos[3],
-                            minValue: -90,
-                            maxValue: 90,
-                            color: AppColors.axisA,
-                            axisLabel: 'A',
-                            size: 110,
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotaryJogButton(isPlus: false, axisLabel: 'A', color: AppColors.axisA,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600)),
-                              SizedBox(width: 8),
-                              RotaryJogButton(isPlus: true, axisLabel: 'A', color: AppColors.axisA,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600)),
-                            ],
-                          ),
-                        ],
+                      // Axe A (molette CncJogDial)
+                      CncJogDial(
+                        axis: 'A',
+                        label: 'TILT (BERCEAU)',
+                        color: AppColors.axisA,
+                        currentValue: wPos[3],
+                        multiplier: multiplier,
+                        onJog: (step) {
+                          ref.read(machineRepositoryProvider).jog('A', step, 3600);
+                        },
+                        size: 90,
                       ),
-                      // Axe C
-                      Column(
-                        children: [
-                          RingGauge(
-                            value: wPos[4] % 360,
-                            color: AppColors.axisC,
-                            axisLabel: 'C',
-                            size: 100,
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotaryJogButton(isPlus: false, axisLabel: 'C', color: AppColors.axisC,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600)),
-                              SizedBox(width: 8),
-                              RotaryJogButton(isPlus: true, axisLabel: 'C', color: AppColors.axisC,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600)),
-                            ],
-                          ),
-                        ],
+                      // Axe C (molette CncJogDial)
+                      CncJogDial(
+                        axis: 'C',
+                        label: 'PLATEAU ROTATIF',
+                        color: AppColors.axisC,
+                        currentValue: wPos[4],
+                        multiplier: multiplier,
+                        onJog: (step) {
+                          ref.read(machineRepositoryProvider).jog('C', step, 3600);
+                        },
+                        size: 90,
                       ),
                     ],
                   ),

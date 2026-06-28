@@ -534,79 +534,39 @@ class _RightPanel extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Section AXES ROTATIFS (A / C)
-            Text('AXES ROTATIFS',
-                style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Axe A
-                Column(
-                  children: [
-                    ArcGauge(
-                      value: wPos[3],
-                      minValue: -90,
-                      maxValue: 90,
-                      color: context.fc.axisA,
-                      axisLabel: 'A',
-                      size: 110,
-                    ),
-                    const SizedBox(height: 6),
-                    Consumer(builder: (ctx, r, _) {
-                      final multiplier = r.watch(cncJogMultiplierProvider);
-                      return Row(
-                        children: [
-                          RotaryJogButton(
-                            isPlus: false,
-                            axisLabel: 'A',
-                            color: context.fc.axisA,
-                            onTap: () => r.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600),
-                          ),
-                          const SizedBox(width: 4),
-                          RotaryJogButton(
-                            isPlus: true,
-                            axisLabel: 'A',
-                            color: context.fc.axisA,
-                            onTap: () => r.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-                // Axe C
-                Column(
-                  children: [
-                    RingGauge(
-                      value: wPos[4] % 360,
-                      color: context.fc.axisC,
-                      axisLabel: 'C',
-                      size: 90,
-                    ),
-                    const SizedBox(height: 6),
-                    Consumer(builder: (ctx, r, _) {
-                      final multiplier = r.watch(cncJogMultiplierProvider);
-                      return Row(
-                        children: [
-                          RotaryJogButton(
-                            isPlus: false,
-                            axisLabel: 'C',
-                            color: context.fc.axisC,
-                            onTap: () => r.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600),
-                          ),
-                          const SizedBox(width: 4),
-                          RotaryJogButton(
-                            isPlus: true,
-                            axisLabel: 'C',
-                            color: context.fc.axisC,
-                            onTap: () => r.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
+                // Axe A (molette CncJogDial)
+                Consumer(builder: (ctx, r, _) {
+                  final multiplier = r.watch(cncJogMultiplierProvider);
+                  return CncJogDial(
+                    axis: 'A',
+                    label: 'TILT (BERCEAU)',
+                    color: context.fc.axisA,
+                    currentValue: wPos[3],
+                    multiplier: multiplier,
+                    onJog: (step) {
+                      r.read(machineRepositoryProvider).jog('A', step, 3600);
+                    },
+                    size: 90,
+                  );
+                }),
+                // Axe C (molette CncJogDial)
+                Consumer(builder: (ctx, r, _) {
+                  final multiplier = r.watch(cncJogMultiplierProvider);
+                  return CncJogDial(
+                    axis: 'C',
+                    label: 'PLATEAU ROTATIF',
+                    color: context.fc.axisC,
+                    currentValue: wPos[4],
+                    multiplier: multiplier,
+                    onJog: (step) {
+                      r.read(machineRepositoryProvider).jog('C', step, 3600);
+                    },
+                    size: 90,
+                  );
+                }),
               ],
             ),
 

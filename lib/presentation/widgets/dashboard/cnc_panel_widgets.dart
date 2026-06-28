@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/forgeron_colors.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL WIDGETS — Composants réutilisables style pupitre FANUC industriel
@@ -743,7 +744,7 @@ class _CncJogDialState extends State<CncJogDial> {
         SizedBox(height: 2),
         Text(
           widget.label,
-          style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
+          style: TextStyle(color: context.fc.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
 
@@ -796,8 +797,8 @@ class _CncJogDialState extends State<CncJogDial> {
                 height: widget.size + 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.panelBody,
-                  border: Border.all(color: AppColors.keyBorder, width: 1.5),
+                  color: context.fc.panelBody,
+                  border: Border.all(color: context.fc.keyBorder, width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.4),
@@ -807,7 +808,7 @@ class _CncJogDialState extends State<CncJogDial> {
                   ],
                 ),
                 child: CustomPaint(
-                  painter: _DialTicksPainter(color: AppColors.keyBorder),
+                  painter: _DialTicksPainter(color: context.fc.keyBorder),
                 ),
               ),
 
@@ -823,8 +824,8 @@ class _CncJogDialState extends State<CncJogDial> {
                       center: Alignment.center,
                       radius: 0.95,
                       colors: [
-                        AppColors.surfaceBright,
-                        AppColors.keyBezel,
+                        context.fc.surfaceBright,
+                        context.fc.keyBezel,
                         Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
