@@ -16,20 +16,19 @@ class GlassPanel extends StatelessWidget {
   final Widget? titleTrailing;
   final bool expand;
 
-  GlassPanel({
+  const GlassPanel({
     super.key,
     required this.child,
     this.width,
     this.height,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 12.0, // Un peu plus arrondi pour un look moderne
-    Color? borderColor,
-    Color? backgroundColor,
+    this.borderColor = Colors.grey,
+    this.backgroundColor = Colors.black,
     this.title,
     this.titleTrailing,
     this.expand = false,
-  }) : borderColor = borderColor ?? AppColors.surfaceBorder,
-       backgroundColor = backgroundColor ?? AppColors.surface;
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -111,7 +111,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 12),
               prefixIcon: Icon(Icons.search, color: AppColors.textDisabled),
               border: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey)), // Fix: use static color for border or remove const
+                  borderSide: BorderSide(color: AppColors.surfaceBorder)),
               filled: true,
               fillColor: AppColors.surfaceBright,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -564,7 +564,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               const CircularProgressIndicator(
                   value: 0.68,
                   strokeWidth: 8,
-                  backgroundColor: Colors.grey, // Fix: remove AppColors inside const
+                  backgroundColor: AppColors.surfaceBright,
                   color: Colors.green),
               Text('68%',
                   style: TextStyle(

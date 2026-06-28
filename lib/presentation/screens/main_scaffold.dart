@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
@@ -50,7 +49,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     }
   }
 
-  final List<Widget> _screens = [
+  final List<Widget> _screens = const [
     DashboardScreen(),
     ProbingScreen(),
     ToolTableScreen(),
@@ -173,7 +172,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
             SizedBox(width: 10),
             // Badge statut compact
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
@@ -339,7 +338,7 @@ class _HeaderBar extends ConsumerWidget {
 
     return Container(
       height: 72,
-      padding: EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
@@ -388,17 +387,6 @@ class _HeaderBar extends ConsumerWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: Icon(
-              ref.watch(themeProvider) == ThemeMode.dark 
-                  ? Icons.light_mode 
-                  : Icons.dark_mode,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-            tooltip: 'Basculer le thème',
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-          ),
-          IconButton(
             icon: Icon(Icons.help_outline,
                 color: AppColors.textSecondary, size: 20),
             tooltip: 'Tutoriel interactif',
@@ -413,7 +401,7 @@ class _HeaderBar extends ConsumerWidget {
           ),
           SizedBox(width: 8),
           Container(
-            padding: EdgeInsets.all(4),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: AppColors.danger.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
@@ -426,7 +414,7 @@ class _HeaderBar extends ConsumerWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
                 padding:
-                    EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               ),
               onPressed: onEmergencyStop,
               icon: Icon(Icons.warning_amber, size: 18),
@@ -470,7 +458,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         border: Border.all(color: color.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(4),
@@ -528,7 +516,7 @@ class _Sidebar extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
                 border: Border(
                     bottom: BorderSide(color: AppColors.surfaceBorder))),
@@ -537,7 +525,7 @@ class _Sidebar extends StatelessWidget {
                     children: [
                       Image.asset('assets/logo.png', height: 32),
                       SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -575,7 +563,7 @@ class _Sidebar extends StatelessWidget {
           const Spacer(),
           Container(
             padding:
-                EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             decoration: BoxDecoration(
                 border:
                     Border(top: BorderSide(color: AppColors.surfaceBorder))),
@@ -584,7 +572,7 @@ class _Sidebar extends StatelessWidget {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                CircleAvatar(
+                const CircleAvatar(
                   backgroundColor: AppColors.surfaceBright,
                   radius: 16,
                   child: Icon(Icons.person,
@@ -592,7 +580,7 @@ class _Sidebar extends StatelessWidget {
                 ),
                 if (isExpanded) ...[
                   SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -641,7 +629,7 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 56,
-        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withValues(alpha: 0.12)
@@ -701,7 +689,7 @@ class _StatusFooter extends StatelessWidget {
 
     return Container(
       height: 32,
-      padding: EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
