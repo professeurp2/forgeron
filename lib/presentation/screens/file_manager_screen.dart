@@ -9,6 +9,7 @@ import '../../application/providers/gcode_provider.dart';
 import '../../domain/models/gcode_file.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/utils/file_picker_service.dart';
+import '../../core/utils/gcode_highlighter.dart';
 import '../../core/widgets/gcode_editor_controller.dart';
 import '../tutorial/tutorial_keys.dart';
 
@@ -320,12 +321,16 @@ class _GCodeLine extends StatelessWidget {
             child: Text('$index', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
           ),
           Expanded(
-            child: Text(content, style: TextStyle(
-              color: isCurrent ? AppColors.primary : AppColors.textPrimary,
-              fontFamily: 'JetBrains Mono',
-              fontSize: 13,
-              height: 1.5,
-            )),
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                children: GCodeHighlighter.buildSpans(content, isCurrent),
+              ),
+            ),
           ),
         ],
       ),

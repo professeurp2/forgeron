@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
@@ -21,7 +22,7 @@ class GlassPanel extends StatelessWidget {
     this.width,
     this.height,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = 8.0,
+    this.borderRadius = 12.0, // Un peu plus arrondi pour un look moderne
     this.borderColor = AppColors.surfaceBorder,
     this.backgroundColor = AppColors.surface,
     this.title,
@@ -47,11 +48,48 @@ class GlassPanel extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: backgroundColor,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: borderColor, width: 1.0),
+        boxShadow: [
+          // Ombre portée sombre et diffuse
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+          // Halo subtil de couleur primaire
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.03),
+            blurRadius: 24,
+            spreadRadius: -4,
+          ),
+        ],
       ),
-      child: content,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              // Gradient de fond translucide (effet verre)
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  backgroundColor.withValues(alpha: 0.45),
+                  backgroundColor.withValues(alpha: 0.8),
+                ],
+              ),
+              // Bordure biseautée ultra-fine
+              border: Border.all(
+                color: borderColor.withValues(alpha: 0.45),
+                width: 1.2,
+              ),
+            ),
+            child: content,
+          ),
+        ),
+      ),
     );
   }
 

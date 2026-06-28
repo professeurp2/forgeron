@@ -48,4 +48,9 @@ class FluidNcConfigRepository implements ConfigRepository {
     // À implémenter avec file_picker pour sélectionner un fichier YAML local
     throw UnimplementedError('Restore config non implémenté');
   }
+
+  void dispose() {
+    _client.close();
+  }
 }
+

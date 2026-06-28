@@ -45,13 +45,19 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
           const [100, 100, 100],
       activeWCS: json['activeWCS'] as String? ?? 'G54',
       activeToolNum: (json['activeToolNum'] as num?)?.toInt() ?? 0,
+      lastMessage: json['lastMessage'] as String?,
       limitSwitches:
           (json['limitSwitches'] as List<dynamic>?)
               ?.map((e) => e as bool)
               .toList() ??
           const [false, false, false, false, false],
       probeTriggered: json['probeTriggered'] as bool? ?? false,
+      probeResult: json['probeResult'] as Map<String, dynamic>?,
       emergencyTriggered: json['emergencyTriggered'] as bool? ?? false,
+      machiningMode:
+          $enumDecodeNullable(_$MachiningModeEnumMap, json['machiningMode']) ??
+          MachiningMode.threeAxis,
+      forceGuardActive: json['forceGuardActive'] as bool? ?? true,
       sdPercent: (json['sdPercent'] as num?)?.toDouble() ?? 0.0,
       sdFilename: json['sdFilename'] as String?,
       activeLineIndex: (json['activeLineIndex'] as num?)?.toInt() ?? 0,
@@ -76,9 +82,13 @@ Map<String, dynamic> _$$MachineStateImplToJson(_$MachineStateImpl instance) =>
       'overrides': instance.overrides,
       'activeWCS': instance.activeWCS,
       'activeToolNum': instance.activeToolNum,
+      'lastMessage': instance.lastMessage,
       'limitSwitches': instance.limitSwitches,
       'probeTriggered': instance.probeTriggered,
+      'probeResult': instance.probeResult,
       'emergencyTriggered': instance.emergencyTriggered,
+      'machiningMode': _$MachiningModeEnumMap[instance.machiningMode]!,
+      'forceGuardActive': instance.forceGuardActive,
       'sdPercent': instance.sdPercent,
       'sdFilename': instance.sdFilename,
       'activeLineIndex': instance.activeLineIndex,
@@ -96,4 +106,9 @@ const _$MachineStatusEnumMap = {
   MachineStatus.door: 'door',
   MachineStatus.sleep: 'sleep',
   MachineStatus.offline: 'offline',
+};
+
+const _$MachiningModeEnumMap = {
+  MachiningMode.fiveAxis: 'fiveAxis',
+  MachiningMode.threeAxis: 'threeAxis',
 };

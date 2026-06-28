@@ -8,6 +8,8 @@ import '../../domain/models/machine_state.dart';
 ///   Message : [MSG:texte]
 ///   Modal   : [GC:G0 G54 T1 F1200 S12000]
 class GrblParser {
+  static final RegExp _wcsRegex = RegExp(r'^G5[4-9](\.\d)?$');
+
   // ──────────────────────────────────────────────────────────────────────────
   // STATUS REPORT : <State|Field:value|...>
   // ──────────────────────────────────────────────────────────────────────────
@@ -182,7 +184,7 @@ class GrblParser {
     double spindleSpeed = currentState.spindleSpeed;
 
     for (final token in tokens) {
-      if (RegExp(r'^G5[4-9](\.\d)?$').hasMatch(token)) {
+      if (_wcsRegex.hasMatch(token)) {
         activeWCS = token;
       } else if (token.startsWith('T')) {
         final n = int.tryParse(token.substring(1));
@@ -252,6 +254,15 @@ class GrblParser {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // MESSAGE : [MSG:Reset to continue]
+  // ──────────────────────────────────────────────────────────────────────────
+  static MachineState? parseMessage(String message, MachineState currentState) {
+    if (!message.startsWith('[MSG:') || !message.endsWith(']')) return null;
+    final msg = message.substring(5, message.length - 1);
+    return currentState.copyWith(lastMessage: msg);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Point d'entrée unique — dispatch selon le type de message
   // ──────────────────────────────────────────────────────────────────────────
   static MachineState? parse(String message, MachineState currentState) {
@@ -262,7 +273,16 @@ class GrblParser {
       return parseAlarm(trimmed, currentState);
     } else if (trimmed.startsWith('[GC:')) {
       return parseModalState(trimmed, currentState);
+    } else if (trimmed.startsWith('[PRB:')) {
+      final prb = parseProbeReport(trimmed);
+      if (prb != null) {
+        return currentState.copyWith(
+          probeResult: prb,
+        );
+      }
+    } else if (trimmed.startsWith('[MSG:')) {
+      return parseMessage(trimmed, currentState);
     }
-    return null; // ok, error, [PRB:], MSG: → ignorés ici
+    return null; // ok, error → ignorés ici
   }
 }

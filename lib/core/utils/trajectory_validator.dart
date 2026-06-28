@@ -15,10 +15,10 @@ class ValidationResult {
 /// Service de Validation Lookahead (Anticipation de trajectoire).
 /// Analyse le toolpath complet avant l'usinage pour prévenir les collisions matérielles.
 class TrajectoryValidator {
-  // Limites physiques de la machine (à synchroniser avec FluidNC)
+  // Limites physiques de la machine (conformes au dimensionnement PFE §3.4)
   static const double minZ = -5.0; // Interdiction de descendre sous le plateau (incluant offset)
-  static const double maxA = 110.0;
-  static const double minA = -110.0;
+  static const double maxA = 90.0;  // Berceau : ±90° (Trunnion)
+  static const double minA = -90.0;
   
   /// Valide l'intégralité d'un programme G-Code analysé
   static ValidationResult validate(AnalyzedGCode analyzed) {

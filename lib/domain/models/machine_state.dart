@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'machining_mode.dart';
 
 part 'machine_state.freezed.dart';
 part 'machine_state.g.dart';
@@ -44,10 +45,16 @@ class MachineState with _$MachineState {
     // --- Contexte modal ---
     @Default('G54') String activeWCS,     // G54..G59.3
     @Default(0) int activeToolNum,        // T0..T99
+    String? lastMessage,                  // Message GRBL [MSG:...]
 
     @Default([false, false, false, false, false]) List<bool> limitSwitches,
     @Default(false) bool probeTriggered,
+    Map<String, dynamic>? probeResult,    // Résultat du dernier PRB
     @Default(false) bool emergencyTriggered,
+
+    // --- Mode d'usinage (PFE §3.4) ---
+    @Default(MachiningMode.threeAxis) MachiningMode machiningMode,
+    @Default(true) bool forceGuardActive, // Bridage ForceGuard actif
 
     // --- Progression SD (FluidNC) ---
     @Default(0.0) double sdPercent,

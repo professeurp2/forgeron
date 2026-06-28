@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/di_providers.dart';
 
 class CalibrationWizard extends ConsumerStatefulWidget {
   const CalibrationWizard({super.key});

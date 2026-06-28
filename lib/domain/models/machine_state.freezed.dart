@@ -48,10 +48,18 @@ mixin _$MachineState {
   // --- Contexte modal ---
   String get activeWCS => throw _privateConstructorUsedError; // G54..G59.3
   int get activeToolNum => throw _privateConstructorUsedError; // T0..T99
+  String? get lastMessage =>
+      throw _privateConstructorUsedError; // Message GRBL [MSG:...]
   List<bool> get limitSwitches => throw _privateConstructorUsedError;
   bool get probeTriggered => throw _privateConstructorUsedError;
+  Map<String, dynamic>? get probeResult =>
+      throw _privateConstructorUsedError; // Résultat du dernier PRB
   bool get emergencyTriggered =>
-      throw _privateConstructorUsedError; // --- Progression SD (FluidNC) ---
+      throw _privateConstructorUsedError; // --- Mode d'usinage (PFE §3.4) ---
+  MachiningMode get machiningMode => throw _privateConstructorUsedError;
+  bool get forceGuardActive =>
+      throw _privateConstructorUsedError; // Bridage ForceGuard actif
+  // --- Progression SD (FluidNC) ---
   double get sdPercent => throw _privateConstructorUsedError;
   String? get sdFilename => throw _privateConstructorUsedError;
   int get activeLineIndex =>
@@ -94,9 +102,13 @@ abstract class $MachineStateCopyWith<$Res> {
     List<int> overrides,
     String activeWCS,
     int activeToolNum,
+    String? lastMessage,
     List<bool> limitSwitches,
     bool probeTriggered,
+    Map<String, dynamic>? probeResult,
     bool emergencyTriggered,
+    MachiningMode machiningMode,
+    bool forceGuardActive,
     double sdPercent,
     String? sdFilename,
     int activeLineIndex,
@@ -135,9 +147,13 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
     Object? overrides = null,
     Object? activeWCS = null,
     Object? activeToolNum = null,
+    Object? lastMessage = freezed,
     Object? limitSwitches = null,
     Object? probeTriggered = null,
+    Object? probeResult = freezed,
     Object? emergencyTriggered = null,
+    Object? machiningMode = null,
+    Object? forceGuardActive = null,
     Object? sdPercent = null,
     Object? sdFilename = freezed,
     Object? activeLineIndex = null,
@@ -206,6 +222,10 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.activeToolNum
                 : activeToolNum // ignore: cast_nullable_to_non_nullable
                       as int,
+            lastMessage: freezed == lastMessage
+                ? _value.lastMessage
+                : lastMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
             limitSwitches: null == limitSwitches
                 ? _value.limitSwitches
                 : limitSwitches // ignore: cast_nullable_to_non_nullable
@@ -214,9 +234,21 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.probeTriggered
                 : probeTriggered // ignore: cast_nullable_to_non_nullable
                       as bool,
+            probeResult: freezed == probeResult
+                ? _value.probeResult
+                : probeResult // ignore: cast_nullable_to_non_nullable
+                      as Map<String, dynamic>?,
             emergencyTriggered: null == emergencyTriggered
                 ? _value.emergencyTriggered
                 : emergencyTriggered // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            machiningMode: null == machiningMode
+                ? _value.machiningMode
+                : machiningMode // ignore: cast_nullable_to_non_nullable
+                      as MachiningMode,
+            forceGuardActive: null == forceGuardActive
+                ? _value.forceGuardActive
+                : forceGuardActive // ignore: cast_nullable_to_non_nullable
                       as bool,
             sdPercent: null == sdPercent
                 ? _value.sdPercent
@@ -269,9 +301,13 @@ abstract class _$$MachineStateImplCopyWith<$Res>
     List<int> overrides,
     String activeWCS,
     int activeToolNum,
+    String? lastMessage,
     List<bool> limitSwitches,
     bool probeTriggered,
+    Map<String, dynamic>? probeResult,
     bool emergencyTriggered,
+    MachiningMode machiningMode,
+    bool forceGuardActive,
     double sdPercent,
     String? sdFilename,
     int activeLineIndex,
@@ -309,9 +345,13 @@ class __$$MachineStateImplCopyWithImpl<$Res>
     Object? overrides = null,
     Object? activeWCS = null,
     Object? activeToolNum = null,
+    Object? lastMessage = freezed,
     Object? limitSwitches = null,
     Object? probeTriggered = null,
+    Object? probeResult = freezed,
     Object? emergencyTriggered = null,
+    Object? machiningMode = null,
+    Object? forceGuardActive = null,
     Object? sdPercent = null,
     Object? sdFilename = freezed,
     Object? activeLineIndex = null,
@@ -380,6 +420,10 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value.activeToolNum
             : activeToolNum // ignore: cast_nullable_to_non_nullable
                   as int,
+        lastMessage: freezed == lastMessage
+            ? _value.lastMessage
+            : lastMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
         limitSwitches: null == limitSwitches
             ? _value._limitSwitches
             : limitSwitches // ignore: cast_nullable_to_non_nullable
@@ -388,9 +432,21 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value.probeTriggered
             : probeTriggered // ignore: cast_nullable_to_non_nullable
                   as bool,
+        probeResult: freezed == probeResult
+            ? _value._probeResult
+            : probeResult // ignore: cast_nullable_to_non_nullable
+                  as Map<String, dynamic>?,
         emergencyTriggered: null == emergencyTriggered
             ? _value.emergencyTriggered
             : emergencyTriggered // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        machiningMode: null == machiningMode
+            ? _value.machiningMode
+            : machiningMode // ignore: cast_nullable_to_non_nullable
+                  as MachiningMode,
+        forceGuardActive: null == forceGuardActive
+            ? _value.forceGuardActive
+            : forceGuardActive // ignore: cast_nullable_to_non_nullable
                   as bool,
         sdPercent: null == sdPercent
             ? _value.sdPercent
@@ -436,9 +492,13 @@ class _$MachineStateImpl implements _MachineState {
     final List<int> overrides = const [100, 100, 100],
     this.activeWCS = 'G54',
     this.activeToolNum = 0,
+    this.lastMessage,
     final List<bool> limitSwitches = const [false, false, false, false, false],
     this.probeTriggered = false,
+    final Map<String, dynamic>? probeResult,
     this.emergencyTriggered = false,
+    this.machiningMode = MachiningMode.threeAxis,
+    this.forceGuardActive = true,
     this.sdPercent = 0.0,
     this.sdFilename,
     this.activeLineIndex = 0,
@@ -449,7 +509,8 @@ class _$MachineStateImpl implements _MachineState {
        _wco = wco,
        _targetPos = targetPos,
        _overrides = overrides,
-       _limitSwitches = limitSwitches;
+       _limitSwitches = limitSwitches,
+       _probeResult = probeResult;
 
   factory _$MachineStateImpl.fromJson(Map<String, dynamic> json) =>
       _$$MachineStateImplFromJson(json);
@@ -554,8 +615,11 @@ class _$MachineStateImpl implements _MachineState {
   @JsonKey()
   final int activeToolNum;
   // T0..T99
+  @override
+  final String? lastMessage;
+  // Message GRBL [MSG:...]
   final List<bool> _limitSwitches;
-  // T0..T99
+  // Message GRBL [MSG:...]
   @override
   @JsonKey()
   List<bool> get limitSwitches {
@@ -567,9 +631,28 @@ class _$MachineStateImpl implements _MachineState {
   @override
   @JsonKey()
   final bool probeTriggered;
+  final Map<String, dynamic>? _probeResult;
+  @override
+  Map<String, dynamic>? get probeResult {
+    final value = _probeResult;
+    if (value == null) return null;
+    if (_probeResult is EqualUnmodifiableMapView) return _probeResult;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(value);
+  }
+
+  // Résultat du dernier PRB
   @override
   @JsonKey()
   final bool emergencyTriggered;
+  // --- Mode d'usinage (PFE §3.4) ---
+  @override
+  @JsonKey()
+  final MachiningMode machiningMode;
+  @override
+  @JsonKey()
+  final bool forceGuardActive;
+  // Bridage ForceGuard actif
   // --- Progression SD (FluidNC) ---
   @override
   @JsonKey()
@@ -591,7 +674,7 @@ class _$MachineStateImpl implements _MachineState {
 
   @override
   String toString() {
-    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, emergencyTriggered: $emergencyTriggered, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
+    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, lastMessage: $lastMessage, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, probeResult: $probeResult, emergencyTriggered: $emergencyTriggered, machiningMode: $machiningMode, forceGuardActive: $forceGuardActive, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
   }
 
   @override
@@ -629,14 +712,24 @@ class _$MachineStateImpl implements _MachineState {
                 other.activeWCS == activeWCS) &&
             (identical(other.activeToolNum, activeToolNum) ||
                 other.activeToolNum == activeToolNum) &&
+            (identical(other.lastMessage, lastMessage) ||
+                other.lastMessage == lastMessage) &&
             const DeepCollectionEquality().equals(
               other._limitSwitches,
               _limitSwitches,
             ) &&
             (identical(other.probeTriggered, probeTriggered) ||
                 other.probeTriggered == probeTriggered) &&
+            const DeepCollectionEquality().equals(
+              other._probeResult,
+              _probeResult,
+            ) &&
             (identical(other.emergencyTriggered, emergencyTriggered) ||
                 other.emergencyTriggered == emergencyTriggered) &&
+            (identical(other.machiningMode, machiningMode) ||
+                other.machiningMode == machiningMode) &&
+            (identical(other.forceGuardActive, forceGuardActive) ||
+                other.forceGuardActive == forceGuardActive) &&
             (identical(other.sdPercent, sdPercent) ||
                 other.sdPercent == sdPercent) &&
             (identical(other.sdFilename, sdFilename) ||
@@ -668,9 +761,13 @@ class _$MachineStateImpl implements _MachineState {
     const DeepCollectionEquality().hash(_overrides),
     activeWCS,
     activeToolNum,
+    lastMessage,
     const DeepCollectionEquality().hash(_limitSwitches),
     probeTriggered,
+    const DeepCollectionEquality().hash(_probeResult),
     emergencyTriggered,
+    machiningMode,
+    forceGuardActive,
     sdPercent,
     sdFilename,
     activeLineIndex,
@@ -709,9 +806,13 @@ abstract class _MachineState implements MachineState {
     final List<int> overrides,
     final String activeWCS,
     final int activeToolNum,
+    final String? lastMessage,
     final List<bool> limitSwitches,
     final bool probeTriggered,
+    final Map<String, dynamic>? probeResult,
     final bool emergencyTriggered,
+    final MachiningMode machiningMode,
+    final bool forceGuardActive,
     final double sdPercent,
     final String? sdFilename,
     final int activeLineIndex,
@@ -758,11 +859,20 @@ abstract class _MachineState implements MachineState {
   @override
   int get activeToolNum; // T0..T99
   @override
+  String? get lastMessage; // Message GRBL [MSG:...]
+  @override
   List<bool> get limitSwitches;
   @override
   bool get probeTriggered;
   @override
-  bool get emergencyTriggered; // --- Progression SD (FluidNC) ---
+  Map<String, dynamic>? get probeResult; // Résultat du dernier PRB
+  @override
+  bool get emergencyTriggered; // --- Mode d'usinage (PFE §3.4) ---
+  @override
+  MachiningMode get machiningMode;
+  @override
+  bool get forceGuardActive; // Bridage ForceGuard actif
+  // --- Progression SD (FluidNC) ---
   @override
   double get sdPercent;
   @override

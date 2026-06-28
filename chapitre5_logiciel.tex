@@ -1,0 +1,910 @@
+\documentclass[12pt,a4paper]{report}
+
+% ── Encodage & langue ────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% ── Mise en page ─────────────────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.4em}
+
+% ── Mathématiques ────────────────────────────────────────────────────
+\usepackage{amsmath, amssymb}
+
+% ── Tableaux ─────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{colortbl}
+
+% ── Graphiques & couleurs ────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, calc, backgrounds, decorations.pathreplacing, patterns, shadows}
+\usepackage{float}
+
+% ── Listings / pseudocode ────────────────────────────────────────────
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\bfseries\color{MidnightBlue},
+  commentstyle=\itshape\color{Gray},
+  stringstyle=\color{OliveGreen},
+  frame=single,
+  framerule=0.4pt,
+  breaklines=true,
+  tabsize=2,
+  xleftmargin=1em,
+  numbers=left,
+  numberstyle=\tiny\color{Gray},
+  numbersep=8pt,
+  captionpos=b,
+  backgroundcolor=\color{gray!5},
+  rulecolor=\color{gray!40},
+}
+
+% ── Hyperliens ───────────────────────────────────────────────────────
+\usepackage[hidelinks]{hyperref}
+
+% ── En-têtes / pieds de page ────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape Chapitre V --- Développement Logiciel}
+\fancyhead[R]{\small\itshape PFE : CNC 5 axes}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Captions ─────────────────────────────────────────────────────────
+\usepackage{caption}
+\usepackage{subcaption}
+\captionsetup{labelfont=bf, font=small, skip=6pt}
+
+% ── Encadrés ─────────────────────────────────────────────────────────
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% ── Commandes personnalisées ─────────────────────────────────────────
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\screenshot}[2]{%
+  \begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}{0.85\textwidth}
+  \centering
+  \vspace{3cm}
+  {\Large\color{gray!60} \textbf{CAPTURE D'ÉCRAN}}\\[6pt]
+  {\large\color{gray!80} #1}\\[4pt]
+  {\small\color{gray!50}\itshape Remplacer par : \texttt{figures/#2}}
+  \vspace{3cm}
+  \end{minipage}}
+  \caption{#1}
+  \label{fig:#2}
+  \end{figure}
+}
+
+% ══════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\setcounter{chapter}{4}
+
+\chapter{Développement Logiciel et Ingénierie de Commande}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Introduction}
+% ══════════════════════════════════════════════════════════════════════
+
+Le pilotage d'une machine CNC 5~axes ne se résume pas à la génération d'impulsions Step/Dir par un firmware embarqué. Si le contrôleur FluidNC, exécuté sur l'ESP32 (cf.~Chapitre~IV), assure la conversion temps réel du G-code en signaux moteur, il ne constitue qu'un maillon d'une chaîne logicielle plus vaste. La supervision de l'état machine en temps réel, la résolution de la cinématique inverse propre à l'architecture Trunnion, la planification anticipative des trajectoires, la protection active des efforts de coupe et l'interface de commande opérateur nécessitent un logiciel de bord dédié --- l'application \textbf{Forgeron}.
+
+Ce chapitre présente le développement logiciel selon cinq piliers~:
+\begin{itemize}
+  \item L'\textbf{architecture logicielle} (section~V.2) --- structuration en Clean Architecture, modélisation UML.
+  \item Les \textbf{algorithmes de cinématique inverse} (section~V.3) --- modèle géométrique Trunnion, RTCP, singularités.
+  \item La \textbf{planification de trajectoire} et le streaming industriel (section~V.4).
+  \item Le développement de l'\textbf{IHM de supervision} multi-plateforme (section~V.5).
+  \item La \textbf{sûreté de fonctionnement} du code embarqué et applicatif (section~V.6).
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Architecture Logicielle et Modélisation UML}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{Philosophie « Clean Architecture »}
+
+L'application Forgeron est structurée selon le paradigme \textit{Clean Architecture} de Robert C.~Martin~\cite{martin2017clean}. Ce modèle impose une séparation stricte en couches concentriques, chacune ayant un niveau d'abstraction croissant vers le centre. La règle fondamentale --- la \textbf{Dependency Rule} --- stipule que les dépendances ne pointent que vers l'intérieur~: les couches internes ne connaissent jamais les couches externes.
+
+La figure~\ref{fig:clean_arch} illustre l'organisation concentrique des quatre couches du projet.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  layer/.style={draw, rounded corners=8pt, thick, align=center, font=\small},
+]
+  % Couche externe → interne
+  \node[layer, fill=blue!8, minimum width=14cm, minimum height=9cm] (pres) {};
+  \node[layer, fill=green!8, minimum width=10.5cm, minimum height=6.5cm] (data) {};
+  \node[layer, fill=orange!10, minimum width=7cm, minimum height=4cm] (app) {};
+  \node[layer, fill=red!8, minimum width=3.8cm, minimum height=2cm] (dom) {};
+
+  % Labels
+  \node[font=\bfseries\small, anchor=north west] at ([shift={(0.3,-0.3)}]pres.north west) {\textcolor{blue!70}{PRESENTATION}};
+  \node[font=\bfseries\small, anchor=north west] at ([shift={(0.3,-0.3)}]data.north west) {\textcolor{green!50!black}{DATA}};
+  \node[font=\bfseries\small, anchor=north west] at ([shift={(0.3,-0.3)}]app.north west) {\textcolor{orange!70!black}{APPLICATION}};
+  \node[font=\bfseries\small] at (dom.center) {\textcolor{red!60!black}{DOMAIN}};
+
+  % Contenu Presentation
+  \node[font=\scriptsize\ttfamily, anchor=south west] at ([shift={(0.4,0.4)}]pres.south west) {MainScaffold, DashboardScreen, MobileProbingScreen};
+  \node[font=\scriptsize\ttfamily, anchor=south east] at ([shift={(-0.4,0.4)}]pres.south east) {widgets/, tutorial/, AppColors};
+
+  % Contenu Data
+  \node[font=\scriptsize\ttfamily, anchor=south west] at ([shift={(0.3,0.3)}]data.south west) {FluidNCMachineRepository, GrblParser, FluidNCConnection};
+  \node[font=\scriptsize\ttfamily, anchor=south east] at ([shift={(-0.3,0.3)}]data.south east) {MockMachineRepository, FluidNCHttpClient};
+
+  % Contenu Application
+  \node[font=\scriptsize\ttfamily, anchor=south] at ([shift={(0,-0.1)}]app.south) {ForceGuardService, GCodeStreamingService, machineRepositoryProvider};
+
+  % Contenu Domain
+  \node[font=\scriptsize\ttfamily, anchor=south] at ([shift={(0,0.15)}]dom.south) {MachineState, MachineRepository};
+  \node[font=\scriptsize\ttfamily, anchor=north] at ([shift={(0,-0.15)}]dom.north) {TrunnionConfig, MachiningMode};
+
+  % Flèches Dependency Rule
+  \draw[-{Stealth[length=3mm]}, very thick, dashed, gray!60] ([shift={(0.5,0)}]pres.east) -- ++(1.2,0) node[right, font=\scriptsize\itshape, text=gray]{Dependency Rule} -- ++(0,-3.5) -- ++(-1.2,0);
+
+\end{tikzpicture}
+\caption{Architecture concentrique Clean Architecture du projet Forgeron.}
+\label{fig:clean_arch}
+\end{figure}
+
+Le tableau~\ref{tab:clean_arch} détaille le contenu de chaque couche.
+
+\begin{table}[H]
+\centering
+\caption{Mapping Clean Architecture du projet Forgeron.}
+\label{tab:clean_arch}
+\begin{tabularx}{\textwidth}{>{\bfseries}l p{3cm} X}
+\toprule
+Couche & Rôle & Fichiers et classes clés \\
+\midrule
+\rowcolor{red!5}
+Domain & Entités immuables + contrats (interfaces abstraites) & \code{MachineState} (Freezed, 9~états FSM), \code{TrunnionConfig} (paramètres D-H), \code{MachiningMode} (enum 3AX/5AX), \code{Tool}, \code{Alarm}, \code{WCS}, \code{Macro} --- \code{MachineRepository} (abstract, 14~méthodes), \code{ConfigRepository}, \code{FileRepository} \\
+\rowcolor{orange!5}
+Application & Orchestration, injection de dépendances, services métier & \code{machineRepositoryProvider} (DI Riverpod), \code{machineStateProvider} (StreamProvider), \code{ForceGuardService} (bridage efforts), \code{GCodeStreamingService} (character-counting), \code{AutoDiscoveryService} \\
+\rowcolor{green!5}
+Data & Implémentations concrètes des contrats & \code{FluidNCMachineRepository} (WebSocket), \code{GrblParser} (289~lignes), \code{FluidNCConnection} (backoff + heartbeat), \code{MockMachineRepository} (simulation) \\
+\rowcolor{blue!5}
+Presentation & Interface utilisateur Flutter & \code{MainScaffold} (responsive), 6~écrans desktop + 4~écrans mobile, widgets industriels (\code{GlassPanel}, DRO, jauges) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Cette architecture garantit un avantage déterminant~: la substitution de l'implémentation réelle par un simulateur se fait par \textbf{une seule ligne} dans le provider d'injection de dépendances~:
+
+\begin{lstlisting}[language=Java, caption={Provider DI --- bascule Mock/FluidNC (inversion de dépendance).}, label={lst:di}]
+final machineRepositoryProvider = Provider<MachineRepository>((ref) {
+  final isSim = ref.watch(isSimulationModeProvider);
+  if (isSim) return MockMachineRepository();    // <-- Simulateur
+  final conn = FluidNCConnection(wsUrl);         // <-- ESP32 reel
+  return FluidNCMachineRepository(conn);
+});
+\end{lstlisting}
+
+\subsection{Modélisation structurelle et comportementale}
+
+\subsubsection{Machine à états finis (FSM)}
+
+La classe \code{MachineState}, générée par Freezed (immuable, sérialisable), modélise l'état complet de la machine selon neuf états conformes au protocole GRBL~v1.1. La figure~\ref{fig:fsm} présente le diagramme de transitions.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  state/.style={rectangle, draw, rounded corners=4pt, minimum width=2cm, minimum height=0.8cm, font=\small\ttfamily\bfseries, fill=#1!15, draw=#1!60},
+  trans/.style={-{Stealth[length=2.5mm]}, thick, color=gray!70},
+  label/.style={font=\tiny\itshape, text=gray!80, fill=white, inner sep=1pt},
+  node distance=1.8cm and 2.2cm,
+]
+  % États
+  \node[state=gray]   (off)   {OFFLINE};
+  \node[state=green, right=of off]  (idle)  {IDLE};
+  \node[state=blue, right=of idle]  (run)   {RUN};
+  \node[state=orange, below=of run] (hold)  {HOLD};
+  \node[state=red, below=of idle]   (alarm) {ALARM};
+  \node[state=cyan, right=of run]   (home)  {HOME};
+  \node[state=purple, below=of home](check) {CHECK};
+  \node[state=brown, right=of home] (door)  {DOOR};
+  \node[state=gray!60, below=of door](sleep){SLEEP};
+
+  % Transitions principales
+  \draw[trans] (off)   -- node[label, above]{connect}   (idle);
+  \draw[trans] (idle)  -- node[label, above]{cycle start} (run);
+  \draw[trans] (run)   -- node[label, right]{feed hold}  (hold);
+  \draw[trans] (hold)  -- node[label, below]{resume \textasciitilde} (run);
+  \draw[trans] (hold.west)  -- node[label, below]{reset}  (idle.south);
+  \draw[trans] (run.south west)   -- node[label, left, pos=0.3]{ALARM:N}   (alarm);
+  \draw[trans] (alarm) -- node[label, left]{\$X unlock} (idle);
+  \draw[trans] (idle)  -- node[label, above]{\$H}       (home);
+  \draw[trans] (home)  -- node[label, right]{done}      (idle.north east);
+  \draw[trans] (idle.east) to[bend left=15] node[label, above right]{\$C} (check.west);
+  \draw[trans] (check) -- node[label, right]{\$C off}  (idle.south east);
+  \draw[trans] (run)   -- node[label, above]{door open} (door);
+  \draw[trans] (door)  -- node[label, right]{door close}(run.east);
+  \draw[trans] (idle.south east) to[bend right=40] node[label, right]{\$SLP} (sleep);
+  \draw[trans] (sleep.north west) to[bend right=40] node[label, left]{wake} (idle.south east);
+
+  % Perte connexion
+  \draw[trans, dashed, red!50] (run.north) to[bend left=60] node[label, above]{timeout 10s} (off.north);
+\end{tikzpicture}
+\caption{Diagramme de machine à états finis --- FSM de \code{MachineState} (9~états, protocole GRBL v1.1).}
+\label{fig:fsm}
+\end{figure}
+
+Les transitions sont déclenchées par les \textit{status reports} émis par FluidNC au format \code{<State|MPos:...|FS:...>}. Le parser central \code{GrblParser.parse()} dispatche chaque message entrant vers l'une des cinq méthodes spécialisées (tableau~\ref{tab:parser_methods}).
+
+\begin{table}[H]
+\centering
+\caption{Méthodes de dispatch du parser \code{GrblParser}.}
+\label{tab:parser_methods}
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+Préfixe du message & Méthode appelée & Données extraites \\
+\midrule
+\code{<State|...>} & \code{parseStatusReport()} & Positions MPos/WPos (5~axes), feedrate, broche, overrides, fins de course, buffers \\
+\code{ALARM:N} & \code{parseAlarm()} & Code numérique $\rightarrow$ transition FSM vers \code{alarm} \\
+\code{[GC:...]} & \code{parseModalState()} & WCS actif (G54--G59.3), outil (T\textit{n}), avance (F), broche (S) \\
+\code{[PRB:...]} & \code{parseProbeReport()} & Coordonnées de contact palpeur [X,Y,Z], succès/échec \\
+\code{[MSG:...]} & \code{parseMessage()} & Messages informatifs FluidNC \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Diagramme de classes}
+
+La figure~\ref{fig:class_diagram} illustre les relations structurelles entre les composants principaux de la couche Data et leur lien avec les contrats du Domain.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  class/.style={rectangle, draw, rounded corners=2pt, minimum width=4.2cm, minimum height=1.4cm, fill=blue!5, font=\small\ttfamily, align=center, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}},
+  abstract/.style={class, fill=orange!10, font=\small\ttfamily},
+  interface/.style={class, fill=yellow!10, font=\small\itshape\ttfamily},
+  arrow/.style={-{Stealth[length=3mm]}, thick},
+  dasharrow/.style={-{Stealth[length=3mm]}, thick, dashed},
+  note/.style={font=\tiny\itshape, text=gray},
+]
+  % Domain layer
+  \begin{scope}[on background layer]
+    \node[draw=red!30, fill=red!3, rounded corners=6pt, minimum width=10cm, minimum height=2.2cm, label={[font=\tiny\bfseries\color{red!50}]above:DOMAIN}] at (2.5,5.5) {};
+  \end{scope}
+  \node[interface] (repo) at (0,5.5) {$\ll$abstract$\gg$\\MachineRepository};
+  \node[class, fill=red!8] (state) at (5.5,5.5) {MachineState\\{\tiny\itshape (Freezed, immuable)}};
+
+  % Data layer
+  \begin{scope}[on background layer]
+    \node[draw=green!30, fill=green!3, rounded corners=6pt, minimum width=14cm, minimum height=5.5cm, label={[font=\tiny\bfseries\color{green!50!black}]above:DATA}] at (2.5,2) {};
+  \end{scope}
+  \node[class, fill=green!10] (fluidnc) at (-2,3) {FluidNCMachine\\Repository};
+  \node[class, fill=green!10] (mock) at (3,3) {MockMachine\\Repository};
+  \node[class] (conn) at (-2,0.5) {FluidNCConnection\\{\tiny WebSocket + Backoff}};
+  \node[class] (parser) at (3,0.5) {GrblParser\\{\tiny 289 lignes, 5 formats}};
+  \node[class] (ws) at (7,0.5) {WebSocketChannel\\{\tiny dart:io}};
+
+  % Relations
+  \draw[dasharrow] (fluidnc) -- node[left, note]{implements} (repo);
+  \draw[dasharrow] (mock) -- node[right, note]{implements} (repo);
+  \draw[arrow] (fluidnc) -- node[left, note]{utilise} (conn);
+  \draw[arrow] (fluidnc) -- node[above, note]{parse via} (parser);
+  \draw[arrow] (conn) -- node[above, note]{wraps} (ws);
+  \draw[arrow, dashed, gray] (parser) -- node[right, note]{produit} (state);
+
+\end{tikzpicture}
+\caption{Diagramme de classes simplifié --- couches Domain et Data.}
+\label{fig:class_diagram}
+\end{figure}
+
+\subsection{Gestion du multitâche sous FreeRTOS}
+
+L'ESP32 dispose de deux c\oe urs matériels exploités par FreeRTOS pour garantir le déterminisme du pilotage multi-axes. La figure~\ref{fig:dual_core} illustre la répartition des tâches.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  core/.style={draw, thick, rounded corners=6pt, minimum width=6cm, minimum height=4cm, fill=#1!8},
+  task/.style={draw, rounded corners=3pt, minimum width=5cm, minimum height=0.7cm, fill=#1!15, font=\small},
+]
+  % Core 0
+  \node[core=blue, label={[font=\bfseries]above:C\oe ur 0 --- Réseau \& Parsing}] (c0) at (0,0) {};
+  \node[task=blue] at (0,1.2) {Pile Wi-Fi (TCP/IP, mDNS)};
+  \node[task=blue] at (0,0.3) {Serveur WebSocket (port 80)};
+  \node[task=blue] at (0,-0.6) {Serveur HTTP (upload, config YAML)};
+  \node[task=blue] at (0,-1.5) {Parsing GRBL + JSON};
+
+  % Core 1
+  \node[core=red, label={[font=\bfseries]above:C\oe ur 1 --- Temps Réel (ISR)}] (c1) at (8,0) {};
+  \node[task=red] at (8,1.2) {Timer HW 32~kHz ($T = 31{,}25\;\mu$s)};
+  \node[task=red] at (8,0.3) {ISR Step/Dir (5 axes)};
+  \node[task=red] at (8,-0.6) {Planner Look-Ahead (15 blocs)};
+  \node[task=red] at (8,-1.5) {S-Curve Acceleration Profile};
+
+  % Séparation
+  \draw[very thick, dashed, gray!50] (4,-2.5) -- (4,2.8);
+  \node[font=\scriptsize\itshape, text=gray, rotate=90] at (4,0) {Isolation matérielle};
+
+\end{tikzpicture}
+\caption{Répartition des tâches FreeRTOS sur les deux c\oe urs de l'ESP32.}
+\label{fig:dual_core}
+\end{figure}
+
+La charge CPU du c\oe ur critique (c\oe ur~1) se calcule comme suit~:
+
+\begin{equation}
+\text{Charge}_{\text{CPU}_1} = \frac{N_{axes} \times t_{ISR}}{T_{timer}} = \frac{5 \times 2\;\mu\text{s}}{31{,}25\;\mu\text{s}} = 32\%
+\label{eq:cpu_load}
+\end{equation}
+
+\noindent avec $N_{axes} = 5$, $t_{ISR} \approx 2\;\mu$s par axe et $T_{timer} = 1/32\,000 = 31{,}25\;\mu$s. La marge résiduelle de \textbf{68\%} garantit l'absence de \textit{jitter} sur les signaux Step, même en cas de pic de charge réseau sur le c\oe ur~0.
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Cinématique Inverse de l'Architecture Trunnion}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{Définition du modèle géométrique}
+
+Le Trunnion (Table-Table) comporte deux axes rotatifs superposés~: l'axe~A (berceau, rotation autour de~X, plage $\pm 90°$) et l'axe~C (plateau, rotation autour de~Z, plage $360°$). La figure~\ref{fig:trunnion_kin} illustre le modèle géométrique.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.9,
+  axis/.style={-{Stealth[length=3mm]}, very thick},
+  dim/.style={|{Stealth[length=2mm]}-{Stealth[length=2mm]}|, thin, gray},
+]
+  % Base / table
+  \fill[gray!10] (-3,-0.3) rectangle (3,0);
+  \draw[thick] (-3,0) -- (3,0);
+  \node[font=\footnotesize, below] at (0,-0.3) {Base machine};
+
+  % Berceau (axe A)
+  \draw[thick, blue!60, fill=blue!5] (-2.5,0) -- (-2.5,3) arc(180:0:2.5) -- (2.5,0);
+  \node[font=\footnotesize\bfseries, blue!70] at (3.2,1.5) {Berceau};
+
+  % Pivot A
+  \fill[red!70] (0,3) circle(4pt);
+  \node[font=\scriptsize\bfseries, red!70, above right] at (0.15,3.1) {Pivot A};
+  \draw[axis, red!70] (0,3) -- (2,3) node[right, font=\scriptsize]{Axe A (rot. autour de X)};
+
+  % Plateau (axe C)
+  \draw[thick, green!60!black, fill=green!8] (-1.5,2.2) rectangle (1.5,2.7);
+  \node[font=\footnotesize\bfseries, green!60!black] at (0,2.45) {Plateau C};
+  \draw[axis, green!60!black] (0,2.45) ++(0,0) -- ++(0,1.2) node[above, font=\scriptsize]{Axe C (rot. autour de Z)};
+
+  % Pièce
+  \fill[orange!30] (-0.8,2.7) rectangle (0.8,3.3);
+  \node[font=\scriptsize\bfseries] at (0,3.0) {Pièce};
+
+  % Outil
+  \draw[very thick, brown!70] (0,5.5) -- (0,3.5);
+  \fill[brown!50] (-0.15,5.5) rectangle (0.15,3.5);
+  \node[font=\footnotesize\bfseries, brown!70, right] at (0.2,4.5) {Outil};
+  \fill[brown!70] (0,3.5) circle(2pt);
+  \node[font=\scriptsize, brown!70, left] at (-0.2,3.5) {TCP};
+
+  % Distance d
+  \draw[dim] (1.8,3) -- node[right, font=\scriptsize]{$d = 45$ mm} (1.8,2.45);
+
+  % Axes cartésiens
+  \draw[axis, gray] (-3.5,0) -- (-3.5,2) node[above, font=\scriptsize]{Z};
+  \draw[axis, gray] (-3.5,0) -- (-1.5,0) node[right, font=\scriptsize]{X};
+  \fill[gray] (-3.5,0) circle(2pt);
+  \node[font=\scriptsize, gray, below left] at (-3.5,0) {Y (vers l'obs.)};
+
+\end{tikzpicture}
+\caption{Modèle géométrique du Trunnion Table-Table --- axes A, C, distance pivot-table $d$.}
+\label{fig:trunnion_kin}
+\end{figure}
+
+Les paramètres géométriques, codés dans la classe \code{TrunnionConfig}, sont résumés dans le tableau~\ref{tab:dh_params}.
+
+\begin{table}[H]
+\centering
+\caption{Paramètres géométriques du Trunnion (source~: \code{TrunnionConfig}).}
+\label{tab:dh_params}
+\begin{tabular}{l r l}
+\toprule
+Paramètre & Valeur & Attribut code \\
+\midrule
+Plage axe A (berceau) & $\pm 90°$ & \code{aAxisMaxAngle = 90.0} \\
+Plage axe C (plateau) & $360°$ continu & \code{cAxisMaxAngle = 360.0} \\
+Réduction GT2 & 6:1 (120/20) & \code{drivenPulleyTeeth / drivingPulleyTeeth} \\
+Offset pivot--table & 45~mm & \code{pivotToTableOffset = 45.0} \\
+Micro-stepping & 1/16 & \code{microstepping = 16} \\
+Pas moteur & 200~pas/tr & \code{motorStepsPerRev = 200} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La résolution angulaire effective est déduite du nombre de pas par degré~:
+
+\begin{equation}
+\text{stepsPerDegree} = \frac{\text{motorStepsPerRev} \times \text{microstepping} \times \text{reductionRatio}}{360} = \frac{200 \times 16 \times 6}{360} = 53{,}33 \;\text{pas/°}
+\label{eq:steps_per_deg}
+\end{equation}
+
+\begin{equation}
+\boxed{\Delta\theta = \frac{1}{53{,}33} \approx 0{,}019°}
+\label{eq:angular_res}
+\end{equation}
+
+Cette résolution est largement suffisante pour l'usinage d'aluminium AW-2017A ($\pm 0{,}1°$ typique).
+
+\subsection{Algorithme de résolution analytique}
+
+La cinématique inverse transforme les coordonnées pièce $(X_w, Y_w, Z_w)$ en coordonnées machine $(X_m, Y_m, Z_m)$ pour des angles $(A, C)$ donnés. Soit $d$ la distance pivot-table~:
+
+\begin{align}
+X_m &= X_w + d \cdot \sin(A) \cdot \sin(C) \label{eq:kin_x} \\
+Y_m &= Y_w - d \cdot \sin(A) \cdot \cos(C) \label{eq:kin_y} \\
+Z_m &= Z_w + d \cdot (1 - \cos(A)) \label{eq:kin_z}
+\end{align}
+
+\begin{lstlisting}[caption={Pseudocode --- cinématique inverse Trunnion.}, label={alg:kin_inv}]
+function inverseKinematics(Xw, Yw, Zw, A_deg, C_deg, d=45):
+    A = A_deg * PI / 180
+    C = C_deg * PI / 180
+    Xm = Xw + d * sin(A) * sin(C)
+    Ym = Yw - d * sin(A) * cos(C)
+    Zm = Zw + d * (1 - cos(A))
+    return (Xm, Ym, Zm, A_deg, C_deg)
+\end{lstlisting}
+
+\paragraph{Exemple numérique.} Pour $X_w = 50$~mm, $Y_w = 30$~mm, $Z_w = 0$, $A = 30°$, $C = 45°$~:
+\begin{align*}
+X_m &= 50 + 45 \times \sin(30°) \times \sin(45°) = 50 + 45 \times 0{,}5 \times 0{,}707 = \mathbf{65{,}9\;\text{mm}} \\
+Y_m &= 30 - 45 \times \sin(30°) \times \cos(45°) = 30 - 15{,}9 = \mathbf{14{,}1\;\text{mm}} \\
+Z_m &= 0 + 45 \times (1 - \cos(30°)) = 45 \times 0{,}134 = \mathbf{6{,}0\;\text{mm}}
+\end{align*}
+
+\subsection{RTCP --- Remote Tool Center Point (G43.4)}
+
+Sans compensation RTCP, toute rotation de la table déplace le point de contact outil-pièce de manière indésirable. Le RTCP, activé par \code{G43.4}, corrige dynamiquement les axes linéaires lors de toute variation de~A ou~C, maintenant la pointe de l'outil invariante dans le repère pièce.
+
+La figure~\ref{fig:rtcp} illustre le principe~:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.85]
+  % Sans RTCP
+  \begin{scope}
+    \node[font=\bfseries\small, above] at (2,4.5) {Sans RTCP};
+    \draw[thick, gray] (0,0) -- (4,0);
+    \fill[orange!30] (1.5,0) rectangle (2.5,0.5);
+    \node[font=\tiny] at (2,0.25) {Pièce};
+    \draw[very thick, brown!70] (2,3) -- (2,0.7);
+    \fill[brown!70] (2,0.7) circle(2pt) node[right, font=\tiny]{TCP\textsubscript{1}};
+
+    % Après rotation
+    \draw[thick, gray, dashed] (0,0) -- (4,0);
+    \fill[orange!15, rotate around={20:(2,0)}] (1.5,0) rectangle (2.5,0.5);
+    \draw[very thick, brown!30] (2,3) -- (2,0.7);
+    \fill[red!70] (2.4,0.3) circle(2pt) node[right, font=\tiny, red]{TCP\textsubscript{2} $\neq$ TCP\textsubscript{1} !};
+    \draw[-{Stealth}, red, thick] (2,0.7) -- (2.4,0.3);
+    \node[font=\tiny\itshape, red] at (2.8,0.8) {Erreur};
+  \end{scope}
+
+  % Avec RTCP
+  \begin{scope}[xshift=7cm]
+    \node[font=\bfseries\small, above] at (2,4.5) {Avec RTCP (G43.4)};
+    \draw[thick, gray] (0,0) -- (4,0);
+    \fill[orange!30] (1.5,0) rectangle (2.5,0.5);
+    \node[font=\tiny] at (2,0.25) {Pièce};
+    \draw[very thick, brown!70] (2,3) -- (2,0.7);
+    \fill[brown!70] (2,0.7) circle(2pt) node[right, font=\tiny]{TCP};
+
+    % Après rotation + compensation
+    \fill[orange!15, rotate around={20:(2,0)}] (1.5,0) rectangle (2.5,0.5);
+    \draw[very thick, brown!30] (1.6,3.2) -- (2,0.7);  % outil déplacé
+    \fill[green!70] (2,0.7) circle(2pt);
+    \draw[-{Stealth}, green!60!black, thick] (2,3) -- (1.6,3.2);
+    \node[font=\tiny\itshape, green!60!black] at (1,3.5) {Compensation\\X,Y,Z};
+    \node[font=\tiny\bfseries, green!60!black] at (2,0.2) {TCP invariant \checkmark};
+  \end{scope}
+\end{tikzpicture}
+\caption{Principe du RTCP --- sans compensation (gauche) vs. avec G43.4 (droite).}
+\label{fig:rtcp}
+\end{figure}
+
+L'état RTCP est suivi par \code{isRtcpActive} dans \code{MachineState}, mis à jour par \code{GrblParser.parseModalState()}.
+
+\subsection{Gestion des singularités cinématiques}
+
+La configuration Trunnion présente une singularité à $A = 0°$~: les axes~X et~C deviennent colinéaires (\textit{Gimbal Lock}). La détection logicielle utilise~:
+
+\begin{equation}
+|A| < \theta_{sing} = 5° \quad \Rightarrow \quad \text{singularityRisk} = 1 - \frac{|A|}{\theta_{sing}}
+\label{eq:singularity}
+\end{equation}
+
+Le champ \code{singularityRisk} (0{,}0 $\rightarrow$ 1{,}0) alimente un indicateur visuel dans le dashboard, avertissant l'opérateur de la proximité de la zone singulière. La stratégie de contournement consiste en un lissage par interpolation linéaire pré-calculée dans la zone $|A| < 5°$.
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Planification de Trajectoire et Algorithmes Avancés}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{Streaming Character-Counting}
+
+Le service \code{GCodeStreamingService} implémente l'algorithme \textit{Character-Counting} pour saturer le buffer RX de l'ESP32 sans débordement. La figure~\ref{fig:char_count} illustre le principe.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  block/.style={draw, rounded corners=3pt, minimum width=2.5cm, minimum height=0.8cm, fill=#1!12, font=\small},
+  buf/.style={draw, thick, minimum width=4cm, minimum height=0.8cm, font=\small\ttfamily},
+]
+  % App side
+  \node[block=blue] (app) at (0,0) {Forgeron (IHM)};
+  \node[block=blue, below=0.5cm of app] (fg) {\small ForceGuard\\[-2pt]\tiny processLine()};
+  \node[block=blue, below=0.5cm of fg] (cc) {\small Character\\[-2pt]\small Counting};
+
+  % Buffer
+  \node[buf, right=3cm of cc] (buffer) {Buffer RX};
+  \node[font=\scriptsize, above] at (buffer.north) {$B_{max} = 127$ octets};
+
+  % Remplissage visuel du buffer
+  \fill[green!30] ([xshift=1pt, yshift=1pt]buffer.south west) rectangle ([xshift=-1.8cm, yshift=-1pt]buffer.north east);
+  \node[font=\tiny\bfseries] at ([xshift=-0.7cm]buffer.center) {$B_{vol}$};
+  \node[font=\tiny, gray] at ([xshift=1.3cm]buffer.center) {libre};
+
+  % ESP32
+  \node[block=red, right=3cm of buffer] (esp) {ESP32\\FluidNC};
+
+  % Flèches
+  \draw[-{Stealth}, thick] (app) -- (fg);
+  \draw[-{Stealth}, thick] (fg) -- node[left, font=\tiny]{ligne filtrée} (cc);
+  \draw[-{Stealth}, thick, blue!60] (cc) -- node[above, font=\tiny]{si $B_{vol} + |L_i| \leq 127$} (buffer);
+  \draw[-{Stealth}, thick, green!60!black] (buffer) -- node[above, font=\tiny]{Step/Dir} (esp);
+  \draw[-{Stealth}, thick, orange, dashed] (esp.south) -- ++(0,-0.8) -| node[below, font=\tiny, pos=0.25]{\texttt{ok} $\rightarrow$ libère $|L_j|$ octets} (cc.south);
+
+\end{tikzpicture}
+\caption{Algorithme Character-Counting --- pipeline de streaming G-code.}
+\label{fig:char_count}
+\end{figure}
+
+La condition d'envoi est~:
+\begin{equation}
+\boxed{B_{vol} + |L_i| \leq B_{max} = 127 \;\text{octets}}
+\label{eq:char_count}
+\end{equation}
+
+Un \textit{watchdog} de 2~secondes surveille les acquittements~: en l'absence de réponse, le streaming est suspendu et l'état machine est interrogé via la commande temps réel \code{?}.
+
+\begin{lstlisting}[caption={Pseudocode --- algorithme Character-Counting.}, label={alg:streaming}]
+MAX_RX = 127;  bytes_in_flight = 0
+sent_sizes = Queue()
+
+function attemptSend():
+    while pendingLines is not empty:
+        line = ForceGuard.processLine(pendingLines.first)
+        if bytes_in_flight + len(line) <= MAX_RX:
+            pendingLines.removeFirst()
+            bytes_in_flight += len(line)
+            sent_sizes.enqueue(len(line))
+            connection.sendRaw(line)
+        else: break   // buffer plein --> attendre 'ok'
+
+function handleAck():
+    bytes_in_flight -= sent_sizes.dequeue()
+    attemptSend()      // relancer
+\end{lstlisting}
+
+\subsection{Profil d'accélération S-Curve (Jerk limité)}
+
+Le profil S-Curve décompose chaque segment en \textbf{7~phases cinématiques}~:
+
+\begin{equation}
+s(t) = \begin{cases}
+\dfrac{1}{6}\,J \cdot t^3 & \text{phase 1 : jerk + constant} \\[4pt]
+v_1 t + \dfrac{1}{2}\,a_{max} \cdot t^2 & \text{phase 2 : accél. constante} \\[4pt]
+\text{(transition)} & \text{phase 3 : jerk $-$} \\[4pt]
+v_{max} \cdot t & \text{phase 4 : vitesse constante} \\[4pt]
+\text{(symétrique)} & \text{phases 5--7 : décélération}
+\end{cases}
+\label{eq:scurve}
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[xscale=1.1, yscale=0.8]
+  % Axes
+  \draw[-{Stealth}] (0,0) -- (10,0) node[right, font=\small]{$t$};
+  \draw[-{Stealth}] (0,0) -- (0,5) node[above, font=\small]{$v(t)$};
+
+  % S-Curve
+  \draw[very thick, blue!70]
+    (0,0) .. controls (0.5,0) and (0.8,1) .. (1.2,1.5)    % Phase 1
+    -- (2.5,3)                                               % Phase 2
+    .. controls (2.8,3.5) and (3,4) .. (3.5,4)              % Phase 3
+    -- (6.5,4)                                               % Phase 4
+    .. controls (7,4) and (7.2,3.5) .. (7.5,3)              % Phase 5
+    -- (8.8,1.5)                                             % Phase 6
+    .. controls (9.2,1) and (9.5,0) .. (10,0);              % Phase 7
+
+  % Trapézoïdal (comparaison)
+  \draw[thick, red!50, dashed]
+    (0,0) -- (2,4) -- (8,4) -- (10,0);
+
+  % Labels phases
+  \foreach \x/\n in {0.6/1, 1.8/2, 3/3, 5/4, 7/5, 8.2/6, 9.5/7} {
+    \node[font=\tiny, gray] at (\x, -0.5) {\n};
+  }
+  \node[font=\tiny\itshape, gray] at (5,-1) {7 phases cinématiques};
+
+  % Légende
+  \draw[very thick, blue!70] (6.5,5.5) -- (7.5,5.5) node[right, font=\small]{S-Curve};
+  \draw[thick, red!50, dashed] (6.5,5) -- (7.5,5) node[right, font=\small]{Trapézoïdal};
+
+  % v_max
+  \draw[thin, dashed, gray] (0,4) -- (10,4);
+  \node[font=\scriptsize, gray, left] at (0,4) {$v_{max}$};
+\end{tikzpicture}
+\caption{Profil S-Curve (7~phases) vs. profil trapézoïdal classique.}
+\label{fig:scurve}
+\end{figure}
+
+Le planificateur FluidNC maintient un buffer circulaire de 15~blocs (\code{plannerBuffer}) et utilise un algorithme \textit{Look-Ahead} pour pré-calculer les vitesses de jonction entre segments consécutifs.
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Développement de l'IHM de Supervision}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{Choix du framework}
+
+\begin{table}[H]
+\centering
+\caption{Comparatif des frameworks IHM multi-plateformes.}
+\label{tab:framework}
+\begin{tabularx}{\textwidth}{l c c c}
+\toprule
+Critère & Qt/C++ & Electron.js & \textbf{Flutter/Dart} \\
+\midrule
+Performance native & Excellente & Faible & \textbf{Excellente} \\
+Multi-plateforme & Desktop & Desktop + Web & \textbf{Mobile + Desktop + Web} \\
+Hot-reload & Non & Partiel & \textbf{Oui ($< 1$~s)} \\
+Taille binaire & $\sim$30~Mo & $\sim$150~Mo & \textbf{$\sim$15~Mo} \\
+Courbe d'apprentissage & Élevée & Moyenne & \textbf{Faible} \\
+Widgets industriels & Qt Widgets & HTML/CSS & \textbf{Material + Custom} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Flutter a été retenu pour sa compilation native ARM/x64, son \textit{hot-reload} sub-seconde et sa portabilité vers Android (tablette d'atelier), Windows (poste de supervision) et Web.
+
+\subsection{Gestion d'état avec Riverpod}
+
+\begin{table}[H]
+\centering
+\caption{Comparatif des solutions de gestion d'état Flutter.}
+\label{tab:state_mgmt}
+\begin{tabularx}{\textwidth}{l c c c >{\bfseries}c}
+\toprule
+Critère & \code{setState} & BLoC & Provider & Riverpod \\
+\midrule
+Compile-safe & Non & Oui & Non & Oui \\
+Testabilité & Faible & Bonne & Moyenne & Excellente \\
+Scoping & Widget & Stream & InheritedWidget & Global + scoped \\
+Dépendances auto & Non & Non & Limité & Oui \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La chaîne réactive est illustrée en figure~\ref{fig:riverpod_chain}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  block/.style={rectangle, draw, rounded corners=3pt, minimum width=2.4cm, minimum height=1cm, fill=#1!10, font=\footnotesize\ttfamily, align=center, drop shadow={opacity=0.1}},
+  arrow/.style={-{Stealth[length=2.5mm]}, thick, color=MidnightBlue},
+]
+  \node[block=gray]   (esp)    {ESP32\\FluidNC};
+  \node[block=blue, right=0.8cm of esp]   (conn)   {FluidNC\\Connection};
+  \node[block=green, right=0.8cm of conn]  (parser) {Grbl\\Parser};
+  \node[block=orange, right=0.8cm of parser] (state)  {Machine\\State};
+  \node[block=purple, right=0.8cm of state] (stream) {Stream\\Provider};
+  \node[block=red, right=0.8cm of stream]  (widget) {Widget\\build()};
+
+  \draw[arrow] (esp)    -- node[above, font=\tiny]{Wi-Fi} (conn);
+  \draw[arrow] (conn)   -- node[above, font=\tiny]{raw msg} (parser);
+  \draw[arrow] (parser) -- node[above, font=\tiny]{parse()} (state);
+  \draw[arrow] (state)  -- node[above, font=\tiny]{Stream} (stream);
+  \draw[arrow] (stream) -- node[above, font=\tiny]{watch()} (widget);
+\end{tikzpicture}
+\caption{Chaîne réactive Riverpod --- du capteur physique au pixel affiché.}
+\label{fig:riverpod_chain}
+\end{figure}
+
+\subsection{Protocole de communication WebSocket}
+
+La classe \code{FluidNCConnection} (180~lignes) implémente trois mécanismes de résilience~:
+
+\paragraph{Exponential Backoff.}
+\begin{equation}
+\Delta t_{retry} = \min(2^n, 30) \;\text{secondes}
+\label{eq:backoff}
+\end{equation}
+
+\paragraph{Heartbeat.} Envoi de \code{?} toutes les 2~s. Timeout de 10~s $\rightarrow$ déconnexion + reconnexion.
+
+\paragraph{Auto-Discovery.} Scan réseau en 3~phases~: IPs favorites ($< 2$~s), sous-réseau /24 (rafales de 20, $\sim$12~s), détection automatique du préfixe.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  phase/.style={draw, thick, rounded corners=4pt, minimum width=3.5cm, minimum height=1cm, fill=#1!12, font=\small, align=center},
+  arrow/.style={-{Stealth[length=3mm]}, very thick, gray!60},
+]
+  \node[phase=green] (p1) at (0,0) {Phase 1\\{\tiny IPs favorites ($< 2$~s)}};
+  \node[phase=blue, right=1.5cm of p1] (p2) {Phase 2\\{\tiny Scan /24 ($\sim$12~s)}};
+  \node[phase=purple, right=1.5cm of p2] (p3) {Phase 3\\{\tiny Détection préfixe}};
+
+  \draw[arrow] (p1) -- node[above, font=\tiny\itshape]{trouvé ?} (p2);
+  \draw[arrow] (p2) -- node[above, font=\tiny\itshape]{+ résultats} (p3);
+
+  \node[draw, dashed, rounded corners, below=0.8cm of p2, minimum width=4cm, fill=green!5, font=\small] {Appareil trouvé : \code{FluidNC@192.168.1.100}};
+\end{tikzpicture}
+\caption{Trois phases de l'\code{AutoDiscoveryService}.}
+\label{fig:autodiscovery}
+\end{figure}
+
+\subsection{Présentation des écrans de l'application}
+
+L'application Forgeron comporte \textbf{six écrans principaux}, conçus avec un layout responsive (mobile, tablette, desktop). Les figures~\ref{fig:screen_dashboard} à~\ref{fig:screen_diagnostics} présentent les captures d'écran de l'application.
+
+\screenshot{Tableau de bord --- DRO 5~axes, statut FSM, overrides, mode 3AX/5AX, température, progression SD}{screen_dashboard}
+
+\screenshot{Palpage \& Origines --- WCS (G54--G59), jogging 5~axes, séquences G38.2 (centre trou, hauteur Z, angle)}{screen_probing}
+
+\screenshot{Magasin d'Outils --- liste des 24~outils, offsets longueur/diamètre, appel M6, durée de vie}{screen_tools}
+
+\screenshot{Espace de Travail --- gestionnaire de fichiers G-code, éditeur, visualisation toolpath}{screen_workspace}
+
+\screenshot{Terminal MDI --- saisie directe G-code, historique, macros rapides (homing, WCS, probe)}{screen_terminal}
+
+\screenshot{Diagnostics --- entrées GPIO, configuration YAML FluidNC, télémétrie réseau, logs}{screen_diagnostics}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Sûreté de Fonctionnement du Code}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{ForceGuard --- protection des efforts en temps réel}
+
+Le \code{ForceGuardService} est intégré dans le pipeline de streaming. La figure~\ref{fig:forceguard_pipeline} illustre les deux filtres en cascade.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  block/.style={draw, thick, rounded corners=4pt, minimum width=3.5cm, minimum height=1.2cm, fill=#1!12, font=\small, align=center},
+  arrow/.style={-{Stealth[length=3mm]}, thick},
+  decision/.style={diamond, draw, thick, fill=yellow!10, font=\small, inner sep=2pt, aspect=2},
+]
+  \node[block=blue] (input) at (0,0) {Ligne G-code\\entrante};
+  \node[decision] (mode) at (4,0) {Mode ?};
+  \node[block=red] (filter) at (8,1.5) {\textbf{filterRotaryAxes()}\\{\tiny Bloquer A/C}};
+  \node[block=orange] (clamp) at (8,-1.5) {\textbf{clampFeedrate()}\\{\tiny F $\leq$ 500 mm/min}};
+  \node[block=green] (output) at (12,0) {Ligne validée\\$\rightarrow$ envoi ESP32};
+
+  \draw[arrow] (input) -- (mode);
+  \draw[arrow] (mode) -- node[above left, font=\tiny]{3AX} (filter);
+  \draw[arrow] (mode) -- node[below left, font=\tiny]{5AX} (clamp);
+  \draw[arrow] (filter) -- (output);
+  \draw[arrow] (clamp) -- (output);
+\end{tikzpicture}
+\caption{Pipeline ForceGuard --- filtrage en cascade selon le mode d'usinage.}
+\label{fig:forceguard_pipeline}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Paramètres ForceGuard par mode d'usinage.}
+\label{tab:forceguard}
+\begin{tabular}{l c c c c l}
+\toprule
+Mode & $F_{max}$ & $R_{max}$ & $a_p$ max & $a_e$ max & Action ForceGuard \\
+\midrule
+\rowcolor{blue!5}
+5AX & 500~mm/min & 45,6~N & 0,3~mm & 1,0~mm & Bridage automatique de F \\
+\rowcolor{orange!5}
+3AX & 2\,000~mm/min & 180~N & 2,0~mm & 6,0~mm & Blocage des axes A/C \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La méthode \code{checkFile()} permet une vérification pré-usinage complète~: l'intégralité du fichier est analysée et une liste d'alertes \code{ForceGuardAlert} (ligne + message) est présentée à l'opérateur \textbf{avant} le lancement.
+
+\subsection{Intégrité des données et résilience réseau}
+
+La robustesse repose sur quatre mécanismes~:
+
+\begin{enumerate}
+  \item \textbf{Typage fort et immuabilité}~: chaque champ de \code{MachineState} est typé et borné (Freezed + \code{@Default}). L'immuabilité (\code{copyWith}) élimine les problèmes de concurrence.
+  \item \textbf{Watchdog streaming}~: timeout de 2~s sur les acquittements $\rightarrow$ pause + interrogation \code{?}.
+  \item \textbf{Reconnexion automatique}~: exponential backoff (éq.~\ref{eq:backoff}), délai max 30~s.
+  \item \textbf{Zombie detection}~: heartbeat 2~s + timeout 10~s $\rightarrow$ déconnexion forcée + reconnexion.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[xscale=0.65, yscale=0.7]
+  \draw[-{Stealth}] (0,0) -- (16,0) node[right, font=\small]{$t$ (s)};
+  \draw[-{Stealth}] (0,0) -- (0,5.5) node[above, font=\small]{État};
+
+  % Niveaux
+  \draw[thin, dashed, gray] (0,4.5) -- (15.5,4.5);
+  \node[font=\scriptsize, left] at (0,4.5) {Connecté};
+  \draw[thin, dashed, gray] (0,1) -- (15.5,1);
+  \node[font=\scriptsize, left] at (0,1) {Déconnecté};
+
+  % Timeline
+  \fill[green!20] (0,4.2) rectangle (3,4.8);
+  \node[font=\tiny] at (1.5,4.5) {Connecté};
+
+  % Perte
+  \draw[very thick, red] (3,4.5) -- (3,1);
+  \node[font=\tiny\bfseries, red, above] at (3,5) {Perte Wi-Fi};
+
+  % Retries
+  \foreach \x/\d in {3/1, 4/2, 6/4, 10/4} {
+    \draw[thick, orange] (\x,1) -- (\x,2.5);
+    \draw[thick, orange, -{Stealth}] (\x,2.5) -- (\x,1.5);
+    \node[font=\tiny, orange] at (\x,3) {\d s};
+  }
+  \node[font=\tiny\itshape, orange] at (7,3.5) {Exponential backoff};
+
+  % Reconnexion
+  \draw[very thick, green!60!black] (14,1) -- (14,4.5);
+  \fill[green!20] (14,4.2) rectangle (15.5,4.8);
+  \node[font=\tiny\bfseries, green!60!black, above] at (14,5) {Reconnecté};
+\end{tikzpicture}
+\caption{Mécanisme de reconnexion automatique avec exponential backoff.}
+\label{fig:backoff}
+\end{figure}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+% ══════════════════════════════════════════════════════════════════════
+
+Ce chapitre a présenté le développement logiciel du système de commande de la CNC 5~axes Trunnion, structuré autour de cinq axes~:
+
+\begin{itemize}
+  \item Une \textbf{architecture Clean Architecture} en quatre couches garantissant l'indépendance firmware/IHM et la substitution Mock/FluidNC par inversion de dépendance.
+  \item Une \textbf{cinématique inverse analytique} propre au Trunnion, avec compensation RTCP (G43.4) et gestion des singularités ($\Delta\theta = 0{,}019°$).
+  \item Un \textbf{streaming industriel} par algorithme Character-Counting (buffer 127~octets, watchdog 2~s) intégrant le ForceGuard pour la protection des efforts en temps réel.
+  \item Une \textbf{IHM Flutter/Riverpod} responsive (6~écrans, mobile/desktop) offrant une supervision temps réel (latence $< 5$~ms).
+  \item Des mécanismes de \textbf{résilience réseau} (exponential backoff, heartbeat, zombie detection) assurant la continuité de service en environnement industriel Wi-Fi.
+\end{itemize}
+
+Le chapitre suivant présentera la réalisation physique du prototype et les essais de validation expérimentale.
+
+% ══════════════════════════════════════════════════════════════════════
+\begin{thebibliography}{9}
+\bibitem{martin2017clean}
+R.~C.~Martin, \textit{Clean Architecture: A Craftsman's Guide to Software Structure and Design}, Prentice Hall, 2017.
+
+\bibitem{grbl2023}
+Grbl Contributors, \textit{Grbl v1.1 Interface --- Protocol and Usage}, 2023. [En ligne].
+
+\bibitem{fluidnc2024}
+FluidNC Contributors, \textit{FluidNC Documentation --- Configuration and Usage}, 2024. [En ligne].
+
+\bibitem{flutter2024}
+Google, \textit{Flutter Documentation --- Build apps for any screen}, 2024. [En ligne].
+
+\bibitem{riverpod2024}
+R.~Music, \textit{Riverpod --- A Reactive Caching and Data-binding Framework}, 2024. [En ligne].
+
+\bibitem{iso6983}
+ISO~6983-1:2009, \textit{Automation systems and integration --- Numerical control of machines --- Program format and definitions of address words}.
+\end{thebibliography}
+
+\end{document}

@@ -20,7 +20,7 @@ abstract class MachineRepository {
   void sendRaw(String data);
 
   /// Envoie plusieurs lignes de G-code optimisées pour le streaming haute vitesse.
-  Future<void> sendGCodeBatch(List<String> lines);
+  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete});
 
   /// Déclenche un arrêt d'urgence.
   Future<void> emergencyStop();

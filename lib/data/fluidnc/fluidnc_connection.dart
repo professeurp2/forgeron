@@ -24,11 +24,7 @@ class FluidNCConnection {
   DateTime? _lastResponseTime;
   bool _disposed = false;
 
-  // Configuration Buffer (Backpressure)
-  static const int maxBufferSize = 127;
-  int _currentBufferSize = 0;
-  final List<int> _sentLengths = [];
-  final List<String> _pendingQueue = [];
+  // Suppression du buffer local car délégué au GCodeStreamingService (Task 3.3)
 
   FluidNCConnection(this.url);
 
@@ -83,11 +79,16 @@ class FluidNCConnection {
     if (_disposed) return;
     _isConnected = false;
     _statusController.add(false);
-    
-    // Exponential Backoff : 1s, 2s, 4s, 8s... max 30s
-    final delay = math.min(math.pow(2, _retryCount).toInt(), 30);
+
+    // Exponential Backoff : 1s, 2s, 4s, 8s, 16s, puis 30s fixe.
+    // On plafonne l'exposant à 5 pour éviter l'overflow de double→int
+    // (math.pow(2, N).toInt() retourne 0 pour N>1023, ce qui causerait
+    // une boucle de reconnexion frénétique épuisant les ports TCP).
+    const int kMaxExponent = 5; // 2^5 = 32 > 30 → le min() capte à 30s
+    final exponent = math.min(_retryCount, kMaxExponent);
+    final delay = math.min(math.pow(2, exponent).toInt(), 30);
     _retryCount++;
-    
+
     debugPrint('[FluidNC] ⏳ Retrying in ${delay}s... (attempt $_retryCount)');
     _retryTimer?.cancel();
     _retryTimer = Timer(Duration(seconds: delay), () {
@@ -109,14 +110,7 @@ class FluidNCConnection {
     debugPrint('[FluidNC RX] $msg');
     _trafficController.add('RX: $msg');
     
-    // Détection des acquittements pour la gestion du buffer
-    if (msg.trim() == 'ok' || msg.startsWith('error:')) {
-      if (_sentLengths.isNotEmpty) {
-        _currentBufferSize -= _sentLengths.removeAt(0);
-        _processQueue(); // Libérer de la place pour les suivantes
-      }
-    }
-
+    // Détection des acquittements déléguée au GCodeStreamingService via le repository.
     _messageController.add(msg);
   }
 
@@ -140,27 +134,10 @@ class FluidNCConnection {
     });
   }
 
-  /// Envoi sécurisé avec gestion du buffer RX FluidNC (Backpressure)
+  /// Envoi sécurisé via le StreamingService (pas de buffer local ici)
   void sendGCode(String gcode) {
     final cleanCmd = gcode.endsWith('\n') ? gcode : '$gcode\n';
-    _pendingQueue.add(cleanCmd);
-    _processQueue();
-  }
-
-  void _processQueue() {
-    while (_pendingQueue.isNotEmpty) {
-      final cmd = _pendingQueue.first;
-      final len = cmd.length;
-
-      if (_currentBufferSize + len <= maxBufferSize) {
-        _pendingQueue.removeAt(0);
-        _currentBufferSize += len;
-        _sentLengths.add(len);
-        sendRaw(cmd);
-      } else {
-        break; // Buffer plein, on attend un 'ok'
-      }
-    }
+    sendRaw(cleanCmd);
   }
 
   /// Envoi brut (pour commandes temps réel comme ?, !, ~)
@@ -181,10 +158,7 @@ class FluidNCConnection {
     _channel?.sink.close();
     _channel = null;
     
-    // Reset du buffer
-    _currentBufferSize = 0;
-    _sentLengths.clear();
-    _pendingQueue.clear();
+    // Les buffers du streaming service seront réinitialisés par le repository.
     
     if (!_disposed) {
       _onConnectionFailed();

@@ -146,12 +146,28 @@ class MockMachineRepository implements MachineRepository {
   }
 
   @override
-  Future<void> sendGCodeBatch(List<String> lines) async {
+  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete}) async {
     _currentProgram = lines;
     _currentProgramIndex = 0;
     _isDemoActive = false;
-    _updateState(_currentState.copyWith(status: MachineStatus.run, sdPercent: 0, activeLineIndex: 0));
+    _updateState(_currentState.copyWith(
+      status: MachineStatus.run,
+      sdPercent: 0,
+      activeLineIndex: 0,
+    ));
+    // En mode mock, simule la fin de programme et appelle onComplete
+    if (onComplete != null) {
+      final totalLines = lines.length;
+      final msPerLine = (50 / _simulationSpeedMultiplier).round().clamp(10, 500);
+      Future.delayed(Duration(milliseconds: msPerLine * totalLines), () {
+        if (!_stateController.isClosed) {
+          _updateState(_currentState.copyWith(status: MachineStatus.idle));
+          onComplete();
+        }
+      });
+    }
   }
+
 
   @override
   Future<void> emergencyStop() async {
@@ -212,4 +228,12 @@ class MockMachineRepository implements MachineRepository {
     overrides[2] = percent;
     _updateState(_currentState.copyWith(overrides: overrides));
   }
+
+  void dispose() {
+    _simulationTimer?.cancel();
+    _stateController.close();
+    _messageController.close();
+    _trafficController.close();
+  }
 }
+

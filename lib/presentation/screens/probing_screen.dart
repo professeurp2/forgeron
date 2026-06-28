@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../domain/models/jog_command.dart';
 import '../../application/providers/probing_provider.dart';
-import '../../core/widgets/split_view.dart';
 import '../../core/widgets/split_view.dart';
 import '../widgets/calibration_wizard.dart';
 import '../widgets/trunnion_visualizer.dart';
@@ -14,6 +14,9 @@ import '../../application/providers/gcode_provider.dart';
 import '../screens/dashboard_screen.dart' show showVectorsProvider;
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
+import '../../application/providers/di_providers.dart';
+import '../../application/providers/ui_state_provider.dart';
+import '../widgets/dashboard/mode_selector_widget.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
   const ProbingScreen({super.key});
@@ -61,6 +64,8 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       key: TutorialKeys.wcsCards,
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const ModeSelectorWidget(),
+        const SizedBox(height: 24),
         const Text('SYSTÈMES DE COORDONNÉES (WCS)',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
         const SizedBox(height: 12),
@@ -239,9 +244,15 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
         Text(axis, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
         const SizedBox(width: 6),
         Text(unit, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)),
-        const Spacer(),
-        Text(val.toStringAsFixed(axis == 'A' || axis == 'C' ? 2 : 3),
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+        const SizedBox(width: 6),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(val.toStringAsFixed(axis == 'A' || axis == 'C' ? 2 : 3),
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+          ),
+        ),
       ]),
     );
   }
@@ -257,6 +268,9 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
   Widget build(BuildContext context) {
     final jog = ref.watch(secureJogProvider);
     final jogN = ref.read(secureJogProvider.notifier);
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -290,30 +304,30 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
         const SizedBox(height: 8),
         Row(children: [
           Expanded(
-            child: GlassPanel(
-              title: 'A — TILT BROCHE',
-              child: Column(children: [
-                const Icon(Icons.rotate_90_degrees_ccw, color: AppColors.axisA, size: 28),
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  _jogBtn('A-', AppColors.axisA, () => jogN.jogRotary('A', -1)),
-                  _jogBtn('A+', AppColors.axisA, () => jogN.jogRotary('A', 1)),
-                ]),
-              ]),
+            child: CncJogDial(
+              axis: 'A',
+              label: 'TILT (BERCEAU)',
+              color: AppColors.axisA,
+              currentValue: wPos[3],
+              multiplier: (jog.rotaryStep * 10).round(),
+              onJog: (step) {
+                ref.read(machineRepositoryProvider).jog('A', step, 3600);
+              },
+              size: 80,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: GlassPanel(
-              title: 'C — ROTATION PLATEAU',
-              child: Column(children: [
-                const Icon(Icons.sync, color: AppColors.axisC, size: 28),
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  _jogBtn('C-', AppColors.axisC, () => jogN.jogRotary('C', -1)),
-                  _jogBtn('C+', AppColors.axisC, () => jogN.jogRotary('C', 1)),
-                ]),
-              ]),
+            child: CncJogDial(
+              axis: 'C',
+              label: 'PLATEAU ROTATIF',
+              color: AppColors.axisC,
+              currentValue: wPos[4],
+              multiplier: (jog.rotaryStep * 10).round(),
+              onJog: (step) {
+                ref.read(machineRepositoryProvider).jog('C', step, 3600);
+              },
+              size: 80,
             ),
           ),
         ]),

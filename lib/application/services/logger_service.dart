@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/di_providers.dart';
 
 /// Type d'entrée de log
 enum LogType { tx, rx, system, alarm }
@@ -29,10 +30,11 @@ class LoggerService extends StateNotifier<List<LogEntry>> {
   final Ref _ref;
   static const int _maxEntries = 5000;
   final ListQueue<LogEntry> _buffer = ListQueue<LogEntry>(_maxEntries);
+  StreamSubscription? _trafficSub;
 
   LoggerService(this._ref) : super([]) {
     // Écoute automatique de tout le trafic (TX/RX) via le repository
-    _ref.read(machineRepositoryProvider).trafficStream.listen((data) {
+    _trafficSub = _ref.read(machineRepositoryProvider).trafficStream.listen((data) {
       if (data.startsWith('TX:')) {
         log(LogType.tx, data.substring(3).trim());
       } else if (data.startsWith('RX:')) {
@@ -87,6 +89,12 @@ class LoggerService extends StateNotifier<List<LogEntry>> {
   void clear() {
     _buffer.clear();
     state = [];
+  }
+
+  @override
+  void dispose() {
+    _trafficSub?.cancel();
+    super.dispose();
   }
 }
 

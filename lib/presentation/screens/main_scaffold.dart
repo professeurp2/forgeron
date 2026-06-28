@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
@@ -13,9 +14,12 @@ import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'connection_settings_screen.dart';
+import 'mobile_dashboard_screen.dart';
+import 'mobile_screens.dart';
 import '../../core/widgets/responsive_layout.dart';
 
 import '../../application/services/audio_service.dart';
+import '../../application/providers/di_providers.dart';
 
 final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -125,52 +129,165 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     );
   }
 
+  // ── Écrans mobiles : séparation complète desktop/mobile par page
+  // Chaque écran est une version dédiée optimisée pour les petits écrans.
+  static const List<Widget> _mobileScreens = [
+    MobileDashboardScreen(),     // 0 — Tableau de bord
+    MobileProbingScreen(),       // 1 — Palpage & Origines
+    MobileToolTableScreen(),     // 2 — Magasin d'outils
+    FileManagerScreen(),         // 3 — Espace de travail (tabbed, compatible mobile)
+    MobileTerminalScreen(),      // 4 — Terminal MDI
+    MobileDiagnosticsScreen(),   // 5 — Diagnostics
+  ];
+
   Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
     final state = machineState.valueOrNull;
     final statusColor = _getMachineStatusColor(state?.status ?? MachineStatus.offline);
+    final statusLabel = state?.status.name.toUpperCase() ?? 'OFFLINE';
+    final isOnline = state?.status != null && state?.status != MachineStatus.offline;
+
+    // Tous les index utilisent leur écran mobile dédié
+    final body = _mobileScreens[selectedIndex];
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
+        elevation: 0,
+        titleSpacing: 12,
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 24),
-            const SizedBox(width: 8),
+            Image.asset('assets/logo.png', height: 26),
+            const SizedBox(width: 10),
+            const Text(
+              'FORGERON',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+                letterSpacing: 2.0,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Badge statut compact
             Container(
-              width: 10, height: 10,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: statusColor.withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6, height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: statusColor,
+                      boxShadow: [
+                        BoxShadow(color: statusColor, blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_ethernet, color: AppColors.textSecondary),
-            onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.warning_amber, color: AppColors.danger),
-            onPressed: () => ref.read(machineRepositoryProvider).emergencyStop(),
+            icon: Icon(
+              isOnline ? Icons.wifi : Icons.wifi_off,
+              color: isOnline ? AppColors.success : AppColors.textDisabled,
+              size: 20,
+            ),
+            tooltip: 'Connexion ESP32',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()),
+            ),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.surfaceBorder),
+        ),
       ),
-      body: Container(
-        color: AppColors.background,
-        child: _screens[selectedIndex],
+      // ── FAB E-STOP persistant ──────────────────────────────────────────
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          ref.read(machineRepositoryProvider).emergencyStop();
+          HapticFeedback.heavyImpact();
+        },
+        backgroundColor: AppColors.danger,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.warning_amber_rounded, size: 20),
+        label: const Text('ARRÊT',
+            style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                letterSpacing: 1.0)),
+        elevation: 6,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textDisabled,
-        currentIndex: selectedIndex,
-        onTap: _onNavItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: _navItems.map((item) => BottomNavigationBarItem(
-          icon: Icon(item.icon),
-          label: item.title.split(' ').first,
-        )).toList(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+      body: body,
+      bottomNavigationBar: BottomAppBar(
+        color: AppColors.surface,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              // 5 premiers onglets (les 5 premières entrées)
+              ..._navItems.asMap().entries.take(5).map((e) {
+                final i = e.key;
+                final item = e.value;
+                final sel = selectedIndex == i;
+                return Expanded(
+                  child: InkWell(
+                    onTap: () => _onNavItemTapped(i),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(item.icon,
+                            size: 22,
+                            color: sel
+                                ? AppColors.primary
+                                : AppColors.textDisabled),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.title.split(' ').first,
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: sel
+                                  ? AppColors.primary
+                                  : AppColors.textDisabled,
+                              fontWeight: sel
+                                  ? FontWeight.w900
+                                  : FontWeight.normal),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+              // Espace pour le FAB
+              const SizedBox(width: 56),
+            ],
+          ),
+        ),
       ),
     );
   }

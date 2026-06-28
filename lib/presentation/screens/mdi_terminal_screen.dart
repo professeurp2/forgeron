@@ -5,6 +5,7 @@ import '../../application/providers/machine_provider.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
+import '../../application/providers/di_providers.dart';
 
 class MDITerminalScreen extends ConsumerStatefulWidget {
   const MDITerminalScreen({super.key});

@@ -39,4 +39,19 @@ class AppColors {
 
   // ── GLASS ──
   static const Color glassBorder = Color(0x33FFFFFF);
+
+  // ── CNC PANEL (FANUC style) ──
+  static const Color lcdBackground = Color(0xFF0A1505);   // fond LCD phosphore
+  static const Color lcdText       = Color(0xFF39FF14);   // vert phosphore (néon)
+  static const Color lcdTextDim    = Color(0xFF1A7A08);   // texte secondaire LCD
+  static const Color lcdBorder     = Color(0xFF0D2A0A);   // bordure LCD
+  static const Color keyBezel      = Color(0xFF1A1F35);   // fond touche normale
+  static const Color keyActive     = Color(0xFF252D4A);   // fond touche survol/active
+  static const Color keyBorder     = Color(0xFF2E3A5C);   // bordure touche
+  static const Color panelBody     = Color(0xFF0B0E1C);   // corps du pupitre
+  static const Color panelSection  = Color(0xFF101525);   // section panneaux
+  static const Color ledGreen      = Color(0xFF00E676);   // voyant vert
+  static const Color ledOrange     = Color(0xFFFDB022);   // voyant orange
+  static const Color ledRed        = Color(0xFFFF3D00);   // voyant rouge
+  static const Color ledBlue       = Color(0xFF40C4FF);   // voyant bleu
 }

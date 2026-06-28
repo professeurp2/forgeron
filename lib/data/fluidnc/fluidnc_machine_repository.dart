@@ -4,6 +4,7 @@ import '../../domain/models/machine_state.dart';
 import '../../domain/repositories/machine_repository.dart';
 import 'fluidnc_connection.dart';
 import 'grbl_parser.dart';
+import '../../application/services/streaming_service.dart';
 
 /// Repository FluidNC Industriel pour machine CNC 5-axes Trunnion.
 /// 
@@ -16,11 +17,16 @@ class FluidNCMachineRepository implements MachineRepository {
   final _stateController = StreamController<MachineState>.broadcast();
   MachineState _currentState = const MachineState(status: MachineStatus.offline);
 
+  StreamSubscription? _msgSub;
+  StreamSubscription? _statusSub;
+  late final GCodeStreamingService _streamingService;
+
   FluidNCMachineRepository(this._connection) {
+    _streamingService = GCodeStreamingService(_connection);
     _connection.connect();
 
-    _connection.messages.listen(_handleMessage);
-    _connection.status.listen((isConnected) {
+    _msgSub = _connection.messages.listen(_handleMessage);
+    _statusSub = _connection.status.listen((isConnected) {
       if (_stateController.isClosed) return;
       if (!isConnected) {
         _currentState = _currentState.copyWith(status: MachineStatus.offline);
@@ -38,6 +44,12 @@ class FluidNCMachineRepository implements MachineRepository {
 
   void _handleMessage(String message) {
     if (_stateController.isClosed) return;
+
+    // Détection des acquittements pour le StreamingService (Backpressure)
+    if (message.trim() == 'ok' || message.startsWith('error:')) {
+      _streamingService.handleAck();
+    }
+
     final newState = GrblParser.parse(message, _currentState);
     if (newState != null) {
       _currentState = newState;
@@ -66,13 +78,8 @@ class FluidNCMachineRepository implements MachineRepository {
   }
 
   @override
-  Future<void> sendGCodeBatch(List<String> lines) async {
-    for (var line in lines) {
-      String optimized = line.split(';')[0].trim();
-      if (optimized.isNotEmpty) {
-        _connection.sendGCode(optimized);
-      }
-    }
+  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete}) async {
+    _streamingService.streamLines(lines, onComplete: onComplete);
   }
 
   @override
@@ -133,7 +140,10 @@ class FluidNCMachineRepository implements MachineRepository {
   void setSimulationSpeed(double speed) {} // Ignored for real hardware
 
   void dispose() {
+    _msgSub?.cancel();
+    _statusSub?.cancel();
     _stateController.close();
+    _streamingService.dispose();
     _connection.dispose();
   }
 }

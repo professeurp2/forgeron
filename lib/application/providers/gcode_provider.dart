@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/gcode_parser.dart';
 
@@ -72,4 +72,17 @@ final gcodeProvider = StateNotifierProvider<GCodeNotifier, LargeGCodeState>((ref
 /// Provider dédié à la fenêtre de visualisation (pour éviter les rebuilds massifs)
 final gcodeWindowProvider = Provider((ref) {
   return ref.watch(gcodeProvider).windowLines;
+});
+
+// --- PROVIDERS OPTIMISÉS ---
+
+final analyzedGCodeProvider = StateProvider<AnalyzedGCode?>((ref) => null);
+
+final gcodeScrollControllerProvider = Provider((ref) => ScrollController());
+
+/// Provider pour synchroniser le scroll sans rebuild massif
+final autoScrollProvider = Provider.autoDispose((ref) {
+  final controller = ref.watch(gcodeScrollControllerProvider);
+  // On écoute l'index de ligne actuel depuis le machine state
+  // et on déclenche un scroll doux.
 });

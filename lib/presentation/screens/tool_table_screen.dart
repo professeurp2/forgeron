@@ -6,6 +6,7 @@ import '../../core/widgets/split_view.dart';
 import '../../application/providers/machine_provider.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../widgets/tool_preview.dart';
+import '../../application/providers/di_providers.dart';
 
 class ToolTableScreen extends ConsumerStatefulWidget {
   const ToolTableScreen({super.key});

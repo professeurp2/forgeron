@@ -1,0 +1,2220 @@
+3 CHAPITRE 3 : MODÉLISATION ET
+DIMENSIONNEMENT
+3.1 Introduction :
+Après l’étude bibliographique (chapitre 1) et l’analyse fonctionnelle (chapitre 2), ce chapitre
+marque la transition vers la conception mécanique détaillée de la fraiseuse CNC 5 axes compacte.
+Les travaux précédents ont permis de définir les exigences du système à l’aide du cahier des
+charges fonctionnel, de l’actigramme A0, du diagramme FAST et d’une étude cinématique basée
+sur Denavit-Hartenberg et le RTCP. Cela a conduit au choix d’une architecture Table–Table
+(Trunnion), où les axes rotatifs sont intégrés à la table et les axes X, Y, Z assurent les translations.
+Cette configuration répond aux objectifs de compacité, rigidité et coût maîtrisé, tout en
+permettant l’usinage de pièces complexes en aluminium.
+L’architecture Trunnion offre une meilleure rigidité que les têtes bi-rotatives. Le plateau assure la
+rotation C, le berceau l’inclinaison A, permettant des usinages 3+2 et 5 axes. Elle satisfait les
+exigences fonctionnelles, notamment en précision, réduction des reprises et intégration
+compacte.
+La chaîne cinématique est : Y → X → Z → A → C. Les axes X et Y assurent les translations
+horizontales via rails et vis , le Trunnion (A, C) oriente la pièce, et l’axe Z contrôle la profondeur de
+coupe. Cette organisation facilite la dissociation des fonctions et le dimensionnement.
+L’étude repose sur des hypothèses adaptées à un prototype : précision ±0,05 mm, répétabilité
+≤0,01 mm et rugosité Ra ≤ 3,2 μm. Le matériau choisi est l’aluminium AW-2017A, compatible
+avec ce type de machine sous conditions d’usinage adaptées.
+Le tableau suivant regroupe les principales hypothèses retenues pour le prototype :
+Paramètre Symbole Valeur
+retenue
+Unité Remarque
+Course utile axe X 𝐿𝑋 150 mm Translation transversale du
+chariot
+Course utile axe Y 𝐿𝑌 300 mm Translation longitudinale de
+la base
+Course utile axe Z 𝐿𝑍 120 mm Translation verticale de la
+broche
+Longueur du plateau
+Trunnion
+𝐿𝐴 120 mm Berceau de rotation 𝐴
+Diamètre du plateau
+rotatif
+𝐷𝐶 100 mm Plateau de rotation 𝐶
+Masse du Trunnion
+hors pièce
+𝑚𝑇 4 kg Berceau, plateau, paliers,
+moteurs 𝐴et 𝐶
+Masse maximale pièce
++ fixation
+𝑚𝑃 2 kg Pièce usinée et bridage
+Masse du chariot X 𝑚𝑋 1,5 kg Structure, rails, vis, support
+Masse du chariot Y 𝑚𝑌 2 kg Base mobile longitudinale
+Masse de la broche et
+support Z
+𝑚𝑍 1,5 kg Broche, support et
+éléments mobiles
+
+
+Matériau cible — AW-2017A — Alliage d’aluminium
+usinable
+Transmission linéaire — Vis T8 — Axes 𝑋, 𝑌, 𝑍
+Motorisation — NEMA 23 +
+DM556
+— Entraînement pas-à-pas
+3.2 Modélisation cinématique et dynamique du système 5 axes
+3.2.1 Analyse du matériau cible et pression spécifique
+Le dimensionnement d’une fraiseuse CNC dépend directement du matériau usiné, car il influence
+les efforts de coupe, les couples moteurs et la rigidité requise.
+Dans ce projet, le matériau choisi est l’aluminium EN AW-2017A (AlCu4MgSi), un alliage de la
+série 2000 riche en cuivre (≈ 3,5–4,5 %), offrant un bon compromis entre résistance mécanique,
+légèreté et usinabilité.
+L’objectif est de définir les paramètres de coupe de référence, notamment la pression
+spécifique de coupe 𝐾𝑐, utilisée pour modéliser les efforts appliqués sur l’outil et les axes.
+Le tableau suivant présente les propriétés mécaniques et physiques retenues pour le
+prédimensionnement :
+Propriété Valeur Unité
+Désignation normalisée AW-2017A — AlCu4MgSi —
+Famille d’alliage Série 2000 — aluminium-cuivre —
+Dureté Brinell 95à 105 HB
+Résistance à la traction 𝑅𝑚 = 390 MPa
+Limite d’élasticité 𝑅𝑒 = 240 MPa
+Module d’Young 𝐸 = 72,5 GPa
+Masse volumique 𝜌 = 2 790 kg/m³
+Conductivité thermique 𝜆𝑡 = 134 W/(m·K)
+➢ Pression spécifique de coupe 𝑲𝒄
+La pression spécifique de coupe 𝐾𝑐représente la résistance du matériau à l’enlèvement de
+copeau. Elle permet de relier l’effort principal de coupe à la section instantanée du copeau. Elle
+s’exprime en : N/mm2
+Dans une approche simplifiée, l’effort tangentiel principal peut être évalué par :
+𝐹𝑐 = 𝐾𝑐 ⋅ 𝐴𝑐
+avec :
+• 𝐹𝑐: effort principal de coupe, en N ;
+• 𝐾𝑐: pression spécifique de coupe, en N/mm² ;
+• 𝐴𝑐: section instantanée du copeau, en mm².
+
+
+La relation empirique couramment utilisée pour tenir compte de l’influence de l’épaisseur de
+copeau est le modèle de Kienzle :
+𝐾𝑐 = 𝐾𝑐1 ⋅ ℎ−𝑚𝑐
+où :
+• 𝐾𝑐1 est la pression spécifique de coupe pour une épaisseur de copeau de référence ℎ =
+1 mm;
+• ℎ est l’épaisseur moyenne du copeau ;
+• 𝑚𝑐 est l’exposant de Kienzle, généralement voisin de 0,25 pour les alliages
+d’aluminium ;
+• 𝐾𝑐 est la pression spécifique corrigée pour l’épaisseur réelle du copeau.
+Le modèle de Kienzle permet de raffiner le calcul des efforts lorsque l’on dispose de données
+précises sur l’outil, l’angle de coupe et l’épaisseur moyenne du copeau.
+Dans ce PFE, le choix de :
+𝐾𝑐 = 700 N/mm2
+est retenu comme valeur forfaitaire de prédimensionnement.
+➢ Outil de coupe de référence
+Le choix de l’outil est adapté aux contraintes d’une CNC compacte. Une fraise de diamètre 5,5
+mm permet de limiter le couple de coupe et les efforts transmis à la structure, tout en offrant
+un compromis entre productivité, rigidité et puissance requise.
+Le maintien de l’outil est assuré par un porte-outil ER32, garantissant :
+• un centrage précis,
+• une réduction du faux-rond,
+• une meilleure qualité de surface,
+tout en offrant une bonne polyvalence grâce à l’utilisation de pinces interchangeables.
+Les caractéristiques de l’outil de référence sont donc :
+𝐷 = 5,5 mm 𝑍 = 3 Type : fraise carbure monobloc Serrage : porte-outil ER32
+➢ Paramètres de coupe retenus
+Les paramètres de coupe retenus sont choisis de manière à représenter une passe d’ébauche
+légère à modérée, compatible avec les capacités mécaniques d’une fraiseuse CNC compacte.
+Ils ne correspondent pas à une stratégie industrielle de forte ébauche, mais à un compromis
+entre effort de coupe, état de surface, durée de vie de l’outil et rigidité de la machine.
+La vitesse de broche est calculée par la relation classique :
+
+
+𝑁 = 𝑉𝑐 × 1000
+𝜋𝐷
+avec :
+𝑉𝑐 = 150 m/min
+𝐷 = 5,5 mm
+Application numérique :
+𝑁 = 150 × 1000
+𝜋 × 5,5
+𝑁 = 150 000
+17,279
+𝑁 ≈ 8 680 tr/min
+La vitesse d’avance est donnée par :
+𝑉𝑓 = 𝑁 ⋅ 𝑓𝑧 ⋅ 𝑍
+avec :
+𝑁 = 8 680 tr/min
+𝑓𝑧 = 0,05 mm/dent
+𝑍 = 3
+Application numérique :
+𝑉𝑓 = 8 680 × 0,05 × 3
+𝑉𝑓 = 1 302 mm/min
+𝑉𝑓 = 1 302 mm/min
+La profondeur axiale retenue est :
+𝑎𝑝 = 1,9 mm
+Elle représente environ :
+𝑎𝑝
+𝐷 = 1,9
+5,5
+
+
+𝑎𝑝
+𝐷 = 0,345
+𝑎𝑝 ≈ 0,35𝐷
+Cette valeur correspond à une passe d’ébauche légère, compatible avec une structure compacte.
+La largeur radiale est prise égale au diamètre de la fraise :
+𝑎𝑒 = 𝐷 = 5,5 mm
+Ce choix correspond à un cas défavorable de rainurage en pleine matière. Il permet de majorer
+les efforts de coupe dans la section suivante afin de sécuriser le prédimensionnement.
+La section instantanée de copeau utilisée dans la première approximation est :
+𝐴𝑐 = 𝑎𝑝 ⋅ 𝑎𝑒
+𝐴𝑐 = 1,9 × 5,5
+𝐴𝑐 = 10,45 mm2
+Cette section servira directement au calcul de l’effort principal de coupe dans la section 3.2.2 :
+𝐹𝑐 = 𝐾𝑐 ⋅ 𝐴𝑐
+avec :
+𝐾𝑐 = 700 N/mm2
+Paramètre Symbole Valeur Unité Justification
+Profondeur
+axiale
+𝑎𝑝 1,9 mm Environ 0,35𝐷, ébauche légère
+Largeur
+radiale
+𝑎𝑒 5,5 mm Engagement pleine matière, cas
+rainurage
+Avance par
+dent
+𝑓𝑧 0,05 mm/dent Valeur modérée pour finition/ébauche
+légère aluminium
+Vitesse de
+coupe
+𝑉𝑐 150 m/min Adaptée au carbure sur aluminium
+Vitesse de
+broche
+𝑁 8 680 tr/min Calculée par 𝑁 = 𝑉𝑐×1000
+𝜋𝐷
+Vitesse
+d’avance
+𝑉𝑓 1 302 mm/min Calculée par 𝑉𝑓 = 𝑁 × 𝑓𝑧 × 𝑍
+
+
+3.2.2 Modélisation des efforts de coupe
+En effet, les efforts théoriques calculés à partir d’un modèle simplifié peuvent conduire à des valeurs
+très élevées lorsqu’on considère un engagement maximal de l’outil. Ces valeurs sont utiles pour
+définir une enveloppe majorante, mais elles ne représentent pas toujours le fonctionnement réel
+d’une machine compacte de type desktop. Pour cette raison, la présente section distingue
+clairement deux niveaux d’analyse :
+• un modèle théorique majorant, basé sur une section de copeau maximale ;
+• un modèle réaliste d’exploitation, compatible avec la puissance, la rigidité et la
+motorisation du prototype.
+➢ Modèle de calcul des efforts
+Le calcul des efforts de coupe repose sur une approche simplifiée inspirée des modèles de Merchant
+et de Kienzle. Dans cette approche, l’effort principal de coupe est supposé proportionnel à la section
+non coupée du copeau. Le coefficient de proportionnalité est la pression spécifique de coupe 𝐾𝑐,
+introduite dans la section précédente.
+La force tangentielle principale s’écrit alors :
+𝐹𝑐 = 𝐾𝑐 ⋅ 𝐴𝑐
+avec :
+• 𝐹𝑐: force tangentielle principale de coupe, en N ;
+• 𝐾𝑐: pression spécifique de coupe, en N/mm2;
+• 𝐴𝑐: section instantanée du copeau, en mm2.
+L’effort tangentiel principal est donc :
+𝐹𝑐 = 700 × 10,45
+𝐹𝑐 = 7 315 N
+Cette valeur représente l’effort principal de coupe dans une situation de rainurage pleine matière
+avec engagement radial maximal.
+➢ Composantes de l’effort de coupe
+L’effort de coupe exercé au niveau de l’outil peut être décomposé dans le repère outil en trois
+composantes principales :
+• 𝐹𝑐: force tangentielle ou force principale de coupe ;
+• 𝐹𝑓: force d’avance, orientée suivant la direction d’avance relative de la pièce ;
+• 𝐹𝑝: force de pénétration, orientée radialement ou normalement à la surface usinée.
+Pour l’usinage de l’aluminium, on retient les coefficients suivants :
+
+
+𝐹𝑓 = 𝑘𝑓 ⋅ 𝐹𝑐
+𝐹𝑝 = 𝑘𝑝 ⋅ 𝐹𝑐
+avec :
+𝑘𝑓 ≈ 0,5
+𝑘𝑝 ≈ 0,3
+Ces valeurs correspondent à une approximation usuelle permettant d’estimer les efforts
+secondaires à partir de l’effort principal.
+➢ Calcul de la force d’avance
+𝐹𝑓 = 0,5 × 𝐹𝑐
+𝐹𝑓 = 0,5 × 7 315
+𝐹𝑓 = 3 657 N
+La force d’avance estimée est donc de l’ordre de :
+𝐹𝑓 ≈ 3,66 kN
+➢ Calcul de la force de pénétration
+𝐹𝑝 = 0,3 × 𝐹𝑐
+𝐹𝑝 = 0,3 × 7 315
+𝐹𝑝 = 2 194 N
+La force de pénétration estimée est donc :
+𝐹𝑝 ≈ 2,19 kN
+➢ Résultante globale de coupe
+La résultante des efforts dans le repère outil est calculée par :
+𝑅 = √𝐹𝑐2 + 𝐹𝑓
+2 + 𝐹𝑝
+Application numérique :
+𝑅 = √7 3152 + 3 6572 + 2 1942
+
+
+𝑅 = √53 509 225 + 13 373 649 + 4 813 636
+𝑅 = √71 696 510
+𝑅 ≈ 8 312 N
+La résultante théorique obtenue est donc voisine de :
+𝑅 ≈ 8,3 kN
+Cette valeur est très élevée pour une fraiseuse CNC compacte. Elle confirme que le cas considéré
+correspond à une enveloppe maximale, utile pour la vérification des limites, mais non représentative
+du fonctionnement courant de la machine.
+➢ Efforts réalistes pour une CNC compacte
+Les efforts calculés précédemment donnent une estimation majorante fondée sur une hypothèse
+sévère de pleine matière avec :
+𝑎𝑝 = 1,9 mm
+𝑎𝑒 = 5,5 mm
+Cette situation conduit à :
+𝐹𝑐 = 7 315 N
+𝑅 ≈ 8 312 N
+Cependant, ces valeurs ne peuvent pas être considérées comme représentatives du fonctionnement
+réel d’une CNC compacte de type desktop. Plusieurs raisons mécaniques et énergétiques justifient
+cette distinction.
+La puissance de broche disponible sur ce type de machine est généralement limitée. Une broche
+compacte ne peut pas maintenir durablement un enlèvement de matière correspondant à plusieurs
+kilonewtons d’effort de coupe sans chute de vitesse, échauffement ou perte de stabilité.
+Pour ces raisons, le modèle théorique doit être complété par une estimation plus réaliste, fondée
+sur des paramètres de coupe compatibles avec le prototype.
+➢ Cas réaliste : ébauche légère à modérée
+Pour un fonctionnement représentatif d’une CNC compacte, on retient une passe modérée :
+𝑎𝑝 = 0,5 mm
+𝑎𝑒 = 2 mm
+La section de copeau réaliste devient :
+
+
+𝐴𝑐,reˊ el = 𝑎𝑝 ⋅ 𝑎𝑒
+𝐴𝑐,reˊ el = 0,5 × 2
+𝐴𝑐,reˊ el = 1,0 mm2
+L’effort principal réaliste est :
+𝐹𝑐,reˊ el = 𝐾𝑐 ⋅ 𝐴𝑐,reˊ el
+𝐹𝑐,reˊ el = 700 × 1,0
+𝐹𝑐,reˊ el = 700 N
+La force d’avance réaliste est :
+𝐹𝑓,reˊ el = 0,5 × 𝐹𝑐,reˊ el
+𝐹𝑓,reˊ el = 0,5 × 700
+𝐹𝑓,reˊ el = 350 N
+La force de pénétration réaliste est :
+𝐹𝑝,reˊ el = 0,3 × 𝐹𝑐,reˊ el
+𝐹𝑝,reˊ el = 0,3 × 700
+𝐹𝑝,reˊ el = 210 N
+La résultante réaliste vaut :
+𝑅reˊ el = √7002 + 3502 + 2102
+𝑅reˊ el = √490 000 + 122 500 + 44 100
+𝑅reˊ el = √656 600
+𝑅reˊ el ≈ 810 N
+On retiendra donc, par simplification :
+𝑅reˊ el ≈ 800 N
+Ce niveau d’effort reste important, mais il est beaucoup plus cohérent avec une machine compacte
+que le cas théorique à plus de 8 kN.
+➢ Cas de finition
+
+
+Pour une opération de finition, les engagements sont beaucoup plus faibles. On peut considérer :
+𝑎𝑝 = 0,2 mm
+𝑎𝑒 = 0,5 mm
+La section de copeau devient :
+𝐴𝑐,fin = 0,2 × 0,5
+𝐴𝑐,fin = 0,1 mm2
+L’effort principal vaut :
+𝐹𝑐,fin = 700 × 0,1
+𝐹𝑐,fin = 70 N
+Les composantes associées sont :
+𝐹𝑓,fin = 0,5 × 70 = 35 N
+𝐹𝑓,fin = 35 N
+𝐹𝑝,fin = 0,3 × 70 = 21 N
+𝐹𝑝,fin = 21 N
+La résultante est :
+𝑅fin = √702 + 352 + 212
+𝑅fin = √4 900 + 1 225 + 441
+𝑅fin = √6 566
+𝑅fin ≈ 81 N
+On retiendra :
+𝑅fin ≈ 80 N
+Ce cas correspond aux passes de finition destinées à respecter l’état de surface visé, notamment
+𝑅𝑎 ≤ 3,2 𝜇m.
+➢ Tableau comparatif des scénarios d’efforts
+
+
+Le tableau suivant permet de synthétiser les différents niveaux d’efforts utilisés dans le chapitre. Il
+met en évidence l’écart important entre le cas théorique maximal et les cas réalistes compatibles
+avec une machine compacte.
+Scénario 𝒂𝒑(mm) 𝒂𝒆(mm) 𝑭𝒄(N) 𝑭𝒇(N) 𝑭𝒑(N) 𝑹(N)
+Théorique max — rainurage pleine
+matière
+1,9 5,5 7 315 3 657 2 194 8 312
+Ébauche réaliste — CNC compacte 0,5 2,0 700 350 210 800
+Finition 0,2 0,5 70 35 21 80
+Ce tableau constitue un point clé du dimensionnement. Il montre que les efforts issus du modèle
+simplifié pleine matière ne doivent pas être utilisés seuls pour dimensionner le fonctionnement
+nominal de la machine, car ils conduiraient à une architecture surdimensionnée ou incohérente
+avec les capacités réelles du prototype. En revanche, ils sont très utiles comme cas extrême pour
+vérifier les marges de sécurité.
+Cette approche permet à la fois de préserver la cohérence du dimensionnement, d’éviter un
+surdimensionnement injustifié et de garantir que les organes mécaniques conservent des marges
+de sécurité suffisantes dans les situations défavorables.
+3.2.3 Transfert et projection des efforts sur les axes linéaires (X, Y, Z)
+La présente section a pour objectif de transférer ces efforts depuis le repère outil vers le
+repère machine, puis d’en déduire les charges équivalentes appliquées aux axes linéaires 𝑋,
+𝑌et 𝑍.
+Cette étape constitue un lien essentiel entre la modélisation des efforts de coupe et le
+dimensionnement mécanique des organes de transmission. En effet, les efforts calculés au
+niveau du point outil ne sollicitent pas directement les vis, moteurs et guidages sous leur forme
+initiale : ils doivent être projetés selon les directions physiques des axes de la machine. Dans
+le cas d’une architecture Table–Table / Trunnion, les efforts peuvent en outre être redistribués
+lorsque les axes rotatifs 𝐴 et 𝐶 modifient l’orientation relative entre l’outil et la pièce. Le chapitre
+2 du document a déjà posé les bases de cette modélisation géométrique par paramètres de
+Denavit-Hartenberg et a introduit le rôle du RTCP dans la compensation des mouvements
+induits par les rotations du Trunnion.
+La démarche adoptée ici consiste donc à établir d’abord le torseur des efforts au niveau du
+TCP — Tool Center Point — puis à définir la transformation entre le repère outil et le repère
+machine. Enfin, une charge équivalente est déterminée pour chaque axe linéaire en tenant
+compte des efforts de coupe, des masses embarquées, des accélérations et des frottements.
+➢ Torseur des efforts au TCP
+Le point de réduction naturel des efforts de coupe est le TCP, c’est-à-dire la pointe théorique
+de l’outil. C’est en ce point que s’appliquent les efforts issus du contact entre l’arête de coupe
+et la matière. Dans le repère outil, l’effort résultant peut être représenté par le vecteur :
+𝑅⃗outil = [
+𝐹𝑐
+𝐹𝑓
+𝐹𝑝
+]
+
+
+où :
+• 𝐹𝑐 est la force tangentielle principale, associée à la direction de coupe ;
+• 𝐹𝑓 est la force d’avance, associée à la direction de progression relative de l’outil ;
+• 𝐹𝑝 est la force de pénétration, normale ou radiale par rapport à la surface usinée.
+Dans le cadre de cette étude, les efforts considérés sont les suivants :
+𝑅⃗outil,nom = [
+] N
+pour le cas nominal, et :
+𝑅⃗outil,ext = [
+7 315
+3 657
+2 194
+] N
+pour le cas extrême.
+Le torseur des actions mécaniques de coupe au TCP s’écrit alors :
+{𝒯coupe}𝑇𝐶𝑃 = { 𝑅⃗outil
+𝑀	⃗⃗𝑇𝐶𝑃
+}
+avec :
+𝑀	⃗⃗𝑇𝐶𝑃 = [
+𝑀𝑥
+𝑀𝑦
+𝑀𝑧
+]
+Le moment 𝑀	⃗⃗𝑇𝐶𝑃représente les couples induits par les efforts de coupe autour du point outil.
+Dans une première approche, lorsque les efforts sont supposés appliqués directement au TCP
+et que l’on ne considère pas encore le bras de levier entre le TCP et les paliers de broche, le
+moment peut être considéré comme nul au point de réduction :
+𝑀	⃗⃗𝑇𝐶𝑃 ≈ [
+𝑀𝑧
+]
+Le terme 𝑀𝑧correspond au couple résistant de coupe transmis à la broche. Il peut être estimé
+à partir de la force tangentielle et du rayon de l’outil :
+𝑀𝑧 = 𝐹𝑐 ⋅ 𝐷
+avec :
+𝐷 = 5,5 mm = 0,0055 m
+Ainsi, pour le cas nominal :
+𝑀𝑧,nom = 150 × 0,0055
+𝑀𝑧,nom = 150 × 0,00275
+
+
+𝑀𝑧,nom = 0,413 N/m
+Pour le cas extrême :
+𝑀𝑧,ext = 7 315 × 0,0055
+𝑀𝑧,ext = 7 315 × 0,00275
+𝑀𝑧,ext = 20,12 N/m
+On peut donc écrire, pour le cas nominal :
+{𝒯coupe,nom}𝑇𝐶𝑃 =
+{
+[
+]
+[
+0,413
+]
+}
+et pour le cas extrême :
+{𝒯coupe,ext}𝑇𝐶𝑃 =
+{
+[
+7 315
+3 657
+2 194
+]
+[
+20,12
+]
+}
+Ces torseurs serviront de base à la projection des charges sur les axes machine.
+Transformation repère outil vers repère machine
+Dans une machine CNC 5 axes, les efforts générés au niveau de l’outil doivent être exprimés
+dans le repère machine afin de déterminer les charges appliquées aux axes physiques. La
+transformation du repère outil vers le repère machine repose sur la matrice de rotation issue
+de la chaîne cinématique définie au chapitre 2.
+De manière générale, on peut écrire :
+𝑅⃗machine = 𝑀𝑅𝑂 ⋅ 𝑅⃗outil
+où :
+• 𝑅⃗outil est le vecteur des efforts exprimé dans le repère outil ;
+• 𝑅⃗machine est le vecteur des efforts exprimé dans le repère machine ;
+• 𝑀𝑅𝑂 est la matrice de rotation du repère outil vers le repère machine.
+Dans le cas d’une architecture Trunnion, cette matrice dépend des rotations des axes 𝐴 et 𝐶.
+Elle peut être exprimée de manière générale par :
+𝑀𝑅𝑂 = 𝑅𝐴(𝜃𝐴) ⋅ 𝑅𝐶 (𝜃𝐶)
+
+
+Cas neutre : 𝑨 = 𝟎∘, 𝑪 = 𝟎∘
+En position neutre, les axes rotatifs ne modifient pas l’orientation relative entre le repère outil
+et le repère machine. La matrice de rotation peut alors être assimilée à une matrice d’identité
+ou à une permutation simple des directions selon la convention adoptée.
+Dans cette position, on retient la correspondance suivante :
+𝐹𝑐 → 𝑌
+𝐹𝑓 → 𝑋
+𝐹𝑝 → 𝑍
+Autrement dit :
+• la force tangentielle 𝐹𝑐sollicite principalement l’axe 𝑌, direction longitudinale ;
+• la force d’avance 𝐹𝑓sollicite principalement l’axe 𝑋, direction transversale ;
+• la force de pénétration 𝐹𝑝sollicite principalement l’axe 𝑍, direction verticale.
+Ainsi, pour le cas nominal :
+𝑅𝑌,nom = 𝐹𝑐 = 150 N
+𝑅𝑋,nom = 𝐹𝑓 = 75 N
+𝑅𝑍,nom = 𝐹𝑝 = 45 N
+Pour le cas extrême :
+𝑅𝑌,ext = 𝐹𝑐 = 7 315 N
+𝑅𝑋,ext = 𝐹𝑓 = 3 657 N
+𝑅𝑍,ext = 𝐹𝑝 = 2 194 N
+Cette projection en position neutre fournit une base simple et directement exploitable pour les
+calculs de dimensionnement des sections suivantes.
+Cas incliné : 𝑨 ≠ 𝟎∘, 𝑪 ≠ 𝟎∘
+Lorsque le Trunnion est incliné, la direction de l’effort de coupe dans le repère machine n’est
+plus identique à celle obtenue en position neutre. Les composantes 𝐹𝑐, 𝐹𝑓et 𝐹𝑝se redistribuent
+entre les axes 𝑋, 𝑌et 𝑍selon la matrice de rotation associée aux angles 𝐴et 𝐶.
+On peut écrire :
+[
+𝑅𝑋
+𝑅𝑌
+𝑅𝑍
+] = 𝑀𝑅𝑂 (𝐴, 𝐶) ⋅ [
+𝐹𝑐
+𝐹𝑓
+𝐹𝑝
+]
+Cette expression montre que chaque composante machine peut devenir une combinaison des
+trois composantes de coupe. Par exemple, une force initialement tangentielle peut se retrouver
+
+
+partiellement projetée sur l’axe 𝑍 lorsque la table est inclinée. De même, une force de
+pénétration peut contribuer aux charges transversales ou longitudinales lorsque les axes 𝐴 et
+𝐶 sont orientés.
+Dans le fonctionnement réel de la machine, cette redistribution est gérée par le modèle
+cinématique et par le RTCP. Le RTCP permet de compenser les déplacements induits par les
+rotations du Trunnion afin que le point outil reste cohérent avec la trajectoire programmée.
+Dans le cadre du dimensionnement mécanique, on retient donc la projection en position neutre
+comme cas de référence, tout en conservant une marge de sécurité afin de couvrir les
+configurations inclinées.
+Bilan des masses portées par chaque axe
+Le dimensionnement des axes linéaires ne dépend pas uniquement des efforts de coupe. Il
+doit également tenir compte des masses embarquées par chaque axe, car ces masses
+génèrent des efforts d’inertie lors des accélérations et peuvent, dans le cas de l’axe 𝑍, produire
+une charge permanente due à la gravité.
+Les hypothèses de masse ont été posées dans la section 3.1. Elles sont rappelées ici afin de
+préparer les calculs de charge équivalente.
+Axe Composants portés Masse portée
+𝒀 Chariot 𝑌+ chariot 𝑋+ Trunnion + pièce 11 kg
+𝑿 Chariot 𝑋+ Trunnion + pièce 7,5 kg
+𝒁 Broche + support 1,5 kg
+Charge équivalente par axe — formule générale
+Pour dimensionner chaque axe linéaire, on introduit une charge équivalente totale, qui
+regroupe trois contributions principales :
+1. la composante de l’effort de coupe projetée sur l’axe ;
+2. l’effort inertiel lié à l’accélération de la masse embarquée ;
+3. les frottements mécaniques dans les guidages, vis, écrous et joints.
+La formule générale retenue est :
+𝐹axe,tot = 𝑅axe + 𝑚 ⋅ 𝑎 + 𝐹frott
+avec :
+• 𝐹axe,tot: charge équivalente totale appliquée à l’axe ;
+• 𝑅axe: composante de l’effort de coupe portée par l’axe ;
+• 𝑚: masse embarquée par l’axe ;
+• 𝑎: accélération typique ;
+• 𝐹frott: frottement global estimé.
+L’accélération typique retenue est :
+𝑎 = 0,5 m/s2
+Les frottements globaux sont estimés à :
+𝐹frott,𝑌 = 20 N
+
+
+𝐹frott,𝑋 = 15 N
+𝐹frott,𝑍 = 10 N
+Ces valeurs tiennent compte de la différence de masse, du nombre de guidages sollicités et
+de la nature du mouvement.
+Charge équivalente de l’axe 𝒀
+En position neutre, l’axe 𝑌 reçoit principalement la force tangentielle :
+𝑅𝑌,nom = 𝐹𝑐 = 150 N
+La masse portée par l’axe 𝑌 est :
+𝑚𝑌 = 11 kg
+L’effort inertiel vaut :
+𝑚𝑌 ⋅ 𝑎 = 11 × 0,5
+𝑚𝑌 ⋅ 𝑎 = 5,5 N
+La charge totale est donc :
+𝐹𝑌,tot = 150 + 5,5 + 20
+𝐹𝑌,tot = 175,5 N
+Charge équivalente de l’axe 𝑿
+L’axe 𝑋 reçoit principalement la force d’avance :
+𝑅𝑋,nom = 𝐹𝑓 = 75 N
+La masse portée par l’axe 𝑋est :
+𝑚𝑋 = 7,5 kg
+L’effort inertiel vaut :
+𝑚𝑋 ⋅ 𝑎 = 7,5 × 0,5
+𝑚𝑋 ⋅ 𝑎 = 3,75 N
+La charge totale est :
+𝐹𝑋,tot = 75 + 3,75 + 15
+𝐹𝑋,tot = 93,75 N
+Charge équivalente de l’axe 𝒁
+L’axe 𝑍 reçoit la composante de pénétration :
+𝑅𝑍,nom = 𝐹𝑝 = 45 N
+Il doit également compenser le poids de la broche et de son support. La masse portée est :
+𝑚𝑍 = 1,5 kg
+Le poids vaut :
+
+
+𝑊𝑍 = 𝑚𝑍 ⋅ 𝑔
+𝑊𝑍 = 1,5 × 9,81
+𝑊𝑍 = 14,715 N
+𝑊𝑍 ≈ 14,7 N
+L’effort inertiel vertical est :
+𝑚𝑍 ⋅ 𝑎 = 1,5 × 0,5
+𝑚𝑍 ⋅ 𝑎 = 0,75 N
+La charge totale est donc :
+𝐹𝑍,tot = 𝐹𝑝 + 𝑊𝑍 + 𝑚𝑍𝑎 + 𝐹frott,𝑍
+𝐹𝑍,tot = 45 + 14,7 + 0,75 + 10
+𝐹𝑍,tot = 70,45 N
+L’axe 𝑍 est donc moins chargé en valeur absolue que l’axe 𝑌, mais il présente une particularité
+importante : il est soumis à une charge permanente due à la gravité. Cette contrainte devra
+être prise en compte dans le choix du moteur, du maintien en position et de la stratégie de
+sécurité.
+Tableau de synthèse des charges nominales par axe
+Le tableau suivant constitue la feuille de route du dimensionnement des axes linéaires. Il sera
+directement utilisé dans les sections 3.3.1, 3.3.2 et 3.3.3 pour vérifier les vis, les moteurs, les
+guidages et les roulements.
+Axe Masse embarquée 𝒎(kg) 𝑹axenominal (N) 𝒎 ⋅ 𝒂(N) 𝑭frott(N) 𝑭axe,tot(N)
+𝒀 11 150— 𝐹𝑐 5,5 20 175,5
+𝑿 7,5 75— 𝐹𝑓 3,75 15 93,75
+𝒁 1,5 45 + 14,7— 𝐹𝑝 + 𝑊𝑍 0,75 10 70,45
+Ce tableau permet de passer d’une modélisation générale des efforts de coupe à des charges
+concrètes de dimensionnement pour chaque axe linéaire.
+Cas extrême associé aux efforts théoriques
+En effet, les efforts extrêmes issus du modèle majorant sont :
+𝐹𝑐 = 7 315 N ; 𝐹𝑓 = 3 657 N ; 𝐹𝑝 = 2 194 N
+En position neutre, ils conduisent aux charges de coupe suivantes :
+𝑅𝑌,ext = 7 315 N;𝑅𝑋,ext = 3 657 N ; 𝑅𝑍,ext = 2 194 N
+Les charges totales extrêmes seraient donc :
+𝐹𝑌,tot,ext = 7 315 + 5,5 + 20
+𝐹𝑌,tot,ext = 7 340,5 N
+
+
+𝐹𝑋,tot,ext = 3 657 + 3,75 + 15
+𝐹𝑋,tot,ext = 3 675,75 N
+𝐹𝑍,tot,ext = 2 194 + 14,7 + 0,75 + 10
+𝐹𝑍,tot,ext = 2 219,45 N
+Ces valeurs ne seront pas utilisées comme charges nominales de fonctionnement, mais elles
+serviront de cas extrêmes pour vérifier les marges mécaniques et identifier les limites
+d’exploitation de la machine.
+Identification de l’axe critique
+L’analyse des charges nominales montre que l’axe 𝑌est le plus sollicité. Il présente la charge
+totale la plus élevée :
+𝐹𝑌,tot = 175,5 N
+contre :
+𝐹𝑋,tot = 93,75 N
+et :
+𝐹𝑍,tot = 70,45 N
+En résumé :
+𝑅⃗outil,nom = [
+] N
+𝑅⃗outil,ext = [
+7 315
+3 657
+2 194
+] N
+L’axe 𝑌est identifié comme l’axe critique principal, car il cumule la plus grande masse
+embarquée et la composante de coupe la plus élevée. Il sera donc dimensionné en priorité
+dans la section suivante.
+3.2.4 Dimensionnement de l’axe X (chariot transversal)
+L’axe 𝑋 assure le déplacement transversal du chariot supportant l’unité Trunnion. Dans
+l’architecture retenue, il porte le chariot 𝑋, le berceau Trunnion, le plateau rotatif 𝐶, ainsi que
+la pièce et son système de bridage. Il est donc directement impliqué dans la précision de
+positionnement latéral et dans les compensations imposées par la cinématique 5 axes.
+Le dimensionnement de cet axe repose sur les résultats établis dans la section 3.2.3. La
+charge nominale équivalente de l’axe 𝑋 est :
+𝐹𝑋,tot ≈ 95 N
+Le cas extrême, issu du modèle théorique majorant en pleine matière, est :
+𝐹𝑋,extreˆ me = 3 676 N
+Vérification en traction — critère de Von Mises
+
+
+La section résistante de la vis est calculée au diamètre de noyau :
+𝐴 = 𝜋
+4 𝑑𝑛
+Application numérique :
+𝐴 = 𝜋
+4 × (0,0062)2
+𝐴 = 3,019 × 10−5 m2
+𝐴 = 3,019 × 10−5 m2
+La contrainte normale est :
+𝜎 = 𝐹
+𝐴
+Le critère admissible est :
+𝜎 ≤ 𝑅𝑒
+𝑠
+𝜎adm = 600
+𝜎adm = 300 MPa
+Cas nominal
+𝜎nom = 93,75
+3,019 × 10−5
+𝜎nom = 3,105 × 106 Pa
+𝜎nom = 3,11 MPa
+Comparaison :
+3,11 MPa ≪ 300 MPa
+La vis est donc très largement vérifiée en traction pour le cas nominal.
+Cas extrême
+𝜎extreˆ me = 3 675,75
+3,019 × 10−5
+𝜎extreˆ me = 121,75 MPa
+𝜎extreˆ me = 121,75 MPa
+Comparaison :
+121,75 MPa < 300 MPa
+Même en cas extrême, la vis reste vérifiée en traction.
+Diamètre minimal théorique
+
+
+Le diamètre minimal est donné par :
+𝑑min = √4𝐹𝑠
+𝜋𝑅𝑒
+Cas nominal
+𝑑min ,nom = √ 4 × 93,75 × 2
+𝜋 × 600 × 106
+𝑑min ,nom = 0,000631 m
+𝑑min ,nom = 0,63 mm
+Cas extrême
+𝑑min ,extreˆ me = √4 × 3 675,75 × 2
+𝜋 × 600 × 106
+𝑑min ,extreˆ me = 0,00395 m
+𝑑min ,extreˆ me = 3,95 mm
+Le diamètre de noyau réel est :
+𝑑𝑛 = 6,2 mm
+Donc :
+𝑑𝑛 > 𝑑min ,extreˆ me
+Vérification au flambement — formule d’Euler
+La vis est assimilée à une colonne comprimée. Le montage retenu est assimilé à un cas pivot-
+pivot, ce qui conduit à :
+𝐾 = 1
+Le moment quadratique de la section est :
+𝐼 = 𝜋𝑑𝑛
+𝐼 = 𝜋 × (0,0062)4
+𝐼 = 7,253 × 10−11 m4
+La charge critique d’Euler est :
+𝐹cr = 𝜋2𝐸𝐼
+(𝐾𝐿)2
+𝐹cr = 𝜋2 × 210 × 109 × 7,253 × 10−11
+(1 × 0,15)2
+
+
+𝐹cr = 6 681 N
+Le coefficient de sécurité effectif au flambement est :
+𝑛flamb = 𝐹cr
+𝐹
+Cas nominal
+𝑛flamb,nom = 6 681
+93,75
+𝑛flamb,nom = 71,27
+Le critère avec coefficient minimal 𝑠 = 2 est largement satisfait :
+71,27 ≫ 2
+Cas extrême
+𝑛flamb,extreˆ me = 6 681
+3 675,75
+𝑛flamb,extreˆ me = 1,82
+Le critère minimal :
+𝑛flamb ≥ 2
+n’est pas strictement respecté dans le cas extrême.
+Conclusion sur le flambement
+En fonctionnement nominal, la vis T8 est très largement validée. En revanche, le cas extrême
+en pleine matière conduit à une marge insuffisante vis-à-vis du flambement. Cela confirme que
+ce cas ne doit pas être considéré comme un régime permanent d’exploitation.
+Flambement valideˊ en nominal ; limite en cas extreˆ me.
+Pression de matage vis/écrou
+La vérification au matage permet d’évaluer la pression de contact entre les filets de la vis et
+ceux de l’écrou.
+Le nombre de filets en prise est :
+𝑛filets = 𝐿eˊ crou
+𝑝
+Avec :
+𝐿eˊ crou = 15 mm
+𝑝 = 2 mm
+𝑛filets = 15
+
+
+𝑛filets = 7,5
+La surface de contact projetée est :
+𝑆contact = 𝑛filets × 𝜋 × 𝐷𝑚 × 𝑑 − 𝑑𝑛
+𝑆contact = 7,5 × 𝜋 × 7,25 × 8 − 6,2
+𝑆contact = 7,5 × 𝜋 × 7,25 × 0,9
+𝑆contact = 153,74 mm2
+La pression de contact est :
+𝑃 = 𝐹
+𝑆contact
+Le critère admissible pour un contact acier/bronze est :
+𝑃adm = 5 aˋ 7 MPa
+Cas nominal
+𝑃nom = 93,75
+153,74
+𝑃nom = 0,61 MPa
+Comparaison :
+0,61 MPa < 5 MPa
+Le matage est donc largement vérifié en fonctionnement nominal.
+Cas extrême
+𝑃extreˆ me = 3 675,75
+153,74
+𝑃extreˆ me = 23,91 MPa
+Comparaison :
+23,91 MPa > 7 MPa
+Le contact vis/écrou n’est pas admissible en cas extrême prolongé. Une telle sollicitation
+provoquerait une usure rapide de l’écrou, une augmentation du jeu axial et une perte de
+précision.
+Rendement et irréversibilité de la vis
+L’angle d’hélice est donné par :
+𝜆 = arctan ( 𝑝
+𝜋𝐷𝑚
+)
+𝜆 = arctan ( 2
+𝜋 × 7,25)
+
+
+𝜆 = 5,02∘
+L’angle de frottement est :
+𝜑 = arctan ( 𝜇
+cos 𝛽)
+Avec :
+𝜇 = 0,10
+𝛽 = 15∘
+𝜑 = arctan ( 0,10
+cos 15∘)
+𝜑 = 5,91∘
+Le rendement direct est :
+𝜂 = tan 𝜆
+tan (𝜆 + 𝜑)
+𝜂 = tan (5,02∘)
+tan (5,02∘ + 5,91∘)
+𝜂 = 0,455
+Soit :
+𝜂 = 45,5 %
+La condition d’irréversibilité est :
+𝜆 < 𝜑
+5,02∘ < 5,91∘
+La condition est satisfaite. La vis est donc irréversible dans les conditions retenues, ce qui
+signifie que la charge ne peut pas entraîner spontanément la rotation de la vis.
+La vis T8 de l’axe X est irreˊ versible ; aucun frein deˊ dieˊ n’est requis sur cet axe.
+Couple moteur et puissance
+Le moteur retenu pour l’axe 𝑋 est un moteur pas-à-pas NEMA 23, de couple nominal :
+𝑇𝑚 = 1,26 N/m
+L’entraînement est direct, sans réducteur. Le calcul du couple nécessaire est effectué à partir
+du rendement de la vis trapézoïdale.
+Couple de charge
+Le couple nécessaire pour vaincre la charge axiale est :
+𝑇charge = 𝐹 ⋅ 𝑝
+2𝜋𝜂
+
+
+avec :
+𝑝 = 0,002 m
+𝜂 = 0,455
+Cas nominal
+𝑇charge,nom = 93,75 × 0,002
+2𝜋 × 0,455
+𝑇charge,nom = 0,066 N/m
+Cas extrême
+𝑇charge,extreˆ me = 3 675,75 × 0,002
+2𝜋 × 0,455
+𝑇charge,extreˆ me = 2,57 N/m
+Ce résultat montre déjà que le cas extrême dépasse le couple nominal du moteur, même avant
+l’ajout du couple d’accélération.
+Inertie ramenée et couple d’accélération
+L’inertie équivalente de la charge linéaire ramenée à l’arbre moteur est :
+𝐽charge = 𝑚𝑋 ( 𝑝
+2𝜋)
+𝐽charge = 7,5 (0,002
+2𝜋 )
+𝐽charge = 7,60 × 10−7 kg/m2
+La masse de la vis est estimée à :
+𝑚vis = 𝜌𝜋 (𝑑𝑛
+2 )
+𝐿
+𝑚vis = 7 850 × 𝜋 (0,0062
+2 )
+× 0,15
+𝑚vis = 0,0355 kg
+L’inertie de la vis est :
+𝐽vis = 1
+2 𝑚vis (𝑑𝑛
+2 )
+𝐽vis = 1
+2 × 0,0355 × (0,0062
+2 )
+𝐽vis = 1,71 × 10−7 kg/m2
+On retient une inertie rotor typique du moteur NEMA 23 :
+𝐽rotor = 2,8 × 10−5 kg/m2
+
+
+L’inertie totale est :
+𝐽total = 𝐽rotor + 𝐽vis + 𝐽charge
+𝐽total = 2,8 × 10−5 + 1,71 × 10−7 + 7,60 × 10−7
+𝐽total = 2,893 × 10−5 kg/m2
+L’accélération angulaire est :
+𝛼̈ = 𝑎̇ 2𝜋
+𝑝
+𝛼̈ = 0,5 × 2𝜋
+0,002
+𝛼̈ = 1 571 rad/s2
+Le couple d’accélération vaut :
+𝑇acc = 𝐽total ⋅ 𝛼̈
+𝑇acc = 2,893 × 10−5 × 1 571
+𝑇acc = 0,045 N/m
+Couple total et marge moteur
+Le couple total requis est :
+𝑇total = 𝑇charge + 𝑇acc
+Cas nominal
+𝑇total,nom = 0,066 + 0,045
+𝑇total,nom = 0,111 N/m
+La marge du moteur est :
+Marge = 𝑇𝑚
+𝑇total
+Margenom = 1,26
+0,111
+Margenom = 11,34
+Le critère imposé est :
+Marge > 2
+Donc :
+11,34 > 2
+Le moteur est largement suffisant pour le fonctionnement nominal.
+Cas extrême
+
+
+𝑇total,extreˆ me = 2,57 + 0,045
+𝑇total,extreˆ me = 2,62 N/m
+La marge devient :
+Margeextreˆ me = 1,26
+2,62
+Margeextreˆ me = 0,48
+Le moteur n’est donc pas suffisant pour le cas extrême.
+Puissance mécanique
+La vitesse maximale d’avance est :
+𝑉𝑓 = 3 000 mm/min
+La vitesse de rotation de la vis est :
+𝑁 = 𝑉𝑓
+𝑝
+𝑁 = 3 000
+𝑁 = 1 500 tr/min
+La puissance mécanique est :
+𝑃 = 𝑇total ⋅ 2𝜋𝑁
+Cas nominal
+𝑃nom = 0,111 × 2𝜋 × 1 500
+𝑃nom = 17,45 W
+Cette puissance est compatible avec l’architecture NEMA 23 + driver DM556.
+Cas extrême
+𝑃extreˆ me = 2,62 × 2𝜋 × 1 500
+𝑃extreˆ me = 411 W
+Cette puissance est très élevée pour l’axe 𝑋 d’une machine compacte et confirme
+l’incompatibilité du cas extrême avec l’entraînement retenu.
+Vitesse critique de la vis
+La vitesse critique de la vis est évaluée à partir d’une formulation de type poutre d’Euler-
+Bernoulli, plus directement exploitable en unités SI :
+
+
+𝜔cr = 𝜋2
+(𝐾𝐿)2 √𝐸𝐼
+𝜌𝐴
+puis :
+𝑁cr = 𝜔cr
+2𝜋 × 60
+Avec :
+𝐴 = 3,019 × 10−5 m2
+𝐼 = 7,253 × 10−11 m4
+𝜌 = 7 850 kg/m3
+𝐾 = 1
+𝐿 = 0,15 m
+Application numérique :
+𝜔cr = 𝜋2
+(0,15)2 √210 × 109 × 7,253 × 10−11
+7 850 × 3,019 × 10−5
+𝜔cr = 3 517 rad/s
+𝑁cr = 3 517
+2𝜋 × 60
+𝑁cr = 33 581 tr/min
+Comparaison :
+𝑁max = 1 500 tr/min
+𝑁cr
+𝑁max
+= 33 581
+1 500
+𝑁cr
+𝑁max
+= 22,4
+La vis fonctionne donc très loin de sa vitesse critique.
+Aucun risque de fouettement de la vis T8 sur l’axe X.
+Dimensionnement des guidages linéaires
+L’axe 𝑋 est guidé par deux rails HGR15 et quatre patins HGH15CA. Les charges nominales
+de référence sont :
+𝐶 = 16,6 kN = 16 600 N
+𝐶0 = 23,4 kN = 23 400 N
+La durée de vie est calculée suivant la logique des roulements linéaires, en cohérence avec
+les principes de l’ISO 14728.
+
+
+❖ Charges par patin et moment de renversement
+La masse portée par l’axe 𝑋est :
+𝑚𝑋 = 7,5 kg
+Le poids correspondant est :
+𝐹𝑧 = 𝑚𝑋𝑔
+𝐹𝑧 = 7,5 × 9,81
+𝐹𝑧 = 73,6 N
+La charge verticale moyenne par patin est :
+𝐹𝑧,patin = 𝐹𝑧
+𝐹𝑧,patin = 73,6
+𝐹𝑧,patin = 18,4 N
+Le Trunnion étant monté au-dessus du plan des rails, un moment de renversement doit être
+pris en compte. On retient les hypothèses géométriques suivantes :
+ℎ = 80 mm = 0,08 m
+𝑏 = 100 mm = 0,10 m
+où :
+• ℎ est le bras de levier vertical ;
+• 𝑏 est l’écartement entre les deux rails.
+La surcharge due au moment, par patin du rail le plus chargé, est :
+𝐹𝑀,patin = 𝐹𝑋 ⋅ ℎ
+2𝑏
+Cas nominal
+𝐹𝑀,patin,nom = 93,75 × 0,08
+2 × 0,10
+𝐹𝑀,patin,nom = 37,5 N
+L’effort horizontal par patin est :
+𝐹𝑥,patin,nom = 93,75
+𝐹𝑥,patin,nom = 23,44 N
+La charge résultante sur le patin le plus sollicité est :
+𝑃patin = √(𝐹𝑧,patin+𝐹𝑀,patin)2+𝐹𝑥,patin
+
+
+𝑃patin,nom = √(18,4+37,5)2+23,442
+𝑃patin,nom = 60,61 N
+Cas extrême
+𝐹𝑀,patin,extreˆ me = 3 675,75 × 0,08
+2 × 0,10
+𝐹𝑀,patin,extreˆ me = 1 470 N
+𝐹𝑥,patin,extreˆ me = 3 675,75
+𝐹𝑥,patin,extreˆ me = 918,94 N
+𝑃patin,extreˆ me = √(18,4+1 470)2+918,942
+𝑃patin,extreˆ me = 1 749 N
+Charge équivalente dynamique
+On applique un facteur de charge :
+𝑓𝑤 = 1,2
+La charge équivalente dynamique est :
+𝑃𝑒 = 𝑓𝑤 ⋅ 𝑃patin
+Cas nominal
+𝑃𝑒,nom = 1,2 × 60,61
+𝑃𝑒,nom = 72,73 N
+Cas extrême
+𝑃𝑒,extreˆ me = 1,2 × 1 749
+𝑃𝑒,extreˆ me = 2 099 N
+Durée de vie des guidages
+La durée de vie nominale en kilomètres est :
+𝐿10 = ( 𝐶
+𝑃𝑒
+)
+× 50
+La durée de vie en heures est :
+𝐿10ℎ = 𝐿10 × 106
+𝑉moy × 3600
+On prend :
+
+
+𝑉moy = 50 mm/s
+Cas nominal
+𝐿10,nom = (16 600
+72,73 )
+× 50
+𝐿10,nom = 5,94 × 108 km
+𝐿10ℎ,nom = 5,94 × 108 × 106
+50 × 3600
+𝐿10ℎ,nom = 3,30 × 109 h
+Cas extrême
+𝐿10,extreˆ me = (16 600
+2 099 )
+× 50
+𝐿10,extreˆ me = 24 719 km
+𝐿10ℎ,extreˆ me = 24 719 × 106
+50 × 3600
+𝐿10ℎ,extreˆ me = 137 327 h
+Le critère est :
+𝐿10ℎ > 20 000 h
+Les guidages sont donc validés même en cas extrême.
+Charge statique de sécurité
+Le coefficient de sécurité statique est :
+𝐹𝑠 = 𝐶0
+𝑃0
+où 𝑃0est la charge statique maximale sur le patin le plus sollicité.
+Cas nominal
+𝐹𝑠,nom = 23 400
+60,61
+𝐹𝑠,nom = 386
+Cas extrême
+𝐹𝑠,extreˆ me = 23 400
+1 749
+𝐹𝑠,extreˆ me = 13,38
+Le critère machine-outil est :
+𝐹𝑠 ≥ 3
+
+
+Il est largement satisfait dans les deux cas.
+Guidages HGR15 valideˊ s pour l’axe X.
+Roulements d’appui de la vis
+La vis T8 est supportée par des paliers de type KP08 ou KFL08. Ces paliers sont courants
+pour les petits systèmes CNC compacts. Ils sont adaptés au fonctionnement nominal, mais ne
+possèdent pas la rigidité axiale de supports de vis préchargés de type BK/BF.
+La charge axiale prise en compte est :
+𝐹𝑎 = 𝐹𝑋,tot
+La charge radiale liée au poids de la vis est faible. La masse de la vis a été estimée à :
+𝑚vis = 0,0355 kg
+Son poids vaut :
+𝐹𝑟 = 𝑚vis𝑔
+𝐹𝑟 = 0,0355 × 9,81
+𝐹𝑟 = 0,35 N
+On peut donc considérer :
+𝑃 ≈ 𝐹𝑎
+Pour le prédimensionnement, on retient une capacité dynamique typique :
+𝐶roul = 3 450 N
+La durée de vie d’un roulement à billes est calculée par :
+𝐿10ℎ = (𝐶
+𝑃)
+10/3
+⋅ 106
+60𝑁
+Cette formulation est cohérente avec les principes de calcul de durée de vie des roulements
+de l’ISO 281. [iso.org]
+Avec :
+𝑁 = 1 500 tr/min
+Cas nominal
+𝑃nom = 93,75 N
+𝐿10ℎ,nom = (3 450
+93,75)
+10/3
+⋅ 106
+60 × 1 500
+𝐿10ℎ,nom = 1,84 × 106 h
+Comparaison :
+1,84 × 106 h > 20 000 h
+Les roulements sont donc largement validés en fonctionnement nominal.
+
+
+Cas extrême
+𝑃extreˆ me = 3 675,75 N
+𝐿10ℎ,extreˆ me = ( 3 450
+3 675,75)
+10/3
+⋅ 106
+60 × 1 500
+𝐿10ℎ,extreˆ me ≈ 9 h
+Le cas extrême n’est donc pas admissible pour des paliers standards KP08/KFL08.
+Roulements valideˊ s en nominal ; non valideˊ s pour pleine matieˋ re extreˆ me prolongeˊ e.
+Synthèse et tableau récapitulatif
+Critère Valeur Seuil Coeff.
+sécu. Verdict
+Traction vis — nominal 𝜎 = 3,11 MPa 300 MPa 96,6 Validé
+Traction vis — extrême 𝜎 = 121,75 MPa 300 MPa 2,46 Validé
+Flambement vis —
+nominal 𝑛flamb = 71,27 ≥ 2 71,27 Validé
+Flambement vis —
+extrême 𝑛flamb = 1,82 ≥ 2 1,82 Limite
+Matage vis/écrou —
+nominal 0,61 MPa 5 aˋ 7 MPa > 8 Validé
+Matage vis/écrou —
+extrême 23,91 MPa 5 aˋ 7 MPa <1 Non validé
+Rendement vis 𝜂 = 45,5 % — — Acceptable
+Irréversibilité 𝜆 = 5,02∘ < 𝜑
+= 5,91∘ 𝜆 < 𝜑 — Validé
+Couple moteur —
+nominal
+𝑇total
+= 0,111 N\cdotpm 1,26 N\cdotpm 11,34 Validé
+Couple moteur —
+extrême
+𝑇total
+= 2,62 N\cdotpm 1,26 N\cdotpm 0,48 Non validé
+Puissance nominale 17,45 W Compatible
+moteur/driver — Validé
+Puissance extrême 411 W Trop élevé — Non validé
+Vitesse critique vis 33 581 tr/min 𝑁max = 1 500 tr/min 22,4 Validé
+
+
+Durée de vie guidages —
+nominal 3,30 × 109 h > 20 000 h Très élevé Validé
+Durée de vie guidages —
+extrême 137 327 h > 20 000 h 6,87 Validé
+Charge statique
+guidages — nominal 𝐹𝑠 = 386 ≥ 3 386 Validé
+Charge statique
+guidages — extrême 𝐹𝑠 = 13,38 ≥ 3 13,38 Validé
+Roulements d’appui —
+nominal 1,84 × 106 h > 20 000 h 92 Validé
+Roulements d’appui —
+extrême ≈ 9 h > 20 000 h Insuffisant Non validé
+Le dimensionnement de l’axe 𝑋 montre que la solution retenue est cohérente avec l’objectif
+d’une fraiseuse CNC 5 axes compacte destinée à l’usinage modéré de l’aluminium AW-2017A.
+En fonctionnement nominal, la vis trapézoïdale T8 est largement validée en traction, en
+flambement et en pression de matage. Le moteur NEMA 23 dispose d’une marge importante
+:
+Marge moteur nominale = 11,34
+Les guidages HGR15 avec quatre patins HGH15CA sont très largement dimensionnés, aussi
+bien en durée de vie dynamique qu’en charge statique. Les roulements d’appui KP08/KFL08
+sont également suffisants pour le régime nominal.
+En revanche, le cas extrême issu du modèle théorique pleine matière n’est pas compatible
+avec l’architecture actuelle. Les limites apparaissent principalement au niveau :
+• du matage vis/écrou ;
+• du couple moteur disponible ;
+• de la durée de vie des roulements d’appui ;
+• de la marge au flambement, qui devient légèrement inférieure au critère 𝑠 = 2.
+Ainsi, l’axe 𝑋 est validé pour une utilisation normale en passes légères à modérées, mais il ne
+doit pas être exploité en pleine matière sévère de manière prolongée.
+Axe X valideˊ en reˊ gime nominal.
+Pleine matieˋ re extreˆ me non admissible avec la transmission T8 actuelle.
+Les recommandations associées sont les suivantes :
+
+
+• lubrifier régulièrement la vis T8 et l’écrou ;
+• limiter les passes radiales et axiales lors de l’usinage de l’aluminium ;
+• surveiller le jeu axial de la vis ;
+• conserver une accélération douce grâce au profil S-Curve ;
+• éviter les efforts prolongés proches du cas extrême ;
+• envisager une vis à billes SFU1204 ou SFU1605 pour une version plus rigide ;
+• remplacer les paliers KP08/KFL08 par des supports préchargés type BK/BF dans une
+version industrielle.
+Cette section constitue le modèle méthodologique qui sera repris pour le dimensionnement
+des axes 𝑌et 𝑍
+3.2.5 Dimensionnement de l’axe Y (portique longitudinal)
+Contrairement à l’axe 𝑋, dont la longueur libre de vis est de 150 mm, l’axe 𝑌possède une
+course utile de 300 mm, soit une longueur libre deux fois plus importante. Cette différence a
+un impact direct sur la stabilité élastique de la vis, car la charge critique de flambement varie
+selon :
+𝐹cr ∝ 1
+𝐿2
+Ainsi, lorsque la longueur libre double, la charge critique est divisée par quatre. Cette section
+reprend la même structure que celle utilisée pour l’axe 𝑋, afin de garantir l’homogénéité du
+dimensionnement des trois axes linéaires. Les calculs de guidages linéaires sont menés dans
+l’esprit de l’ISO 14728, relative aux charges dynamiques et à la durée nominale des
+roulements linéaires. Les roulements d’appui sont vérifiés selon la logique de durée de vie des
+roulements de l’ISO 281. La norme ISO 3408, dédiée aux vis à billes, est citée comme
+référence méthodologique de vocabulaire et de conditions de réception, bien que la
+transmission étudiée ici soit une vis trapézoïdale T8.
+Vérification de la vis trapézoïdale T8
+La transmission retenue pour l’axe 𝑌est identique à celle de l’axe 𝑋, à savoir une vis
+trapézoïdale T8. Les caractéristiques géométriques et mécaniques sont :
+𝑝 = 2 mm = 0,002 m
+𝑑 = 8 mm
+𝐷𝑚 = 7,25 mm
+𝑑𝑛 = 6,2 mm = 0,0062 m
+𝑅𝑒 = 600 MPa
+𝐸 = 210 GPa
+𝛽 = 15∘
+𝜇 = 0,10
+Vérification en traction — critère de Von Mises
+
+
+La section résistante au diamètre de noyau est :
+𝐴 = 𝜋
+4 𝑑𝑛
+Application numérique :
+𝐴 = 𝜋
+4 (0,0062)2
+𝐴 = 3,019 × 10−5 m2
+La contrainte normale est :
+𝜎 = 𝐹
+𝐴
+Le critère admissible est :
+𝜎 ≤ 𝑅𝑒
+𝑠
+avec :
+𝑠 = 2
+𝜎adm = 600
+𝜎adm = 300 MPa
+Cas nominal
+𝜎nom = 175,5
+3,019 × 10−5
+𝜎nom = 5,813 × 106 Pa
+𝜎nom = 5,81 MPa
+Comparaison :
+5,81 MPa ≪ 300 MPa
+La vis est très largement vérifiée en traction dans le cas nominal.
+Cas extrême
+𝜎extreˆ me = 7 340,5
+3,019 × 10−5
+𝜎extreˆ me = 243,14 MPa
+𝜎extreˆ me = 243,14 MPa
+Comparaison :
+243,14 MPa < 300 MPa
+La vis reste vérifiée en traction même en cas extrême, mais la marge devient nettement plus
+faible que pour l’axe 𝑋.
+
+
+Diamètre minimal théorique
+Le diamètre minimal théorique est donné par :
+𝑑min = √4𝐹𝑠
+𝜋𝑅𝑒
+Cas nominal
+𝑑min ,nom = √ 4 × 175,5 × 2
+𝜋 × 600 × 106
+𝑑min ,nom = 0,86 mm
+Cas extrême
+𝑑min ,extreˆ me = √4 × 7 340,5 × 2
+𝜋 × 600 × 106
+𝑑min ,extreˆ me = 5,58 mm
+Le diamètre réel de noyau étant :
+𝑑𝑛 = 6,2 mm
+on obtient :
+𝑑𝑛 > 𝑑min ,extreˆ me
+La vis est donc validée en traction.
+Vérification au flambement de l’axe Y
+Le flambement constitue le point critique de l’axe 𝑌, car la vis est deux fois plus longue que
+celle de l’axe 𝑋. Le moment quadratique de la vis est :
+𝐼 = 𝜋𝑑𝑛
+𝐼 = 𝜋(0,0062)4
+𝐼 = 7,253 × 10−11 m4
+Le montage est assimilé à un cas pivot-pivot :
+𝐾 = 1
+La force critique d’Euler est :
+𝐹cr = 𝜋2𝐸𝐼
+(𝐾𝐿)2
+Pour l’axe 𝑌:
+
+
+𝐹cr,𝑌 = 𝜋2 × 210 × 109 × 7,253 × 10−11
+(1 × 0,30)2
+𝐹cr,𝑌 = 1 670 N
+Cas nominal
+Le coefficient de sécurité effectif au flambement est :
+𝑛flamb = 𝐹cr
+𝐹
+𝑛flamb,nom = 1 670
+175,5
+𝑛flamb,nom = 9,52
+Le critère minimal est :
+𝑛flamb ≥ 2
+Donc :
+9,52 > 2
+Le flambement est donc validé en régime nominal.
+Cas extrême
+𝑛flamb,extreˆ me = 1 670
+7 340,5
+𝑛flamb,extreˆ me = 0,23
+Le critère n’est pas respecté :
+0,23 < 2
+En cas extrême, la vis T8 de l’axe 𝑌est très largement insuffisante vis-à-vis du flambement.
+Vis T8 valideˊ e en nominal sur l’axe Y.
+Vis T8 non valideˊ e en cas extreˆ me sur l’axe Y.
+Le flambement constitue donc la limite principale de l’axe 𝑌.
+Pression de matage vis/écrou
+Le nombre de filets en prise est :
+𝑛filets = 𝐿eˊ crou
+𝑝
+avec :
+𝐿eˊ crou = 15 mm
+𝑝 = 2 mm
+
+
+𝑛filets = 15
+𝑛filets = 7,5
+La surface de contact projetée est :
+𝑆contact = 𝑛filets𝜋𝐷𝑚
+𝑑 − 𝑑𝑛
+𝑆contact = 7,5 × 𝜋 × 7,25 × 8 − 6,2
+𝑆contact = 153,74 mm2
+La pression de contact est :
+𝑃 = 𝐹
+𝑆contact
+Le critère admissible retenu est :
+𝑃adm = 5 aˋ 7 MPa
+Cas nominal
+𝑃nom = 175,5
+153,74
+𝑃nom = 1,14 MPa
+Comparaison :
+1,14 < 5
+La pression de matage est acceptable en fonctionnement nominal.
+Cas extrême
+𝑃extreˆ me = 7 340,5
+153,74
+𝑃extreˆ me = 47,75 MPa
+Comparaison :
+47,75 > 7
+Le matage n’est pas admissible en cas extrême. L’écrou subirait une usure rapide, une
+augmentation du jeu axial et une dégradation de la précision.
+Rendement et irréversibilité
+L’angle d’hélice est :
+𝜆 = arctan ( 𝑝
+𝜋𝐷𝑚
+)
+𝜆 = arctan ( 2
+𝜋 × 7,25)
+
+
+𝜆 = 5,02∘
+L’angle de frottement est :
+𝜑 = arctan ( 𝜇
+cos 𝛽)
+𝜑 = arctan ( 0,10
+cos 15∘)
+𝜑 = 5,91∘
+Le rendement est :
+𝜂 = tan 𝜆
+tan (𝜆 + 𝜑)
+𝜂 = tan (5,02∘)
+tan (5,02∘ + 5,91∘)
+𝜂 = 0,455
+soit :
+𝜂 = 45,5 %
+La condition d’irréversibilité est :
+𝜆 < 𝜑
+5,02∘ < 5,91∘
+La vis est donc irréversible.
+La vis T8 de l’axe Y est irreˊ versible en conditions lubrifieˊ es.
+Couple moteur et puissance
+Le moteur retenu est un NEMA 23 de couple nominal :
+𝑇𝑚 = 1,26 N/m
+Le pas de la vis est :
+𝑝 = 0,002 m
+Le rendement calculé précédemment est :
+𝜂 = 0,455
+Couple de charge
+Le couple de charge est :
+𝑇charge = 𝐹𝑝
+2𝜋𝜂
+Cas nominal
+𝑇charge,nom = 175,5 × 0,002
+2𝜋 × 0,455
+
+
+𝑇charge,nom = 0,123 N/m
+Cas extrême
+𝑇charge,extreˆ me = 7 340,5 × 0,002
+2𝜋 × 0,455
+𝑇charge,extreˆ me = 5,14 N/m
+Ce couple est très supérieur au couple disponible du moteur.
+Inertie ramenée et couple d’accélération
+L’inertie équivalente de la charge linéaire ramenée à l’arbre moteur est :
+𝐽charge = 𝑚𝑌 ( 𝑝
+2𝜋)
+𝐽charge = 11 (0,002
+2𝜋 )
+𝐽charge = 1,11 × 10−6 kg/m2
+La masse de la vis, avec 𝐿 = 0,30 m, est :
+𝑚vis = 𝜌𝜋 (𝑑𝑛
+2 )
+𝐿
+𝑚vis = 7 850 × 𝜋 (0,0062
+2 )
+× 0,30
+𝑚vis = 0,0711 kg
+L’inertie de la vis est :
+𝐽vis = 1
+2 𝑚vis (𝑑𝑛
+2 )
+𝐽vis = 1
+2 × 0,0711 × (0,0062
+2 )
+𝐽vis = 3,42 × 10−7 kg/m2
+Avec une inertie rotor typique :
+𝐽rotor = 2,8 × 10−5 kg/m2
+l’inertie totale vaut :
+𝐽total = 𝐽rotor + 𝐽vis + 𝐽charge
+𝐽total = 2,8 × 10−5 + 3,42 × 10−7 + 1,11 × 10−6
+𝐽total = 2,946 × 10−5 kg/m2
+L’accélération angulaire est :
+
+
+𝛼̈ = 𝑎 2𝜋
+𝑝
+𝛼̈ = 0,5 × 2𝜋
+0,002
+𝛼̈ = 1 571 rad/s2
+Le couple d’accélération est :
+𝑇acc = 𝐽total𝛼̈
+𝑇acc = 2,946 × 10−5 × 1 571
+𝑇acc = 0,046 N/m
+Couple total et marge moteur
+Le couple total est :
+𝑇total = 𝑇charge + 𝑇acc
+Cas nominal
+𝑇total,nom = 0,123 + 0,046
+𝑇total,nom = 0,169 N\cdotpm
+La marge moteur est :
+Marge = 𝑇𝑚
+𝑇total
+Margenom = 1,26
+0,169
+Margenom = 7,45
+Le critère est :
+Marge > 2
+Il est donc satisfait en fonctionnement nominal.
+Cas extrême
+𝑇total,extreˆ me = 5,14 + 0,046
+𝑇total,extreˆ me = 5,18 N/m
+La marge devient :
+Margeextreˆ me = 1,26
+5,18
+Margeextreˆ me = 0,24
+Le moteur NEMA 23 est donc insuffisant pour le cas extrême.
+
+
+Puissance mécanique
+La vitesse d’avance maximale est :
+𝑉𝑓 = 3 000 mm/min
+La vitesse de rotation de la vis est :
+𝑁 = 𝑉𝑓
+𝑝
+𝑁 = 3 000
+𝑁 = 1 500 tr/min
+La puissance mécanique est :
+𝑃 = 𝑇total
+2𝜋𝑁
+Cas nominal
+𝑃nom = 0,169 × 2𝜋 × 1 500
+𝑃nom = 26,6 W
+Cette puissance est compatible avec l’architecture NEMA 23 + DM556.
+Cas extrême
+𝑃extreˆ me = 5,18 × 2𝜋 × 1 500
+𝑃extreˆ me = 814 W
+Cette puissance est incompatible avec une machine compacte utilisant une vis T8 et un moteur
+NEMA 23 en entraînement direct.
+Vitesse critique de la vis
+La vitesse critique est évaluée par le modèle de poutre d’Euler-Bernoulli utilisé pour l’axe 𝑋:
+𝜔cr = 𝜋2
+(𝐾𝐿)2 √𝐸𝐼
+𝜌𝐴
+puis :
+𝑁cr = 𝜔cr
+2𝜋 × 60
+La longueur 𝑌étant deux fois plus grande que celle de 𝑋, on obtient :
+𝑁cr,𝑌 = 𝑁cr,𝑋
+Or :
+𝑁cr,𝑋 = 33 581 tr/min
+
+
+donc :
+𝑁cr,𝑌 = 33 581
+𝑁cr,𝑌 = 8 395 tr/min
+Comparaison avec la vitesse maximale :
+𝑁max = 1 500 tr/min
+𝑁cr,𝑌
+𝑁max
+= 8 395
+1 500
+𝑁cr,𝑌
+𝑁max
+= 5,60
+La vitesse critique reste supérieure à la vitesse de service. Toutefois, la marge est beaucoup
+plus faible que sur l’axe 𝑋, où le facteur était de 22,4.
+Vitesse critique valideˊ e, mais axe Y plus sensible au fouettement que l’axe X.
+Dimensionnement des guidages linéaires
+L’axe 𝑌est guidé par deux rails HGR15 et quatre patins HGH15CA. Les charges nominales
+par patin sont :
+𝐶 = 16,6 kN = 16 600 N
+𝐶0 = 23,4 kN = 23 400 N
+Le calcul de durée de vie suit la logique de l’ISO 14728 pour les roulements linéaires.
+[machiningdoctor.com]
+Charges par patin et moment de renversement
+La masse portée par l’axe 𝑌est :
+𝑚𝑌 = 11 kg
+Le poids total est :
+𝐹𝑧 = 𝑚𝑌𝑔
+𝐹𝑧 = 11 × 9,81
+𝐹𝑧 = 107,91 N
+La charge verticale moyenne par patin est :
+𝐹𝑧,patin = 107,91
+𝐹𝑧,patin = 26,98 N
+Le Trunnion et la pièce sont excentrés par rapport au plan des rails. On retient les hypothèses
+de calcul suivantes, cohérentes avec l’axe 𝑋:
+𝑒 = 0,08 m
+
+
+𝑏 = 0,10 m
+La masse Trunnion + pièce vaut :
+𝑚𝑇+𝑃 = 4 + 2 = 6 kg
+Le moment statique de renversement dû au poids est :
+𝑀renvers = (𝑚𝑇 + 𝑚𝑃)𝑔𝑒
+𝑀renvers = 6 × 9,81 × 0,08
+𝑀renvers = 4,71 N/m
+La surcharge verticale par patin sur le rail le plus chargé est :
+𝐹𝑀,poids = 𝑀renvers
+2𝑏
+𝐹𝑀,poids = 4,71
+2 × 0,10
+𝐹𝑀,poids = 23,54 N
+À cette surcharge s’ajoute le moment dû à l’effort longitudinal appliqué avec un bras de levier
+vertical ℎ:
+ℎ = 0,08 m
+𝐹𝑀,coupe = 𝐹𝑌ℎ
+2𝑏
+Cas nominal
+𝐹𝑀,coupe,nom = 175,5 × 0,08
+2 × 0,10
+𝐹𝑀,coupe,nom = 70,2 N
+L’effort horizontal par patin est :
+𝐹ℎ,patin,nom = 175,5
+𝐹ℎ,patin,nom = 43,88 N
+La charge maximale sur le patin le plus sollicité est :
+𝑃patin = √(𝐹𝑧,patin+𝐹𝑀,poids+𝐹𝑀,coupe)2+𝐹ℎ,patin
+𝑃patin,nom = √(26,98+23,54+70,2)2+43,882
+𝑃patin,nom = 128,45 N
+Cas extrême
+
+
+𝐹𝑀,coupe,extreˆ me = 7 340,5 × 0,08
+2 × 0,10
+𝐹𝑀,coupe,extreˆ me = 2 936,2 N
+𝐹ℎ,patin,extreˆ me = 7 340,5
+𝐹ℎ,patin,extreˆ me = 1 835,13 N
+𝑃patin,extreˆ me = √(26,98+23,54+2 936,2)2+1 835,132
+𝑃patin,extreˆ me = 3 505,45 N
+Charge équivalente dynamique
+On applique le facteur de charge :
+𝑓𝑤 = 1,2
+𝑃𝑒 = 𝑓𝑤𝑃patin
+Cas nominal
+𝑃𝑒,nom = 1,2 × 128,45
+𝑃𝑒,nom = 154,14 N
+Cas extrême
+𝑃𝑒,extreˆ me = 1,2 × 3 505,45
+𝑃𝑒,extreˆ me = 4 206,54 N
+Durée de vie des guidages
+La durée de vie en kilomètres est :
+𝐿10 = ( 𝐶
+𝑃𝑒
+)
+× 50
+La durée de vie en heures est :
+𝐿10ℎ = 𝐿10 × 106
+𝑉moy × 3600
+avec :
+𝑉moy = 50 mm/s
+Cas nominal
+𝐿10,nom = (16 600
+154,14)
+× 50
+𝐿10ℎ,nom = 𝐿10,nom × 106
+50 × 3600
+
+
+𝐿10ℎ,nom = 3,47 × 108 h
+Le critère :
+𝐿10ℎ > 20 000 h
+est très largement satisfait.
+Cas extrême
+𝐿10,extreˆ me = ( 16 600
+4 206,54)
+× 50
+𝐿10ℎ,extreˆ me = 𝐿10,extreˆ me × 106
+50 × 3600
+𝐿10ℎ,extreˆ me = 17 070 h
+Le cas extrême est inférieur à l’objectif :
+17 070 < 20 000
+Les guidages sont donc très largement validés en nominal, mais deviennent limites sous effort
+extrême prolongé.
+Charge statique de sécurité
+Le coefficient de sécurité statique est :
+𝐹𝑠 = 𝐶0
+𝑃0
+Cas nominal
+𝐹𝑠,nom = 23 400
+128,45
+𝐹𝑠,nom = 182,18
+Cas extrême
+𝐹𝑠,extreˆ me = 23 400
+3 505,45
+𝐹𝑠,extreˆ me = 6,68
+Le critère machine-outil est :
+𝐹𝑠 ≥ 3
+Il reste respecté, même en cas extrême.
+Roulements d’appui de la vis
+La vis T8 de l’axe 𝑌est supportée par des paliers de type KP08 ou KFL08. La charge axiale
+principale appliquée aux roulements est :
+𝐹𝑎 = 𝐹𝑌,tot
+
+
+La charge radiale due au poids de la vis reste faible devant la charge axiale. La masse de la
+vis est :
+𝑚vis = 0,0711 kg
+Son poids vaut :
+𝐹𝑟 = 𝑚vis𝑔
+𝐹𝑟 = 0,0711 × 9,81
+𝐹𝑟 = 0,70 N
+On prend donc :
+𝑃 ≈ 𝐹𝑎
+Pour le prédimensionnement, on retient :
+𝐶roul = 3 450 N
+La durée de vie est calculée par :
+𝐿10ℎ = (𝐶
+𝑃)
+10/3 106
+60𝑁
+avec :
+𝑁 = 1 500 tr/min
+Cas nominal
+𝑃nom = 175,5 N
+𝐿10ℎ,nom = (3 450
+175,5)
+10/3 106
+60 × 1 500
+𝐿10ℎ,nom = 227 805 h
+Le critère est satisfait :
+227 805 > 20 000
+Les roulements sont validés en nominal.
+Cas extrême
+𝑃extreˆ me = 7 340,5 N
+𝐿10ℎ,extreˆ me = ( 3 450
+7 340,5)
+10/3 106
+60 × 1 500
+𝐿10ℎ,extreˆ me ≈ 0,90 h
+Le cas extrême est totalement incompatible avec les paliers standards KP08/KFL08.
+Roulements valideˊ s en nominal ; non valideˊ s en cas extreˆ me.
+Synthèse
+
+
+Tableau récapitulatif de l’axe Y
+Critère Valeur Seuil Coeff.
+sécu. Verdict
+Traction vis — nominal 5,81 MPa 300 MPa 51,6 Validé
+Traction vis — extrême 243,14 MPa 300 MPa 1,23 Limite mais
+admissible
+Flambement vis —
+nominal 𝑛 = 9,52 ≥ 2 9,52 Validé
+Flambement vis —
+extrême 𝑛 = 0,23 ≥ 2 0,23 Non validé
+Matage vis/écrou —
+nominal 1,14 MPa 5 aˋ 7 MPa > 4 Validé
+Matage vis/écrou —
+extrême 47,75 MPa 5 aˋ 7 MPa <1 Non validé
+Rendement vis 45,5 % — — Acceptable
+Irréversibilité 𝜆 < 𝜑 Oui — Validé
+Couple moteur — nominal 0,169 N\cdotpm 1,26 N\cdotpm 7,45 Validé
+Couple moteur — extrême 5,18 N\cdotpm 1,26 N\cdotpm 0,24 Non validé
+Puissance nominale 26,6 W Compatible — Validé
+Puissance extrême 814 W Trop élevé — Non validé
+Vitesse critique 8 395 tr/min 1 500 tr/min 5,60 Validé
+Guidages — durée
+nominale 3,47 × 108 h > 20 000 h Très élevé Validé
+Guidages — durée
+extrême 17 070 h > 20 000 h 0,85 Limite / non validé
+prolongé
+Charge statique guidages
+— extrême 𝐹𝑠 = 6,68 ≥ 3 6,68 Validé
+Roulements — nominal 227 805 h > 20 000 h 11,39 Validé
+Roulements — extrême 0,90 h > 20 000 h Insuffisant Non validé
+Conclusion
+
+
+Le dimensionnement de l’axe 𝑌confirme qu’il s’agit de l’axe linéaire le plus critique de la
+machine. En fonctionnement nominal, la vis T8, le moteur NEMA 23, les guidages HGR15 et
+les roulements d’appui sont validés
+L’axe Y est valideˊ en fonctionnement nominal.
+L’axe Y est l’axe limitant de la machine.
+La vis T8 est acceptable pour un prototype compact, mais non pour un usage intensif pleine matieˋ re.
+3.2.6 Dimensionnement de l’axe Z (mouvement vertical)
+L’axe Z joue un rôle essentiel dans la qualité d’usinage, car il détermine directement la
+profondeur de passe, la stabilité de la broche et la précision du contact outil-matière. Son
+dimensionnement doit donc garantir à la fois la résistance mécanique, la sécurité verticale et
+l’absence de chute intempestive de la broche.
+La transmission retenue est identique à celle des axes 𝑋et 𝑌, à savoir une vis trapézoïdale T8.
+Toutefois, la course de l’axe 𝑍est plus courte :
+𝐿𝑍 = 120 mm
+<< Les caractéristiques de la vis T8 sont identiques à celles utilisées pour les axes 𝑋et 𝑌 >>
+Vérification en traction — critère de Von Mises
+La section résistante au diamètre de noyau est :
+𝐴 = 𝜋
+4 𝑑𝑛
+𝐴 = 𝜋
+4 (0,0062)2
+𝐴 = 3,019 × 10−5 m2
+La contrainte normale est :
+𝜎 = 𝐹
+𝐴
+Le critère admissible est :
+𝜎 ≤ 𝑅𝑒
+𝑠
+avec :
+𝑠 = 2
+𝜎adm = 600
+𝜎adm = 300 MPa
+Cas nominal
+𝜎nom = 70,45
+3,019 × 10−5
+
+
+𝜎nom = 2,33 × 106 Pa
+𝜎nom = 2,33 MPa
+Le coefficient de sécurité effectif est :
+𝑛traction,nom = 300
+2,33
+𝑛traction,nom = 128,6
+La traction est donc très largement vérifiée.
+Cas extrême
+𝜎extreˆ me = 2 219,45
+3,019 × 10−5
+𝜎extreˆ me = 73,51 MPa
+𝜎extreˆ me = 73,51 MPa
+Comparaison :
+73,51 < 300
+La vis reste validée en traction même en cas extrême.
+Diamètre minimal théorique
+𝑑min = √4𝐹𝑠
+𝜋𝑅𝑒
+Cas nominal
+𝑑min ,nom = √ 4 × 70,45 × 2
+𝜋 × 600 × 106
+𝑑min ,nom = 0,55 mm
+Cas extrême
+𝑑min ,extreˆ me = √4 × 2 219,45 × 2
+𝜋 × 600 × 106
+𝑑min ,extreˆ me = 3,07 mm
+Le diamètre de noyau réel est :
+𝑑𝑛 = 6,2 mm
+Donc :
+𝑑𝑛 > 𝑑min ,extreˆ me
+La vis T8 est validée en traction.
+
+
+Vérification au flambement
+Le moment quadratique de la vis est :
+𝐼 = 𝜋𝑑𝑛
+𝐼 = 𝜋(0,0062)4
+𝐼 = 7,253 × 10−11 m4
+En assimilant le montage à un cas pivot-pivot :
+𝐾 = 1
+La charge critique d’Euler est :
+𝐹cr = 𝜋2𝐸𝐼
+(𝐾𝐿)2
+𝐹cr,𝑍 = 𝜋2 × 210 × 109 × 7,253 × 10−11
+(1 × 0,12)2
+𝐹cr,𝑍 = 10 440 N
+4 Cas nominal
+𝑛flamb,nom = 𝐹cr,𝑍
+𝐹𝑍,nom
+𝑛flamb,nom = 10 440
+70,45
+𝑛flamb,nom = 148,2
+Le critère :
+𝑛flamb ≥ 2
+est très largement satisfait.
+Cas extrême
+𝑛flamb,extreˆ me = 10 440
+2 219,45
+𝑛flamb,extreˆ me = 4,70
+Même en cas extrême, la vis reste au-dessus du coefficient minimal :
+4,70 > 2
+Ainsi, contrairement à l’axe 𝑌, le flambement n’est pas critique pour l’axe 𝑍. Cela s’explique
+par la faible longueur libre de la vis.
+Flambement largement valideˊ pour l’axe Z.
+Pression de matage vis/écrou
+
+
+Le nombre de filets en prise est :
+𝑛filets = 𝐿eˊ crou
+𝑝
+𝑛filets = 15
+𝑛filets = 7,5
+La surface de contact projetée est :
+𝑆contact = 𝑛filets𝜋𝐷𝑚
+𝑑 − 𝑑𝑛
+𝑆contact = 7,5 × 𝜋 × 7,25 × 8 − 6,2
+𝑆contact = 153,74 mm2
+La pression de contact est :
+𝑃 = 𝐹
+𝑆contact
+Cas nominal
+𝑃nom = 70,45
+153,74
+𝑃nom = 0,46 MPa
+La pression admissible est :
+𝑃adm = 5 aˋ 7 MPa
+Comparaison :
+0,46 < 5
+Le matage est donc très largement validé en régime nominal.
+Charge permanente due au poids
+Même lorsque la machine est à l’arrêt, l’écrou supporte le poids de la broche :
+𝑊 = 14,72 N
+La pression permanente associée est :
+𝑃𝑊 = 14,72
+153,74
+𝑃𝑊 = 0,096 MPa
+Cette pression est très faible et ne présente pas de risque de matage permanent de l’écrou.
+Cas extrême
+
+
+𝑃extreˆ me = 2 219,45
+153,74
+𝑃extreˆ me = 14,44 MPa
+Comparaison :
+14,44 > 7
+Le matage n’est donc pas admissible en cas extrême prolongé. Cette conclusion est cohérente
+avec les axes 𝑋et 𝑌: la vis T8 est adaptée au fonctionnement nominal, mais pas à un effort
+théorique maximal de pleine matière.
+Irréversibilité de l’axe Z
+L’irréversibilité de la vis est particulièrement importante pour l’axe 𝑍, car elle conditionne la
+sécurité verticale de la broche. Si la vis est irréversible, la charge ne peut pas entraîner
+spontanément la rotation de la vis. La broche reste donc en position même en cas de coupure
+d’alimentation.
+L’angle d’hélice est :
+𝜆 = arctan ( 𝑝
+𝜋𝐷𝑚
+)
+𝜆 = arctan ( 2
+𝜋 × 7,25)
+𝜆 = 5,02∘
+L’angle de frottement est :
+𝜑 = arctan ( 𝜇
+cos 𝛽)
+𝜑 = arctan ( 0,10
+cos 15∘)
+𝜑 = 5,91∘
+La condition d’irréversibilité est :
+𝜆 < 𝜑
+Or :
+5,02∘ < 5,91∘
+La vis T8 est donc irréversible.
+Le rendement direct est :
+𝜂 = tan 𝜆
+tan (𝜆 + 𝜑)
+𝜂 = tan (5,02∘)
+tan (5,02∘ + 5,91∘)
+𝜂 = 0,455
+
+
+soit :
+𝜂 = 45,5 %
+Le rendement inverse peut être estimé par :
+𝜂inv = tan (𝜆 − 𝜑)
+tan 𝜆
+𝜂inv = tan (5,02∘ − 5,91∘)
+tan (5,02∘)
+𝜂inv = −0,177
+Comme :
+𝜂inv ≤ 0
+l’irréversibilité est confirmée.
+Conclusion sur l’irréversibilité
+La vis T8 de l’axe Z est auto-bloquante.
+Cette propriété présente un avantage majeur pour la sécurité :
+• la broche ne chute pas spontanément en cas de coupure de courant ;
+• aucun frein électromagnétique n’est nécessaire pour maintenir la position ;
+• le moteur n’a pas besoin de fournir un couple permanent à l’arrêt ;
+• le système reste simple, économique et robuste.
+En contrepartie, le rendement direct est relativement faible, ce qui augmente le couple
+nécessaire pendant les déplacements. Toutefois, la masse de la broche étant faible, cette
+limitation reste acceptable.
+Couple moteur et puissance
+L’axe 𝑍 est entraîné par un moteur NEMA 23 identique à ceux des axes 𝑋 et 𝑌, de couple
+nominal :
+𝑇𝑚 = 1,26 N/m
+Le pas de la vis est :
+𝑝 = 0,002 m
+Le rendement direct est :
+𝜂 = 0,455
+Couple en montée — cas dimensionnant
+En montée, le moteur doit vaincre le poids, les frottements et l’effort de pénétration. Le couple
+de charge est :
+𝑇mont = (𝑊 + 𝐹frott + 𝐹𝑝)𝑝
+2𝜋𝜂
+
+
+En régime nominal :
+𝑊 + 𝐹frott + 𝐹𝑝 = 14,72 + 10 + 45
+𝑊 + 𝐹frott + 𝐹𝑝 = 69,72 N
+𝑇mont,nom = 69,72 × 0,002
+2𝜋 × 0,455
+𝑇mont,nom = 0,0488 N/m
+En cas extrême :
+𝑊 + 𝐹frott + 𝐹𝑝,extreˆ me = 14,72 + 10 + 2 194
+= 2 218,72 N
+𝑇mont,extreˆ me = 2 218,72 × 0,002
+2𝜋 × 0,455
+𝑇mont,extreˆ me = 1,553 N/cm
+Couple en descente
+En descente, le poids aide le mouvement. Lorsque l’effort de pénétration reste supérieur au
+poids, le couple à fournir peut être estimé par :
+𝑇desc = (𝐹𝑝 − 𝑊)𝑝
+2𝜋𝜂
+En régime nominal :
+𝑇desc,nom = (45 − 14,72) × 0,002
+2𝜋 × 0,455
+𝑇desc,nom = 0,0212 N/m
+En cas extrême :
+𝑇desc,extreˆ me = (2 194 − 14,72) × 0,002
+2𝜋 × 0,455
+𝑇desc,extreˆ me = 1,525 N/m
+Couple de maintien
+Puisque la vis est irréversible :
+𝑇maintien = 0
+au sens où aucun couple moteur permanent n’est nécessaire pour éviter la descente
+spontanée de la broche. Cette propriété est un avantage sécuritaire majeur.
+Couple d’inertie
+L’inertie équivalente de la charge linéaire est :
+𝐽charge = 𝑚𝑍 ( 𝑝
+2𝜋)
+
+
+𝐽charge = 1,5 (0,002
+2𝜋 )
+𝐽charge = 1,52 × 10−7 kg/m2
+La masse de la vis est :
+𝑚vis = 𝜌𝜋 (𝑑𝑛
+2 )
+𝐿
+𝑚vis = 7 850 × 𝜋 (0,0062
+2 )
+× 0,12
+𝑚vis = 0,0284 kg
+L’inertie de la vis est :
+𝐽vis = 1
+2 𝑚vis (𝑑𝑛
+2 )
+𝐽vis = 1,37 × 10−7 kg/m2
+Avec :
+𝐽rotor = 2,8 × 10−5 kg/m2
+l’inertie totale est :
+𝐽total = 𝐽rotor + 𝐽vis + 𝐽charge
+𝐽total = 2,8 × 10−5 + 1,37 × 10−7 + 1,52 × 10−7
+𝐽total = 2,829 × 10−5 kg\cdotpm2
+L’accélération angulaire est :
+𝛼 = 𝑎 2𝜋
+𝑝
+𝛼 = 0,5 × 2𝜋
+0,002
+𝛼 = 1 571 rad/s2
+Le couple d’inertie est :
+𝑇acc = 𝐽total𝛼
+𝑇acc = 2,829 × 10−5 × 1 571
+𝑇acc = 0,0444 N\cdotpm
+Couple total et marge moteur
+Le couple total en montée est :
+𝑇total = 𝑇mont + 𝑇acc
+
+
+Cas nominal
+𝑇total,nom = 0,0488 + 0,0444
+𝑇total,nom = 0,0932 N/m
+La marge motrice est :
+Marge = 𝑇𝑚
+𝑇total
+Margenom = 1,26
+0,0932
+Margenom = 13,51
+Le moteur est donc largement suffisant en fonctionnement nominal.
+Cas extrême
+𝑇total,extreˆ me = 1,553 + 0,0444
+𝑇total,extreˆ me = 1,597 N/m
+Margeextreˆ me = 1,26
+1,597
+Margeextreˆ me = 0,79
+Le cas extrême n’est donc pas compatible avec le moteur NEMA 23 en fonctionnement
+prolongé.
+Puissance mécanique
+La vitesse maximale de rotation de la vis est :
+𝑁 = 𝑉𝑓
+𝑝
+𝑁 = 3 000
+𝑁 = 1 500 tr/min
+La puissance est :
+𝑃 = 𝑇total
+2𝜋𝑁
+Cas nominal
+𝑃nom = 0,0932 × 2𝜋 × 1 500
+𝑃nom = 14,65 W
+Cas extrême
+
+
+𝑃extreˆ me = 1,597 × 2𝜋 × 1 500
+𝑃extreˆ me = 250,9 W
+Vitesse critique
+La vitesse critique est calculée par :
+𝜔cr = 𝜋2
+(𝐾𝐿)2 √𝐸𝐼
+𝜌𝐴
+𝑁cr = 𝜔cr
+2𝜋 × 60
+Avec :
+𝐿𝑍 = 0,12 m
+on obtient :
+𝑁cr,𝑍 = 52 470 tr/min
+Comparaison :
+𝑁max = 1 500 tr/min
+𝑁cr,𝑍
+𝑁max
+= 52 470
+1 500
+𝑁cr,𝑍
+𝑁max
+= 34,98
+La vis de l’axe 𝑍 fonctionne donc très loin de sa vitesse critique.
+Vérification des roulements d’appui de la vis
+La charge axiale principale appliquée aux roulements est :
+𝐹𝑎 = 𝐹𝑍,tot
+La charge radiale liée au poids de la vis est très faible, car :
+𝑚vis = 0,0284 kg
+𝐹𝑟 = 𝑚vis𝑔
+𝐹𝑟 = 0,0284 × 9,81
+𝐹𝑟 = 0,28 N
+On prend donc :
+𝑃 ≈ 𝐹𝑎
+Avec une capacité dynamique typique :
+𝐶roul = 3 450 N
+la durée de vie est :
+
+
+𝐿10ℎ = (𝐶
+𝑃)
+10/3 106
+60𝑁
+Cas nominal
+𝐿10ℎ,nom = (3 450
+70,45)
+10/3 106
+60 × 1 500
+𝐿10ℎ,nom = 4,77 × 106 h
+Les roulements sont donc largement validés en nominal.
+Cas extrême
+𝐿10ℎ,extreˆ me = ( 3 450
+2 219,45)
+10/3 106
+60 × 1 500
+𝐿10ℎ,extreˆ me = 48,3 h
+Le cas extrême n’est pas admissible en fonctionnement prolongé.
+Guidages en configuration verticale
+Les guidages de l’axe 𝑍 supportent plusieurs types de charges :
+• le poids permanent de la broche ;
+• les efforts de coupe, principalement radiaux ;
+• le moment de porte-à-faux de la broche ;
+• les charges statiques lorsque l’axe reste immobile pendant une opération ou une mise
+en position.
+La vérification est effectuée pour quatre patins répartis sur deux rails. Les données retenues
+sont :
+𝐶 = 16 600 N
+𝐶0 = 23 400 N
+Un facteur de charge est appliqué :
+𝑓𝑤 = 1,2
+Pour tenir compte du porte-à-faux de la broche, on retient les hypothèses géométriques
+suivantes :
+𝑒 = 60 mm = 0,06 m
+𝑏 = 80 mm = 0,08 m
+où 𝑒 est le bras de levier de la broche par rapport au plan des rails, et 𝑏 l’écartement entre les
+rails.
+Charge par patin
+La charge verticale permanente par patin est :
+
+
+𝐹𝑣,patin = 𝑊
+𝐹𝑣,patin = 14,72
+𝐹𝑣,patin = 3,68 N
+Le moment de porte-à-faux est :
+𝑀 = (𝑊 + 𝐹𝑝)𝑒
+La surcharge par patin due au moment est :
+𝐹𝑀 = 𝑀
+2𝑏
+La composante radiale par patin est :
+𝐹𝑟,patin = 𝐹𝑝
+La charge résultante maximale par patin est :
+𝑃patin = √(𝐹𝑣,patin+𝐹𝑀)2+𝐹𝑟,patin
+Cas nominal
+𝑀nom = (14,72 + 45) × 0,06
+𝑀nom = 3,58 N/m
+𝐹𝑀,nom = 3,58
+2 × 0,08
+𝐹𝑀,nom = 22,39 N
+𝐹𝑟,patin,nom = 45
+𝐹𝑟,patin,nom = 11,25 N
+𝑃patin,nom = √(3,68+22,39)2+11,252
+𝑃patin,nom = 28,40 N
+Cas extrême
+𝑀extreˆ me = (14,72 + 2 194) × 0,06
+𝑀extreˆ me = 132,52 N/m
+𝐹𝑀,extreˆ me = 132,52
+2 × 0,08
+𝐹𝑀,extreˆ me = 828,27 N
+
+
+𝐹𝑟,patin,extreˆ me = 2 194
+𝐹𝑟,patin,extreˆ me = 548,5 N
+𝑃patin,extreˆ me = √(3,68+828,27)2+548,52
+𝑃patin,extreˆ me = 996,49 N
+Charge équivalente dynamique
+𝑃𝑒 = 𝑓𝑤𝑃patin
+Cas nominal
+𝑃𝑒,nom = 1,2 × 28,40
+𝑃𝑒,nom = 34,07 N
+Cas extrême
+𝑃𝑒,extreˆ me = 1,2 × 996,49
+𝑃𝑒,extreˆ me = 1 195,79 N
+Durée de vie des roulements
+𝐿10 = ( 𝐶
+𝑃𝑒
+)
+× 50
+𝐿10ℎ = 𝐿10 × 106
+𝑉moy × 3600
+avec :
+𝑉moy = 50 mm/s
+Cas nominal
+𝐿10ℎ,nom = 3,21 × 1010 h
+Cas extrême
+𝐿10ℎ,extreˆ me = 743 125 h
+Le critère :
+𝐿10ℎ > 20 000 h
+est largement satisfait.
+Charge statique
+Pour l’axe vertical, on impose un critère plus sévère :
+𝐹𝑠 ≥ 4
+
+
+Le coefficient statique est :
+𝐹𝑠 = 𝐶0
+𝑃0
+Cas nominal
+𝐹𝑠,nom = 23 400
+28,40
+𝐹𝑠,nom = 824
+Cas extrême
+𝐹𝑠,extreˆ me = 23 400
+996,49
+𝐹𝑠,extreˆ me = 23,48
+Le critère est donc largement satisfait.
+Guidages de l’axe Z valideˊ s en configuration verticale.
+Synthèse globale des trois axes linéaires
+Cette section synthétise les résultats obtenus pour les axes 𝑋, 𝑌et 𝑍. Elle met en évidence les
+différences de charge, de stabilité, de couple moteur et de sécurité entre les trois axes
+linéaires.
+Paramètre Axe X Axe Y Axe Z
+Masse portée 7,5 kg 11 kg 1,5 kg
+Course 150 mm 300 mm 120 mm
+Charge nominale 𝐹tot 93,75 N 175,5 N 70,45 N
+Charge extrême 3 675,75 N 7 340,5 N 2 219,45 N
+𝑛tractionnominal 96,6 51,6 128,6
+𝑛flambementnominal 71,27 9,52 148,2
+𝑛flambementextrême 1,82 0,23 4,70
+Pression matage nominale 0,61 MPa 1,14 MPa 0,46 MPa
+Pression matage extrême 23,91 MPa 47,75 MPa 14,44 MPa
+Couple total nominal 0,111 N\cdotpm 0,169 N\cdotpm 0,093 N\cdotpm
+Marge moteur nominale 11,34 7,45 13,51
+
+
+Vitesse critique 33 581 tr/min 8 395 tr/min 52 470 tr/min
+𝐿10ℎguidages nominal 3,30 × 109 h 3,47 × 108 h 3,21 × 1010 h
+𝐿10ℎguidages extrême 137 327 h 17 070 h 743 125 h
+Irréversible ? Oui Oui Oui — sécurité verticale
+Axe critique ? Non Oui Non
+Cette synthèse clôt le dimensionnement des axes linéaires. La suite du chapitre portera sur le
+dimensionnement des axes rotatifs du Trunnion, c’est-à-dire les axes 𝐴 et 𝐶, qui introduisent
+des problématiques différentes : moments de renversement, rigidité angulaire, fatigue des

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/gcode_file.dart';
 
 /// Modèle pour une ligne de G-Code analysée
@@ -100,16 +98,3 @@ class GCodeParser {
     );
   }
 }
-
-// --- PROVIDERS OPTIMISÉS ---
-
-final analyzedGCodeProvider = StateProvider<AnalyzedGCode?>((ref) => null);
-
-final gcodeScrollControllerProvider = Provider((ref) => ScrollController());
-
-/// Provider pour synchroniser le scroll sans rebuild massif
-final autoScrollProvider = Provider.autoDispose((ref) {
-  final controller = ref.watch(gcodeScrollControllerProvider);
-  // On écoute l'index de ligne actuel depuis le machine state
-  // et on déclenche un scroll doux.
-});

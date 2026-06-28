@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/machine_state.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../data/fluidnc/grbl_parser.dart';
+import '../../application/providers/di_providers.dart';
 
 /// États de la Machine à États de Palpage
 enum ProbingStep {
@@ -162,7 +163,7 @@ class ProbingNotifier extends StateNotifier<ProbingState> {
   Future<ProbingResult> _waitForProbeReport() async {
     final completer = Completer<ProbingResult>();
     
-    final sub = _ref.read(machineRepositoryProvider).messageStream.listen((msg) {
+    _messageSub = _ref.read(machineRepositoryProvider).messageStream.listen((msg) {
       final report = GrblParser.parseProbeReport(msg);
       if (report != null) {
         if (report['success'] == true) {
@@ -180,7 +181,8 @@ class ProbingNotifier extends StateNotifier<ProbingState> {
       // Timeout après 30 secondes de palpage
       return await completer.future.timeout(const Duration(seconds: 30));
     } finally {
-      sub.cancel();
+      _messageSub?.cancel();
+      _messageSub = null;
     }
   }
 

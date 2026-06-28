@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/di_providers.dart';
 
 /// Notifier pour le contrôle manuel sécurisé (Jogging).
 /// Utilise $J= (Continuous Jog) et \x85 (Jog Cancel).

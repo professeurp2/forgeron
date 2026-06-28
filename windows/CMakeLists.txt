@@ -10,6 +10,10 @@ set(BINARY_NAME "forgeron")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Suppress MSVC VS2026 deprecation error for experimental/coroutine headers
+# used by webview_windows and audioplayers_windows (STL1011).
+cmake_policy(SET CMP0175 NEW)
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
@@ -30,7 +34,8 @@ set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Use Unicode for all projects.
-add_definitions(-DUNICODE -D_UNICODE)
+# Also suppress MSVC STL1011: experimental/coroutine deprecated in VS2026.
+add_definitions(-DUNICODE -D_UNICODE -D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 
 # Compilation settings that should be applied to most targets.
 #
