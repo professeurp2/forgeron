@@ -16,22 +16,22 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
           (json['mPos'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList() ??
-          const [0.0, 0.0, 0.0, 0.0, 0.0],
+          [0.0, 0.0, 0.0, 0.0, 0.0],
       wPos:
           (json['wPos'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList() ??
-          const [0.0, 0.0, 0.0, 0.0, 0.0],
+          [0.0, 0.0, 0.0, 0.0, 0.0],
       wco:
           (json['wco'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList() ??
-          const [0.0, 0.0, 0.0, 0.0, 0.0],
+          [0.0, 0.0, 0.0, 0.0, 0.0],
       targetPos:
           (json['targetPos'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList() ??
-          const [0.0, 0.0, 0.0, 0.0, 0.0],
+          [0.0, 0.0, 0.0, 0.0, 0.0],
       singularityRisk: (json['singularityRisk'] as num?)?.toDouble() ?? 0.0,
       feedrate: (json['feedrate'] as num?)?.toDouble() ?? 0.0,
       spindleSpeed: (json['spindleSpeed'] as num?)?.toDouble() ?? 0.0,
@@ -42,7 +42,7 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
           (json['overrides'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
-          const [100, 100, 100],
+          [100, 100, 100],
       activeWCS: json['activeWCS'] as String? ?? 'G54',
       activeToolNum: (json['activeToolNum'] as num?)?.toInt() ?? 0,
       lastMessage: json['lastMessage'] as String?,
@@ -50,7 +50,7 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
           (json['limitSwitches'] as List<dynamic>?)
               ?.map((e) => e as bool)
               .toList() ??
-          const [false, false, false, false, false],
+          [false, false, false, false, false],
       probeTriggered: json['probeTriggered'] as bool? ?? false,
       probeResult: json['probeResult'] as Map<String, dynamic>?,
       emergencyTriggered: json['emergencyTriggered'] as bool? ?? false,

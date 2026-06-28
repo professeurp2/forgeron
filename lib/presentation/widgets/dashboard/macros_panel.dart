@@ -46,12 +46,12 @@ class MacrosPanel extends ConsumerWidget {
                       repo.sendGCodeBatch(gcodeState.allLines);
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('▶ Exécution du G-Code lancée'),
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: Colors.deepOrange,
                       ));
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('⚠️ Aucun G-Code chargé à exécuter'),
-                        backgroundColor: AppColors.warning,
+                        backgroundColor: Colors.orange,
                       ));
                     }
                     return;
@@ -66,13 +66,13 @@ class MacrosPanel extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _hexToColor(m.colorHex).withOpacity(0.1),
-                    border: Border.all(color: _hexToColor(m.colorHex).withOpacity(0.3)),
+                    color: _hexToColor(m.colorHex).withValues(alpha: 0.1),
+                    border: Border.all(color: _hexToColor(m.colorHex).withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(children: [
                     Icon(_getIconData(m.iconName), color: _hexToColor(m.colorHex), size: 16),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(child: Text(m.name, style: TextStyle(color: _hexToColor(m.colorHex), fontSize: 10, fontWeight: FontWeight.bold))),
                   ]),
                 ),

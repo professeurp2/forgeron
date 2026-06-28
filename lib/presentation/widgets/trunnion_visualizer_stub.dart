@@ -18,7 +18,7 @@ class TrunnionVisualizer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         '3D Visualizer is only available on Web (Chrome).',
         style: TextStyle(color: Colors.white),

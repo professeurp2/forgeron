@@ -1,143 +1,132 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'forgeron_theme_extension.dart';
 
-/// Système de typographie centralisé — Forgeron v2
-///
-/// Polices :
-///   • Rajdhani     — Labels, titres, navigation  (look industriel premium)
-///   • JetBrains Mono — DRO, terminal, valeurs numériques  (lisibilité maximale)
-abstract class AppTextStyles {
-  AppTextStyles._();
+class AppTextStyles {
+  static const String _rajdhani = 'Rajdhani';
+  static const String _jetBrains = 'JetBrainsMono';
 
-  // ── HEADLINES (Rajdhani) ──────────────────────────────────────────────────
-
-  /// Titre d'écran principal — ex: "TABLEAU DE BORD"
-  static TextStyle get headline => GoogleFonts.rajdhani(
+  // ── HEADLINES ────────────────────────────────────────────────────────────
+  static TextStyle get headline => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textPrimary,
         fontSize: 20,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.5,
       );
 
-  /// Sous-titre de section — ex: "AXES DRO"
-  static TextStyle get headlineSmall => GoogleFonts.rajdhani(
+  static TextStyle get headlineSmall => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textPrimary,
         fontSize: 15,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.2,
       );
 
-  // ── NAVIGATION (Rajdhani) ─────────────────────────────────────────────────
-
-  /// Label de la sidebar desktop
-  static TextStyle get navLabel => GoogleFonts.rajdhani(
+  // ── NAVIGATION ────────────────────────────────────────────────────────────
+  static TextStyle get navLabel => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.4,
       );
 
-  /// Label de la sidebar sélectionné
-  static TextStyle get navLabelSelected => GoogleFonts.rajdhani(
+  static TextStyle get navLabelSelected => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.primary,
         fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.4,
       );
 
-  // ── SECTION HEADERS (Rajdhani) ────────────────────────────────────────────
-
-  /// En-tête d'un GlassPanel — "AXES LINÉAIRES"
-  static TextStyle get sectionTitle => GoogleFonts.rajdhani(
+  // ── SECTION HEADERS ───────────────────────────────────────────────────────
+  static TextStyle get sectionTitle => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w700,
         letterSpacing: 2.0,
       );
 
-  /// Label d'axe coloré dans un GlassPanel
-  static TextStyle sectionAccent(Color color) => GoogleFonts.rajdhani(
+  static TextStyle sectionAccent(Color color) => TextStyle(
+        fontFamily: _rajdhani,
         color: color.withValues(alpha: 0.9),
         fontSize: 10,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.8,
       );
 
-  // ── BOUTONS (Rajdhani) ────────────────────────────────────────────────────
-
-  /// Texte d'un bouton d'action CNC
-  static TextStyle get buttonLabel => GoogleFonts.rajdhani(
+  // ── BOUTONS ───────────────────────────────────────────────────────────────
+  static TextStyle get buttonLabel => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textPrimary,
         fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.0,
       );
 
-  /// Texte d'un bouton d'urgence / danger
-  static TextStyle get buttonDanger => GoogleFonts.rajdhani(
+  static TextStyle get buttonDanger => const TextStyle(
+        fontFamily: _rajdhani,
         color: Colors.white,
         fontSize: 12,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.5,
       );
 
-  // ── BADGES / STATUT (Rajdhani) ─────────────────────────────────────────────
-
-  /// Badge de statut machine — "IDLE", "RUN", "ALARM"
-  static TextStyle statusBadge(Color color) => GoogleFonts.rajdhani(
+  // ── BADGES / STATUT ───────────────────────────────────────────────────────
+  static TextStyle statusBadge(Color color) => TextStyle(
+        fontFamily: _rajdhani,
         color: color,
         fontSize: 10,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.2,
       );
 
-  /// Label d'un chip / tag
-  static TextStyle get chipLabel => GoogleFonts.rajdhani(
+  static TextStyle get chipLabel => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
       );
 
-  // ── DRO — AFFICHAGE NUMÉRIQUE (JetBrains Mono) ──────────────────────────
-
-  /// Grande valeur DRO — coordonnée principale
-  static TextStyle get dro => GoogleFonts.jetBrainsMono(
+  // ── DRO — AFFICHAGE NUMÉRIQUE ─────────────────────────────────────────────
+  static TextStyle get dro => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.lcdText,
         fontSize: 28,
         fontWeight: FontWeight.w700,
         letterSpacing: 2.0,
       );
 
-  /// Valeur DRO moyenne — coordonnées secondaires
-  static TextStyle get droMedium => GoogleFonts.jetBrainsMono(
+  static TextStyle get droMedium => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.lcdText,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.5,
       );
 
-  /// Label d'un axe DRO — "X", "Y", "Z"
-  static TextStyle get droLabel => GoogleFonts.jetBrainsMono(
+  static TextStyle get droLabel => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.textSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w500,
         letterSpacing: 1.0,
       );
 
-  /// Valeur DRO atténuée (valeur machine vs programme)
-  static TextStyle get droDim => GoogleFonts.jetBrainsMono(
+  static TextStyle get droDim => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.lcdTextDim,
         fontSize: 13,
         fontWeight: FontWeight.w400,
         letterSpacing: 1.0,
       );
 
-  // ── TERMINAL / GCODE (JetBrains Mono) ─────────────────────────────────────
-
-  /// Sortie terminal MDI / FluidNC
-  static TextStyle get terminalOutput => GoogleFonts.jetBrainsMono(
+  // ── TERMINAL / GCODE ──────────────────────────────────────────────────────
+  static TextStyle get terminalOutput => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.lcdText,
         fontSize: 12,
         fontWeight: FontWeight.w400,
@@ -145,109 +134,83 @@ abstract class AppTextStyles {
         height: 1.6,
       );
 
-  /// Entrée commande terminal
-  static TextStyle get terminalInput => GoogleFonts.jetBrainsMono(
+  static TextStyle get terminalInput => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.textPrimary,
         fontSize: 12,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.5,
       );
 
-  /// Commentaire G-code
-  static TextStyle get terminalComment => GoogleFonts.jetBrainsMono(
+  static TextStyle get terminalComment => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.textDisabled,
         fontSize: 11,
         fontWeight: FontWeight.w400,
         fontStyle: FontStyle.italic,
       );
 
-  // ── GENERAL (Rajdhani) ────────────────────────────────────────────────────
-
-  /// Corps de texte standard
-  static TextStyle get body => GoogleFonts.rajdhani(
+  // ── GENERAL ───────────────────────────────────────────────────────────────
+  static TextStyle get body => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textPrimary,
         fontSize: 13,
         fontWeight: FontWeight.w500,
       );
 
-  /// Texte de corps secondaire / description
-  static TextStyle get bodySecondary => GoogleFonts.rajdhani(
+  static TextStyle get bodySecondary => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.w400,
       );
 
-  /// Caption / légende d'image ou de widget
-  static TextStyle get caption => GoogleFonts.rajdhani(
+  static TextStyle get caption => TextStyle(
+        fontFamily: _rajdhani,
         color: AppColors.textDisabled,
         fontSize: 10,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.8,
       );
 
-  /// Valeur numérique monospace générique (IP, durée, taille fichier...)
-  static TextStyle get mono => GoogleFonts.jetBrainsMono(
+  static TextStyle get mono => TextStyle(
+        fontFamily: _jetBrains,
         color: AppColors.textSecondary,
         fontSize: 11,
         fontWeight: FontWeight.w400,
       );
 
-  // ── TextTheme MATERIAL — à brancher dans ThemeData ────────────────────────
-
-  /// TextTheme complet à passer à ThemeData pour Rajdhani comme font globale.
-  static TextTheme get materialTextTheme => GoogleFonts.rajdhaniTextTheme(
-        const TextTheme(
-          displayLarge: TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-          displayMedium: TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-          headlineLarge: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5),
-          headlineMedium: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2),
-          headlineSmall: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600),
-          titleLarge: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0),
-          titleMedium: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600),
-          titleSmall: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8),
-          bodyLarge: TextStyle(
-              color: AppColors.textPrimary, fontSize: 14),
-          bodyMedium: TextStyle(
-              color: AppColors.textPrimary, fontSize: 13),
-          bodySmall: TextStyle(
-              color: AppColors.textSecondary, fontSize: 12),
-          labelLarge: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0),
-          labelMedium: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              letterSpacing: 0.8),
-          labelSmall: TextStyle(
-              color: AppColors.textDisabled,
-              fontSize: 10,
-              letterSpacing: 1.5),
-        ),
-      );
+  // ── TextTheme MATERIAL ────────────────────────────────────────────────────
+  static TextTheme createMaterialTextTheme(ForgeronTheme themeColors) {
+    return TextTheme(
+      displayLarge: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontWeight: FontWeight.w700),
+      displayMedium: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontWeight: FontWeight.w700),
+      headlineLarge: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+      headlineMedium: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: 1.2),
+      headlineSmall: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+      titleLarge: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+      titleMedium: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+      titleSmall: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+      bodyLarge:
+          TextStyle(fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 14),
+      bodyMedium:
+          TextStyle(fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 13),
+      bodySmall:
+          TextStyle(fontFamily: _rajdhani, color: themeColors.textSecondary, fontSize: 12),
+      labelLarge: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+      labelMedium: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textSecondary, fontSize: 11, letterSpacing: 0.8),
+      labelSmall: TextStyle(
+          fontFamily: _rajdhani, color: themeColors.textDisabled, fontSize: 10, letterSpacing: 1.5),
+    );
+  }
 }

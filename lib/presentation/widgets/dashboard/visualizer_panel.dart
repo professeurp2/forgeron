@@ -28,29 +28,29 @@ class VisualizerPanel extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          const Text('VISUALISEUR 3D WEBGL', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), 
+          Text('VISUALISEUR 3D WEBGL', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900)), 
           const Spacer(),
           if (progress > 0 && progress < 100) ...[
-            Text('${progress.toStringAsFixed(1)}%', style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
-            const SizedBox(width: 8),
+            Text('${progress.toStringAsFixed(1)}%', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+            SizedBox(width: 8),
             SizedBox(width: 60, child: LinearProgressIndicator(value: progress / 100, minHeight: 2, backgroundColor: AppColors.surfaceBorder, color: AppColors.primary)),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
           ],
           IconButton(
-            icon: const Icon(Icons.fullscreen, color: AppColors.textSecondary, size: 18),
+            icon: Icon(Icons.fullscreen, color: AppColors.textSecondary, size: 18),
             onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = true,
             tooltip: 'Plein Écran',
           ),
-          const SizedBox(width: 8),
-          const Text('VECTEURS', style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+          SizedBox(width: 8),
+          Text('VECTEURS', style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
           Switch(
             value: showVectors, 
             onChanged: (v) => ref.read(showVectorsProvider.notifier).state = v,
             activeColor: AppColors.primary,
-            activeTrackColor: AppColors.primary.withOpacity(0.3),
+            activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
           ),
         ]),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Expanded(child: GlassPanel(expand: true, padding: EdgeInsets.zero, child: Stack(children: [
           TrunnionVisualizer(
             mPos: mPos, 
@@ -90,7 +90,7 @@ class FullScreenVisualizer extends ConsumerWidget {
           top: 24,
           right: 24,
           child: IconButton(
-            icon: const Icon(Icons.fullscreen_exit, color: Colors.white, size: 40),
+            icon: Icon(Icons.fullscreen_exit, color: Colors.white, size: 40),
             onPressed: () => ref.read(isVisualizerFullScreenProvider.notifier).state = false,
             style: IconButton.styleFrom(backgroundColor: Colors.black54),
           ),
@@ -114,6 +114,6 @@ class SingularityAlert extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = risk > 0.8 ? AppColors.error : AppColors.warning;
-    return Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withOpacity(0.5))), child: Row(children: [Icon(Icons.warning, color: color, size: 14), const SizedBox(width: 8), Text('SINGULARITÉ PROCHE', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)), const Spacer(), Text('${(risk * 100).toInt()}%', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold))]));
+    return Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.5))), child: Row(children: [Icon(Icons.warning, color: color, size: 14), SizedBox(width: 8), Text('SINGULARITÉ PROCHE', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)), const Spacer(), Text('${(risk * 100).toInt()}%', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold))]));
   }
 }

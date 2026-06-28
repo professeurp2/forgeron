@@ -39,7 +39,7 @@ class GCodeConsolePanel extends ConsumerWidget {
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
+            children: [
               SizedBox(
                 width: 40,
                 height: 40,
@@ -70,7 +70,7 @@ class GCodeConsolePanel extends ConsumerWidget {
         title: 'FLUX G-CODE INDUSTRIEL',
         expand: true,
         titleTrailing: IconButton(
-          icon: const Icon(Icons.file_open, color: AppColors.primary, size: 14),
+          icon: Icon(Icons.file_open, color: AppColors.primary, size: 14),
           onPressed: () => _pickFile(ref),
           tooltip: 'Charger un fichier G-Code',
         ),
@@ -83,21 +83,21 @@ class GCodeConsolePanel extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.05),
+                    color: AppColors.primary.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.primary.withOpacity(0.2),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.upload_file_rounded,
                     color: AppColors.primary,
                     size: 36,
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Text(
+                SizedBox(height: 20),
+                Text(
                   'AUCUN PROGRAMME CHARGÉ',
                   style: TextStyle(
                     color: Colors.white,
@@ -106,8 +106,8 @@ class GCodeConsolePanel extends ConsumerWidget {
                     letterSpacing: 1.0,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: 8),
+                Text(
                   'Importez un fichier G-Code (.nc, .gcode) pour visualiser le parcours d\'outil et piloter la machine.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -116,11 +116,11 @@ class GCodeConsolePanel extends ConsumerWidget {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: () => _pickFile(ref),
-                  icon: const Icon(Icons.file_open, size: 14),
-                  label: const Text(
+                  icon: Icon(Icons.file_open, size: 14),
+                  label: Text(
                     'CHARGER UN FICHIER',
                     style: TextStyle(
                       fontSize: 10,
@@ -152,7 +152,7 @@ class GCodeConsolePanel extends ConsumerWidget {
       title: 'FLUX G-CODE INDUSTRIEL',
       expand: true,
       titleTrailing: IconButton(
-        icon: const Icon(Icons.file_open, color: AppColors.primary, size: 14),
+        icon: Icon(Icons.file_open, color: AppColors.primary, size: 14),
         onPressed: () => _pickFile(ref),
         tooltip: 'Charger un fichier G-Code',
       ),
@@ -165,8 +165,8 @@ class GCodeConsolePanel extends ConsumerWidget {
           return Container(
             decoration: isCurrent
                 ? BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
-                    border: const Border(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    border: Border(
                       left: BorderSide(color: AppColors.primary, width: 3),
                     ),
                   )
@@ -189,13 +189,13 @@ class GCodeConsolePanel extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: RichText(
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     text: TextSpan(
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontFamily: 'JetBrains Mono',
                       ),
@@ -204,7 +204,7 @@ class GCodeConsolePanel extends ConsumerWidget {
                   ),
                 ),
                 if (isCurrent)
-                  const Icon(
+                  Icon(
                     Icons.chevron_left,
                     color: AppColors.primary,
                     size: 14,

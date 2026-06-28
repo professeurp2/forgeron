@@ -41,7 +41,7 @@ class GCodeEditingController extends TextEditingController {
           else if (matchText.startsWith('S')) color = AppColors.warning; // Broche
           else color = AppColors.secondary;
         } else if (lineNumberRegex.hasMatch(matchText)) {
-          color = AppColors.textSecondary.withOpacity(0.5);
+          color = AppColors.textSecondary.withValues(alpha: 0.5);
         } else if (stringRegex.hasMatch(matchText)) {
           color = AppColors.warning;
         }

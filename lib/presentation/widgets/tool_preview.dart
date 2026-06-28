@@ -97,7 +97,7 @@ class _ToolDimensionPainter extends CustomPainter {
     // Text L
     paintText.text = TextSpan(
       text: 'L ${length.toStringAsFixed(1)}',
-      style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono', backgroundColor: AppColors.surface),
+      style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono', backgroundColor: AppColors.surface),
     );
     paintText.layout();
     
@@ -123,7 +123,7 @@ class _ToolDimensionPainter extends CustomPainter {
     // Text D
     paintText.text = TextSpan(
       text: 'Ø ${diameter.toStringAsFixed(1)}',
-      style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono', backgroundColor: AppColors.surface),
+      style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono', backgroundColor: AppColors.surface),
     );
     paintText.layout();
     paintText.paint(canvas, Offset(toolCenterX - paintText.width / 2, bottomY - 8 - paintText.height));

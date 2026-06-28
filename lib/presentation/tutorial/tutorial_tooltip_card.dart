@@ -65,8 +65,8 @@ class TutorialTooltipCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF161D36).withValues(alpha: 0.85),
-                    const Color(0xFF0D1224).withValues(alpha: 0.95),
+                    Color(0xFF161D36).withValues(alpha: 0.85),
+                    Color(0xFF0D1224).withValues(alpha: 0.95),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -143,7 +143,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                 size: 22,
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,10 +169,10 @@ class TutorialTooltipCard extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Text(
                                     step.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w800,
@@ -184,12 +184,12 @@ class TutorialTooltipCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14),
 
                         // Description
                         Text(
                           step.description,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Color(0xFFB4BACD),
                             fontSize: 12,
                             height: 1.5,
@@ -199,7 +199,7 @@ class TutorialTooltipCard extends StatelessWidget {
 
                         // Action Button (Optional)
                         if (step.action != null) ...[
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           Container(
                             width: double.infinity,
                             height: 38,
@@ -234,7 +234,7 @@ class TutorialTooltipCard extends StatelessWidget {
                           ),
                         ],
 
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
 
                         // Footer Controls
                         Row(
@@ -252,7 +252,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   currentIndex == 0 ? 'PASSER' : '← PRÉC.',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -289,7 +289,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                           ? step.accentColor
                                           : (dotIndex < currentIndex
                                               ? AppColors.success.withValues(alpha: 0.5)
-                                              : const Color(0xFF2A3050)),
+                                              : Color(0xFF2A3050)),
                                       boxShadow: isActive
                                           ? [
                                               BoxShadow(
@@ -322,7 +322,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   currentIndex == totalSteps - 1 ? 'FINIR' : 'SUIV.',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.5,

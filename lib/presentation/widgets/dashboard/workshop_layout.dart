@@ -31,26 +31,26 @@ class CockpitHeader extends ConsumerWidget {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.surfaceBorder, width: 2)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.precision_manufacturing, color: AppColors.primary, size: 28),
-          const SizedBox(width: 16),
-          const Text('FORGERON', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 4)),
-          const Text(' HMI', style: TextStyle(color: AppColors.primary, fontSize: 24, fontWeight: FontWeight.w300)),
+          Icon(Icons.precision_manufacturing, color: AppColors.primary, size: 28),
+          SizedBox(width: 16),
+          Text('FORGERON', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 4)),
+          Text(' HMI', style: TextStyle(color: AppColors.primary, fontSize: 24, fontWeight: FontWeight.w300)),
           const Spacer(),
           WorkshopQuickActions(repo: ref.read(machineRepositoryProvider)),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           CockpitStatusBadge(
             label: state?.status.name.toUpperCase() ?? 'OFFLINE',
             color: getMachineStatusColor(state?.status ?? MachineStatus.offline),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           IconButton(
-            icon: const Icon(Icons.close, color: AppColors.textDisabled, size: 28),
+            icon: Icon(Icons.close, color: AppColors.textDisabled, size: 28),
             onPressed: () => ref.read(isWorkshopModeProvider.notifier).state = false,
           ),
         ],
@@ -69,15 +69,15 @@ class GiantIndustrialDRO extends StatelessWidget {
     return Column(
       children: [
         _axis('X', wPos[0], AppColors.axisX),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _axis('Y', wPos[1], AppColors.axisY),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _axis('Z', wPos[2], AppColors.axisZ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         Row(
           children: [
             Expanded(child: _miniAxis('A', wPos[3], AppColors.axisA)),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(child: _miniAxis('C', wPos[4], AppColors.axisC)),
           ],
         ),
@@ -92,7 +92,7 @@ class GiantIndustrialDRO extends StatelessWidget {
         const Spacer(),
         Text(
           val.toStringAsFixed(3),
-          style: const TextStyle(
+          style: TextStyle(
               color: Colors.white,
               fontSize: 56,
               fontWeight: FontWeight.w900,
@@ -106,16 +106,16 @@ class GiantIndustrialDRO extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(name, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
           Text(val.toStringAsFixed(2),
-              style: const TextStyle(
+              style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -142,7 +142,7 @@ class WorkshopGauges extends StatelessWidget {
       child: Column(
         children: [
           _gaugeRow('AVANCE (F)', state?.feedrate ?? 0, 5000, AppColors.primary, 'mm/min'),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _gaugeRow('BROCHE (S)', state?.spindleSpeed ?? 0, 24000, AppColors.secondary, 'RPM'),
         ],
       ),
@@ -156,11 +156,11 @@ class WorkshopGauges extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
             Text('${val.toInt()} $unit', style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
           child: LinearProgressIndicator(
@@ -201,13 +201,13 @@ class IndustrialControlPanel extends ConsumerWidget {
           },
           isLarge: true,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _hmiButton(Icons.pause, 'ARRÊT AVANCE', AppColors.warning, () => repo.pause(), isLarge: true),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _hmiButton(Icons.stop, 'ABANDON / RESET', AppColors.danger, () => repo.reset(), isLarge: true),
         if (isSimulation) ...[
-          const SizedBox(height: 24),
-          const Text('VITESSE SIM', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold)),
+          SizedBox(height: 24),
+          Text('VITESSE SIM', style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold)),
           Slider(
             value: speed,
             min: 0.1,
@@ -218,11 +218,11 @@ class IndustrialControlPanel extends ConsumerWidget {
             },
             activeColor: AppColors.primary,
           ),
-          Text('${speed.toStringAsFixed(1)}x', style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+          Text('${speed.toStringAsFixed(1)}x', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
         ],
         const Spacer(),
         _hmiButton(Icons.home, 'ORIGINES', AppColors.axisZ, () => repo.home([]), isLarge: false),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _hmiButton(Icons.gps_fixed, 'GOTO ZÉRO', AppColors.secondary, () => repo.sendGCode('G0 X0 Y0 Z0'), isLarge: false),
       ],
     );
@@ -238,18 +238,18 @@ class IndustrialControlPanel extends ConsumerWidget {
           height: isLarge ? 110 : 70,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.6), width: 2),
+            border: Border.all(color: color.withValues(alpha: 0.6), width: 2),
             boxShadow: [
-              BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, spreadRadius: 2)
+              BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 2)
             ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: color, size: isLarge ? 42 : 28),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(label,
                   style: TextStyle(
                       color: color,
@@ -273,7 +273,7 @@ class WorkshopQuickActions extends StatelessWidget {
     return Row(
       children: [
         _miniFloatingBtn(Icons.refresh, () => repo.reset(), 'Réinitialiser'),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         _miniFloatingBtn(Icons.center_focus_strong, () => {}, 'Palpage'),
       ],
     );
@@ -282,7 +282,7 @@ class WorkshopQuickActions extends StatelessWidget {
   Widget _miniFloatingBtn(IconData icon, VoidCallback onTap, String tooltip) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.8),
+        color: AppColors.surface.withValues(alpha: 0.8),
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.surfaceBorder),
       ),
@@ -305,7 +305,7 @@ class CockpitStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color),
       ),
@@ -320,7 +320,7 @@ class CockpitStatusBadge extends StatelessWidget {
               boxShadow: [BoxShadow(color: color, blurRadius: 10)],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Text(label,
               style: TextStyle(
                   color: color,

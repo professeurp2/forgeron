@@ -20,8 +20,8 @@ class ActionGrid extends ConsumerWidget {
       key: TutorialKeys.actionButtons,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('ACTIONS MACHINE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
-        const SizedBox(height: 12),
+        Text('ACTIONS MACHINE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.2,
           children: [
@@ -54,8 +54,8 @@ class ActionGrid extends ConsumerWidget {
           ],
         ),
         if (isSim) ...[
-          const SizedBox(height: 16),
-          const Text('VITESSE SIMULATION / OVERRIDES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+          SizedBox(height: 16),
+          Text('VITESSE SIMULATION / OVERRIDES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
           Container(
             key: TutorialKeys.overridesPanel,
             child: Row(children: [
@@ -71,7 +71,7 @@ class ActionGrid extends ConsumerWidget {
                 activeColor: AppColors.primary,
               ),
             ),
-            Text('${speed.toStringAsFixed(1)}x', style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+            Text('${speed.toStringAsFixed(1)}x', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
           ]),
           ),
         ],
@@ -87,9 +87,9 @@ class ActionGrid extends ConsumerWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -99,7 +99,7 @@ class ActionGrid extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, color: color, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(label,
                     style: TextStyle(
                         color: color,
@@ -116,7 +116,7 @@ class ActionGrid extends ConsumerWidget {
 
   void _showFeedback(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+      content: Text(message, style: TextStyle(fontWeight: FontWeight.bold)),
       backgroundColor: AppColors.surfaceBright,
       duration: const Duration(seconds: 2),
     ));

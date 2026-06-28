@@ -56,7 +56,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildStepper(),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         Expanded(
           child: _buildStepContent(),
         ),
@@ -82,12 +82,12 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       width: 28, height: 28,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: done ? AppColors.primary : (active ? AppColors.primary.withOpacity(0.2) : AppColors.surface),
+        color: done ? AppColors.primary : (active ? AppColors.primary.withValues(alpha: 0.2) : AppColors.surface),
         border: Border.all(color: active || done ? AppColors.primary : AppColors.surfaceBorder, width: 2),
       ),
       child: Center(
         child: done 
-          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          ? Icon(Icons.check, size: 16, color: Colors.white)
           : Text('${i + 1}', style: TextStyle(color: active ? AppColors.primary : AppColors.textDisabled, fontWeight: FontWeight.bold, fontSize: 12)),
       ),
     );
@@ -125,7 +125,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       case 3:
         return _buildCalculationStep();
       default:
-        return const SizedBox();
+        return SizedBox();
     }
   }
 
@@ -133,21 +133,21 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Text(desc, style: const TextStyle(color: AppColors.textDisabled, fontSize: 12, height: 1.5)),
-        const SizedBox(height: 32),
-        Center(child: Icon(icon, size: 64, color: AppColors.primary.withOpacity(0.3))),
+        Text(title, style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+        SizedBox(height: 12),
+        Text(desc, style: TextStyle(color: AppColors.textDisabled, fontSize: 12, height: 1.5)),
+        SizedBox(height: 32),
+        Center(child: Icon(icon, size: 64, color: AppColors.primary.withValues(alpha: 0.3))),
         const Spacer(),
         if (result != null) 
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.success.withOpacity(0.3))),
+            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.success.withValues(alpha: 0.3))),
             child: Row(children: [
-              const Icon(Icons.check_circle, color: AppColors.success, size: 16),
-              const SizedBox(width: 12),
-              Text('Mesure enregistrée : ${result.toStringAsFixed(3)} mm', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
+              Icon(Icons.check_circle, color: AppColors.success, size: 16),
+              SizedBox(width: 12),
+              Text('Mesure enregistrée : ${result.toStringAsFixed(3)} mm', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
             ]),
           ),
         SizedBox(
@@ -158,10 +158,10 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
           ),
         ),
         if (result != null && !_isProbing) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity, height: 44,
-            child: OutlinedButton(onPressed: _nextStep, child: const Text('ÉTAPE SUIVANTE')),
+            child: OutlinedButton(onPressed: _nextStep, child: Text('ÉTAPE SUIVANTE')),
           ),
         ],
       ],
@@ -180,12 +180,12 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Calcul des Offsets Terminé', style: TextStyle(color: AppColors.success, fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        Text('Calcul des Offsets Terminé', style: TextStyle(color: AppColors.success, fontSize: 16, fontWeight: FontWeight.bold)),
+        SizedBox(height: 16),
         _resultRow('Pivot Z (Machine)', pivotZ),
         _resultRow('Table Offset (Z0)', tableOffset),
-        const SizedBox(height: 24),
-        const Text('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.', style: TextStyle(color: AppColors.textDisabled, fontSize: 11, height: 1.5)),
+        SizedBox(height: 24),
+        Text('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.', style: TextStyle(color: AppColors.textDisabled, fontSize: 11, height: 1.5)),
         const Spacer(),
         SizedBox(
           width: double.infinity, height: 52,
@@ -196,13 +196,13 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
               _reset();
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            child: const Text('ENREGISTRER DANS LA MACHINE'),
+            child: Text('ENREGISTRER DANS LA MACHINE'),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SizedBox(
           width: double.infinity, height: 44,
-          child: OutlinedButton(onPressed: _reset, child: const Text('RECOMANCER')),
+          child: OutlinedButton(onPressed: _reset, child: Text('RECOMANCER')),
         ),
       ],
     );
@@ -212,9 +212,9 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
-        Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
         const Spacer(),
-        Text('${val.toStringAsFixed(3)} mm', style: const TextStyle(color: AppColors.primary, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+        Text('${val.toStringAsFixed(3)} mm', style: TextStyle(color: AppColors.primary, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
       ]),
     );
   }

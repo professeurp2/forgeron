@@ -162,7 +162,7 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator());
     }
     return Webview(_controller);
   }

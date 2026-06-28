@@ -75,7 +75,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
   Future<void> _saveEditorContent() async {
     final content = _editorCtrl.text;
     await ref.read(gcodeProvider.notifier).loadFile(content);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('✅ Programme mis à jour dans l\'unité de streaming'),
       backgroundColor: AppColors.success,
     ));
@@ -91,15 +91,15 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
         final ctrl = TextEditingController(text: 'modified_program.nc');
         return AlertDialog(
           backgroundColor: AppColors.surface,
-          title: const Text('SAUVEGARDER SUR LA CARTE SD', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          title: Text('SAUVEGARDER SUR LA CARTE SD', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: ctrl,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(labelText: 'Nom du fichier', labelStyle: TextStyle(color: AppColors.textSecondary)),
+            style: TextStyle(color: Colors.white),
+            decoration: InputDecoration(labelText: 'Nom du fichier', labelStyle: TextStyle(color: AppColors.textSecondary)),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ANNULER')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('SAUVEGARDER')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('ANNULER')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text('SAUVEGARDER')),
           ],
         );
       },
@@ -128,8 +128,8 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textDisabled,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
-          tabs: const [
+          labelStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+          tabs: [
             Tab(text: 'EXPLORATEUR SD', icon: Icon(Icons.sd_storage_rounded, size: 18)),
             Tab(text: 'ÉDITEUR DE PROGRAMME', icon: Icon(Icons.edit_note_rounded, size: 20)),
           ],
@@ -152,17 +152,17 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     final filesAsync = ref.watch(fileListProvider);
     return Column(children: [
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
             color: AppColors.background,
             border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
         child: Row(children: [
-          const Text('FICHIERS SUR CARTE SD', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+          Text('FICHIERS SUR CARTE SD', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
           const Spacer(),
           TextButton.icon(
             onPressed: _uploadFile,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('AJOUTER'),
+            icon: Icon(Icons.add, size: 16),
+            label: Text('AJOUTER'),
             style: TextButton.styleFrom(foregroundColor: AppColors.primary),
           ),
         ]),
@@ -170,9 +170,9 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       Expanded(
         child: filesAsync.when(
           data: (files) => ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             itemCount: files.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => SizedBox(height: 8),
             itemBuilder: (ctx, i) => _FileCard(
               file: files[i],
               onLoad: () => _loadFileIntoEditor(files[i]),
@@ -182,7 +182,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
               },
             ),
           ),
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => Center(child: CircularProgressIndicator()),
           error: (e, s) => Center(child: Text('Erreur: $e')),
         ),
       ),
@@ -198,12 +198,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.edit_document, size: 64, color: AppColors.surfaceBorder),
-            const SizedBox(height: 24),
-            const Text('AUCUN PROGRAMME CHARGÉ', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            SizedBox(height: 24),
+            Text('AUCUN PROGRAMME CHARGÉ', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => _tabCtrl.animateTo(0),
-              child: const Text('CHARGER DEPUIS LA SD'),
+              child: Text('CHARGER DEPUIS LA SD'),
             ),
           ],
         ),
@@ -212,34 +212,34 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
 
     return Column(children: [
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        color: AppColors.surfaceBright.withOpacity(0.5),
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        color: AppColors.surfaceBright.withValues(alpha: 0.5),
         child: Row(children: [
-          const Icon(Icons.terminal, color: AppColors.primary, size: 16),
-          const SizedBox(width: 12),
-          const Text('ÉDITEUR TEMPS-RÉEL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          Icon(Icons.terminal, color: AppColors.primary, size: 16),
+          SizedBox(width: 12),
+          Text('ÉDITEUR TEMPS-RÉEL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           const Spacer(),
           if (_isEditing) ...[
-            TextButton(onPressed: () => setState(() => _isEditing = false), child: const Text('ANNULER', style: TextStyle(color: AppColors.textDisabled))),
-            const SizedBox(width: 8),
+            TextButton(onPressed: () => setState(() => _isEditing = false), child: Text('ANNULER', style: TextStyle(color: AppColors.textDisabled))),
+            SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: _saveEditorContent,
-              icon: const Icon(Icons.flash_on, size: 14),
-              label: const Text('APPLIQUER'),
+              icon: Icon(Icons.flash_on, size: 14),
+              label: Text('APPLIQUER'),
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.black),
             ),
           ] else ...[
             TextButton.icon(
               onPressed: _saveToSD,
-              icon: const Icon(Icons.save, size: 14),
-              label: const Text('SAUVEGARDER SUR SD', style: TextStyle(fontSize: 10)),
+              icon: Icon(Icons.save, size: 14),
+              label: Text('SAUVEGARDER SUR SD', style: TextStyle(fontSize: 10)),
               style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () => setState(() => _isEditing = true),
-              icon: const Icon(Icons.edit, size: 14),
-              label: const Text('MODIFIER'),
+              icon: Icon(Icons.edit, size: 14),
+              label: Text('MODIFIER'),
             ),
           ],
         ]),
@@ -247,12 +247,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       Expanded(
         child: Container(
           color: AppColors.terminalBg,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: _isEditing
               ? TextField(
                   controller: _editorCtrl,
                   maxLines: null,
-                  style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: AppColors.textPrimary, height: 1.5),
+                  style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: AppColors.textPrimary, height: 1.5),
                   decoration: const InputDecoration(border: InputBorder.none),
                 )
               : ListView.builder(
@@ -280,23 +280,23 @@ class _FileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.surfaceBorder),
       ),
       child: Row(children: [
-        const Icon(Icons.insert_drive_file, color: AppColors.textSecondary),
-        const SizedBox(width: 16),
+        Icon(Icons.insert_drive_file, color: AppColors.textSecondary),
+        SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(file.name, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-            Text('${(file.size / 1024).toStringAsFixed(1)} Ko', style: const TextStyle(color: AppColors.textDisabled, fontSize: 10)),
+            Text(file.name, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            Text('${(file.size / 1024).toStringAsFixed(1)} Ko', style: TextStyle(color: AppColors.textDisabled, fontSize: 10)),
           ]),
         ),
-        IconButton(onPressed: onLoad, icon: const Icon(Icons.file_open_rounded, color: AppColors.primary), tooltip: 'Charger dans l\'éditeur'),
-        IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, color: AppColors.danger)),
+        IconButton(onPressed: onLoad, icon: Icon(Icons.file_open_rounded, color: AppColors.primary), tooltip: 'Charger dans l\'éditeur'),
+        IconButton(onPressed: onDelete, icon: Icon(Icons.delete_outline, color: AppColors.danger)),
       ]),
     );
   }
@@ -312,7 +312,7 @@ class _GCodeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: isCurrent ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+      color: isCurrent ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -323,7 +323,7 @@ class _GCodeLine extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 13,
                   height: 1.5,

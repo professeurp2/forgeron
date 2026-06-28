@@ -28,13 +28,13 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
-  static const _wcsData = [
+  static get _wcsData => [
     ('G54', [120.500, -45.200, 0.000, 0.000, 90.000]),
     ('G55', [0.000, 0.000, 0.000, 0.000, 0.000]),
     ('G56', [250.000, 100.000, 0.000, 45.000, 180.000]),
   ];
-  static const _axisLabels = ['X', 'Y', 'Z', 'A', 'C'];
-  static const _axisColors = [
+  static get _axisLabels => ['X', 'Y', 'Z', 'A', 'C'];
+  static get _axisColors => [
     AppColors.axisX, AppColors.axisY, AppColors.axisZ,
     AppColors.axisA, AppColors.axisC,
   ];
@@ -68,7 +68,7 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textDisabled,
-            labelStyle: const TextStyle(
+            labelStyle: TextStyle(
                 fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
             tabs: const [
               Tab(icon: Icon(Icons.grid_on, size: 18), text: 'WCS'),
@@ -120,13 +120,13 @@ class _WCSTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const ModeSelectorWidget(),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
 
         const _MLabel('SYSTÈMES DE COORDONNÉES (WCS)'),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         ...wcsData.map((d) {
           final sel = d.$1 == activeWCS;
           return GestureDetector(
@@ -140,8 +140,8 @@ class _WCSTab extends ConsumerWidget {
               ));
             },
             child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
+              margin: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(6),
@@ -152,7 +152,7 @@ class _WCSTab extends ConsumerWidget {
               ),
               child: Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: sel
                         ? AppColors.primary.withValues(alpha: 0.15)
@@ -166,7 +166,7 @@ class _WCSTab extends ConsumerWidget {
                           fontSize: 15,
                           fontFamily: 'JetBrains Mono')),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Wrap(
                     spacing: 6,
@@ -185,21 +185,21 @@ class _WCSTab extends ConsumerWidget {
                   ),
                 ),
                 if (sel)
-                  const Icon(Icons.check_circle,
+                  Icon(Icons.check_circle,
                       color: AppColors.primary, size: 16),
               ]),
             ),
           );
         }),
 
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         const _MLabel('DRO EN DIRECT'),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         ...List.generate(5, (i) {
           final isRotary = i >= 3;
           return Container(
-            margin: const EdgeInsets.only(bottom: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: EdgeInsets.only(bottom: 4),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.surface,
               border: Border(
@@ -212,16 +212,16 @@ class _WCSTab extends ConsumerWidget {
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'JetBrains Mono')),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Text(isRotary ? '°' : 'mm',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textDisabled, fontSize: 9)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   wPos[i].toStringAsFixed(isRotary ? 2 : 3),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
@@ -232,14 +232,14 @@ class _WCSTab extends ConsumerWidget {
           );
         }),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _MActionButton(
           'ALLER AU ZÉRO',
           AppColors.textSecondary,
           Icons.gps_fixed,
           () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         _MActionButton(
           'ORIGINES (TOUS)',
           AppColors.axisZ,
@@ -265,11 +265,11 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
     final jogN = ref.read(secureJogProvider.notifier);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // ── Pas linéaire ───────────────────────────────────────────
         const _MLabel('PAS LINÉAIRE (mm)'),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -279,11 +279,11 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
                   () => jogN.setLinearStep(s)))
               .toList(),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         // ── Pas rotatif ────────────────────────────────────────────
         const _MLabel('PAS ROTATIF (°)'),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -293,11 +293,11 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
                   () => jogN.setRotaryStep(s)))
               .toList(),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
 
         // ── Croix directionnelle XY + Z ───────────────────────────
         const _MLabel('AXES LINÉAIRES X / Y / Z'),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Row(
           children: [
             // Croix XY
@@ -309,13 +309,13 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
                     _JogBtn('Y+', AppColors.axisY,
                         () { jogN.jogLinear('Y', 1); HapticFeedback.lightImpact(); }),
                   ]),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _JogBtn('X-', AppColors.axisX,
                           () { jogN.jogLinear('X', -1); HapticFeedback.lightImpact(); }),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Container(
                         width: 36, height: 36,
                         decoration: BoxDecoration(
@@ -323,14 +323,14 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
                           color: AppColors.surfaceBright,
                           border: Border.all(color: AppColors.surfaceBorder),
                         ),
-                        child: const Center(child: Icon(Icons.add, size: 14, color: AppColors.textDisabled)),
+                        child: Center(child: Icon(Icons.add, size: 14, color: AppColors.textDisabled)),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       _JogBtn('X+', AppColors.axisX,
                           () { jogN.jogLinear('X', 1); HapticFeedback.lightImpact(); }),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _JogBtn('Y-', AppColors.axisY,
                         () { jogN.jogLinear('Y', -1); HapticFeedback.lightImpact(); }),
@@ -338,15 +338,15 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
                 ],
               ),
             ),
-            const SizedBox(width: 20),
+            SizedBox(width: 20),
             // Axe Z
             Column(
               children: [
                 _JogBtn('Z+', AppColors.axisZ,
                     () { jogN.jogLinear('Z', 1); HapticFeedback.lightImpact(); }),
-                const SizedBox(height: 10),
-                const Text('Z', style: TextStyle(color: AppColors.axisZ, fontSize: 11, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
+                Text('Z', style: TextStyle(color: AppColors.axisZ, fontSize: 11, fontWeight: FontWeight.w900)),
+                SizedBox(height: 10),
                 _JogBtn('Z-', AppColors.axisZ,
                     () { jogN.jogLinear('Z', -1); HapticFeedback.lightImpact(); }),
               ],
@@ -354,16 +354,16 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
           ],
         ),
 
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         const _MLabel('AXES ROTATIFS — TRUNNION'),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: _RotaryCard('A', 'TILT', AppColors.axisA, Icons.rotate_90_degrees_ccw,
                   () => jogN.jogRotary('A', -1), () => jogN.jogRotary('A', 1)),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: _RotaryCard('C', 'PLATEAU', AppColors.axisC, Icons.sync,
                   () => jogN.jogRotary('C', -1), () => jogN.jogRotary('C', 1)),
@@ -371,12 +371,12 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
           ],
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         SizedBox(
           width: double.infinity, height: 54,
           child: ElevatedButton.icon(
-            icon: const Icon(Icons.stop_rounded, size: 22),
-            label: const Text('JOG STOP',
+            icon: Icon(Icons.stop_rounded, size: 22),
+            label: Text('JOG STOP',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.danger, foregroundColor: Colors.white),
@@ -404,7 +404,7 @@ class _RotaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
@@ -412,10 +412,10 @@ class _RotaryCard extends StatelessWidget {
       ),
       child: Column(children: [
         Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text('$axis — $label',
             style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -439,11 +439,11 @@ class _MobileProbingTab extends ConsumerWidget {
 
     return SingleChildScrollView(
       key: TutorialKeys.probingTools,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(children: [
         // Statut
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: probing.step == ProbingStep.error
                 ? AppColors.danger.withValues(alpha: 0.1)
@@ -464,7 +464,7 @@ class _MobileProbingTab extends ConsumerWidget {
                   : AppColors.primary,
               size: 16,
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: Text(
                 probing.statusMessage,
@@ -480,33 +480,33 @@ class _MobileProbingTab extends ConsumerWidget {
           ]),
         ),
         if (probing.step != ProbingStep.idle && probing.step != ProbingStep.finished)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8),
             child: LinearProgressIndicator(
                 color: AppColors.primary,
                 backgroundColor: AppColors.surfaceBright),
           ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         // Routines 2×2
         Row(children: [
           Expanded(child: _ProbingCard('HAUTEUR Z', 'G38.2 sur axe Z',
               Icons.vertical_align_bottom,
               probing.step == ProbingStep.idle ? () => probingN.startToolZRoutine() : null)),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _ProbingCard('CENTRE TROU', '4 points → centre',
               Icons.adjust,
               probing.step == ProbingStep.idle
                   ? () => probingN.startHoleCenterRoutine(20.0, -5.0) : null)),
         ]),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(children: [
           Expanded(child: _ProbingCard('ANGLE X', 'Inclinaison pièce X',
               Icons.architecture,
               probing.step == ProbingStep.idle
                   ? () => probingN.startAngleRoutine('X', 50.0) : null)),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _ProbingCard('ANGLE Y', 'Inclinaison pièce Y',
               Icons.architecture,
               probing.step == ProbingStep.idle
@@ -514,7 +514,7 @@ class _MobileProbingTab extends ConsumerWidget {
         ]),
 
         if (probing.step != ProbingStep.idle) ...[
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           SizedBox(
             width: double.infinity, height: 54,
             child: ElevatedButton(
@@ -522,7 +522,7 @@ class _MobileProbingTab extends ConsumerWidget {
                   backgroundColor: AppColors.danger,
                   foregroundColor: Colors.white),
               onPressed: () { probingN.cancel(); HapticFeedback.heavyImpact(); },
-              child: const Text('ANNULER LE PALPAGE',
+              child: Text('ANNULER LE PALPAGE',
                   style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
             ),
           ),
@@ -549,7 +549,7 @@ class _ProbingCard extends StatelessWidget {
       child: Opacity(
         opacity: onTap == null ? 0.4 : 1.0,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(8),
@@ -557,26 +557,26 @@ class _ProbingCard extends StatelessWidget {
           ),
           child: Column(children: [
             Icon(icon, color: AppColors.primary, size: 28),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 11)),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(desc,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textDisabled, fontSize: 9, height: 1.4)),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('LANCER',
+              child: Text('LANCER',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 9,
@@ -597,16 +597,16 @@ class _MobileHomingTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final jogN = ref.read(secureJogProvider.notifier);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: AppColors.axisZ.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppColors.axisZ.withValues(alpha: 0.2)),
           ),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.info_outline, color: AppColors.axisZ, size: 14),
             SizedBox(width: 8),
             Expanded(
@@ -615,7 +615,7 @@ class _MobileHomingTab extends ConsumerWidget {
             ),
           ]),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         for (final e in [
           ('HOME Z', 'Dégager broche', AppColors.axisZ, () => jogN.homeAxis('Z')),
           ('HOME X', 'Axe horizontal', AppColors.axisX, () => jogN.homeAxis('X')),
@@ -624,17 +624,17 @@ class _MobileHomingTab extends ConsumerWidget {
           ('HOME C', 'Rotation plateau', AppColors.axisC, () => jogN.homeAxis('C')),
         ])
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: 10),
             child: _MActionButton(e.$1, e.$3, Icons.home,
                 () { e.$4(); HapticFeedback.mediumImpact(); },
                 subtitle: e.$2),
           ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         SizedBox(
           width: double.infinity, height: 56,
           child: ElevatedButton.icon(
-            icon: const Icon(Icons.home_rounded, size: 20),
-            label: const Text('HOME ALL (\$H)',
+            icon: Icon(Icons.home_rounded, size: 20),
+            label: Text('HOME ALL (\$H)',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.axisZ, foregroundColor: Colors.white),
@@ -663,7 +663,7 @@ class _MobileToolTableScreenState
   final _searchCtrl = TextEditingController();
   String _query = '';
 
-  static const _tools = [
+  static get _tools => [
     ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, AppColors.success, 'OK'),
     ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, AppColors.success, 'OK'),
     ('T3', 'FRAISE HÉMISP. Ø6', 65.02, 6.00, AppColors.success, 'OK'),
@@ -722,11 +722,11 @@ class _MobileToolTableScreenState
       children: [
         // Header
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
           color: AppColors.surface,
           child: Column(children: [
             Row(children: [
-              const Text('MAGASIN',
+              Text('MAGASIN',
                   style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 10,
@@ -735,7 +735,7 @@ class _MobileToolTableScreenState
               const Spacer(),
               if (activeToolNum > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -743,49 +743,49 @@ class _MobileToolTableScreenState
                         color: AppColors.success.withValues(alpha: 0.4)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.build, color: AppColors.success, size: 10),
-                    const SizedBox(width: 4),
+                    Icon(Icons.build, color: AppColors.success, size: 10),
+                    SizedBox(width: 4),
                     Text('ACTIF: T$activeToolNum',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.success,
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'JetBrains Mono')),
                   ]),
                 ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text('${_tools.length}/24',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 13,
                       fontFamily: 'JetBrains Mono',
                       fontWeight: FontWeight.w900)),
             ]),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             // Barre de recherche
             TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _query = v),
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Rechercher T# ou nom...',
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                     color: AppColors.textDisabled, fontSize: 12),
-                prefixIcon: const Icon(Icons.search,
+                prefixIcon: Icon(Icons.search,
                     color: AppColors.textDisabled, size: 18),
                 filled: true,
                 fillColor: AppColors.surfaceBright,
                 isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                  borderSide: BorderSide(color: AppColors.surfaceBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                  borderSide: BorderSide(color: AppColors.surfaceBorder),
                 ),
                 contentPadding:
-                    const EdgeInsets.symmetric(vertical: 10),
+                    EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ]),
@@ -811,14 +811,14 @@ class _MobileToolTableScreenState
                   HapticFeedback.selectionClick();
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: isActive
                         ? AppColors.success.withValues(alpha: 0.04)
                         : Colors.transparent,
                     border: Border(
-                      bottom: const BorderSide(color: AppColors.surfaceBorder),
+                      bottom: BorderSide(color: AppColors.surfaceBorder),
                       left: BorderSide(
                           color: isActive
                               ? AppColors.success
@@ -850,21 +850,21 @@ class _MobileToolTableScreenState
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono')),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(t.$2,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                                 'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.textDisabled,
                                     fontSize: 9,
                                     fontFamily: 'JetBrains Mono')),
@@ -878,8 +878,8 @@ class _MobileToolTableScreenState
                               shape: BoxShape.circle,
                               color: t.$5,
                               boxShadow: [BoxShadow(color: t.$5, blurRadius: 4)])),
-                      const SizedBox(height: 4),
-                      const Icon(Icons.chevron_right,
+                      SizedBox(height: 4),
+                      Icon(Icons.chevron_right,
                           color: AppColors.textDisabled, size: 16),
                     ]),
                   ]),
@@ -913,7 +913,7 @@ class _ToolDetailSheet extends ConsumerWidget {
 
     return SingleChildScrollView(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Drag handle
         Center(
@@ -925,7 +925,7 @@ class _ToolDetailSheet extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         // Header outil
         Row(children: [
@@ -946,18 +946,18 @@ class _ToolDetailSheet extends ConsumerWidget {
                     fontSize: 18,
                     fontFamily: 'JetBrains Mono')),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tool.$2,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: tool.$5.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -967,14 +967,14 @@ class _ToolDetailSheet extends ConsumerWidget {
                           color: tool.$5, fontSize: 9, fontWeight: FontWeight.w900)),
                 ),
                 if (isActive) ...[
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('▶ EN BROCHE',
+                    child: Text('▶ EN BROCHE',
                         style: TextStyle(
                             color: AppColors.success,
                             fontSize: 9,
@@ -986,33 +986,33 @@ class _ToolDetailSheet extends ConsumerWidget {
           ),
         ]),
 
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
 
         // Actions
         Row(children: [
           Expanded(
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.build, size: 14),
+              icon: Icon(Icons.build, size: 14),
               label: Text('APPELER ${tool.$1}  (M6)'),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                  padding: EdgeInsets.symmetric(vertical: 14)),
               onPressed: () {
                 Navigator.pop(context);
                 _callTool(context, toolNum);
               },
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.straighten, size: 14, color: AppColors.secondary),
+              icon: Icon(Icons.straighten, size: 14, color: AppColors.secondary),
               label: Text('G43 H$toolNum',
-                  style: const TextStyle(color: AppColors.secondary)),
+                  style: TextStyle(color: AppColors.secondary)),
               style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.secondary),
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                  side: BorderSide(color: AppColors.secondary),
+                  padding: EdgeInsets.symmetric(vertical: 14)),
               onPressed: () {
                 ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
                 Navigator.pop(context);
@@ -1025,26 +1025,26 @@ class _ToolDetailSheet extends ConsumerWidget {
           ),
         ]),
 
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         const _MLabel('PARAMÈTRES PHYSIQUES'),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(children: [
           Expanded(child: _MParamCard('LONGUEUR (L)', tool.$3.toStringAsFixed(3), 'mm')),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _MParamCard('DIAMÈTRE (D)', tool.$4.toStringAsFixed(3), 'mm')),
         ]),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(children: [
           Expanded(child: _MParamCard('RAYON (R)', (tool.$4 / 2).toStringAsFixed(3), 'mm')),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _MParamCard('AVANCE (F)', '1200', 'mm/min')),
         ]),
 
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         const _MLabel('DURÉE DE VIE'),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.surfaceBright,
             borderRadius: BorderRadius.circular(8),
@@ -1053,12 +1053,12 @@ class _ToolDetailSheet extends ConsumerWidget {
             SizedBox(
               width: 80, height: 80,
               child: Stack(alignment: Alignment.center, children: [
-                const CircularProgressIndicator(
+                CircularProgressIndicator(
                     value: 0.68,
                     strokeWidth: 6,
                     backgroundColor: AppColors.surface,
                     color: AppColors.success),
-                const Text('68%',
+                Text('68%',
                     style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
@@ -1066,7 +1066,7 @@ class _ToolDetailSheet extends ConsumerWidget {
                         fontFamily: 'JetBrains Mono')),
               ]),
             ),
-            const SizedBox(width: 20),
+            SizedBox(width: 20),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 for (final e in [
@@ -1075,16 +1075,16 @@ class _ToolDetailSheet extends ConsumerWidget {
                   ('VIE RESTANTE', '~02h 08min'),
                 ])
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    padding: EdgeInsets.symmetric(vertical: 4),
                     child: Row(children: [
                       Text(e.$1,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppColors.textDisabled,
                               fontSize: 9,
                               fontWeight: FontWeight.w900)),
                       const Spacer(),
                       Text(e.$2,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono',
@@ -1105,22 +1105,22 @@ class _ToolDetailSheet extends ConsumerWidget {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text('Appel outil T$toolNum',
-            style: const TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: AppColors.textPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.build, color: AppColors.primary, size: 48),
-          const SizedBox(height: 16),
+          Icon(Icons.build, color: AppColors.primary, size: 48),
+          SizedBox(height: 16),
           Text('Envoyer T$toolNum M6 ?',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          const Text('⚠ Changement d\'outil en cours.',
+          SizedBox(height: 8),
+          Text('⚠ Changement d\'outil en cours.',
               style: TextStyle(color: AppColors.warning, fontSize: 11),
               textAlign: TextAlign.center),
         ]),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('ANNULER')),
+              child: Text('ANNULER')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
@@ -1129,7 +1129,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               HapticFeedback.heavyImpact();
             },
             child: Text('APPELER T$toolNum',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -1146,28 +1146,28 @@ class _MParamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceBright,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled,
                 fontSize: 9,
                 fontWeight: FontWeight.w900)),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         FittedBox(
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono')),
         ),
         Text(unit,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled, fontSize: 9)),
       ]),
     );
@@ -1190,7 +1190,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
   late TabController _tab;
   final _ctrl = TextEditingController();
 
-  static const _logLines = [
+  static get _logLines => [
     ('14:02:11', 'INFO', 'Système initialisé. Connecté à FluidNC v3.7.8', AppColors.secondary),
     ('14:02:12', '>>>', '\$H', AppColors.primary),
     ('14:02:15', 'ok', '', AppColors.success),
@@ -1204,7 +1204,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
     ('14:09:00', 'ok', '', AppColors.success),
   ];
 
-  static const _macros = [
+  static get _macros => [
     (Icons.home, 'ORIGINES', '\$H', AppColors.primary),
     (Icons.gps_fixed, 'ZÉRO PIÈCE', 'G0 X0 Y0 Z0', AppColors.primary),
     (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', AppColors.secondary),
@@ -1219,7 +1219,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
     (Icons.pause, 'PAUSE', '!', AppColors.warning),
   ];
 
-  static const _history = [
+  static get _history => [
     ('G0 Z50', '14:09:00'),
     ('M5', '14:08:50'),
     ('G0 X100 Y50 Z10', '14:06:10'),
@@ -1259,7 +1259,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textDisabled,
-            labelStyle: const TextStyle(
+            labelStyle: TextStyle(
                 fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
             tabs: const [
               Tab(icon: Icon(Icons.terminal, size: 18), text: 'TERMINAL'),
@@ -1276,19 +1276,19 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 // Header terminal
                 Container(
                   height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 16),
                   color: AppColors.surfaceBright,
                   child: Row(children: [
-                    const Icon(Icons.terminal,
+                    Icon(Icons.terminal,
                         color: AppColors.textDisabled, size: 14),
-                    const SizedBox(width: 8),
-                    const Text('LOG MACHINE',
+                    SizedBox(width: 8),
+                    Text('LOG MACHINE',
                         style: TextStyle(
                             color: AppColors.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
-                    const Text('BUFFER: 127/128',
+                    Text('BUFFER: 127/128',
                         style: TextStyle(
                             color: AppColors.textDisabled,
                             fontSize: 9,
@@ -1301,19 +1301,19 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                   child: Container(
                     color: AppColors.terminalBg,
                     child: ListView.builder(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(12),
                       itemCount: _logLines.length,
                       itemBuilder: (ctx, i) {
                         final l = _logLines[i];
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          padding: EdgeInsets.symmetric(vertical: 2),
                           child: Row(children: [
                             Text(l.$1,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.textDisabled,
                                     fontSize: 10,
                                     fontFamily: 'JetBrains Mono')),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             SizedBox(
                               width: 32,
                               child: Text(l.$2,
@@ -1323,7 +1323,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                                       fontWeight: FontWeight.w900,
                                       fontFamily: 'JetBrains Mono')),
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Expanded(
                               child: Text(l.$3,
                                   style: TextStyle(
@@ -1342,27 +1342,27 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 // Input
                 Container(
                   key: TutorialKeys.mdiInput,
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                       color: AppColors.surface,
                       border: Border(
                           top: BorderSide(color: AppColors.surfaceBorder))),
                   child: Row(children: [
-                    const Text('❯',
+                    Text('❯',
                         style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 18,
                             fontWeight: FontWeight.w900)),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _ctrl,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 14,
                             fontFamily: 'JetBrains Mono'),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Saisir commande G-code...',
                           hintStyle: TextStyle(
@@ -1372,12 +1372,12 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                         textInputAction: TextInputAction.send,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () => _send(_ctrl.text),
                       style: ElevatedButton.styleFrom(
                           minimumSize: const Size(60, 44)),
-                      child: const Icon(Icons.send_rounded, size: 18),
+                      child: Icon(Icons.send_rounded, size: 18),
                     ),
                   ]),
                 ),
@@ -1385,12 +1385,12 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
 
               // ── Tab 2 : Macros ────────────────────────────────────
               SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   const _MLabel('MACROS RAPIDES'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
@@ -1423,7 +1423,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                           Icon(m.$1, color: m.$4, size: 24),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           Text(m.$2,
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -1434,9 +1434,9 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                       ),
                     )).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   const _MLabel('HISTORIQUE'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   for (final h in _history)
                     GestureDetector(
                       onTap: () {
@@ -1444,25 +1444,25 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                         _tab.animateTo(0);
                       },
                       child: Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(
+                        margin: EdgeInsets.only(bottom: 6),
+                        padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
                             color: AppColors.surfaceBright,
                             borderRadius: BorderRadius.circular(6)),
                         child: Row(children: [
-                          const Icon(Icons.history,
+                          Icon(Icons.history,
                               color: AppColors.textDisabled, size: 14),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(h.$1,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 12,
                                     fontFamily: 'JetBrains Mono')),
                           ),
                           Text(h.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textDisabled,
                                   fontSize: 9,
                                   fontFamily: 'JetBrains Mono')),
@@ -1495,7 +1495,7 @@ class _MobileDiagnosticsScreenState
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
-  static const _endstops = [
+  static get _endstops => [
     ('X', 'GPIO 34', false, AppColors.axisX),
     ('Y', 'GPIO 35', false, AppColors.axisY),
     ('Z', 'GPIO 32', true, AppColors.axisZ),
@@ -1503,7 +1503,7 @@ class _MobileDiagnosticsScreenState
     ('C', 'GPIO 25', false, AppColors.axisC),
   ];
 
-  static const _axisParams = [
+  static get _axisParams => [
     ('X', AppColors.axisX, '160', '5000', '250', '600'),
     ('Y', AppColors.axisY, '160', '5000', '250', '800'),
     ('Z', AppColors.axisZ, '320', '2000', '150', '200'),
@@ -1540,7 +1540,7 @@ class _MobileDiagnosticsScreenState
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textDisabled,
-          labelStyle: const TextStyle(
+          labelStyle: TextStyle(
               fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
           tabs: const [
             Tab(icon: Icon(Icons.developer_board, size: 18), text: 'GPIO'),
@@ -1555,22 +1555,22 @@ class _MobileDiagnosticsScreenState
           children: [
             // ── GPIO & Santé système ──────────────────────────────
             SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const _MLabel('FINS DE COURSE (LIVE)'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 for (int i = 0; i < _endstops.length; i++)
                   _EndstopRow(_endstops[i].$1, _endstops[i].$2,
                       limSw[i], _endstops[i].$4),
                 Row(children: [
                   Expanded(child: _SensorMini('PALPEUR', 'GPIO 36', false, AppColors.secondary)),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(child: _SensorMini('E-STOP', 'GPIO 27', false, AppColors.danger)),
                 ]),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 const _MLabel('SANTÉ SYSTÈME'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,
@@ -1586,13 +1586,13 @@ class _MobileDiagnosticsScreenState
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 const _MLabel('TÉLÉMÉTRIE RÉSEAU'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 GlassPanel(
                   key: TutorialKeys.networkMonitor,
                   child: Column(children: [
-                    const Center(
+                    Center(
                       child: Column(children: [
                         Text('LATENCE',
                             style: TextStyle(
@@ -1610,16 +1610,16 @@ class _MobileDiagnosticsScreenState
                             style: TextStyle(color: AppColors.textDisabled)),
                       ]),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(children: [
-                      const Text('QUALITÉ',
+                      Text('QUALITÉ',
                           style: TextStyle(
                               color: AppColors.textDisabled, fontSize: 9)),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Expanded(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(3),
-                          child: const LinearProgressIndicator(
+                          child: LinearProgressIndicator(
                             value: 0.92,
                             backgroundColor: AppColors.surfaceBright,
                             color: AppColors.success,
@@ -1627,31 +1627,31 @@ class _MobileDiagnosticsScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text('92%',
+                      SizedBox(width: 8),
+                      Text('92%',
                           style: TextStyle(
                               color: AppColors.success,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono',
                               fontWeight: FontWeight.w900)),
                     ]),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     for (final e in [
                       ('PAQUETS TX', '145,892'),
                       ('PAQUETS RX', '145,890'),
                       ('UPTIME CONN.', '14h 22min'),
                     ])
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        padding: EdgeInsets.symmetric(vertical: 3),
                         child: Row(children: [
                           Text(e.$1,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textDisabled,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900)),
                           const Spacer(),
                           Text(e.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 11,
                                   fontFamily: 'JetBrains Mono')),
@@ -1660,11 +1660,11 @@ class _MobileDiagnosticsScreenState
                   ]),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 const _MLabel('AMDEC — RISQUES'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 GlassPanel(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     children: [
                       for (final r in [
@@ -1674,19 +1674,19 @@ class _MobileDiagnosticsScreenState
                         ('Perte de Pas', 0.05, 'Faible'),
                       ])
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: EdgeInsets.only(bottom: 10),
                           child: Row(children: [
                             Expanded(
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                 Text(r.$1,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: AppColors.textPrimary,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold)),
                                 Text('Gravité : ${r.$3}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: AppColors.textDisabled,
                                         fontSize: 8)),
                               ]),
@@ -1713,9 +1713,9 @@ class _MobileDiagnosticsScreenState
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 const _MLabel('MAINTENANCE PRÉVENTIVE'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 _MaintCard(),
               ]),
             ),
@@ -1723,12 +1723,12 @@ class _MobileDiagnosticsScreenState
             // ── Config YAML ────────────────────────────────────────
             Column(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 color: AppColors.surfaceBright,
                 child: Row(children: [
-                  const Icon(Icons.code, color: AppColors.warning, size: 16),
-                  const SizedBox(width: 8),
-                  const Expanded(
+                  Icon(Icons.code, color: AppColors.warning, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
                     child: Text('CONFIG.YAML — FluidNC',
                         style: TextStyle(
                             color: AppColors.textPrimary,
@@ -1738,10 +1738,10 @@ class _MobileDiagnosticsScreenState
                   OutlinedButton(
                     onPressed: () {},
                     style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.surfaceBorder),
+                        side: BorderSide(color: AppColors.surfaceBorder),
                         minimumSize: const Size(0, 32),
-                        padding: const EdgeInsets.symmetric(horizontal: 10)),
-                    child: const Text('ÉDITER',
+                        padding: EdgeInsets.symmetric(horizontal: 10)),
+                    child: Text('ÉDITER',
                         style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
                   ),
                 ]),
@@ -1753,20 +1753,20 @@ class _MobileDiagnosticsScreenState
                     data: (yamlStr) {
                       final lines = yamlStr.split('\n');
                       return ListView.builder(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         itemCount: lines.length,
                         itemBuilder: (ctx, i) {
                           final l = lines[i];
                           final isComment = l.trimLeft().startsWith('#');
                           final parts = l.split(':');
                           return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 1),
+                            padding: EdgeInsets.symmetric(vertical: 1),
                             child: Row(children: [
                               SizedBox(
                                 width: 28,
                                 child: Text('${i + 1}',
                                     textAlign: TextAlign.right,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: AppColors.textDisabled,
                                         fontSize: 9,
                                         fontFamily: 'JetBrains Mono')),
@@ -1775,11 +1775,11 @@ class _MobileDiagnosticsScreenState
                                   width: 1,
                                   height: 14,
                                   color: AppColors.surfaceBorder,
-                                  margin: const EdgeInsets.symmetric(horizontal: 8)),
+                                  margin: EdgeInsets.symmetric(horizontal: 8)),
                               Expanded(
                                 child: isComment
                                     ? Text(l,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             color: AppColors.textDisabled,
                                             fontSize: 11,
                                             fontFamily: 'JetBrains Mono'))
@@ -1788,7 +1788,7 @@ class _MobileDiagnosticsScreenState
                                             text: TextSpan(children: [
                                               TextSpan(
                                                   text: '${parts[0]}:',
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                       color: AppColors.primary,
                                                       fontSize: 11,
                                                       fontFamily: 'JetBrains Mono',
@@ -1803,7 +1803,7 @@ class _MobileDiagnosticsScreenState
                                                       fontFamily: 'JetBrains Mono')),
                                             ]))
                                         : Text(l,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 color: AppColors.textPrimary,
                                                 fontSize: 11,
                                                 fontFamily: 'JetBrains Mono'))),
@@ -1813,12 +1813,12 @@ class _MobileDiagnosticsScreenState
                         },
                       );
                     },
-                    loading: () => const Center(
+                    loading: () => Center(
                         child: CircularProgressIndicator(
                             color: AppColors.primary)),
                     error: (e, _) => Center(
                         child: Text('Erreur: $e',
-                            style: const TextStyle(color: AppColors.error))),
+                            style: TextStyle(color: AppColors.error))),
                   ),
                 ),
               ),
@@ -1826,12 +1826,12 @@ class _MobileDiagnosticsScreenState
 
             // ── Paramètres axes ────────────────────────────────────
             SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 const _MLabel('CINÉMATIQUE DES AXES'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.surface,
@@ -1840,13 +1840,13 @@ class _MobileDiagnosticsScreenState
                   ),
                   child: Column(children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                           color: AppColors.surfaceBright,
                           borderRadius:
                               BorderRadius.vertical(top: Radius.circular(5))),
-                      child: const Row(children: [
+                      child: Row(children: [
                         SizedBox(width: 28, child: Text('AXE', style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
                         Expanded(child: Text('PAS', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
                         Expanded(child: Text('F-MAX', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
@@ -1856,9 +1856,9 @@ class _MobileDiagnosticsScreenState
                     ),
                     for (final a in _axisParams)
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                             border: Border(
                                 bottom: BorderSide(
                                     color: AppColors.surfaceBorder))),
@@ -1875,7 +1875,7 @@ class _MobileDiagnosticsScreenState
                             Expanded(
                               child: Text(v,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: AppColors.textPrimary,
                                       fontSize: 10,
                                       fontFamily: 'JetBrains Mono')),
@@ -1885,9 +1885,9 @@ class _MobileDiagnosticsScreenState
                   ]),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 const _MLabel('IDENTITÉ FIRMWARE'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 GlassPanel(
                   child: Column(children: [
                     for (final e in [
@@ -1897,14 +1897,14 @@ class _MobileDiagnosticsScreenState
                       ('ESP-IDF', 'v4.4.4'),
                     ])
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        padding: EdgeInsets.symmetric(vertical: 5),
                         child: Row(children: [
                           Text(e.$1,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textDisabled, fontSize: 10)),
                           const Spacer(),
                           Text(e.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 11,
                                   fontFamily: 'JetBrains Mono',
@@ -1914,9 +1914,9 @@ class _MobileDiagnosticsScreenState
                   ]),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 const _MLabel('ACTIONS SYSTÈME'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 for (final b in [
                   ('SAUVEGARDE CONFIG', Icons.download, AppColors.primary),
                   ('RESTAURER CONFIG', Icons.upload, AppColors.warning),
@@ -1924,13 +1924,13 @@ class _MobileDiagnosticsScreenState
                   ('REDÉMARRER ESP32', Icons.power_settings_new, AppColors.error),
                 ])
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 8),
                     child: InkWell(
                       onTap: () => HapticFeedback.mediumImpact(),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         height: 52,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           color: b.$3.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(8),
@@ -1939,7 +1939,7 @@ class _MobileDiagnosticsScreenState
                         ),
                         child: Row(children: [
                           Icon(b.$2, color: b.$3, size: 18),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Text(b.$1,
                               style: TextStyle(
                                   color: b.$3,
@@ -1953,12 +1953,12 @@ class _MobileDiagnosticsScreenState
                     ),
                   ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.analytics),
-                    label: const Text('DUMP DIAGNOSTIC (JSON)',
+                    icon: Icon(Icons.analytics),
+                    label: Text('DUMP DIAGNOSTIC (JSON)',
                         style: TextStyle(fontWeight: FontWeight.w900)),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -1992,7 +1992,7 @@ class _MLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textDisabled,
           fontSize: 10,
           fontWeight: FontWeight.w900,
@@ -2020,7 +2020,7 @@ class _MActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(6),
@@ -2028,7 +2028,7 @@ class _MActionButton extends StatelessWidget {
           ),
           child: Row(children: [
             Icon(icon, color: color, size: 18),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2042,7 +2042,7 @@ class _MActionButton extends StatelessWidget {
                           fontFamily: 'JetBrains Mono')),
                   if (subtitle != null)
                     Text(subtitle!,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textDisabled, fontSize: 9)),
                 ],
               ),
@@ -2068,7 +2068,7 @@ class _StepChip extends StatelessWidget {
       onTap: () { onTap(); HapticFeedback.selectionClick(); },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.18) : AppColors.surface,
           borderRadius: BorderRadius.circular(6),
@@ -2130,8 +2130,8 @@ class _EndstopRow extends StatelessWidget {
     final stateColor = triggered ? AppColors.error : AppColors.success;
     return Container(
       height: 48,
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      margin: EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(4),
@@ -2143,21 +2143,21 @@ class _EndstopRow extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(
                 color: axisColor, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Text(axis,
             style: TextStyle(
                 color: axisColor,
                 fontSize: 14,
                 fontWeight: FontWeight.w900)),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Text(gpio,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled,
                 fontSize: 10,
                 fontFamily: 'JetBrains Mono')),
         const Spacer(),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: stateColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
@@ -2171,7 +2171,7 @@ class _EndstopRow extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: stateColor,
                     boxShadow: [BoxShadow(color: stateColor, blurRadius: 4)])),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(triggered ? 'DÉCL.' : 'OUVERT',
                 style: TextStyle(
                     color: stateColor,
@@ -2196,8 +2196,8 @@ class _SensorMini extends StatelessWidget {
     final s = triggered ? AppColors.error : AppColors.success;
     return Container(
       height: 48,
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      margin: EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(4),
@@ -2210,7 +2210,7 @@ class _SensorMini extends StatelessWidget {
         const Spacer(),
         Text(triggered ? 'DÉCL.' : 'OUVERT',
             style: TextStyle(color: s, fontSize: 8, fontWeight: FontWeight.w900)),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Container(
             width: 6,
             height: 6,
@@ -2230,7 +2230,7 @@ class _HealthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceBright,
         borderRadius: BorderRadius.circular(6),
@@ -2240,13 +2240,13 @@ class _HealthCard extends StatelessWidget {
         Icon(icon, color: color, size: 16),
         const Spacer(),
         Text(value,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
                 fontFamily: 'JetBrains Mono')),
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled,
                 fontSize: 8,
                 fontWeight: FontWeight.w900)),
@@ -2259,14 +2259,14 @@ class _MaintCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.surfaceBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.engineering, color: AppColors.primary, size: 14),
           SizedBox(width: 8),
           Text('MAINTENANCE PRÉVENTIVE',
@@ -2275,7 +2275,7 @@ class _MaintCard extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w900)),
         ]),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         for (final e in [
           ('Graissage Vis à Billes', 85.0, '12j'),
           ('Tension Courroies', 42.0, '45j'),
@@ -2299,16 +2299,16 @@ class _MaintRow extends StatelessWidget {
         ? AppColors.error
         : (health < 60 ? AppColors.warning : AppColors.success);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
         Expanded(
             child: Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textDisabled, fontSize: 9))),
         Text(timeLeft,
             style: TextStyle(
                 color: color, fontSize: 9, fontWeight: FontWeight.bold)),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         SizedBox(
             width: 40,
             child: ClipRRect(

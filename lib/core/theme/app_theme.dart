@@ -1,530 +1,284 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'app_colors.dart';
 import 'app_text_styles.dart';
 import 'forgeron_theme_extension.dart';
 
-/// Thème MaterialApp global pour Forgeron.
-/// Design Dark — Glassmorphism industriel "Forge Noire".
-///
-/// Polices :
-///   • Rajdhani       — interface générale
-///   • JetBrains Mono — DRO / terminal (appliqué localement via AppTextStyles)
 abstract class AppTheme {
-  static ThemeData get darkTheme {
+  
+  static ThemeData get darkTheme => _buildTheme(Brightness.dark, ForgeronTheme.dark);
+  static ThemeData get lightTheme => _buildTheme(Brightness.light, ForgeronTheme.light);
+
+  static ThemeData _buildTheme(Brightness brightness, ForgeronTheme forgeColors) {
     final colorScheme = ColorScheme(
-      brightness: Brightness.dark,
-      primary: AppColors.primary,
-      onPrimary: AppColors.background,
-      primaryContainer: AppColors.primaryDim,
-      onPrimaryContainer: AppColors.primaryLight,
-      secondary: AppColors.secondary,
-      onSecondary: AppColors.background,
-      secondaryContainer: AppColors.surfaceBright,
-      onSecondaryContainer: AppColors.secondary,
-      tertiary: AppColors.info,
+      brightness: brightness,
+      primary: forgeColors.primary,
+      onPrimary: forgeColors.background,
+      primaryContainer: forgeColors.primaryDim,
+      onPrimaryContainer: forgeColors.primaryLight,
+      secondary: forgeColors.secondary,
+      onSecondary: forgeColors.background,
+      secondaryContainer: forgeColors.surfaceBright,
+      onSecondaryContainer: forgeColors.secondary,
+      tertiary: forgeColors.info,
       onTertiary: Colors.white,
-      tertiaryContainer: AppColors.surfaceHigh,
-      onTertiaryContainer: AppColors.textPrimary,
-      error: AppColors.danger,
+      tertiaryContainer: forgeColors.surfaceHigh,
+      onTertiaryContainer: forgeColors.textPrimary,
+      error: forgeColors.danger,
       onError: Colors.white,
-      errorContainer: AppColors.error.withValues(alpha: 0.2),
-      onErrorContainer: AppColors.error,
-      surface: AppColors.surface,
-      onSurface: AppColors.textPrimary,
-      surfaceContainerHighest: AppColors.surfaceHigh,
-      onSurfaceVariant: AppColors.textSecondary,
-      outline: AppColors.surfaceBorder,
-      outlineVariant: AppColors.surfaceBorderDim,
+      errorContainer: forgeColors.error.withValues(alpha: 0.2),
+      onErrorContainer: forgeColors.error,
+      surface: forgeColors.surface,
+      onSurface: forgeColors.textPrimary,
+      surfaceContainerHighest: forgeColors.surfaceHigh,
+      onSurfaceVariant: forgeColors.textSecondary,
+      outline: forgeColors.surfaceBorder,
+      outlineVariant: forgeColors.surfaceBorderDim,
       shadow: Colors.black,
       scrim: Colors.black87,
-      inverseSurface: AppColors.textPrimary,
-      onInverseSurface: AppColors.background,
-      inversePrimary: AppColors.primaryDim,
+      inverseSurface: forgeColors.textPrimary,
+      onInverseSurface: forgeColors.background,
+      inversePrimary: forgeColors.primaryDim,
     );
 
     return ThemeData(
-      brightness: Brightness.dark,
+      brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: forgeColors.background,
       useMaterial3: true,
-
-      // ── TYPOGRAPHIE ─────────────────────────────────────────────────────
-      textTheme: AppTextStyles.materialTextTheme,
-
-      // ── APP BAR ──────────────────────────────────────────────────────────
+      textTheme: AppTextStyles.createMaterialTextTheme(forgeColors),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: forgeColors.surface,
+        foregroundColor: forgeColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        iconTheme: const IconThemeData(
-          color: AppColors.textSecondary,
-          size: 20,
-        ),
-        titleTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.primary,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 2.0,
-        ),
-        toolbarTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-        ),
+        iconTheme: IconThemeData(color: forgeColors.textSecondary, size: 20),
+        titleTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.primary, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 2.0),
+        toolbarTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 14),
         centerTitle: false,
         toolbarHeight: 56,
       ),
-
-      // ── CARD ─────────────────────────────────────────────────────────────
       cardTheme: CardThemeData(
-        color: AppColors.surface,
+        color: forgeColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
       ),
-
-      // ── INPUT DECORATION ─────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceBright,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        hintStyle: GoogleFonts.rajdhani(
-          color: AppColors.textDisabled,
-          fontSize: 13,
-        ),
-        labelStyle: GoogleFonts.rajdhani(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
-        floatingLabelStyle: GoogleFonts.rajdhani(
-          color: AppColors.primary,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-        ),
-        helperStyle: GoogleFonts.rajdhani(
-          color: AppColors.textDisabled,
-          fontSize: 11,
-        ),
-        errorStyle: GoogleFonts.rajdhani(
-          color: AppColors.error,
-          fontSize: 11,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.error, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-        ),
+        fillColor: forgeColors.surfaceBright,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        hintStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textDisabled, fontSize: 13),
+        labelStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+        floatingLabelStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.primary, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+        helperStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textDisabled, fontSize: 11),
+        errorStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.error, fontSize: 11),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.primary, width: 1.5)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.error, width: 1)),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.error, width: 1.5)),
         isDense: true,
       ),
-
-      // ── ELEVATED BUTTON ──────────────────────────────────────────────────
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.background,
-          disabledBackgroundColor: AppColors.surfaceHigh,
-          disabledForegroundColor: AppColors.textDisabled,
+          backgroundColor: forgeColors.primary,
+          foregroundColor: forgeColors.background,
+          disabledBackgroundColor: forgeColors.surfaceHigh,
+          disabledForegroundColor: forgeColors.textDisabled,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: GoogleFonts.rajdhani(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
+          textStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2),
         ),
       ),
-
-      // ── TEXT BUTTON ───────────────────────────────────────────────────────
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          textStyle: GoogleFonts.rajdhani(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
-          ),
+          foregroundColor: forgeColors.primary,
+          textStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         ),
       ),
-
-      // ── OUTLINED BUTTON ───────────────────────────────────────────────────
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
-          ),
-          textStyle: GoogleFonts.rajdhani(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          foregroundColor: forgeColors.textPrimary,
+          side: BorderSide(color: forgeColors.surfaceBorder, width: 1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          textStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 12, fontWeight: FontWeight.w600),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
-
-      // ── ICON BUTTON ───────────────────────────────────────────────────────
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
-          hoverColor: AppColors.surfaceHigh,
-          highlightColor: AppColors.surfaceHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          foregroundColor: forgeColors.textSecondary,
+          hoverColor: forgeColors.surfaceHigh,
+          highlightColor: forgeColors.surfaceHigh,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
       ),
-
-      // ── TOOLTIP ──────────────────────────────────────────────────────────
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: AppColors.surfaceBright,
+          color: forgeColors.surfaceBright,
           borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: AppColors.surfaceBorder, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          border: Border.all(color: forgeColors.surfaceBorder, width: 1),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 3))],
         ),
-        textStyle: GoogleFonts.rajdhani(
-          color: AppColors.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.3,
-        ),
+        textStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
         waitDuration: const Duration(milliseconds: 400),
         showDuration: const Duration(seconds: 3),
         preferBelow: true,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       ),
-
-      // ── CHIP ─────────────────────────────────────────────────────────────
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surfaceBright,
-        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-        disabledColor: AppColors.surfaceBorder,
-        labelStyle: GoogleFonts.rajdhani(
-          color: AppColors.textSecondary,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
-        secondaryLabelStyle: GoogleFonts.rajdhani(
-          color: AppColors.primary,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
+        backgroundColor: forgeColors.surfaceBright,
+        selectedColor: forgeColors.primary.withValues(alpha: 0.2),
+        disabledColor: forgeColors.surfaceBorder,
+        labelStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+        secondaryLabelStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.primary, fontSize: 10, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         labelPadding: EdgeInsets.zero,
         elevation: 0,
-        iconTheme: const IconThemeData(
-          color: AppColors.textSecondary,
-          size: 14,
-        ),
+        iconTheme: IconThemeData(color: forgeColors.textSecondary, size: 14),
       ),
-
-      // ── DIALOG ───────────────────────────────────────────────────────────
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: forgeColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 16,
         shadowColor: Colors.black,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
-        titleTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-        ),
-        contentTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+        titleTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+        contentTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textSecondary, fontSize: 13),
       ),
-
-      // ── SNACKBAR ─────────────────────────────────────────────────────────
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.surfaceBright,
-        contentTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-        actionTextColor: AppColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
+        backgroundColor: forgeColors.surfaceBright,
+        contentTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+        actionTextColor: forgeColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
         behavior: SnackBarBehavior.floating,
         elevation: 6,
       ),
-
-      // ── TAB BAR ──────────────────────────────────────────────────────────
       tabBarTheme: TabBarThemeData(
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.textSecondary,
-        indicatorColor: AppColors.primary,
+        labelColor: forgeColors.primary,
+        unselectedLabelColor: forgeColors.textSecondary,
+        indicatorColor: forgeColors.primary,
         indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: GoogleFonts.rajdhani(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-        unselectedLabelStyle: GoogleFonts.rajdhani(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 1.0,
-        ),
-        overlayColor: WidgetStateProperty.all(
-          AppColors.surfaceHigh.withValues(alpha: 0.4),
-        ),
+        labelStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+        unselectedLabelStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 1.0),
+        overlayColor: WidgetStateProperty.all(forgeColors.surfaceHigh.withValues(alpha: 0.4)),
       ),
-
-      // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────────
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textDisabled,
+        backgroundColor: forgeColors.surface,
+        selectedItemColor: forgeColors.primary,
+        unselectedItemColor: forgeColors.textDisabled,
         showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.rajdhani(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
-        unselectedLabelStyle: GoogleFonts.rajdhani(
-          fontSize: 9,
-          fontWeight: FontWeight.w400,
-        ),
+        selectedLabelStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+        unselectedLabelStyle: const TextStyle(fontFamily: 'Rajdhani', fontSize: 9, fontWeight: FontWeight.w400),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
-
-      // ── DIVIDER ──────────────────────────────────────────────────────────
-      dividerTheme: const DividerThemeData(
-        color: AppColors.surfaceBorder,
-        thickness: 1,
-        space: 1,
-      ),
-
-      // ── ICON ─────────────────────────────────────────────────────────────
-      iconTheme: const IconThemeData(
-        color: AppColors.textSecondary,
-        size: 20,
-      ),
-      primaryIconTheme: const IconThemeData(
-        color: AppColors.primary,
-        size: 20,
-      ),
-
-      // ── LIST TILE ────────────────────────────────────────────────────────
+      dividerTheme: DividerThemeData(color: forgeColors.surfaceBorder, thickness: 1, space: 1),
+      iconTheme: IconThemeData(color: forgeColors.textSecondary, size: 20),
+      primaryIconTheme: IconThemeData(color: forgeColors.primary, size: 20),
       listTileTheme: ListTileThemeData(
         tileColor: Colors.transparent,
-        selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
-        iconColor: AppColors.textSecondary,
-        textColor: AppColors.textPrimary,
-        subtitleTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-        ),
-        titleTextStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        selectedTileColor: forgeColors.primary.withValues(alpha: 0.08),
+        iconColor: forgeColors.textSecondary,
+        textColor: forgeColors.textPrimary,
+        subtitleTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textSecondary, fontSize: 12),
+        titleTextStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         dense: true,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
-
-      // ── SWITCH ───────────────────────────────────────────────────────────
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return Colors.white;
-          return AppColors.textDisabled;
+          return forgeColors.textDisabled;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primary;
-          return AppColors.surfaceBorder;
+          if (states.contains(WidgetState.selected)) return forgeColors.primary;
+          return forgeColors.surfaceBorder;
         }),
         trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),
-
-      // ── CHECKBOX ─────────────────────────────────────────────────────────
       checkboxTheme: CheckboxThemeData(
-        checkColor: WidgetStateProperty.all(AppColors.background),
+        checkColor: WidgetStateProperty.all(forgeColors.background),
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primary;
+          if (states.contains(WidgetState.selected)) return forgeColors.primary;
           return Colors.transparent;
         }),
-        side: const BorderSide(color: AppColors.surfaceBorder, width: 1.5),
+        side: BorderSide(color: forgeColors.surfaceBorder, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
       ),
-
-      // ── RADIO ────────────────────────────────────────────────────────────
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primary;
-          return AppColors.textDisabled;
+          if (states.contains(WidgetState.selected)) return forgeColors.primary;
+          return forgeColors.textDisabled;
         }),
       ),
-
-      // ── SLIDER ───────────────────────────────────────────────────────────
       sliderTheme: SliderThemeData(
-        activeTrackColor: AppColors.primary,
-        inactiveTrackColor: AppColors.surfaceBorder,
-        thumbColor: AppColors.primary,
-        overlayColor: AppColors.primary.withValues(alpha: 0.12),
-        valueIndicatorColor: AppColors.surfaceBright,
-        valueIndicatorTextStyle: GoogleFonts.jetBrainsMono(
-          color: AppColors.textPrimary,
-          fontSize: 11,
-        ),
+        activeTrackColor: forgeColors.primary,
+        inactiveTrackColor: forgeColors.surfaceBorder,
+        thumbColor: forgeColors.primary,
+        overlayColor: forgeColors.primary.withValues(alpha: 0.12),
+        valueIndicatorColor: forgeColors.surfaceBright,
+        valueIndicatorTextStyle: TextStyle(fontFamily: 'JetBrainsMono', color: forgeColors.textPrimary, fontSize: 11),
         trackHeight: 3,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
-
-      // ── PROGRESS INDICATOR ───────────────────────────────────────────────
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.primary,
-        linearTrackColor: AppColors.surfaceBorder,
-        circularTrackColor: AppColors.surfaceBorder,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: forgeColors.primary,
+        linearTrackColor: forgeColors.surfaceBorder,
+        circularTrackColor: forgeColors.surfaceBorder,
         linearMinHeight: 3,
       ),
-
-      // ── SCROLLBAR ────────────────────────────────────────────────────────
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStateProperty.all(
-          AppColors.surfaceBorder.withValues(alpha: 0.8),
-        ),
+        thumbColor: WidgetStateProperty.all(forgeColors.surfaceBorder.withValues(alpha: 0.8)),
         trackColor: WidgetStateProperty.all(Colors.transparent),
         trackBorderColor: WidgetStateProperty.all(Colors.transparent),
         thickness: WidgetStateProperty.all(4),
         radius: const Radius.circular(2),
         interactive: true,
       ),
-
-      // ── POPUP MENU ───────────────────────────────────────────────────────
       popupMenuTheme: PopupMenuThemeData(
-        color: AppColors.surfaceBright,
+        color: forgeColors.surfaceBright,
         surfaceTintColor: Colors.transparent,
         elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-        ),
-        textStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-        labelTextStyle: WidgetStateProperty.all(
-          GoogleFonts.rajdhani(
-            color: AppColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+        textStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+        labelTextStyle: WidgetStateProperty.all(TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
       ),
-
-      // ── FLOATING ACTION BUTTON ────────────────────────────────────────────
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.danger,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: forgeColors.danger,
         foregroundColor: Colors.white,
         elevation: 6,
         focusElevation: 8,
         hoverElevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
       ),
-
-      // ── DROPDOWN ─────────────────────────────────────────────────────────
       dropdownMenuTheme: DropdownMenuThemeData(
         menuStyle: MenuStyle(
-          backgroundColor: WidgetStateProperty.all(AppColors.surfaceBright),
+          backgroundColor: WidgetStateProperty.all(forgeColors.surfaceBright),
           surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
           elevation: WidgetStateProperty.all(8),
-          shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppColors.surfaceBorder, width: 1),
-            ),
-          ),
+          shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: forgeColors.surfaceBorder, width: 1))),
         ),
-        textStyle: GoogleFonts.rajdhani(
-          color: AppColors.textPrimary,
-          fontSize: 13,
-        ),
+        textStyle: TextStyle(fontFamily: 'Rajdhani', color: forgeColors.textPrimary, fontSize: 13),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.surfaceBright,
+          fillColor: forgeColors.surfaceBright,
           isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide:
-                const BorderSide(color: AppColors.surfaceBorder, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide:
-                const BorderSide(color: AppColors.surfaceBorder, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.surfaceBorder, width: 1)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: forgeColors.primary, width: 1.5)),
         ),
       ),
-
-      // ── EXTENSIONS FORGERON ───────────────────────────────────────────────
-      extensions: const <ThemeExtension<dynamic>>[
-        ForgeronTheme.dark,
+      extensions: <ThemeExtension<dynamic>>[
+        forgeColors,
       ],
     );
   }

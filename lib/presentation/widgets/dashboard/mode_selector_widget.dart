@@ -23,8 +23,8 @@ class ModeSelectorWidget extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: is5Ax
-              ? const Color(0xFFFF9800) // Orange pour 5AX (attention)
-              : const Color(0xFF4CAF50), // Vert pour 3AX (sûr)
+              ? Color(0xFFFF9800) // Orange pour 5AX (attention)
+              : Color(0xFF4CAF50), // Vert pour 3AX (sûr)
           width: 1.5,
         ),
       ),
@@ -38,17 +38,17 @@ class ModeSelectorWidget extends ConsumerWidget {
               Icon(
                 is5Ax ? Icons.rotate_90_degrees_ccw : Icons.lock_outline,
                 color: is5Ax
-                    ? const Color(0xFFFF9800)
-                    : const Color(0xFF4CAF50),
+                    ? Color(0xFFFF9800)
+                    : Color(0xFF4CAF50),
                 size: 18,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 mode.shortLabel,
                 style: TextStyle(
                   color: is5Ax
-                      ? const Color(0xFFFF9800)
-                      : const Color(0xFF4CAF50),
+                      ? Color(0xFFFF9800)
+                      : Color(0xFF4CAF50),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   fontFamily: 'JetBrains Mono',
@@ -63,16 +63,16 @@ class ModeSelectorWidget extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // ── Label complet ──
           Text(
             mode.label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // ── Limites actives ──
           _LimitRow(
             label: 'R_max',
@@ -95,11 +95,11 @@ class ModeSelectorWidget extends ConsumerWidget {
             icon: Icons.width_normal,
           ),
           if (is5Ax) ...[
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Row(
               children: [
                 Icon(Icons.shield, size: 12, color: Colors.amber.shade300),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 Text(
                   'ForceGuard actif',
                   style: TextStyle(
@@ -124,10 +124,10 @@ class ModeSelectorWidget extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: Color(0xFF1A1A2E),
         title: Text(
           'Changer en ${newMode.shortLabel} ?',
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white),
         ),
         content: Text(
           to5Ax
@@ -139,18 +139,18 @@ class ModeSelectorWidget extends ConsumerWidget {
               : 'Mode 3 axes (X, Y, Z uniquement).\n'
                   'Les axes A et C seront verrouillés en position actuelle.\n'
                   'Force nominale : ${newMode.nominalForce.toInt()} N.',
-          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text('Annuler'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: to5Ax
-                  ? const Color(0xFFFF9800)
-                  : const Color(0xFF4CAF50),
+                  ? Color(0xFFFF9800)
+                  : Color(0xFF4CAF50),
             ),
             onPressed: () {
               ref.read(machiningModeProvider.notifier).state = newMode;
@@ -182,12 +182,12 @@ class _ModeToggle extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           color: is5Ax
-              ? const Color(0xFFFF9800).withOpacity(0.3)
-              : const Color(0xFF4CAF50).withOpacity(0.3),
+              ? Color(0xFFFF9800).withValues(alpha: 0.3)
+              : Color(0xFF4CAF50).withValues(alpha: 0.3),
           border: Border.all(
             color: is5Ax
-                ? const Color(0xFFFF9800)
-                : const Color(0xFF4CAF50),
+                ? Color(0xFFFF9800)
+                : Color(0xFF4CAF50),
           ),
         ),
         child: Stack(
@@ -229,14 +229,14 @@ class _ModeToggle extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: is5Ax
-                      ? const Color(0xFFFF9800)
-                      : const Color(0xFF4CAF50),
+                      ? Color(0xFFFF9800)
+                      : Color(0xFF4CAF50),
                   boxShadow: [
                     BoxShadow(
                       color: (is5Ax
-                              ? const Color(0xFFFF9800)
-                              : const Color(0xFF4CAF50))
-                          .withOpacity(0.5),
+                              ? Color(0xFFFF9800)
+                              : Color(0xFF4CAF50))
+                          .withValues(alpha: 0.5),
                       blurRadius: 6,
                     ),
                   ],
@@ -269,10 +269,10 @@ class _LimitRow extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 12, color: Colors.white38),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white54,
               fontSize: 11,
               fontFamily: 'JetBrains Mono',
@@ -281,7 +281,7 @@ class _LimitRow extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w500,

@@ -45,15 +45,15 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Expanded(flex: 2, child: DROPanel()),
-                  const SizedBox(width: 24),
+                  SizedBox(width: 24),
                   const Expanded(flex: 5, child: VisualizerPanel()),
-                  const SizedBox(width: 24),
+                  SizedBox(width: 24),
                   const Expanded(flex: 2, child: ActionGrid()),
                 ],
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // LIGNE 2 : ÉTAT MODAL & G-CODE & OVERRIDES
             Row(
@@ -62,7 +62,7 @@ class DashboardScreen extends ConsumerWidget {
                 Expanded(
                   flex: 3,
                   child: Column(
-                    children: const [
+                    children: [
                       ModeSelectorWidget(),
                       SizedBox(height: 16),
                       OverridesPanel(),
@@ -75,9 +75,9 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 24),
+                SizedBox(width: 24),
                 const Expanded(flex: 5, child: SizedBox(height: 500, child: GCodeConsolePanel())),
-                const SizedBox(width: 24),
+                SizedBox(width: 24),
                 const Expanded(flex: 2, child: MacrosPanel()),
               ],
             ),

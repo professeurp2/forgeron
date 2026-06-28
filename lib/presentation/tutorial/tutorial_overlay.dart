@@ -90,7 +90,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
               child: Material(
                 type: MaterialType.transparency,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                  icon: Icon(Icons.close, color: Colors.white, size: 32),
                   onPressed: () => ref.read(tutorialProvider.notifier).skip(),
                 ),
               ),

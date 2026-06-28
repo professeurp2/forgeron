@@ -17,7 +17,7 @@ class DROPanel extends ConsumerWidget {
       key: TutorialKeys.droPanel,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'LECTURE DIGITALE (DRO)', 
           style: TextStyle(
             color: AppColors.textDisabled, 
@@ -26,7 +26,7 @@ class DROPanel extends ConsumerWidget {
             letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         for (int i = 0; i < 3; i++) 
           _DROCoordCard(
             axis: ['X', 'Y', 'Z'][i], 
@@ -43,7 +43,7 @@ class DROPanel extends ConsumerWidget {
                 small: true,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: _DROCoordCard(
                 axis: 'C', 
@@ -154,7 +154,7 @@ class _DROCoordCardState extends State<_DROCoordCard> {
               fontFamily: 'JetBrains Mono',
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           
           // Indicateur de mouvement réactif ▲/▼
           _buildDirectionIndicator(),

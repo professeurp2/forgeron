@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
@@ -49,7 +50,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     }
   }
 
-  final List<Widget> _screens = const [
+  final List<Widget> _screens = [
     DashboardScreen(),
     ProbingScreen(),
     ToolTableScreen(),
@@ -158,8 +159,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         title: Row(
           children: [
             Image.asset('assets/logo.png', height: 26),
-            const SizedBox(width: 10),
-            const Text(
+            SizedBox(width: 10),
+            Text(
               'FORGERON',
               style: TextStyle(
                 color: AppColors.primary,
@@ -169,14 +170,14 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 letterSpacing: 2.0,
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             // Badge statut compact
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.12),
+                color: statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: statusColor.withOpacity(0.4)),
+                border: Border.all(color: statusColor.withValues(alpha: 0.4)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -191,7 +192,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Text(
                     statusLabel,
                     style: TextStyle(
@@ -232,8 +233,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         },
         backgroundColor: AppColors.danger,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.warning_amber_rounded, size: 20),
-        label: const Text('ARRÊT',
+        icon: Icon(Icons.warning_amber_rounded, size: 20),
+        label: Text('ARRÊT',
             style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 11,
@@ -266,7 +267,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                             color: sel
                                 ? AppColors.primary
                                 : AppColors.textDisabled),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           item.title.split(' ').first,
                           style: TextStyle(
@@ -284,7 +285,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 );
               }).toList(),
               // Espace pour le FAB
-              const SizedBox(width: 56),
+              SizedBox(width: 56),
             ],
           ),
         ),
@@ -338,8 +339,8 @@ class _HeaderBar extends ConsumerWidget {
 
     return Container(
       height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
       ),
@@ -352,10 +353,10 @@ class _HeaderBar extends ConsumerWidget {
                 color: AppColors.textPrimary),
             onPressed: onMenuToggle,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Image.asset('assets/logo.png', height: 32),
-          const SizedBox(width: 12),
-          const Text(
+          SizedBox(width: 12),
+          Text(
             'FORGERON',
             style: TextStyle(
               color: AppColors.primary,
@@ -365,45 +366,56 @@ class _HeaderBar extends ConsumerWidget {
               letterSpacing: 2.0,
             ),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
             color: isOnline ? AppColors.success : AppColors.error,
             isActive: isOnline,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _StatusBadge(
             label: statusLabel,
             color: statusColor,
             isActive: true,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Text(
             ip,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled,
                 fontSize: 10,
                 fontFamily: 'JetBrains Mono'),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.help_outline,
+            icon: Icon(
+              ref.watch(themeProvider) == ThemeMode.dark 
+                  ? Icons.light_mode 
+                  : Icons.dark_mode,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Basculer le thème',
+            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
+          ),
+          IconButton(
+            icon: Icon(Icons.help_outline,
                 color: AppColors.textSecondary, size: 20),
             tooltip: 'Tutoriel interactif',
             onPressed: () => ref.read(tutorialProvider.notifier).start(),
           ),
           IconButton(
             key: TutorialKeys.settingsBtn,
-            icon: const Icon(Icons.settings_ethernet,
+            icon: Icon(Icons.settings_ethernet,
                 color: AppColors.textSecondary, size: 20),
             tooltip: 'Configuration de la connexion ESP32',
             onPressed: onSettingsPressed,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.danger.withOpacity(0.1),
+              color: AppColors.danger.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ElevatedButton.icon(
@@ -414,11 +426,11 @@ class _HeaderBar extends ConsumerWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               ),
               onPressed: onEmergencyStop,
-              icon: const Icon(Icons.warning_amber, size: 18),
-              label: const Text('ARRÊT D\'URGENCE',
+              icon: Icon(Icons.warning_amber, size: 18),
+              label: Text('ARRÊT D\'URGENCE',
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0,
@@ -458,9 +470,9 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -476,7 +488,7 @@ class _StatusBadge extends StatelessWidget {
                   : null,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(label,
               style: TextStyle(
                   color: color,
@@ -509,23 +521,23 @@ class _Sidebar extends StatelessWidget {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       width: isExpanded ? 260 : 72,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.sidebar,
         border: Border(right: BorderSide(color: AppColors.surfaceBorder)),
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
                 border: Border(
                     bottom: BorderSide(color: AppColors.surfaceBorder))),
             child: isExpanded
                 ? Row(
                     children: [
                       Image.asset('assets/logo.png', height: 32),
-                      const SizedBox(width: 12),
-                      const Expanded(
+                      SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -548,7 +560,7 @@ class _Sidebar extends StatelessWidget {
                   )
                 : Image.asset('assets/logo.png', height: 28),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           ...List.generate(items.length, (i) {
             final item = items[i];
             final selected = i == selectedIndex;
@@ -563,8 +575,8 @@ class _Sidebar extends StatelessWidget {
           const Spacer(),
           Container(
             padding:
-                const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            decoration: const BoxDecoration(
+                EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            decoration: BoxDecoration(
                 border:
                     Border(top: BorderSide(color: AppColors.surfaceBorder))),
             child: Row(
@@ -572,15 +584,15 @@ class _Sidebar extends StatelessWidget {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   backgroundColor: AppColors.surfaceBright,
                   radius: 16,
                   child: Icon(Icons.person,
                       color: AppColors.textSecondary, size: 18),
                 ),
                 if (isExpanded) ...[
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -629,10 +641,10 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 56,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withOpacity(0.12)
+              ? AppColors.primary.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border(
@@ -650,7 +662,7 @@ class _NavItem extends StatelessWidget {
                 color: selected ? AppColors.primary : AppColors.textDisabled,
                 size: 20),
             if (isExpanded) ...[
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Text(
                   title,
@@ -689,22 +701,22 @@ class _StatusFooter extends StatelessWidget {
 
     return Container(
       height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
       ),
       child: Row(
         children: [
-          const Text('FORGERON v1.0.0',
+          Text('FORGERON v1.0.0',
               style: TextStyle(
                   color: AppColors.textDisabled,
                   fontSize: 10,
                   fontFamily: 'JetBrains Mono')),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           Text(
               'X:${mPos[0].toStringAsFixed(3)}  Y:${mPos[1].toStringAsFixed(3)}  Z:${mPos[2].toStringAsFixed(3)}  A:${mPos[3].toStringAsFixed(2)}°  C:${mPos[4].toStringAsFixed(2)}°',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.secondary,
                   fontSize: 10,
                   fontFamily: 'JetBrains Mono')),
@@ -714,23 +726,23 @@ class _StatusFooter extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Row(children: [
                 Text('F:$feed mm/min',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.primary,
                         fontSize: 10,
                         fontFamily: 'JetBrains Mono')),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Text('S:$spindle RPM',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.primary,
                         fontSize: 10,
                         fontFamily: 'JetBrains Mono')),
-                const SizedBox(width: 24),
+                SizedBox(width: 24),
                 Icon(
                   isOnline ? Icons.wifi : Icons.wifi_off,
                   color: isOnline ? AppColors.success : AppColors.error,
                   size: 12,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(
                   isOnline ? 'ESP32 CONNECTÉ' : 'DÉCONNECTÉ',
                   style: TextStyle(

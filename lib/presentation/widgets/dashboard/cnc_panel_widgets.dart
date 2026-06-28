@@ -19,10 +19,10 @@ class CncSectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(children: [
         Container(width: 3, height: 10, color: AppColors.primary.withValues(alpha: 0.5)),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textDisabled,
             fontSize: 9,
             fontWeight: FontWeight.w900,
@@ -298,7 +298,7 @@ class CncLcdScreen extends StatelessWidget {
                     radius: 1.1,
                     colors: [
                       // Point chaud légèrement plus vert-lumineux au centre
-                      const Color(0xFF0D250A),
+                      Color(0xFF0D250A),
                       AppColors.lcdBackground,
                     ],
                   ),
@@ -323,12 +323,12 @@ class CncLcdScreen extends StatelessWidget {
                   if (title != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.lcdBorder,
                       ),
                       child: Text(
                         title!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.lcdTextDim,
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
@@ -427,10 +427,10 @@ class CncLcdAxisRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             unit,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.lcdTextDim,
               fontSize: 10,
               fontFamily: 'JetBrains Mono',
@@ -467,19 +467,19 @@ class CncJogCrossXY extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _dirBtn('Y+', AppColors.axisY, onYPlus),
-        const SizedBox(height: 5),
+        SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             _dirBtn('X−', AppColors.axisX, onXMinus),
-            const SizedBox(width: 5),
+            SizedBox(width: 5),
             _CncRoundStopButton(onTap: onStop),
-            const SizedBox(width: 5),
+            SizedBox(width: 5),
             _dirBtn('X+', AppColors.axisX, onXPlus),
           ],
         ),
-        const SizedBox(height: 5),
+        SizedBox(height: 5),
         _dirBtn('Y−', AppColors.axisY, onYMinus),
       ],
     );
@@ -553,7 +553,7 @@ class _CncRoundStopButtonState extends State<_CncRoundStopButton> {
                   ),
                 ],
         ),
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.stop_rounded,
             color: AppColors.ledRed,
@@ -740,12 +740,12 @@ class _CncJogDialState extends State<CncJogDial> {
             ],
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 2),
         Text(
           widget.label,
-          style: const TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
 
         // Volant rotatif tactile
         GestureDetector(
@@ -1031,7 +1031,7 @@ class CncPanelSectionContainer extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 child,
               ],
             ),
@@ -1047,7 +1047,7 @@ class CncPanelSectionContainer extends StatelessWidget {
       height: 6,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF6B7280), // Couleur métal gris
+        color: Color(0xFF6B7280), // Couleur métal gris
         border: Border.all(color: Colors.black.withValues(alpha: 0.6), width: 0.6),
         boxShadow: [
           BoxShadow(

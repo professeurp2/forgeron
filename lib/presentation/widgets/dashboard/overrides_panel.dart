@@ -25,8 +25,8 @@ class OverridesPanel extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Expanded(child: Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 8),
+            Expanded(child: Text(l, style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            SizedBox(width: 8),
             FittedBox(
               child: Text('$v%', style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
             ),
@@ -56,8 +56,8 @@ class DynamicsPanel extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Expanded(child: Text(l, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 8),
+            Expanded(child: Text(l, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            SizedBox(width: 8),
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -79,24 +79,24 @@ class ModalStatePanel extends ConsumerWidget {
       title: 'ÉTAT MODAL', 
       child: Column(children: [
         _modalRow('WCS ACTIF', state?.activeWCS ?? 'G54', AppColors.primary), 
-        const SizedBox(height: 8), 
+        SizedBox(height: 8), 
         _modalRow('OUTIL ACTIF', 'T${state?.activeToolNum ?? 0}', AppColors.secondary), 
-        const Divider(color: AppColors.surfaceBorder, height: 20), 
+        Divider(color: AppColors.surfaceBorder, height: 20), 
         Row(children: [
           Expanded(child: _bufferIndicator('PLAN', state?.plannerBuffer ?? 15, 15)), 
-          const SizedBox(width: 8), 
+          SizedBox(width: 8), 
           Expanded(child: _bufferIndicator('RX', state?.rxBuffer ?? 128, 128))
         ])
       ])
     );
   }
   
-  Widget _modalRow(String label, String value, Color color) => Row(children: [Expanded(child: Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)), const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3), decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(3), border: Border.all(color: color.withOpacity(0.4))), child: Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')))]);
+  Widget _modalRow(String label, String value, Color color) => Row(children: [Expanded(child: Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)), SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3), decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(3), border: Border.all(color: color.withValues(alpha: 0.4))), child: Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')))]);
   
   Widget _bufferIndicator(String label, int value, int max) {
     final ratio = (value / max).clamp(0.0, 1.0);
     final color = ratio > 0.5 ? AppColors.success : (ratio > 0.2 ? AppColors.warning : AppColors.error);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)), const Spacer(), Text('$value/$max', style: TextStyle(color: color, fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))]), const SizedBox(height: 4), LinearProgressIndicator(value: ratio, minHeight: 3, backgroundColor: AppColors.surfaceBorder, color: color, borderRadius: BorderRadius.circular(2))]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)), const Spacer(), Text('$value/$max', style: TextStyle(color: color, fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))]), SizedBox(height: 4), LinearProgressIndicator(value: ratio, minHeight: 3, backgroundColor: AppColors.surfaceBorder, color: color, borderRadius: BorderRadius.circular(2))]);
   }
 }
 
@@ -108,7 +108,7 @@ class TelemetryPanel extends ConsumerWidget {
     final state = ref.watch(machineStateProvider).valueOrNull;
     return GlassPanel(
       title: 'TÉLÉMÉTRIE', 
-      titleTrailing: const Icon(Icons.waves, color: AppColors.primary, size: 14), 
+      titleTrailing: Icon(Icons.waves, color: AppColors.primary, size: 14), 
       child: Column(children: [
         _telemetryRow('STATUT MACHINE', state?.status.name.toUpperCase() ?? 'HORS LIGNE', '', AppColors.textPrimary), 
         _telemetryRow('TEMP CORE', state?.coreTemp.toStringAsFixed(1) ?? '--', '°C', AppColors.textPrimary), 
@@ -121,8 +121,8 @@ class TelemetryPanel extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
+            SizedBox(width: 8),
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -131,8 +131,8 @@ class TelemetryPanel extends ConsumerWidget {
                   children: [
                     Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
                     if (unit.isNotEmpty) ...[
-                      const SizedBox(width: 4),
-                      Text(unit, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+                      SizedBox(width: 4),
+                      Text(unit, style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
                     ],
                   ],
                 ),

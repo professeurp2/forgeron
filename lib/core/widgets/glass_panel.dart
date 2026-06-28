@@ -23,8 +23,8 @@ class GlassPanel extends StatelessWidget {
     this.height,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 12.0, // Un peu plus arrondi pour un look moderne
-    this.borderColor = AppColors.surfaceBorder,
-    this.backgroundColor = AppColors.surface,
+    this.borderColor = Colors.grey,
+    this.backgroundColor = Colors.black,
     this.title,
     this.titleTrailing,
     this.expand = false,
@@ -95,7 +95,7 @@ class GlassPanel extends StatelessWidget {
 
   Widget _buildTitle() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: borderColor, width: 1.0),
@@ -106,7 +106,7 @@ class GlassPanel extends StatelessWidget {
           Expanded(
             child: Text(
               title!.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -116,7 +116,7 @@ class GlassPanel extends StatelessWidget {
             ),
           ),
           if (titleTrailing != null) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             titleTrailing!,
           ],
         ],

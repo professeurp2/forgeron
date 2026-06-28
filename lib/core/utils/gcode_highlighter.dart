@@ -14,8 +14,8 @@ class GCodeHighlighter {
           text: line,
           style: TextStyle(
             color: isCurrent 
-                ? AppColors.textSecondary.withOpacity(0.8) 
-                : AppColors.textDisabled.withOpacity(0.8),
+                ? AppColors.textSecondary.withValues(alpha: 0.8) 
+                : AppColors.textDisabled.withValues(alpha: 0.8),
             fontStyle: FontStyle.italic,
           ),
         )
@@ -42,7 +42,7 @@ class GCodeHighlighter {
       FontWeight weight = FontWeight.normal;
 
       if (match.group(1) != null || match.group(2) != null) {
-        color = isCurrent ? AppColors.textSecondary.withOpacity(0.7) : AppColors.textDisabled;
+        color = isCurrent ? AppColors.textSecondary.withValues(alpha: 0.7) : AppColors.textDisabled;
       } else if (match.group(3) != null) {
         color = AppColors.primary;
         weight = FontWeight.bold;

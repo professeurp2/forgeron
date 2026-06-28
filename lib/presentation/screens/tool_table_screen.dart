@@ -33,19 +33,19 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
 
   // Données outils statiques (table de référence locale)
   // En production, ces données viendraient d'un fichier tool.tbl ou de la config FluidNC
-  static const _tools = [
-    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, AppColors.success, 'OK'),
-    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, AppColors.success, 'OK'),
-    ('T3', 'FRAISE HÉMISPHÉRIQUE Ø6', 65.02, 6.00, AppColors.success, 'OK'),
-    ('T4', 'FORET CENTRE D3', 45.00, 3.00, AppColors.success, 'OK'),
-    ('T5', 'TARAUDEUR M8', 70.00, 8.00, AppColors.warning, 'USURE: 85%'),
-    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, AppColors.success, 'OK'),
-    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, AppColors.success, 'OK'),
-    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, AppColors.success, 'OK'),
-    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, AppColors.error, 'BRIS DÉTECTÉ'),
-    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, AppColors.success, 'OK'),
-    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, AppColors.success, 'OK'),
-    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, AppColors.info, 'CALIBRÉ'),
+  static final _tools = [
+    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, Colors.green, 'OK'),
+    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, Colors.green, 'OK'),
+    ('T3', 'FRAISE HÉMISPHÉRIQUE Ø6', 65.02, 6.00, Colors.green, 'OK'),
+    ('T4', 'FORET CENTRE D3', 45.00, 3.00, Colors.green, 'OK'),
+    ('T5', 'TARAUDEUR M8', 70.00, 8.00, Colors.orange, 'USURE: 85%'),
+    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, Colors.green, 'OK'),
+    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, Colors.green, 'OK'),
+    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, Colors.green, 'OK'),
+    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, Colors.red, 'BRIS DÉTECTÉ'),
+    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, Colors.green, 'OK'),
+    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, Colors.green, 'OK'),
+    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, Colors.blue, 'CALIBRÉ'),
   ];
 
   @override
@@ -61,13 +61,13 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               color: AppColors.surface,
               border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
           child: Row(children: [
-            const Text('MAGASIN D\'OUTILS',
+            Text('MAGASIN D\'OUTILS',
                 style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: Colors.grey,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2.0)),
@@ -77,25 +77,25 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
+                  color: Colors.green.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.build, color: AppColors.success, size: 10),
-                  const SizedBox(width: 4),
+                  Icon(Icons.build, color: Colors.green, size: 10),
+                  SizedBox(width: 4),
                   Text('ACTIF: T$activeToolNum',
-                      style: const TextStyle(
-                          color: AppColors.success,
+                      style: TextStyle(
+                          color: Colors.green,
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           fontFamily: 'JetBrains Mono')),
                 ]),
               ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text('${_tools.length} / 24',
-                style: const TextStyle(
-                    color: AppColors.primary,
+                style: TextStyle(
+                    color: Colors.deepOrange,
                     fontSize: 12,
                     fontFamily: 'JetBrains Mono',
                     fontWeight: FontWeight.w900)),
@@ -108,10 +108,10 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Rechercher T# ou Nom...',
-              hintStyle: const TextStyle(color: AppColors.textDisabled, fontSize: 12),
-              prefixIcon: const Icon(Icons.search, color: AppColors.textDisabled),
+              hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 12),
+              prefixIcon: Icon(Icons.search, color: AppColors.textDisabled),
               border: const OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.surfaceBorder)),
+                  borderSide: BorderSide(color: Colors.grey)), // Fix: use static color for border or remove const
               filled: true,
               fillColor: AppColors.surfaceBright,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -136,12 +136,12 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: sel
-                        ? AppColors.primary.withValues(alpha: 0.08)
+                        ? Colors.deepOrange.withValues(alpha: 0.08)
                         : AppColors.surface,
                     border: Border(
-                      bottom: const BorderSide(color: AppColors.surfaceBorder),
+                      bottom: BorderSide(color: AppColors.surfaceBorder),
                       left: BorderSide(
-                          color: sel ? AppColors.primary : Colors.transparent,
+                          color: sel ? Colors.deepOrange : Colors.transparent,
                           width: 3),
                     ),
                   ),
@@ -153,38 +153,38 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isActiveOnMachine
-                            ? AppColors.success.withValues(alpha: 0.2)
+                            ? Colors.green.withValues(alpha: 0.2)
                             : (sel
-                                ? AppColors.primary.withValues(alpha: 0.2)
+                                ? Colors.deepOrange.withValues(alpha: 0.2)
                                 : AppColors.surfaceBright),
                         borderRadius: BorderRadius.circular(4),
                         border: isActiveOnMachine
-                            ? Border.all(color: AppColors.success, width: 1.5)
+                            ? Border.all(color: Colors.green, width: 1.5)
                             : null,
                       ),
                       child: Text(t.$1,
                           style: TextStyle(
                               color: isActiveOnMachine
-                                  ? AppColors.success
+                                  ? Colors.green
                                   : (sel
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary),
+                                      ? Colors.deepOrange
+                                      : Colors.grey),
                               fontWeight: FontWeight.w900,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono')),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(t.$2,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis),
                         Text(
                           'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppColors.textDisabled,
                               fontSize: 9,
                               fontFamily: 'JetBrains Mono'),
@@ -222,7 +222,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       // Header outil
       Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
             color: AppColors.surface,
             border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
         child: Row(children: [
@@ -232,29 +232,29 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: isActiveOnMachine
-                  ? AppColors.success.withValues(alpha: 0.15)
-                  : AppColors.primary.withValues(alpha: 0.15),
+                  ? Colors.green.withValues(alpha: 0.15)
+                  : Colors.deepOrange.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
               border: isActiveOnMachine
-                  ? Border.all(color: AppColors.success, width: 2)
+                  ? Border.all(color: Colors.green, width: 2)
                   : null,
             ),
             child: Text(t.$1,
                 style: TextStyle(
-                    color: isActiveOnMachine ? AppColors.success : AppColors.primary,
+                    color: isActiveOnMachine ? Colors.green : Colors.deepOrange,
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
                     fontFamily: 'JetBrains Mono')),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(t.$2,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Row(children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -266,17 +266,17 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                       style: TextStyle(color: t.$5, fontSize: 10, fontWeight: FontWeight.w900)),
                 ),
                 if (isActiveOnMachine) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.15),
+                      color: Colors.green.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
                     ),
-                    child: const Text('▶ EN BROCHE',
+                    child: Text('▶ EN BROCHE',
                         style: TextStyle(
-                            color: AppColors.success,
+                            color: Colors.green,
                             fontSize: 9,
                             fontWeight: FontWeight.w900)),
                   ),
@@ -289,26 +289,26 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             // Appel outil T+M6
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Colors.deepOrange,
                   minimumSize: const Size(0, 32)),
-              icon: const Icon(Icons.build, size: 12, color: Colors.white),
+              icon: Icon(Icons.build, size: 12, color: Colors.white),
               label: Text('APPELER ${t.$1}  (M6)',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white)),
               onPressed: () => _callTool(toolNum),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             // G43 offset longueur
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.secondary),
+                  side: BorderSide(color: Colors.cyan),
                   minimumSize: const Size(0, 32)),
-              icon: const Icon(Icons.straighten, size: 12, color: AppColors.secondary),
+              icon: Icon(Icons.straighten, size: 12, color: Colors.cyan),
               label: Text('G43 H$toolNum  (Décalage L)',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.secondary)),
+                      color: Colors.cyan)),
               onPressed: () => _applyLengthOffset(toolNum),
             ),
           ]),
@@ -316,17 +316,17 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       ),
       // Tabs
       Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
             color: AppColors.surface,
             border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
         child: TabBar(
           controller: _tabCtrl,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
+          indicatorColor: Colors.deepOrange,
+          labelColor: Colors.deepOrange,
           unselectedLabelColor: AppColors.textDisabled,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: const [
+          tabs: [
             Tab(icon: Icon(Icons.straighten, size: 14), text: 'GÉOMÉTRIE'),
             Tab(icon: Icon(Icons.tune, size: 14), text: 'USURE / CORRECTEURS'),
             Tab(icon: Icon(Icons.timer, size: 14), text: 'DURÉE DE VIE'),
@@ -349,34 +349,34 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text('Appel outil T$toolNum',
-            style: const TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: AppColors.textPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.build, color: AppColors.primary, size: 48),
-          const SizedBox(height: 16),
+          Icon(Icons.build, color: Colors.deepOrange, size: 48),
+          SizedBox(height: 16),
           Text('Envoyer la commande de changement d\'outil T$toolNum M6 ?',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          const Text('⚠ La machine va effectuer un changement d\'outil.',
-              style: TextStyle(color: AppColors.warning, fontSize: 11),
+          SizedBox(height: 8),
+          Text('⚠ La machine va effectuer un changement d\'outil.',
+              style: TextStyle(color: Colors.orange, fontSize: 11),
               textAlign: TextAlign.center),
         ]),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('ANNULER')),
+              child: Text('ANNULER')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
             onPressed: () {
               Navigator.pop(context);
               ref.read(machineRepositoryProvider).sendGCode('T$toolNum M6');
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                backgroundColor: AppColors.primary,
+                backgroundColor: Colors.deepOrange,
                 content: Text('▶ T$toolNum M6 envoyé'),
               ));
             },
             child: Text('APPELER T$toolNum',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -387,7 +387,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
   void _applyLengthOffset(int toolNum) {
     ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      backgroundColor: AppColors.secondary,
+      backgroundColor: Colors.cyan,
       content: Text('✓ G43 H$toolNum appliqué (décalage longueur outil)'),
     ));
   }
@@ -408,41 +408,41 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               diameter: t.$4,
             ),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           // Parameters
           Expanded(
             flex: 5,
             child: SingleChildScrollView(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('PARAMÈTRES PHYSIQUES',
+                Text('PARAMÈTRES PHYSIQUES',
                     style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: Colors.grey,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2.0)),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Row(children: [
                   Expanded(child: _paramCard('LONGUEUR (L)', t.$3.toStringAsFixed(3), 'mm')),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(child: _paramCard('DIAMÈTRE (D)', t.$4.toStringAsFixed(3), 'mm')),
                 ]),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Row(children: [
                   Expanded(child: _paramCard('RAYON (R)', (t.$4 / 2).toStringAsFixed(3), 'mm')),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(child: _paramCard('ANGLE COUPE', '30', '°')),
                 ]),
-                const SizedBox(height: 24),
-                const Text('PARAMÈTRES DE COUPE DÉFAUT',
+                SizedBox(height: 24),
+                Text('PARAMÈTRES DE COUPE DÉFAUT',
                     style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: Colors.grey,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2.0)),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Row(children: [
                   Expanded(child: _paramCard('AVANCE (F)', '1200', 'mm/min')),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(child: _paramCard('BROCHE (S)', '18000', 'RPM')),
                 ]),
               ]),
@@ -457,11 +457,11 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
     return GlassPanel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textDisabled,
                 fontSize: 9,
                 fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
@@ -470,16 +470,16 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         fontFamily: 'JetBrains Mono')),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(unit,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textDisabled, fontSize: 10)),
           ],
         ),
@@ -494,35 +494,35 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.warning.withValues(alpha: 0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
           ),
-          child: const Row(children: [
-            Icon(Icons.warning_amber, color: AppColors.warning, size: 16),
+          child: Row(children: [
+            Icon(Icons.warning_amber, color: Colors.orange, size: 16),
             SizedBox(width: 8),
             Expanded(
               child: Text(
                 'RTCP ACTIF — Les correcteurs d\'usure impactent directement le calcul RTCP 5 axes.',
-                style: TextStyle(color: AppColors.warning, fontSize: 10),
+                style: TextStyle(color: Colors.orange, fontSize: 10),
               ),
             ),
           ]),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Row(children: [
           Expanded(child: _paramCard('DÉCALAGE Z', '-0.015', 'mm')),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(child: _paramCard('DÉCALAGE R', '0.008', 'mm')),
         ]),
-        const SizedBox(height: 24),
-        const Text('COMMANDES G-CODE CORRECTEURS',
+        SizedBox(height: 24),
+        Text('COMMANDES G-CODE CORRECTEURS',
             style: TextStyle(
-                color: AppColors.textSecondary,
+                color: Colors.grey,
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2)),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         for (final cmd in ['G43.1 Z-0.015', 'G49 (annuler décalages)'])
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -533,13 +533,13 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                 border: Border.all(color: AppColors.surfaceBorder)),
             child: Row(children: [
               Text(cmd,
-                  style: const TextStyle(
-                      color: AppColors.primary,
+                  style: TextStyle(
+                      color: Colors.deepOrange,
                       fontSize: 12,
                       fontFamily: 'JetBrains Mono')),
               const Spacer(),
               IconButton(
-                icon: const Icon(Icons.send, color: AppColors.primary, size: 16),
+                icon: Icon(Icons.send, color: Colors.deepOrange, size: 16),
                 tooltip: 'Envoyer',
                 onPressed: () =>
                     ref.read(machineRepositoryProvider).sendGCode(cmd.split(' (').first),
@@ -564,9 +564,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
               const CircularProgressIndicator(
                   value: 0.68,
                   strokeWidth: 8,
-                  backgroundColor: AppColors.surfaceBright,
-                  color: AppColors.success),
-              const Text('68%',
+                  backgroundColor: Colors.grey, // Fix: remove AppColors inside const
+                  color: Colors.green),
+              Text('68%',
                   style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 20,
@@ -574,7 +574,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                       fontFamily: 'JetBrains Mono')),
             ]),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               for (final e in [
@@ -586,13 +586,13 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(children: [
                     Text(e.$1,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
                     Text(e.$2,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 12,
                             fontFamily: 'JetBrains Mono',

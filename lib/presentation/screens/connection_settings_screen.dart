@@ -148,14 +148,14 @@ class _ConnectionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.settings_input_component,
+              child: Icon(Icons.settings_input_component,
                   color: AppColors.primary, size: 20),
             ),
-            const SizedBox(width: 16),
-            const Column(
+            SizedBox(width: 16),
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -185,13 +185,13 @@ class _ConnectionSettingsScreenState
             child: Center(
               child: TextButton.icon(
                 onPressed: _save,
-                icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('APPLIQUER'),
+                icon: Icon(Icons.check_circle_outline, size: 18),
+                label: Text('APPLIQUER'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                  textStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
                 ),
               ),
             ),
@@ -204,7 +204,7 @@ class _ConnectionSettingsScreenState
             center: Alignment.topRight,
             radius: 1.5,
             colors: [
-              AppColors.primary.withOpacity(0.05),
+              AppColors.primary.withValues(alpha: 0.05),
               AppColors.background,
             ],
           ),
@@ -218,16 +218,16 @@ class _ConnectionSettingsScreenState
                 children: [
                   // ─── Header Status Card ───
                   _buildHeaderStatus(),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
 
                   Builder(builder: (context) {
                     if (ResponsiveLayout.isMobile(context)) {
                       return Column(
                         children: [
                           _buildDiscoverySection(discovery),
-                          const SizedBox(height: 24),
+                          SizedBox(height: 24),
                           _buildManualConfigCard(),
-                          const SizedBox(height: 24),
+                          SizedBox(height: 24),
                           _buildMachineInfoCard(),
                         ],
                       );
@@ -244,7 +244,7 @@ class _ConnectionSettingsScreenState
                             ],
                           ),
                         ),
-                        const SizedBox(width: 32),
+                        SizedBox(width: 32),
 
                         // ─── Colonne DROITE (Config Manuelle & Infos) ───
                         Expanded(
@@ -252,7 +252,7 @@ class _ConnectionSettingsScreenState
                           child: Column(
                             children: [
                               _buildManualConfigCard(),
-                              const SizedBox(height: 24),
+                              SizedBox(height: 24),
                               _buildMachineInfoCard(),
                             ],
                           ),
@@ -275,12 +275,12 @@ class _ConnectionSettingsScreenState
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.4),
+        color: AppColors.surface.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.05),
+            color: color.withValues(alpha: 0.05),
             blurRadius: 30,
             spreadRadius: -10,
           ),
@@ -302,7 +302,7 @@ class _ConnectionSettingsScreenState
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: color.withOpacity(1.0 - _pulseController.value),
+                        color: color.withValues(alpha: 1.0 - _pulseController.value),
                         width: 2,
                       ),
                     ),
@@ -313,7 +313,7 @@ class _ConnectionSettingsScreenState
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(isSim ? Icons.science_outlined : Icons.language,
@@ -321,7 +321,7 @@ class _ConnectionSettingsScreenState
               ),
             ],
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,13 +337,13 @@ class _ConnectionSettingsScreenState
                         letterSpacing: 1,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: color.withOpacity(0.3)),
+                        border: Border.all(color: color.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         isSim ? 'LOCAL' : 'REMOTE',
@@ -352,29 +352,29 @@ class _ConnectionSettingsScreenState
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   isSim
                       ? 'L\'interface utilise des données virtuelles. Aucune machine physique n\'est requise.'
                       : 'L\'application tente de communiquer avec l\'IP ${ref.watch(espIpProvider)} via WebSocket.',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('TYPE DE SESSION',
+              Text('TYPE DE SESSION',
                   style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Switch(
                 value: isSim,
                 activeColor: AppColors.axisA,
-                activeTrackColor: AppColors.axisA.withOpacity(0.2),
+                activeTrackColor: AppColors.axisA.withValues(alpha: 0.2),
                 inactiveThumbColor: AppColors.success,
-                inactiveTrackColor: AppColors.success.withOpacity(0.2),
+                inactiveTrackColor: AppColors.success.withValues(alpha: 0.2),
                 onChanged: (val) => ref.read(isSimulationModeProvider.notifier).state = val,
               ),
             ],
@@ -391,12 +391,12 @@ class _ConnectionSettingsScreenState
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.1),
+                color: AppColors.danger.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: InkWell(
                 onTap: () => ref.read(discoveryProvider.notifier).stop(),
-                child: const Row(
+                child: Row(
                   children: [
                     SizedBox(
                       width: 10,
@@ -411,13 +411,13 @@ class _ConnectionSettingsScreenState
             )
           : ElevatedButton.icon(
               onPressed: () => ref.read(discoveryProvider.notifier).scan(),
-              icon: const Icon(Icons.radar, size: 14),
-              label: const Text('RECHERCHER'),
+              icon: Icon(Icons.radar, size: 14),
+              label: Text('RECHERCHER'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary.withOpacity(0.1),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 foregroundColor: AppColors.primary,
                 elevation: 0,
-                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
               ),
             ),
       child: Column(
@@ -430,12 +430,12 @@ class _ConnectionSettingsScreenState
               color: AppColors.primary,
               minHeight: 2,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               '${discovery.statusMessage ?? "Scan en cours..."}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
           ],
 
           if (discovery.devices.isEmpty && !discovery.isScanning)
@@ -443,19 +443,19 @@ class _ConnectionSettingsScreenState
               height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppColors.background.withOpacity(0.3),
+                color: AppColors.background.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.surfaceBorder, style: BorderStyle.none),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.wifi_off_rounded, color: AppColors.textDisabled.withOpacity(0.2), size: 64),
-                  const SizedBox(height: 16),
-                  const Text('Aucun appareil détecté sur le segment réseau.',
+                  Icon(Icons.wifi_off_rounded, color: AppColors.textDisabled.withValues(alpha: 0.2), size: 64),
+                  SizedBox(height: 16),
+                  Text('Aucun appareil détecté sur le segment réseau.',
                       style: TextStyle(color: AppColors.textDisabled, fontSize: 12)),
-                  const SizedBox(height: 8),
-                  const Text('Vérifiez que l\'ESP32 est allumé et sur le même WiFi.',
+                  SizedBox(height: 8),
+                  Text('Vérifiez que l\'ESP32 est allumé et sur le même WiFi.',
                       style: TextStyle(color: AppColors.textDisabled, fontSize: 10)),
                 ],
               ),
@@ -465,7 +465,7 @@ class _ConnectionSettingsScreenState
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: discovery.devices.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, __) => SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final device = discovery.devices[index];
                 return _buildModernDeviceCard(device, index);
@@ -494,10 +494,10 @@ class _ConnectionSettingsScreenState
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surfaceBright.withOpacity(0.3),
+          color: AppColors.surfaceBright.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isFluidNC ? AppColors.success.withOpacity(0.3) : AppColors.surfaceBorder,
+            color: isFluidNC ? AppColors.success.withValues(alpha: 0.3) : AppColors.surfaceBorder,
           ),
         ),
         child: Row(
@@ -506,7 +506,7 @@ class _ConnectionSettingsScreenState
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: (isFluidNC ? AppColors.success : AppColors.primary).withOpacity(0.1),
+                color: (isFluidNC ? AppColors.success : AppColors.primary).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -515,7 +515,7 @@ class _ConnectionSettingsScreenState
                 size: 24,
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,35 +524,35 @@ class _ConnectionSettingsScreenState
                     children: [
                       Text(
                         device.ip,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'JetBrains Mono',
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       if (isFluidNC)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.success.withOpacity(0.1),
+                            color: AppColors.success.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('FLUIDNC',
+                          child: Text('FLUIDNC',
                               style: TextStyle(color: AppColors.success, fontSize: 9, fontWeight: FontWeight.w900)),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     'Réponse: ${device.responseTime.inMilliseconds}ms • Port: ${device.wsPort}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             ElevatedButton(
               onPressed: () => _connectDevice(device),
               style: ElevatedButton.styleFrom(
@@ -562,7 +562,7 @@ class _ConnectionSettingsScreenState
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('CONNECTER',
+              child: Text('CONNECTER',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
             ),
           ],
@@ -583,21 +583,21 @@ class _ConnectionSettingsScreenState
             icon: Icons.lan_outlined,
             hint: 'ex: 192.168.1.100',
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _buildModernField(
             label: 'PORT WEBSOCKET',
             controller: _wsPortCtrl,
             icon: Icons.numbers,
             hint: 'Défaut: 81',
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _testing ? null : _testConnection,
               icon: _testing
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.network_check_rounded, size: 18),
+                  ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(Icons.network_check_rounded, size: 18),
               label: Text(_testing ? 'VÉRIFICATION...' : 'TESTER LA CONNEXION'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.surfaceBright,
@@ -605,26 +605,26 @@ class _ConnectionSettingsScreenState
                 padding: const EdgeInsets.all(16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                textStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
               ),
             ),
           ),
           if (_testResult != null) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: (_testSuccess ? AppColors.success : AppColors.error).withOpacity(0.1),
+                color: (_testSuccess ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: (_testSuccess ? AppColors.success : AppColors.error).withOpacity(0.3)),
+                border: Border.all(color: (_testSuccess ? AppColors.success : AppColors.error).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
                   Icon(_testSuccess ? Icons.check_circle : Icons.error,
                       color: _testSuccess ? AppColors.success : AppColors.error, size: 16),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _testResult!,
@@ -653,24 +653,24 @@ class _ConnectionSettingsScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-        const SizedBox(height: 8),
+        Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+        SizedBox(height: 8),
         TextField(
           controller: controller,
-          style: const TextStyle(color: AppColors.textPrimary, fontFamily: 'JetBrains Mono', fontSize: 14),
+          style: TextStyle(color: AppColors.textPrimary, fontFamily: 'JetBrains Mono', fontSize: 14),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 18),
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.textDisabled, fontSize: 13),
+            hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 13),
             filled: true,
-            fillColor: AppColors.background.withOpacity(0.4),
+            fillColor: AppColors.background.withValues(alpha: 0.4),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.surfaceBorder),
+              borderSide: BorderSide(color: AppColors.surfaceBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
@@ -685,14 +685,14 @@ class _ConnectionSettingsScreenState
       child: Column(
         children: [
           _buildInfoRow('Type Cinématique', 'Trunnion 5-Axes (XYZAC)', AppColors.primary),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _buildInfoRow('Axe Pivot (A)', '±110° sur X', AppColors.axisA),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _buildInfoRow('Table Rotative (C)', '360° Continu sur Z', AppColors.axisC),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _buildInfoRow('Taux Télémétrie', '200ms (5Hz)', AppColors.axisZ),
-          const Divider(height: 32, color: AppColors.surfaceBorder),
-          const Row(
+          Divider(height: 32, color: AppColors.surfaceBorder),
+          Row(
             children: [
               Icon(Icons.security, color: AppColors.warning, size: 14),
               SizedBox(width: 8),
@@ -709,7 +709,7 @@ class _ConnectionSettingsScreenState
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+        Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
         Text(value, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
       ],
     );

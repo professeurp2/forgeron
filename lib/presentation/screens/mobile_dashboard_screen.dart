@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
@@ -77,11 +77,11 @@ class _MobileTabBar extends StatelessWidget {
         indicatorWeight: 2.5,
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textDisabled,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2),
-        tabs: const [
+        tabs: [
           Tab(icon: Icon(Icons.display_settings, size: 20), text: 'DRO'),
           Tab(icon: Icon(Icons.touch_app, size: 20), text: 'CONTRÃ”LES'),
           Tab(icon: Icon(Icons.terminal, size: 20), text: 'G-CODE'),
@@ -108,49 +108,49 @@ class _DROTab extends ConsumerWidget {
         state?.status != MachineStatus.offline;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // â”€â”€ Statut connexion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           _MobileStatusBanner(isOnline: isOnline, status: state?.status),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // â”€â”€ DRO Axes linÃ©aires â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('POSITION PIÃˆCE (W)'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _MobileDROCard('X', wPos[0], AppColors.axisX),
           _MobileDROCard('Y', wPos[1], AppColors.axisY),
           _MobileDROCard('Z', wPos[2], AppColors.axisZ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           // â”€â”€ DRO Axes rotatifs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Row(
             children: [
               Expanded(child: _MiniDROCard('A', wPos[3], AppColors.axisA, 'Â°')),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(child: _MiniDROCard('C', wPos[4], AppColors.axisC, 'Â°')),
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // â”€â”€ Jauges F & S â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('DYNAMIQUE'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _MobileGauge('AVANCE (F)', feed, 5000, AppColors.primary, 'mm/min'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _MobileGauge('BROCHE (S)', spindle, 24000, AppColors.secondary, 'RPM'),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // â”€â”€ Position machine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('POSITION MACHINE (M)'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(6),
@@ -173,7 +173,7 @@ class _DROTab extends ConsumerWidget {
 
   Widget _mPosRow(String ax, double val, Color c, {String unit = 'mm'}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Text(ax,
@@ -184,7 +184,7 @@ class _DROTab extends ConsumerWidget {
             unit == 'Â°'
                 ? '${val.toStringAsFixed(2)}Â°'
                 : val.toStringAsFixed(3),
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontFamily: 'JetBrains Mono'),
@@ -208,13 +208,13 @@ class _ControlsTab extends ConsumerWidget {
     final isWorkshop = ref.watch(isWorkshopModeProvider);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // â”€â”€ Actions principales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('ACTIONS CYCLE'),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Bouton DÃ‰PART â€” large, touch-friendly
           _BigActionButton(
@@ -227,7 +227,7 @@ class _ControlsTab extends ConsumerWidget {
               HapticFeedback.mediumImpact();
             },
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -241,7 +241,7 @@ class _ControlsTab extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: _BigActionButton(
                   icon: Icons.stop_rounded,
@@ -256,11 +256,11 @@ class _ControlsTab extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // â”€â”€ Navigation / Homing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('NAVIGATION'),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -276,7 +276,7 @@ class _ControlsTab extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: _BigActionButton(
                   icon: Icons.gps_fixed_rounded,
@@ -290,7 +290,7 @@ class _ControlsTab extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           _BigActionButton(
             icon: Icons.refresh_rounded,
             label: 'SOFT RESET + DÃ‰VERR.',
@@ -303,17 +303,17 @@ class _ControlsTab extends ConsumerWidget {
             },
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // â”€â”€ Mode Atelier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const _SectionLabel('MODE ATELIER'),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           GestureDetector(
             onTap: () {
               ref.read(isWorkshopModeProvider.notifier).state = !isWorkshop;
             },
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isWorkshop
@@ -342,7 +342,7 @@ class _ControlsTab extends ConsumerWidget {
                           ? AppColors.primary
                           : AppColors.textDisabled,
                       size: 28),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +356,7 @@ class _ControlsTab extends ConsumerWidget {
                                 fontSize: 13,
                                 letterSpacing: 1.0)),
                         Text('DRO gÃ©ant + commandes gants',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: AppColors.textDisabled,
                                 fontSize: 11)),
                       ],
@@ -391,15 +391,15 @@ class _GcodeTab extends ConsumerWidget {
       children: [
         // Macros rapides
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: const _SectionLabel('MACROS RAPIDES'),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         SizedBox(
           height: 44,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16),
             children: [
               _MacroChip('G28', () => repo.sendGCode('G28')),
               _MacroChip('G0 Z5', () => repo.sendGCode('G0 Z5')),
@@ -411,16 +411,16 @@ class _GcodeTab extends ConsumerWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
-        const Padding(
+        SizedBox(height: 12),
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: _SectionLabel('CONSOLE TERMINAL'),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
 
         // Saisie MDI
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: 16),
           child: _MobileGCodeInput(repo: repo),
         ),
       ],
@@ -453,7 +453,7 @@ class _MobileStatusBanner extends StatelessWidget {
     final color = isOnline ? _statusColor() : AppColors.textDisabled;
     final label = status?.name.toUpperCase() ?? 'HORS LIGNE';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
@@ -470,7 +470,7 @@ class _MobileStatusBanner extends StatelessWidget {
               boxShadow: [BoxShadow(color: color, blurRadius: 8)],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Text(isOnline ? 'ESP32 EN LIGNE' : 'ESP32 HORS LIGNE',
               style: TextStyle(
                   color: color,
@@ -480,7 +480,7 @@ class _MobileStatusBanner extends StatelessWidget {
           const Spacer(),
           if (isOnline)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: _statusColor().withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
@@ -504,7 +504,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textDisabled,
           fontSize: 10,
           fontWeight: FontWeight.w900,
@@ -522,8 +522,8 @@ class _MobileDROCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
@@ -536,12 +536,12 @@ class _MobileDROCard extends StatelessWidget {
           Text(axis,
               style: TextStyle(
                   color: color, fontSize: 22, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Text(
               value.toStringAsFixed(3),
               textAlign: TextAlign.right,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 34,
                 fontWeight: FontWeight.w900,
@@ -549,8 +549,8 @@ class _MobileDROCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          const Text('mm',
+          SizedBox(width: 6),
+          Text('mm',
               style: TextStyle(
                   color: AppColors.textDisabled,
                   fontSize: 12,
@@ -571,7 +571,7 @@ class _MiniDROCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
@@ -582,11 +582,11 @@ class _MiniDROCard extends StatelessWidget {
           Text(axis,
               style: TextStyle(
                   color: color, fontSize: 14, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           FittedBox(
             child: Text(
               '${value.toStringAsFixed(2)}$unit',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -611,7 +611,7 @@ class _MobileGauge extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = (value / max).clamp(0.0, 1.0);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
@@ -624,7 +624,7 @@ class _MobileGauge extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.textDisabled,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -637,7 +637,7 @@ class _MobileGauge extends StatelessWidget {
                       fontFamily: 'JetBrains Mono')),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
@@ -683,7 +683,7 @@ class _BigActionButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: color, size: 26),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(label,
                   style: TextStyle(
                       color: color,
@@ -708,15 +708,15 @@ class _MacroChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: EdgeInsets.only(right: 8),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
         ),
         child: Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -759,11 +759,11 @@ class _MobileGCodeInputState extends ConsumerState<_MobileGCodeInput> {
             child: TextField(
               controller: _ctrl,
               focusNode: _focus,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.primary,
                   fontFamily: 'JetBrains Mono',
                   fontSize: 14),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Ex: G0 X10 Y0 Z5',
                 hintStyle: TextStyle(
                     color: AppColors.textDisabled,
@@ -783,7 +783,7 @@ class _MobileGCodeInputState extends ConsumerState<_MobileGCodeInput> {
           ),
           IconButton(
             onPressed: _send,
-            icon: const Icon(Icons.send_rounded,
+            icon: Icon(Icons.send_rounded,
                 color: AppColors.primary, size: 22),
             tooltip: 'Envoyer',
           ),
