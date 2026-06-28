@@ -11,6 +11,7 @@ import '../../application/services/audio_service.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/gauge_widgets.dart';
 import '../widgets/dashboard/workshop_layout.dart';
+import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/trunnion_visualizer.dart';
 import 'cnc_panel_screen.dart';
 
