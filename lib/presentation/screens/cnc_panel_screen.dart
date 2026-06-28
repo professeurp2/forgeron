@@ -10,6 +10,8 @@ import '../../application/providers/ui_state_provider.dart';
 import '../../application/services/audio_service.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
+import '../widgets/trunnion_visualizer.dart';
+import '../widgets/dashboard/gauge_widgets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL SCREEN — Pupitre CNC 5 Axes style FANUC 0i-M
@@ -83,14 +85,45 @@ class CncPanelScreen extends ConsumerWidget {
                 children: [
                   // ── Colonne gauche : LCD Display ─────────────────────────
                   Expanded(
-                    flex: 5,
+                    flex: 3,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: _LcdDisplayColumn(state: state),
                     ),
                   ),
 
-                  // ── Rainure verticale embossée double-ligne (effet plaque de métal usinée) ──
+                  // ── Rainure verticale embossée double-ligne ──
+                  Container(
+                    width: 6,
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: Colors.black.withValues(alpha: 0.65), width: 2),
+                        right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 2),
+                      ),
+                    ),
+                  ),
+
+                  // ── Colonne centrale : Visualisateur ──────────────────
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        border: Border.all(color: AppColors.surfaceBorder, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: TrunnionVisualizer(
+                          mPos: state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ── Rainure verticale embossée double-ligne ──
                   Container(
                     width: 6,
                     margin: const EdgeInsets.symmetric(vertical: 12),
@@ -104,7 +137,7 @@ class CncPanelScreen extends ConsumerWidget {
 
                   // ── Colonne droite : Panneau de touches ──────────────────
                   Expanded(
-                    flex: 4,
+                    flex: 3,
                     child: _TouchPanel(state: state, repo: repo),
                   ),
                 ],
@@ -853,104 +886,104 @@ class _JogPanel5Axis extends ConsumerWidget {
               const SizedBox(height: 12),
 
               // Layout jog principal
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Column(
                 children: [
-                  // Croix XY + Z
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      children: [
-                        const CncSectionLabel('X / Y / Z'),
-                        // Croix XY
-                        CncJogCrossXY(
-                          onXPlus: () { jogN.startContinuousJog('X', 1); HapticFeedback.lightImpact(); },
-                          onXMinus: () { jogN.startContinuousJog('X', -1); HapticFeedback.lightImpact(); },
-                          onYPlus: () { jogN.startContinuousJog('Y', 1); HapticFeedback.lightImpact(); },
-                          onYMinus: () { jogN.startContinuousJog('Y', -1); HapticFeedback.lightImpact(); },
-                          onStop: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _AxisHoldBtn(
-                              label: 'Z+',
-                              color: AppColors.axisZ,
-                              onHold: () { jogN.startContinuousJog('Z', 1); HapticFeedback.lightImpact(); },
-                              onStop: () { jogN.stopJog(); HapticFeedback.mediumImpact(); },
-                            ),
-                            const SizedBox(width: 8),
-                            _AxisHoldBtn(
-                              label: 'Z−',
-                              color: AppColors.axisZ,
-                              onHold: () { jogN.startContinuousJog('Z', -1); HapticFeedback.lightImpact(); },
-                              onStop: () { jogN.stopJog(); HapticFeedback.mediumImpact(); },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  const CncSectionLabel('AXES LINÉAIRES'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Croix XY
+                      DpadCross(
+                        onXPlus:  () => jogN.jogLinear('X', 1),
+                        onXMinus: () => jogN.jogLinear('X', -1),
+                        onYPlus:  () => jogN.jogLinear('Y', 1),
+                        onYMinus: () => jogN.jogLinear('Y', -1),
+                        onStop:   () => jogN.stopJog(),
+                        size: 130,
+                      ),
+                      // Z buttons
+                      Column(
+                        children: [
+                          ZAxisButton(isPlus: true, onTap: () => jogN.jogLinear('Z', 1)),
+                          const SizedBox(height: 8),
+                          ZAxisButton(isPlus: false, onTap: () => jogN.jogLinear('Z', -1)),
+                        ],
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(width: 12),
-
-                  // Axes rotatifs A et C avec molettes rotatives
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        const CncSectionLabel('ROTATIFS'),
-                        const SizedBox(height: 4),
-                        // Molette rotative Axe A (Tilt, limited to -90/90)
-                        CncJogDial(
-                          axis: 'A',
-                          label: 'TILT (BERCEAU)',
-                          color: AppColors.axisA,
-                          currentValue: wPos[3],
-                          multiplier: multiplier,
-                          onJog: (step) {
-                            ref.read(machineRepositoryProvider).jog('A', step, 3600);
-                          },
-                          size: 74,
-                        ),
-                        const SizedBox(height: 12),
-                        // Molette rotative Axe C (Plateau, 0-360)
-                        CncJogDial(
-                          axis: 'C',
-                          label: 'PLATEAU ROTATIF',
-                          color: AppColors.axisC,
-                          currentValue: wPos[4],
-                          multiplier: multiplier,
-                          onJog: (step) {
-                            ref.read(machineRepositoryProvider).jog('C', step, 3600);
-                          },
-                          size: 74,
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 16),
+                  const CncSectionLabel('AXES ROTATIFS'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Axe A
+                      Column(
+                        children: [
+                          ArcGauge(
+                            value: wPos[3],
+                            minValue: -90,
+                            maxValue: 90,
+                            color: AppColors.axisA,
+                            axisLabel: 'A',
+                            size: 110,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              RotaryJogButton(isPlus: false, axisLabel: 'A', color: AppColors.axisA,
+                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600)),
+                              const SizedBox(width: 8),
+                              RotaryJogButton(isPlus: true, axisLabel: 'A', color: AppColors.axisA,
+                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      // Axe C
+                      Column(
+                        children: [
+                          RingGauge(
+                            value: wPos[4] % 360,
+                            color: AppColors.axisC,
+                            axisLabel: 'C',
+                            size: 100,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              RotaryJogButton(isPlus: false, axisLabel: 'C', color: AppColors.axisC,
+                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600)),
+                              const SizedBox(width: 8),
+                              RotaryJogButton(isPlus: true, axisLabel: 'C', color: AppColors.axisC,
+                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // JOG STOP global
+                  CncKeyButton(
+                    height: 44,
+                    color: AppColors.danger,
+                    isDanger: true,
+                    onTap: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.stop_rounded, color: AppColors.danger, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('JOG STOP  [0x85]',
+                          style: TextStyle(
+                              color: AppColors.danger,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8)),
+                    ]),
                   ),
                 ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // JOG STOP global
-              CncKeyButton(
-                height: 44,
-                color: AppColors.danger,
-                isDanger: true,
-                onTap: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.stop_rounded, color: AppColors.danger, size: 18),
-                  const SizedBox(width: 8),
-                  const Text('JOG STOP  [0x85]',
-                      style: TextStyle(
-                          color: AppColors.danger,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8)),
-                ]),
               ),
             ],
           ),
@@ -960,89 +993,6 @@ class _JogPanel5Axis extends ConsumerWidget {
   }
 
 }
-
-/// Bouton axe avec hold pour jog continu — version interne.
-/// [onHold] est appelé en boucle tant que le bouton est pressé.
-/// [onStop] est appelé quand le bouton est relâché → envoie \x85 (jog cancel).
-class _AxisHoldBtn extends StatefulWidget {
-  final String label;
-  final Color color;
-  final VoidCallback onHold;
-  final VoidCallback? onStop;
-  const _AxisHoldBtn({
-    required this.label,
-    required this.color,
-    required this.onHold,
-    this.onStop,
-  });
-
-  @override
-  State<_AxisHoldBtn> createState() => _AxisHoldBtnState();
-}
-
-class _AxisHoldBtnState extends State<_AxisHoldBtn> {
-  bool _pressed = false;
-  Timer? _timer;
-
-  void _start() {
-    if (_pressed) return;
-    setState(() => _pressed = true);
-    widget.onHold();
-    _timer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      if (_pressed) widget.onHold();
-    });
-  }
-
-  void _stop() {
-    _timer?.cancel();
-    _timer = null;
-    if (mounted) setState(() => _pressed = false);
-    // ✅ Envoie \x85 pour annuler le jog en cours
-    widget.onStop?.call();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _start(),
-      onTapUp: (_) => _stop(),
-      onTapCancel: _stop,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 60),
-        width: 56,
-        height: 36,
-        transform: _pressed ? Matrix4.translationValues(0, 1.5, 0) : Matrix4.identity(),
-        decoration: BoxDecoration(
-          color: _pressed ? widget.color.withValues(alpha: 0.18) : AppColors.keyBezel,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: _pressed ? widget.color.withValues(alpha: 0.7) : AppColors.keyBorder,
-            width: 1.5,
-          ),
-          boxShadow: _pressed
-              ? null
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), offset: const Offset(0, 2), blurRadius: 3)],
-        ),
-        child: Center(
-          child: Text(widget.label,
-              style: TextStyle(
-                  color: _pressed ? widget.color : AppColors.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono')),
-        ),
-      ),
-    );
-  }
-}
-
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FOOTER DU PUPITRE
