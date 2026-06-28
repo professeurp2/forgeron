@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/gcode_provider.dart';
@@ -12,6 +12,7 @@ import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/gauge_widgets.dart';
 import '../widgets/dashboard/workshop_layout.dart';
 import '../widgets/trunnion_visualizer.dart';
+import 'cnc_panel_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -55,7 +56,7 @@ class _DashboardLayout extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.fc.background,
       body: Row(
         children: [
           // ── Zone centrale : Header machine + Visualisateur + Programme ──
@@ -67,7 +68,7 @@ class _DashboardLayout extends ConsumerWidget {
           // ── Séparateur ──
           Container(
             width: 1,
-            color: AppColors.surfaceBorder,
+            color: context.fc.surfaceBorder,
           ),
 
           // ── Panel droit : DRO + JOG + Quick Actions ──
@@ -102,14 +103,14 @@ class _CenterZone extends ConsumerWidget {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
+            color: context.fc.surface,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
           ),
           child: Row(
             children: [
               Text('FORGERON',
                   style: TextStyle(
-                      color: AppColors.primary,
+                      color: context.fc.primary,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2)),
@@ -119,9 +120,9 @@ class _CenterZone extends ConsumerWidget {
                 width: 8, height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isOnline ? AppColors.success : AppColors.textDisabled,
+                  color: isOnline ? context.fc.success : context.fc.textDisabled,
                   boxShadow: isOnline
-                      ? [BoxShadow(color: AppColors.success, blurRadius: 8)]
+                      ? [BoxShadow(color: context.fc.success, blurRadius: 8)]
                       : null,
                 ),
               ),
@@ -132,7 +133,7 @@ class _CenterZone extends ConsumerWidget {
                   height: 6,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceBorder,
+                    color: context.fc.surfaceBorder,
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: FractionallySizedBox(
@@ -140,7 +141,7 @@ class _CenterZone extends ConsumerWidget {
                     widthFactor: ((state?.overrides.isNotEmpty == true ? state!.overrides[0] : 100) / 200).clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: context.fc.primary,
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -150,7 +151,7 @@ class _CenterZone extends ConsumerWidget {
               const SizedBox(width: 8),
               Text('$spindle RPM',
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.fc.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'JetBrains Mono')),
@@ -165,9 +166,9 @@ class _CenterZone extends ConsumerWidget {
           child: Container(
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A0C10),
+              color: context.fc.background,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.surfaceBorder),
+              border: Border.all(color: context.fc.surfaceBorder),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(7),
@@ -180,13 +181,13 @@ class _CenterZone extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.surface.withValues(alpha: 0.9),
+                        color: context.fc.surface.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.surfaceBorder),
+                        border: Border.all(color: context.fc.surfaceBorder),
                       ),
-                      child: const Text('CENTER',
+                      child: Text('CENTER',
                           style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: context.fc.textSecondary,
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1)),
@@ -197,7 +198,7 @@ class _CenterZone extends ConsumerWidget {
                     top: 8, right: 8,
                     child: Consumer(
                       builder: (ctx, r, _) => IconButton(
-                        icon: const Icon(Icons.fullscreen, color: AppColors.textDisabled, size: 20),
+                        icon: Icon(Icons.fullscreen, color: context.fc.textDisabled, size: 20),
                         onPressed: () => r.read(isVisualizerFullScreenProvider.notifier).state = true,
                         tooltip: 'Plein écran',
                       ),
@@ -223,7 +224,7 @@ class _CenterZone extends ConsumerWidget {
                     title: 'PROGRAMME',
                     child: gcodeState.allLines.isEmpty
                         ? Text('Aucun programme chargé',
-                            style: TextStyle(color: AppColors.textDisabled, fontSize: 10))
+                            style: TextStyle(color: context.fc.textDisabled, fontSize: 10))
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -236,7 +237,7 @@ class _CenterZone extends ConsumerWidget {
                               final isActive = e.key == (state?.activeLineIndex ?? 0);
                               return Text('${e.key + 1}  ${e.value}',
                                   style: TextStyle(
-                                      color: isActive ? AppColors.primary : AppColors.textSecondary,
+                                      color: isActive ? context.fc.primary : context.fc.textSecondary,
                                       fontSize: 9,
                                       fontFamily: 'JetBrains Mono',
                                       fontWeight: isActive ? FontWeight.w900 : FontWeight.normal),
@@ -255,22 +256,22 @@ class _CenterZone extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Execution timeline',
-                            style: TextStyle(color: AppColors.textDisabled, fontSize: 10)),
+                        Text('Execution timeline',
+                            style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
                         const SizedBox(height: 8),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: progress / 100,
                             minHeight: 10,
-                            backgroundColor: AppColors.surfaceBorder,
-                            color: AppColors.primary,
+                            backgroundColor: context.fc.surfaceBorder,
+                            color: context.fc.primary,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text('${progress.toStringAsFixed(1)}%',
                             style: TextStyle(
-                                color: AppColors.primary,
+                                color: context.fc.primary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
                                 fontFamily: 'JetBrains Mono')),
@@ -291,12 +292,12 @@ class _CenterZone extends ConsumerWidget {
                         _CompactFeedBar(
                           label: 'Feed override',
                           value: (state?.overrides.isNotEmpty == true ? state!.overrides[0] : 100).toDouble(),
-                          max: 200, color: AppColors.primary),
+                          max: 200, color: context.fc.primary),
                         const SizedBox(height: 8),
                         _CompactFeedBar(
                           label: 'Spindle override',
                           value: (state?.overrides.length == 3 ? state!.overrides[2] : 100).toDouble(),
-                          max: 200, color: AppColors.secondary),
+                          max: 200, color: context.fc.secondary),
                       ],
                     ),
                   ),
@@ -319,9 +320,9 @@ class _DashCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(color: context.fc.surfaceBorder),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -330,13 +331,13 @@ class _DashCard extends StatelessWidget {
         children: [
           Row(children: [
             Text(title,
-                style: const TextStyle(
-                    color: AppColors.textSecondary,
+                style: TextStyle(
+                    color: context.fc.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1)),
             const Spacer(),
-            const Icon(Icons.more_horiz, color: AppColors.textDisabled, size: 14),
+            Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
           ]),
           const SizedBox(height: 8),
           child,
@@ -361,7 +362,7 @@ class _CompactFeedBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(children: [
-          Text(label, style: const TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+          Text(label, style: TextStyle(color: context.fc.textDisabled, fontSize: 9)),
           const Spacer(),
           Text('${value.toInt()}%',
               style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
@@ -372,7 +373,7 @@ class _CompactFeedBar extends StatelessWidget {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 6,
-            backgroundColor: AppColors.surfaceBorder,
+            backgroundColor: context.fc.surfaceBorder,
             color: color,
           ),
         ),
@@ -389,11 +390,11 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = state?.status ?? MachineStatus.offline;
     final color = switch (status) {
-      MachineStatus.idle  => AppColors.success,
-      MachineStatus.run   => AppColors.primary,
-      MachineStatus.hold  => AppColors.warning,
-      MachineStatus.alarm => AppColors.error,
-      _                   => AppColors.textDisabled,
+      MachineStatus.idle  => context.fc.success,
+      MachineStatus.run   => context.fc.primary,
+      MachineStatus.hold  => context.fc.warning,
+      MachineStatus.alarm => context.fc.error,
+      _                   => context.fc.textDisabled,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -419,7 +420,7 @@ class _RightPanel extends ConsumerWidget {
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
 
     return Container(
-      color: AppColors.surface,
+      color: context.fc.surface,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -428,68 +429,189 @@ class _RightPanel extends ConsumerWidget {
             // ── POSITION DRO ──────────────────────────────────────────
             _PanelSectionHeader(title: 'POSITION DRO', trailing: Text(
               'W-value − Target',
-              style: TextStyle(color: AppColors.textDisabled, fontSize: 9),
+              style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
             )),
             const SizedBox(height: 8),
-            _DroBig(label: 'X', value: wPos[0], color: AppColors.axisX),
-            _DroBig(label: 'Y', value: wPos[1], color: AppColors.axisY),
-            _DroBig(label: 'Z', value: wPos[2], color: AppColors.axisZ),
-            _DroBig(label: 'A', value: wPos[3], color: AppColors.axisA, isRotary: true),
-            _DroBig(label: 'C', value: wPos[4], color: AppColors.axisC, isRotary: true),
+            _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX),
+            _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY),
+            _DroBig(label: 'Z', value: wPos[2], color: context.fc.axisZ),
+            _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true),
+            _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true),
 
             const SizedBox(height: 16),
-            Container(height: 1, color: AppColors.surfaceBorder),
+            Container(height: 1, color: context.fc.surfaceBorder),
             const SizedBox(height: 16),
 
             // ── JOG CONTROL ──────────────────────────────────────────
             const _PanelSectionHeader(title: 'JOG CONTROL'),
             const SizedBox(height: 12),
 
-            // Croix X + Jauge A en row
+            // Section PAS (x1 / x10 / x100)
+            Text('PAS (INCRÉMENT)',
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Consumer(builder: (ctx, r, _) {
+              final multiplier = r.watch(cncJogMultiplierProvider);
+              return Row(
+                children: [
+                  for (final mult in [1, 10, 100])
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: GestureDetector(
+                          onTap: () {
+                            r.read(cncJogMultiplierProvider.notifier).state = mult;
+                            r.read(audioServiceProvider).play(SoundEffect.click);
+                            HapticFeedback.selectionClick();
+                          },
+                          child: Container(
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: multiplier == mult
+                                  ? context.fc.primary.withValues(alpha: 0.15)
+                                  : context.fc.surfaceBright,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: multiplier == mult
+                                    ? context.fc.primary
+                                    : context.fc.surfaceBorder,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text('×$mult',
+                                  style: TextStyle(
+                                      color: multiplier == mult
+                                          ? context.fc.primary
+                                          : context.fc.textSecondary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: 'JetBrains Mono')),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            }),
+
+            const SizedBox(height: 16),
+
+            // Section AXES LINÉAIRES (X / Y / Z)
+            Text('AXES LINÉAIRES',
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Dpad XY
+                Consumer(builder: (ctx, r, _) {
+                  final jogN = r.read(secureJogProvider.notifier);
+                  return DpadCross(
+                    size: 120,
+                    onXPlus:  () => jogN.jogLinear('X', 1),
+                    onXMinus: () => jogN.jogLinear('X', -1),
+                    onYPlus:  () => jogN.jogLinear('Y', 1),
+                    onYMinus: () => jogN.jogLinear('Y', -1),
+                    onStop:   () => jogN.stopJog(),
+                  );
+                }),
+                // Axe Z
+                Consumer(builder: (ctx, r, _) {
+                  final jogN = r.read(secureJogProvider.notifier);
+                  return Column(
+                    children: [
+                      ZAxisButton(isPlus: true, onTap: () => jogN.jogLinear('Z', 1)),
+                      const SizedBox(height: 6),
+                      ZAxisButton(isPlus: false, onTap: () => jogN.jogLinear('Z', -1)),
+                    ],
+                  );
+                }),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Section AXES ROTATIFS (A / C)
+            Text('AXES ROTATIFS',
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Croix XY centrale
-                Expanded(
-                  child: Consumer(builder: (ctx, r, _) {
-                    final jogN = r.read(secureJogProvider.notifier);
-                    return DpadCross(
-                      size: 130,
-                      onXPlus:  () => jogN.jogLinear('X', 1),
-                      onXMinus: () => jogN.jogLinear('X', -1),
-                      onYPlus:  () => jogN.jogLinear('Y', 1),
-                      onYMinus: () => jogN.jogLinear('Y', -1),
-                      onStop:   () => jogN.stopJog(),
-                    );
-                  }),
+                // Axe A
+                Column(
+                  children: [
+                    ArcGauge(
+                      value: wPos[3],
+                      minValue: -90,
+                      maxValue: 90,
+                      color: context.fc.axisA,
+                      axisLabel: 'A',
+                      size: 110,
+                    ),
+                    const SizedBox(height: 6),
+                    Consumer(builder: (ctx, r, _) {
+                      final multiplier = r.watch(cncJogMultiplierProvider);
+                      return Row(
+                        children: [
+                          RotaryJogButton(
+                            isPlus: false,
+                            axisLabel: 'A',
+                            color: context.fc.axisA,
+                            onTap: () => r.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600),
+                          ),
+                          const SizedBox(width: 4),
+                          RotaryJogButton(
+                            isPlus: true,
+                            axisLabel: 'A',
+                            color: context.fc.axisA,
+                            onTap: () => r.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                // Jauge axe A
-                ArcGauge(
-                  value: wPos[3],
-                  minValue: -90,
-                  maxValue: 90,
-                  color: AppColors.axisA,
-                  axisLabel: 'A',
-                  size: 110,
+                // Axe C
+                Column(
+                  children: [
+                    RingGauge(
+                      value: wPos[4] % 360,
+                      color: context.fc.axisC,
+                      axisLabel: 'C',
+                      size: 90,
+                    ),
+                    const SizedBox(height: 6),
+                    Consumer(builder: (ctx, r, _) {
+                      final multiplier = r.watch(cncJogMultiplierProvider);
+                      return Row(
+                        children: [
+                          RotaryJogButton(
+                            isPlus: false,
+                            axisLabel: 'C',
+                            color: context.fc.axisC,
+                            onTap: () => r.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600),
+                          ),
+                          const SizedBox(width: 4),
+                          RotaryJogButton(
+                            isPlus: true,
+                            axisLabel: 'C',
+                            color: context.fc.axisC,
+                            onTap: () => r.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
                 ),
               ],
             ),
 
-            const SizedBox(height: 12),
-
-            // Jauge axe C (pleine largeur)
-            Center(
-              child: RingGauge(
-                value: wPos[4] % 360,
-                color: AppColors.axisC,
-                axisLabel: 'C',
-                size: 120,
-              ),
-            ),
-
             const SizedBox(height: 16),
-            Container(height: 1, color: AppColors.surfaceBorder),
+            Container(height: 1, color: context.fc.surfaceBorder),
             const SizedBox(height: 16),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
@@ -501,16 +623,16 @@ class _RightPanel extends ConsumerWidget {
               final audio = r.read(audioServiceProvider);
               return Row(
                 children: [
-                  _QAction(label: 'CYCLE\nSTART', color: AppColors.success, icon: Icons.play_arrow_rounded,
+                  _QAction(label: 'CYCLE\nSTART', color: context.fc.success, icon: Icons.play_arrow_rounded,
                     onTap: () { repo.resume(); audio.play(SoundEffect.click); HapticFeedback.mediumImpact(); }),
                   const SizedBox(width: 6),
-                  _QAction(label: 'FEED\nHOLD', color: AppColors.warning, icon: Icons.pause_rounded,
+                  _QAction(label: 'FEED\nHOLD', color: context.fc.warning, icon: Icons.pause_rounded,
                     onTap: () { repo.pause(); audio.play(SoundEffect.click); HapticFeedback.mediumImpact(); }),
                   const SizedBox(width: 6),
-                  _QAction(label: 'E-STOP', color: AppColors.danger, icon: Icons.bolt_rounded,
+                  _QAction(label: 'E-STOP', color: context.fc.danger, icon: Icons.bolt_rounded,
                     onTap: () { repo.emergencyStop(); audio.play(SoundEffect.alarm); HapticFeedback.vibrate(); }),
                   const SizedBox(width: 6),
-                  _QAction(label: 'JOG\nSTOP', color: AppColors.primary, icon: Icons.stop_rounded,
+                  _QAction(label: 'JOG\nSTOP', color: context.fc.primary, icon: Icons.stop_rounded,
                     onTap: () { r.read(secureJogProvider.notifier).stopJog(); audio.play(SoundEffect.alert); HapticFeedback.heavyImpact(); }),
                 ],
               );
@@ -533,14 +655,14 @@ class _PanelSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(children: [
       Text(title,
-          style: const TextStyle(
-              color: AppColors.textSecondary,
+          style: TextStyle(
+              color: context.fc.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2)),
       const Spacer(),
       if (trailing case final t?) t,
-      const Icon(Icons.more_horiz, color: AppColors.textDisabled, size: 14),
+      Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
     ]);
   }
 }
@@ -567,7 +689,7 @@ class _DroBig extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: context.fc.background,
         borderRadius: BorderRadius.circular(4),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),

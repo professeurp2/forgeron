@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/forgeron_colors.dart';
+import 'application/providers/theme_provider.dart';
 import 'presentation/screens/main_scaffold.dart';
-
-import 'package:flutter/foundation.dart';
 
 void main() {
   PlatformDispatcher.instance.onError = (error, stack) {
@@ -14,16 +15,24 @@ void main() {
   runApp(const ProviderScope(child: ForgeronApp()));
 }
 
-class ForgeronApp extends StatelessWidget {
+class ForgeronApp extends ConsumerWidget {
   const ForgeronApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Forgeron — CNC 5 Axes',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const MainScaffold(),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final palette = themeMode == ThemeMode.dark ? forgeronDarkColors : forgeronLightColors;
+
+    return ForgeronTheme(
+      colors: palette,
+      child: MaterialApp(
+        title: 'Forgeron — CNC 5 Axes',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeMode,
+        home: const MainScaffold(),
+      ),
     );
   }
 }

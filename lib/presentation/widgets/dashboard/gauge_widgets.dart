@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/services/audio_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -80,7 +80,10 @@ class _ArcGaugeState extends State<ArcGauge>
           value: _displayValue,
           minValue: widget.minValue,
           maxValue: widget.maxValue,
-          color: atLimit ? AppColors.danger : widget.color,
+          color: atLimit ? context.fc.danger : widget.color,
+          surfaceBorder: context.fc.surfaceBorder,
+          textDisabled: context.fc.textDisabled,
+          danger: context.fc.danger,
         ),
         child: Align(
           alignment: const Alignment(0, 0.5),
@@ -90,13 +93,13 @@ class _ArcGaugeState extends State<ArcGauge>
               Text(
                 '${_displayValue >= 0 ? '+' : ''}${_displayValue.toStringAsFixed(1)}°',
                 style: TextStyle(
-                  color: atLimit ? AppColors.danger : AppColors.textPrimary,
+                  color: atLimit ? context.fc.danger : context.fc.textPrimary,
                   fontSize: widget.size * 0.135,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono',
                   shadows: [
                     Shadow(
-                      color: (atLimit ? AppColors.danger : widget.color)
+                      color: (atLimit ? context.fc.danger : widget.color)
                           .withValues(alpha: 0.5),
                       blurRadius: 12,
                     ),
@@ -106,7 +109,7 @@ class _ArcGaugeState extends State<ArcGauge>
               Text(
                 'AXE ${widget.axisLabel}',
                 style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: widget.size * 0.065,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
@@ -125,12 +128,18 @@ class _ArcGaugePainter extends CustomPainter {
   final double minValue;
   final double maxValue;
   final Color color;
+  final Color surfaceBorder;
+  final Color textDisabled;
+  final Color danger;
 
   _ArcGaugePainter({
     required this.value,
     required this.minValue,
     required this.maxValue,
     required this.color,
+    required this.surfaceBorder,
+    required this.textDisabled,
+    required this.danger,
   });
 
   @override
@@ -145,7 +154,7 @@ class _ArcGaugePainter extends CustomPainter {
 
     // ── Arc de fond (piste grise) ──
     final trackPaint = Paint()
-      ..color = AppColors.surfaceBorder
+      ..color = surfaceBorder
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
@@ -190,8 +199,8 @@ class _ArcGaugePainter extends CustomPainter {
       final innerR = outerR - tickLen;
       final tickPaint = Paint()
         ..color = isMajor
-            ? AppColors.textDisabled.withValues(alpha: 0.6)
-            : AppColors.textDisabled.withValues(alpha: 0.25)
+            ? textDisabled.withValues(alpha: 0.6)
+            : textDisabled.withValues(alpha: 0.25)
         ..strokeWidth = isMajor ? 1.5 : 1.0;
       canvas.drawLine(
         Offset(cx + math.cos(angle) * innerR, cy + math.sin(angle) * innerR),
@@ -233,7 +242,7 @@ class _ArcGaugePainter extends CustomPainter {
       tp.text = TextSpan(
         text: text,
         style: TextStyle(
-            color: AppColors.textDisabled,
+            color: textDisabled,
             fontSize: 9,
             fontFamily: 'JetBrains Mono',
             fontWeight: FontWeight.w700),
@@ -317,6 +326,8 @@ class _RingGaugeState extends State<RingGauge>
         painter: _RingGaugePainter(
           value: _displayValue,
           color: widget.color,
+          surfaceBorder: context.fc.surfaceBorder,
+          textDisabled: context.fc.textDisabled,
         ),
         child: Center(
           child: Column(
@@ -325,7 +336,7 @@ class _RingGaugeState extends State<RingGauge>
               Text(
                 '${_displayValue.toStringAsFixed(1)}°',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: context.fc.textPrimary,
                   fontSize: widget.size * 0.13,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono',
@@ -340,7 +351,7 @@ class _RingGaugeState extends State<RingGauge>
               Text(
                 'AXE ${widget.axisLabel}',
                 style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: widget.size * 0.065,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
@@ -357,8 +368,15 @@ class _RingGaugeState extends State<RingGauge>
 class _RingGaugePainter extends CustomPainter {
   final double value;
   final Color color;
+  final Color surfaceBorder;
+  final Color textDisabled;
 
-  const _RingGaugePainter({required this.value, required this.color});
+  const _RingGaugePainter({
+    required this.value,
+    required this.color,
+    required this.surfaceBorder,
+    required this.textDisabled,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -370,7 +388,7 @@ class _RingGaugePainter extends CustomPainter {
 
     // ── Piste de fond ──
     final trackPaint = Paint()
-      ..color = AppColors.surfaceBorder
+      ..color = surfaceBorder
       ..style = PaintingStyle.stroke
       ..strokeWidth = outerR - innerR;
     canvas.drawCircle(Offset(cx, cy), midR, trackPaint);
@@ -406,8 +424,8 @@ class _RingGaugePainter extends CustomPainter {
         dotPos, dotR,
         Paint()
           ..color = isMajor
-              ? AppColors.textDisabled.withValues(alpha: 0.6)
-              : AppColors.textDisabled.withValues(alpha: 0.25),
+              ? textDisabled.withValues(alpha: 0.6)
+              : textDisabled.withValues(alpha: 0.25),
       );
     }
 
@@ -489,7 +507,7 @@ class DpadCross extends StatelessWidget {
             left: size / 2 - btnSize / 2,
             child: _DpadBtn(
               icon: Icons.arrow_drop_up_rounded,
-              color: AppColors.axisY,
+              color: context.fc.axisY,
               size: btnSize,
               onTap: onYPlus,
             ),
@@ -500,7 +518,7 @@ class DpadCross extends StatelessWidget {
             left: size / 2 - btnSize / 2,
             child: _DpadBtn(
               icon: Icons.arrow_drop_down_rounded,
-              color: AppColors.axisY,
+              color: context.fc.axisY,
               size: btnSize,
               onTap: onYMinus,
             ),
@@ -511,7 +529,7 @@ class DpadCross extends StatelessWidget {
             top: size / 2 - btnSize / 2,
             child: _DpadBtn(
               icon: Icons.arrow_left_rounded,
-              color: AppColors.axisX,
+              color: context.fc.axisX,
               size: btnSize,
               onTap: onXMinus,
             ),
@@ -522,7 +540,7 @@ class DpadCross extends StatelessWidget {
             top: size / 2 - btnSize / 2,
             child: _DpadBtn(
               icon: Icons.arrow_right_rounded,
-              color: AppColors.axisX,
+              color: context.fc.axisX,
               size: btnSize,
               onTap: onXPlus,
             ),
@@ -576,11 +594,11 @@ class _DpadBtnState extends ConsumerState<_DpadBtn> {
           shape: BoxShape.circle,
           color: _pressed
               ? widget.color.withValues(alpha: 0.25)
-              : AppColors.surfaceBright,
+              : context.fc.surfaceBright,
           border: Border.all(
             color: _pressed
                 ? widget.color.withValues(alpha: 0.7)
-                : AppColors.surfaceBorder,
+                : context.fc.surfaceBorder,
             width: 1.5,
           ),
           boxShadow: [
@@ -599,7 +617,7 @@ class _DpadBtnState extends ConsumerState<_DpadBtn> {
         ),
         child: Icon(
           widget.icon,
-          color: _pressed ? widget.color : AppColors.textSecondary,
+          color: _pressed ? widget.color : context.fc.textSecondary,
           size: widget.size * 0.55,
         ),
       ),
@@ -640,12 +658,12 @@ class _DpadStopBtnState extends ConsumerState<_DpadStopBtn> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: _pressed
-              ? AppColors.danger.withValues(alpha: 0.2)
-              : AppColors.surfaceBright,
+              ? context.fc.danger.withValues(alpha: 0.2)
+              : context.fc.surfaceBright,
           border: Border.all(
             color: _pressed
-                ? AppColors.danger.withValues(alpha: 0.6)
-                : AppColors.surfaceBorder,
+                ? context.fc.danger.withValues(alpha: 0.6)
+                : context.fc.surfaceBorder,
             width: 1.5,
           ),
           boxShadow: [
@@ -656,7 +674,7 @@ class _DpadStopBtnState extends ConsumerState<_DpadStopBtn> {
             ),
             if (_pressed)
               BoxShadow(
-                color: AppColors.danger.withValues(alpha: 0.25),
+                color: context.fc.danger.withValues(alpha: 0.25),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -665,8 +683,8 @@ class _DpadStopBtnState extends ConsumerState<_DpadStopBtn> {
         child: Icon(
           Icons.stop_rounded,
           color: _pressed
-              ? AppColors.danger
-              : AppColors.textDisabled.withValues(alpha: 0.5),
+              ? context.fc.danger
+              : context.fc.textDisabled.withValues(alpha: 0.5),
           size: widget.size * 0.45,
         ),
       ),
@@ -708,16 +726,16 @@ class _ZAxisButtonState extends ConsumerState<ZAxisButton> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           color: _pressed
-              ? AppColors.axisZ.withValues(alpha: 0.2)
-              : AppColors.surfaceBright,
+              ? context.fc.axisZ.withValues(alpha: 0.2)
+              : context.fc.surfaceBright,
           border: Border.all(
             color: _pressed
-                ? AppColors.axisZ.withValues(alpha: 0.7)
-                : AppColors.surfaceBorder,
+                ? context.fc.axisZ.withValues(alpha: 0.7)
+                : context.fc.surfaceBorder,
             width: 1.5,
           ),
           boxShadow: _pressed
-              ? [BoxShadow(color: AppColors.axisZ.withValues(alpha: 0.2), blurRadius: 8)]
+              ? [BoxShadow(color: context.fc.axisZ.withValues(alpha: 0.2), blurRadius: 8)]
               : [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))],
         ),
         child: Column(
@@ -725,13 +743,13 @@ class _ZAxisButtonState extends ConsumerState<ZAxisButton> {
           children: [
             Icon(
               widget.isPlus ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
-              color: _pressed ? AppColors.axisZ : AppColors.axisZ.withValues(alpha: 0.6),
+              color: _pressed ? context.fc.axisZ : context.fc.axisZ.withValues(alpha: 0.6),
               size: 22,
             ),
             Text(
               widget.isPlus ? 'Z+' : 'Z−',
               style: TextStyle(
-                color: _pressed ? AppColors.axisZ : AppColors.axisZ.withValues(alpha: 0.6),
+                color: _pressed ? context.fc.axisZ : context.fc.axisZ.withValues(alpha: 0.6),
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
                 fontFamily: 'JetBrains Mono',
@@ -787,7 +805,7 @@ class _RotaryJogButtonState extends ConsumerState<RotaryJogButton> {
           borderRadius: BorderRadius.circular(20),
           color: _pressed
               ? widget.color.withValues(alpha: 0.2)
-              : AppColors.surfaceBright,
+              : context.fc.surfaceBright,
           border: Border.all(
             color: _pressed
                 ? widget.color.withValues(alpha: 0.8)
@@ -884,9 +902,9 @@ class _DroBigCardState extends State<DroBigCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.surfaceBorder, width: 1),
+        border: Border.all(color: context.fc.surfaceBorder, width: 1),
         boxShadow: moving
             ? [BoxShadow(
                 color: widget.color.withValues(alpha: 0.08),
@@ -944,7 +962,7 @@ class _DroBigCardState extends State<DroBigCard> {
                                   ? Icons.arrow_drop_up_rounded
                                   : Icons.arrow_drop_down_rounded)
                               : Icons.remove,
-                          color: isUp ? AppColors.success : AppColors.danger,
+                          color: isUp ? context.fc.success : context.fc.danger,
                           size: 20,
                         ),
                       ),
@@ -954,7 +972,7 @@ class _DroBigCardState extends State<DroBigCard> {
                           displayVal,
                           textAlign: TextAlign.right,
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: context.fc.textPrimary,
                             fontSize: widget.isRotary ? 20 : 24,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'JetBrains Mono',

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
+import '../../application/providers/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
@@ -83,7 +85,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   Widget _buildDesktopScaffold(AsyncValue<MachineState> machineState, int selectedIndex, bool isExpanded) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.fc.background,
       bottomNavigationBar: _StatusFooter(
         key: TutorialKeys.statusFooter,
         machineState: machineState,
@@ -117,7 +119,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 ),
                 Expanded(
                   child: Container(
-                    color: AppColors.background,
+                    color: context.fc.background,
                     child: _screens[selectedIndex],
                   ),
                 ),
@@ -333,15 +335,15 @@ class _HeaderBar extends ConsumerWidget {
         state?.status != MachineStatus.offline;
     final statusLabel =
         state?.status.name.toUpperCase() ?? 'HORS LIGNE';
-    final statusColor = _statusColor(state?.status ?? MachineStatus.offline);
+    final statusColor = _statusColor(context, state?.status ?? MachineStatus.offline);
     final ip = ref.watch(espIpProvider);
 
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
+        color: context.fc.surface,
+        border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
       ),
       child: Row(
         children: [
@@ -349,7 +351,7 @@ class _HeaderBar extends ConsumerWidget {
             key: TutorialKeys.menuToggleBtn,
             icon: Icon(
                 isSidebarExpanded ? Icons.menu_open : Icons.menu,
-                color: AppColors.textPrimary),
+                color: context.fc.textPrimary),
             onPressed: onMenuToggle,
           ),
           SizedBox(width: 8),
@@ -358,7 +360,7 @@ class _HeaderBar extends ConsumerWidget {
           Text(
             'FORGERON',
             style: TextStyle(
-              color: AppColors.primary,
+              color: context.fc.primary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
               fontStyle: FontStyle.italic,
@@ -368,7 +370,7 @@ class _HeaderBar extends ConsumerWidget {
           SizedBox(width: 24),
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
-            color: isOnline ? AppColors.success : AppColors.error,
+            color: isOnline ? context.fc.success : context.fc.error,
             isActive: isOnline,
           ),
           SizedBox(width: 12),
@@ -381,21 +383,38 @@ class _HeaderBar extends ConsumerWidget {
           Text(
             ip,
             style: TextStyle(
-                color: AppColors.textDisabled,
+                color: context.fc.textDisabled,
                 fontSize: 10,
                 fontFamily: 'JetBrains Mono'),
           ),
           const Spacer(),
           IconButton(
+            icon: Icon(
+                ref.watch(themeModeProvider) == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                color: context.fc.textSecondary,
+                size: 20),
+            tooltip: 'Changer le thème',
+            onPressed: () {
+              final notifier = ref.read(themeModeProvider.notifier);
+              notifier.state = notifier.state == ThemeMode.dark
+                  ? ThemeMode.light
+                  : ThemeMode.dark;
+              ref.read(audioServiceProvider).play(SoundEffect.click);
+              HapticFeedback.lightImpact();
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.help_outline,
-                color: AppColors.textSecondary, size: 20),
+                color: context.fc.textSecondary, size: 20),
             tooltip: 'Tutoriel interactif',
             onPressed: () => ref.read(tutorialProvider.notifier).start(),
           ),
           IconButton(
             key: TutorialKeys.settingsBtn,
             icon: Icon(Icons.settings_ethernet,
-                color: AppColors.textSecondary, size: 20),
+                color: context.fc.textSecondary, size: 20),
             tooltip: 'Configuration de la connexion ESP32',
             onPressed: onSettingsPressed,
           ),
@@ -403,13 +422,13 @@ class _HeaderBar extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.danger.withValues(alpha: 0.1),
+              color: context.fc.danger.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ElevatedButton.icon(
               key: TutorialKeys.emergencyStopBtn,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.danger,
+                backgroundColor: context.fc.danger,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
@@ -417,8 +436,8 @@ class _HeaderBar extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               ),
               onPressed: onEmergencyStop,
-              icon: Icon(Icons.warning_amber, size: 18),
-              label: Text('ARRÊT D\'URGENCE',
+              icon: const Icon(Icons.warning_amber, size: 18),
+              label: const Text('ARRÊT D\'URGENCE',
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0,
@@ -430,20 +449,20 @@ class _HeaderBar extends ConsumerWidget {
     );
   }
 
-  Color _statusColor(MachineStatus s) {
+  Color _statusColor(BuildContext context, MachineStatus s) {
     switch (s) {
       case MachineStatus.idle:
-        return AppColors.success;
+        return context.fc.success;
       case MachineStatus.run:
-        return AppColors.primary;
+        return context.fc.primary;
       case MachineStatus.hold:
-        return AppColors.warning;
+        return context.fc.warning;
       case MachineStatus.alarm:
-        return AppColors.error;
+        return context.fc.error;
       case MachineStatus.home:
-        return AppColors.axisZ;
+        return context.fc.axisZ;
       default:
-        return AppColors.textDisabled;
+        return context.fc.textDisabled;
     }
   }
 }
@@ -470,13 +489,13 @@ class _StatusBadge extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isActive ? color : AppColors.textDisabled,
+              color: isActive ? color : context.fc.textDisabled,
               boxShadow: isActive
                   ? [BoxShadow(color: color, blurRadius: 8)]
                   : null,
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(label,
               style: TextStyle(
                   color: color,
@@ -510,8 +529,8 @@ class _Sidebar extends StatelessWidget {
       curve: Curves.easeInOut,
       width: isExpanded ? 260 : 72,
       decoration: BoxDecoration(
-        color: AppColors.sidebar,
-        border: Border(right: BorderSide(color: AppColors.surfaceBorder)),
+        color: context.fc.sidebar,
+        border: Border(right: BorderSide(color: context.fc.surfaceBorder)),
       ),
       child: Column(
         children: [
@@ -519,25 +538,25 @@ class _Sidebar extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
                 border: Border(
-                    bottom: BorderSide(color: AppColors.surfaceBorder))),
+                    bottom: BorderSide(color: context.fc.surfaceBorder))),
             child: isExpanded
                 ? Row(
                     children: [
                       Image.asset('assets/logo.png', height: 32),
-                      SizedBox(width: 12),
-                      const Expanded(
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('CNC_TRUNNION_5X',
                                 style: TextStyle(
-                                    color: AppColors.primary,
+                                    color: context.fc.primary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900)),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text('AXES: X Y Z A C',
                                 style: TextStyle(
-                                    color: AppColors.success,
+                                    color: context.fc.success,
                                     fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'JetBrains Mono')),
@@ -548,7 +567,7 @@ class _Sidebar extends StatelessWidget {
                   )
                 : Image.asset('assets/logo.png', height: 28),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           ...List.generate(items.length, (i) {
             final item = items[i];
             final selected = i == selectedIndex;
@@ -566,32 +585,32 @@ class _Sidebar extends StatelessWidget {
                 const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             decoration: BoxDecoration(
                 border:
-                    Border(top: BorderSide(color: AppColors.surfaceBorder))),
+                    Border(top: BorderSide(color: context.fc.surfaceBorder))),
             child: Row(
               mainAxisAlignment: isExpanded
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                const CircleAvatar(
-                  backgroundColor: AppColors.surfaceBright,
+                CircleAvatar(
+                  backgroundColor: context.fc.surfaceBright,
                   radius: 16,
                   child: Icon(Icons.person,
-                      color: AppColors.textSecondary, size: 18),
+                      color: context.fc.textSecondary, size: 18),
                 ),
                 if (isExpanded) ...[
-                  SizedBox(width: 12),
-                  const Expanded(
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('OPÉRATEUR L01',
                             style: TextStyle(
-                                color: AppColors.textPrimary,
+                                color: context.fc.textPrimary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10)),
                         Text('NIV_AUTH: ADMIN',
                             style: TextStyle(
-                                color: AppColors.primary,
+                                color: context.fc.primary,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'JetBrains Mono')),
@@ -632,12 +651,12 @@ class _NavItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.12)
+              ? context.fc.primary.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border(
               left: BorderSide(
-                  color: selected ? AppColors.primary : Colors.transparent,
+                  color: selected ? context.fc.primary : Colors.transparent,
                   width: 3)),
         ),
         child: Row(
@@ -645,20 +664,20 @@ class _NavItem extends StatelessWidget {
               ? MainAxisAlignment.start
               : MainAxisAlignment.center,
           children: [
-            SizedBox(width: isExpanded ? 12 : 0),
+            if (isExpanded) const SizedBox(width: 12),
             Icon(icon,
-                color: selected ? AppColors.primary : AppColors.textDisabled,
+                color: selected ? context.fc.primary : context.fc.textDisabled,
                 size: 20),
             if (isExpanded) ...[
-              SizedBox(width: 16),
+              const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   title,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: selected
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                        ? context.fc.textPrimary
+                        : context.fc.textSecondary,
                     fontWeight:
                         selected ? FontWeight.w900 : FontWeight.normal,
                     fontSize: 11,
@@ -691,21 +710,21 @@ class _StatusFooter extends StatelessWidget {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
+        color: context.fc.surface,
+        border: Border(top: BorderSide(color: context.fc.surfaceBorder)),
       ),
       child: Row(
         children: [
           Text('FORGERON v1.0.0',
               style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: 10,
                   fontFamily: 'JetBrains Mono')),
-          SizedBox(width: 24),
+          const SizedBox(width: 24),
           Text(
               'X:${mPos[0].toStringAsFixed(3)}  Y:${mPos[1].toStringAsFixed(3)}  Z:${mPos[2].toStringAsFixed(3)}  A:${mPos[3].toStringAsFixed(2)}°  C:${mPos[4].toStringAsFixed(2)}°',
               style: TextStyle(
-                  color: AppColors.secondary,
+                  color: context.fc.secondary,
                   fontSize: 10,
                   fontFamily: 'JetBrains Mono')),
           const Spacer(),
@@ -715,26 +734,26 @@ class _StatusFooter extends StatelessWidget {
               child: Row(children: [
                 Text('F:$feed mm/min',
                     style: TextStyle(
-                        color: AppColors.primary,
+                        color: context.fc.primary,
                         fontSize: 10,
                         fontFamily: 'JetBrains Mono')),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Text('S:$spindle RPM',
                     style: TextStyle(
-                        color: AppColors.primary,
+                        color: context.fc.primary,
                         fontSize: 10,
                         fontFamily: 'JetBrains Mono')),
-                SizedBox(width: 24),
+                const SizedBox(width: 24),
                 Icon(
                   isOnline ? Icons.wifi : Icons.wifi_off,
-                  color: isOnline ? AppColors.success : AppColors.error,
+                  color: isOnline ? context.fc.success : context.fc.error,
                   size: 12,
                 ),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text(
                   isOnline ? 'ESP32 CONNECTÉ' : 'DÉCONNECTÉ',
                   style: TextStyle(
-                      color: isOnline ? AppColors.success : AppColors.error,
+                      color: isOnline ? context.fc.success : context.fc.error,
                       fontSize: 10,
                       fontWeight: FontWeight.bold),
                 ),
