@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/forgeron_colors.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL WIDGETS — Composants réutilisables style pupitre FANUC industriel
@@ -701,12 +700,6 @@ class CncJogDial extends StatefulWidget {
   final int multiplier;
   final void Function(double step) onJog;
   final double size;
-  /// Limite inférieure (null = sans limite). Ex: A → -90
-  final double? minValue;
-  /// Limite supérieure (null = sans limite). Ex: A → 90
-  final double? maxValue;
-  /// Si true, la molette boucle en continu (ex: C 0°→360°)
-  final bool isContinuous;
 
   const CncJogDial({
     super.key,
@@ -717,9 +710,6 @@ class CncJogDial extends StatefulWidget {
     required this.multiplier,
     required this.onJog,
     this.size = 110,
-    this.minValue,
-    this.maxValue,
-    this.isContinuous = false,
   });
 
   @override
@@ -753,7 +743,7 @@ class _CncJogDialState extends State<CncJogDial> {
         SizedBox(height: 2),
         Text(
           widget.label,
-          style: TextStyle(color: context.fc.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
 
@@ -766,26 +756,22 @@ class _CncJogDialState extends State<CncJogDial> {
             final pos = details.localPosition;
             final dx = pos.dx - radius;
             final dy = pos.dy - radius;
-
+            
+            // Calcul de l'angle du point de contact actuel
             final currentAngle = math.atan2(dy, dx);
+            
+            // On retrouve le point précédent en soustrayant le delta de déplacement
             final prevX = dx - details.delta.dx;
             final prevY = dy - details.delta.dy;
             final prevAngle = math.atan2(prevY, prevX);
 
             double delta = currentAngle - prevAngle;
-
+            
+            // Ajustement pour éviter le saut lors de la transition -PI/PI
             if (delta > math.pi) delta -= 2 * math.pi;
             if (delta < -math.pi) delta += 2 * math.pi;
 
             if (delta.isNaN || delta.isInfinite) return;
-
-            // Bloquer visuellement si on est aux limites (pour les axes non-continus)
-            if (!widget.isContinuous && widget.minValue != null && widget.maxValue != null) {
-              final approxDeg = delta * 180 / math.pi;
-              final projected = widget.currentValue + approxDeg;
-              if (projected < widget.minValue! && delta < 0) return;
-              if (projected > widget.maxValue! && delta > 0) return;
-            }
 
             setState(() {
               _currentRotationAngle += delta;
@@ -804,29 +790,14 @@ class _CncJogDialState extends State<CncJogDial> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // 0. Arc de limite visuelle (pour les axes bornés comme A)
-              if (!widget.isContinuous && widget.minValue != null && widget.maxValue != null)
-                SizedBox(
-                  width: widget.size + 14,
-                  height: widget.size + 14,
-                  child: CustomPaint(
-                    painter: _LimitArcPainter(
-                      color: widget.color,
-                      minDeg: widget.minValue!,
-                      maxDeg: widget.maxValue!,
-                      currentDeg: widget.currentValue,
-                    ),
-                  ),
-                ),
-
               // 1. Cercle extérieur de fond avec graduations
               Container(
                 width: widget.size + 14,
                 height: widget.size + 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: context.fc.panelBody,
-                  border: Border.all(color: context.fc.keyBorder, width: 1.5),
+                  color: AppColors.panelBody,
+                  border: Border.all(color: AppColors.keyBorder, width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.4),
@@ -836,7 +807,7 @@ class _CncJogDialState extends State<CncJogDial> {
                   ],
                 ),
                 child: CustomPaint(
-                  painter: _DialTicksPainter(color: context.fc.keyBorder),
+                  painter: _DialTicksPainter(color: AppColors.keyBorder),
                 ),
               ),
 
@@ -852,8 +823,8 @@ class _CncJogDialState extends State<CncJogDial> {
                       center: Alignment.center,
                       radius: 0.95,
                       colors: [
-                        context.fc.surfaceBright,
-                        context.fc.keyBezel,
+                        AppColors.surfaceBright,
+                        AppColors.keyBezel,
                         Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
@@ -884,7 +855,7 @@ class _CncJogDialState extends State<CncJogDial> {
                           ),
                         ),
                       ),
-
+                      
                       // Repère d'indexation LED lumineuse en périphérie du volant
                       Positioned(
                         top: 8,
@@ -904,7 +875,7 @@ class _CncJogDialState extends State<CncJogDial> {
                           ),
                         ),
                       ),
-
+                      
                       // Renfoncement au centre du volant pour le pouce (effet ergonomique)
                       Container(
                         width: widget.size * 0.45,
@@ -942,113 +913,27 @@ class _CncJogDialState extends State<CncJogDial> {
       final direction = clicks > 0 ? 1.0 : -1.0;
       final increment = direction * stepVal;
 
-      if (widget.isContinuous) {
-        // Molette en continu : boucle sur la plage
-        double nextVal = simulatedValue + increment;
-        final rangeMin = widget.minValue ?? 0.0;
-        final rangeMax = widget.maxValue ?? 360.0;
-        final range = rangeMax - rangeMin;
-        if (nextVal >= rangeMax) nextVal -= range;
-        if (nextVal < rangeMin) nextVal += range;
-        simulatedValue = nextVal;
-        widget.onJog(increment);
-        HapticFeedback.lightImpact();
-      } else {
+      if (widget.axis == 'A') {
         final nextVal = simulatedValue + increment;
-        final min = widget.minValue ?? double.negativeInfinity;
-        final max = widget.maxValue ?? double.infinity;
-        if (nextVal > max || nextVal < min) {
-          HapticFeedback.vibrate(); // Alerte limite atteinte
+        // Limites strictes [-90°, +90°]
+        if (nextVal > 90.0 || nextVal < -90.0) {
+          HapticFeedback.vibrate(); // Alerte tactile
           break;
         }
         simulatedValue = nextVal;
-        widget.onJog(increment);
-        HapticFeedback.lightImpact();
+      } else if (widget.axis == 'C') {
+        // Limites [0°, 360°] : boucle infinie sur un tour complet
+        double nextVal = simulatedValue + increment;
+        if (nextVal >= 360.0) nextVal -= 360.0;
+        if (nextVal < 0.0) nextVal += 360.0;
+        simulatedValue = nextVal;
       }
+
+      // Envoi du jog relatif
+      widget.onJog(increment);
+      HapticFeedback.lightImpact();
     }
   }
-}
-
-/// Peint un arc de limite angulaire autour du dial (pour les axes bornés).
-class _LimitArcPainter extends CustomPainter {
-  final Color color;
-  final double minDeg;
-  final double maxDeg;
-  final double currentDeg;
-
-  const _LimitArcPainter({
-    required this.color,
-    required this.minDeg,
-    required this.maxDeg,
-    required this.currentDeg,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2 - 3;
-
-    // Arc de la plage autorisée (fond semi-transparent)
-    final bgPaint = Paint()
-      ..color = color.withValues(alpha: 0.12)
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    // 0° = haut, sens horaire → -90° décalage pour correspondre à top
-    final startAngle = (minDeg - 90) * math.pi / 180;
-    final sweepAngle = (maxDeg - minDeg) * math.pi / 180;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: r),
-      startAngle,
-      sweepAngle,
-      false,
-      bgPaint,
-    );
-
-    // Arc de la position actuelle (couleur vive)
-    final valuePaint = Paint()
-      ..color = color.withValues(alpha: 0.75)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final clampedVal = currentDeg.clamp(minDeg, maxDeg);
-    final valueSweep = (clampedVal - minDeg) * math.pi / 180;
-    if (valueSweep.abs() > 0.01) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: r),
-        startAngle,
-        valueSweep,
-        false,
-        valuePaint,
-      );
-    }
-
-    // Petites lignes de butée aux limites min et max
-    final limitPaint = Paint()
-      ..color = color.withValues(alpha: 0.5)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    void drawStop(double angle) {
-      final x = center.dx + r * math.cos(angle);
-      final y = center.dy + r * math.sin(angle);
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(center.dx + (r - 6) * math.cos(angle), center.dy + (r - 6) * math.sin(angle)),
-        limitPaint,
-      );
-    }
-
-    drawStop(startAngle);
-    drawStop(startAngle + sweepAngle);
-  }
-
-  @override
-  bool shouldRepaint(_LimitArcPainter old) =>
-      old.currentDeg != currentDeg || old.color != color;
 }
 
 /// Peintre pour dessiner des gradations de type vernier autour du bouton rotatif.

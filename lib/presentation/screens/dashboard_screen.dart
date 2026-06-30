@@ -11,7 +11,6 @@ import '../../application/services/audio_service.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/gauge_widgets.dart';
 import '../widgets/dashboard/workshop_layout.dart';
-import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/trunnion_visualizer.dart';
 import 'cnc_panel_screen.dart';
 
@@ -429,33 +428,23 @@ class _RightPanel extends ConsumerWidget {
           children: [
             // ── POSITION DRO ──────────────────────────────────────────
             _PanelSectionHeader(title: 'POSITION DRO', trailing: Text(
-              'Work Pos.',
+              'W-value − Target',
               style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
             )),
-            const SizedBox(height: 4),
-
-            // X + Y sur une ligne
-            Row(children: [
-              Expanded(child: _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX)),
-              const SizedBox(width: 4),
-              Expanded(child: _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY)),
-            ]),
-            // Z sur toute la largeur
+            const SizedBox(height: 8),
+            _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX),
+            _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY),
             _DroBig(label: 'Z', value: wPos[2], color: context.fc.axisZ),
-            // A + C sur une ligne
-            Row(children: [
-              Expanded(child: _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true)),
-              const SizedBox(width: 4),
-              Expanded(child: _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true)),
-            ]),
+            _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true),
+            _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
             // ── JOG CONTROL ──────────────────────────────────────────
             const _PanelSectionHeader(title: 'JOG CONTROL'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
 
             // Section PAS (x1 / x10 / x100)
             Text('PAS (INCRÉMENT)',
@@ -507,12 +496,12 @@ class _RightPanel extends ConsumerWidget {
               );
             }),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
             // Section AXES LINÉAIRES (X / Y / Z)
             Text('AXES LINÉAIRES',
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -542,57 +531,88 @@ class _RightPanel extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            // Section AXES ROTATIFS (A / C) — Molettes CncJogDial
+            // Section AXES ROTATIFS (A / C)
             Text('AXES ROTATIFS',
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Axe A (molette CncJogDial)
-                Consumer(builder: (ctx, r, _) {
-                  final multiplier = r.watch(cncJogMultiplierProvider);
-                  return CncJogDial(
-                    axis: 'A',
-                    label: 'TILT',
-                    color: context.fc.axisA,
-                    currentValue: wPos[3],
-                    multiplier: multiplier,
-                    minValue: -90,
-                    maxValue: 90,
-                    isContinuous: false,
-                    onJog: (step) {
-                      r.read(machineRepositoryProvider).jog('A', step, 3600);
-                    },
-                    size: 100,
-                  );
-                }),
-                // Axe C (molette CncJogDial)
-                Consumer(builder: (ctx, r, _) {
-                  final multiplier = r.watch(cncJogMultiplierProvider);
-                  return CncJogDial(
-                    axis: 'C',
-                    label: 'PLATEAU',
-                    color: context.fc.axisC,
-                    currentValue: wPos[4],
-                    multiplier: multiplier,
-                    isContinuous: true,
-                    minValue: 0,
-                    maxValue: 360,
-                    onJog: (step) {
-                      r.read(machineRepositoryProvider).jog('C', step, 3600);
-                    },
-                    size: 100,
-                  );
-                }),
+                // Axe A
+                Column(
+                  children: [
+                    ArcGauge(
+                      value: wPos[3],
+                      minValue: -90,
+                      maxValue: 90,
+                      color: context.fc.axisA,
+                      axisLabel: 'A',
+                      size: 110,
+                    ),
+                    const SizedBox(height: 6),
+                    Consumer(builder: (ctx, r, _) {
+                      final multiplier = r.watch(cncJogMultiplierProvider);
+                      return Row(
+                        children: [
+                          RotaryJogButton(
+                            isPlus: false,
+                            axisLabel: 'A',
+                            color: context.fc.axisA,
+                            onTap: () => r.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600),
+                          ),
+                          const SizedBox(width: 4),
+                          RotaryJogButton(
+                            isPlus: true,
+                            axisLabel: 'A',
+                            color: context.fc.axisA,
+                            onTap: () => r.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+                // Axe C
+                Column(
+                  children: [
+                    RingGauge(
+                      value: wPos[4] % 360,
+                      color: context.fc.axisC,
+                      axisLabel: 'C',
+                      size: 90,
+                    ),
+                    const SizedBox(height: 6),
+                    Consumer(builder: (ctx, r, _) {
+                      final multiplier = r.watch(cncJogMultiplierProvider);
+                      return Row(
+                        children: [
+                          RotaryJogButton(
+                            isPlus: false,
+                            axisLabel: 'C',
+                            color: context.fc.axisC,
+                            onTap: () => r.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600),
+                          ),
+                          const SizedBox(width: 4),
+                          RotaryJogButton(
+                            isPlus: true,
+                            axisLabel: 'C',
+                            color: context.fc.axisC,
+                            onTap: () => r.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
             const _PanelSectionHeader(title: 'QUICK ACTIONS'),
@@ -624,7 +644,6 @@ class _RightPanel extends ConsumerWidget {
   }
 }
 
-
 // ─── Widgets utilitaires ───────────────────────────────────────────────────
 
 class _PanelSectionHeader extends StatelessWidget {
@@ -648,7 +667,7 @@ class _PanelSectionHeader extends StatelessWidget {
   }
 }
 
-/// Affichage DRO compact — style écran LCD 7 segments
+/// Affichage DRO grand format — style écran LCD 7 segments
 class _DroBig extends StatelessWidget {
   final String label;
   final double value;
@@ -664,11 +683,11 @@ class _DroBig extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = isRotary
-        ? '${value.toStringAsFixed(1)}°'
+        ? '${value.toStringAsFixed(2)}°'
         : value.toStringAsFixed(3);
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: context.fc.background,
         borderRadius: BorderRadius.circular(4),
@@ -679,19 +698,19 @@ class _DroBig extends StatelessWidget {
           Text(label,
               style: TextStyle(
                   color: color,
-                  fontSize: 13,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono')),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(display,
                 textAlign: TextAlign.right,
                 style: TextStyle(
                     color: color,
-                    fontSize: 16,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
                     fontFamily: 'JetBrains Mono',
-                    shadows: [Shadow(color: color.withValues(alpha: 0.4), blurRadius: 8)])),
+                    shadows: [Shadow(color: color.withValues(alpha: 0.4), blurRadius: 12)])),
           ),
         ],
       ),
