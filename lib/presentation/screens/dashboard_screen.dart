@@ -438,13 +438,13 @@ class _RightPanel extends ConsumerWidget {
             _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true),
             _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // ── JOG CONTROL ──────────────────────────────────────────
             const _PanelSectionHeader(title: 'JOG CONTROL'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
             // Section PAS (x1 / x10 / x100)
             Text('PAS (INCRÉMENT)',
@@ -496,7 +496,7 @@ class _RightPanel extends ConsumerWidget {
               );
             }),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // Section AXES LINÉAIRES (X / Y / Z)
             Text('AXES LINÉAIRES',
@@ -536,13 +536,14 @@ class _RightPanel extends ConsumerWidget {
             // Section AXES ROTATIFS (A / C)
             Text('AXES ROTATIFS',
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Axe A
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     ArcGauge(
                       value: wPos[3],
@@ -556,6 +557,8 @@ class _RightPanel extends ConsumerWidget {
                     Consumer(builder: (ctx, r, _) {
                       final multiplier = r.watch(cncJogMultiplierProvider);
                       return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           RotaryJogButton(
                             isPlus: false,
@@ -577,6 +580,7 @@ class _RightPanel extends ConsumerWidget {
                 ),
                 // Axe C
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     RingGauge(
                       value: wPos[4] % 360,
@@ -588,6 +592,8 @@ class _RightPanel extends ConsumerWidget {
                     Consumer(builder: (ctx, r, _) {
                       final multiplier = r.watch(cncJogMultiplierProvider);
                       return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           RotaryJogButton(
                             isPlus: false,
@@ -610,9 +616,9 @@ class _RightPanel extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
             const _PanelSectionHeader(title: 'QUICK ACTIONS'),

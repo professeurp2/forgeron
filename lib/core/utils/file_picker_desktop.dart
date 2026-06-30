@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 
@@ -8,7 +9,13 @@ Future<Uint8List?> pickFilesRaw({List<String>? allowedExtensions}) async {
     withData: true,
   );
   if (result != null && result.files.isNotEmpty) {
-    return result.files.first.bytes;
+    final file = result.files.first;
+    if (file.bytes != null) {
+      return file.bytes;
+    }
+    if (file.path != null) {
+      return File(file.path!).readAsBytesSync();
+    }
   }
   return null;
 }
@@ -21,8 +28,11 @@ Future<({String name, List<int> bytes})?> pickFileWithMetadata() async {
   if (result != null && result.files.isNotEmpty) {
     final file = result.files.first;
     final String name = file.name;
-    final List<int> bytes = file.bytes?.toList() ?? [];
-    return (name: name, bytes: bytes);
+    List<int>? bytes = file.bytes;
+    if (bytes == null && file.path != null) {
+      bytes = File(file.path!).readAsBytesSync();
+    }
+    return (name: name, bytes: bytes ?? []);
   }
   return null;
 }
