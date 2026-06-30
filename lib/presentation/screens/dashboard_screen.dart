@@ -432,7 +432,7 @@ class _RightPanel extends ConsumerWidget {
               'Work Pos.',
               style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
             )),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
 
             // X + Y sur une ligne
             Row(children: [
@@ -449,13 +449,13 @@ class _RightPanel extends ConsumerWidget {
               Expanded(child: _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true)),
             ]),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // ── JOG CONTROL ──────────────────────────────────────────
             const _PanelSectionHeader(title: 'JOG CONTROL'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
 
             // Section PAS (x1 / x10 / x100)
             Text('PAS (INCRÉMENT)',
@@ -507,12 +507,12 @@ class _RightPanel extends ConsumerWidget {
               );
             }),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Section AXES LINÉAIRES (X / Y / Z)
             Text('AXES LINÉAIRES',
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -542,12 +542,12 @@ class _RightPanel extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Section AXES ROTATIFS (A / C) — Molettes CncJogDial
             Text('AXES ROTATIFS',
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -560,6 +560,9 @@ class _RightPanel extends ConsumerWidget {
                     color: context.fc.axisA,
                     currentValue: wPos[3],
                     multiplier: multiplier,
+                    minValue: -90,
+                    maxValue: 90,
+                    isContinuous: false,
                     onJog: (step) {
                       r.read(machineRepositoryProvider).jog('A', step, 3600);
                     },
@@ -575,6 +578,9 @@ class _RightPanel extends ConsumerWidget {
                     color: context.fc.axisC,
                     currentValue: wPos[4],
                     multiplier: multiplier,
+                    isContinuous: true,
+                    minValue: 0,
+                    maxValue: 360,
                     onJog: (step) {
                       r.read(machineRepositoryProvider).jog('C', step, 3600);
                     },
@@ -584,9 +590,9 @@ class _RightPanel extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
             const _PanelSectionHeader(title: 'QUICK ACTIONS'),
