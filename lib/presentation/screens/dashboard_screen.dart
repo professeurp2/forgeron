@@ -429,23 +429,33 @@ class _RightPanel extends ConsumerWidget {
           children: [
             // ── POSITION DRO ──────────────────────────────────────────
             _PanelSectionHeader(title: 'POSITION DRO', trailing: Text(
-              'W-value − Target',
+              'Work Pos.',
               style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
             )),
-            const SizedBox(height: 8),
-            _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX),
-            _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY),
-            _DroBig(label: 'Z', value: wPos[2], color: context.fc.axisZ),
-            _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true),
-            _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true),
+            const SizedBox(height: 6),
 
-            const SizedBox(height: 16),
+            // X + Y sur une ligne
+            Row(children: [
+              Expanded(child: _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX)),
+              const SizedBox(width: 4),
+              Expanded(child: _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY)),
+            ]),
+            // Z sur toute la largeur
+            _DroBig(label: 'Z', value: wPos[2], color: context.fc.axisZ),
+            // A + C sur une ligne
+            Row(children: [
+              Expanded(child: _DroBig(label: 'A', value: wPos[3], color: context.fc.axisA, isRotary: true)),
+              const SizedBox(width: 4),
+              Expanded(child: _DroBig(label: 'C', value: wPos[4], color: context.fc.axisC, isRotary: true)),
+            ]),
+
+            const SizedBox(height: 12),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // ── JOG CONTROL ──────────────────────────────────────────
             const _PanelSectionHeader(title: 'JOG CONTROL'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Section PAS (x1 / x10 / x100)
             Text('PAS (INCRÉMENT)',
@@ -497,7 +507,7 @@ class _RightPanel extends ConsumerWidget {
               );
             }),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Section AXES LINÉAIRES (X / Y / Z)
             Text('AXES LINÉAIRES',
@@ -532,9 +542,12 @@ class _RightPanel extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Section AXES ROTATIFS (A / C)
+            // Section AXES ROTATIFS (A / C) — Molettes CncJogDial
+            Text('AXES ROTATIFS',
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -543,14 +556,14 @@ class _RightPanel extends ConsumerWidget {
                   final multiplier = r.watch(cncJogMultiplierProvider);
                   return CncJogDial(
                     axis: 'A',
-                    label: 'TILT (BERCEAU)',
+                    label: 'TILT',
                     color: context.fc.axisA,
                     currentValue: wPos[3],
                     multiplier: multiplier,
                     onJog: (step) {
                       r.read(machineRepositoryProvider).jog('A', step, 3600);
                     },
-                    size: 90,
+                    size: 100,
                   );
                 }),
                 // Axe C (molette CncJogDial)
@@ -558,22 +571,22 @@ class _RightPanel extends ConsumerWidget {
                   final multiplier = r.watch(cncJogMultiplierProvider);
                   return CncJogDial(
                     axis: 'C',
-                    label: 'PLATEAU ROTATIF',
+                    label: 'PLATEAU',
                     color: context.fc.axisC,
                     currentValue: wPos[4],
                     multiplier: multiplier,
                     onJog: (step) {
                       r.read(machineRepositoryProvider).jog('C', step, 3600);
                     },
-                    size: 90,
+                    size: 100,
                   );
                 }),
               ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
             const _PanelSectionHeader(title: 'QUICK ACTIONS'),
@@ -605,6 +618,7 @@ class _RightPanel extends ConsumerWidget {
   }
 }
 
+
 // ─── Widgets utilitaires ───────────────────────────────────────────────────
 
 class _PanelSectionHeader extends StatelessWidget {
@@ -628,7 +642,7 @@ class _PanelSectionHeader extends StatelessWidget {
   }
 }
 
-/// Affichage DRO grand format — style écran LCD 7 segments
+/// Affichage DRO compact — style écran LCD 7 segments
 class _DroBig extends StatelessWidget {
   final String label;
   final double value;
@@ -644,11 +658,11 @@ class _DroBig extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = isRotary
-        ? '${value.toStringAsFixed(2)}°'
+        ? '${value.toStringAsFixed(1)}°'
         : value.toStringAsFixed(3);
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: context.fc.background,
         borderRadius: BorderRadius.circular(4),
@@ -659,19 +673,19 @@ class _DroBig extends StatelessWidget {
           Text(label,
               style: TextStyle(
                   color: color,
-                  fontSize: 22,
+                  fontSize: 13,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono')),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(display,
                 textAlign: TextAlign.right,
                 style: TextStyle(
                     color: color,
-                    fontSize: 26,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                     fontFamily: 'JetBrains Mono',
-                    shadows: [Shadow(color: color.withValues(alpha: 0.4), blurRadius: 12)])),
+                    shadows: [Shadow(color: color.withValues(alpha: 0.4), blurRadius: 8)])),
           ),
         ],
       ),
