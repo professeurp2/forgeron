@@ -220,7 +220,7 @@ class _CenterZone extends ConsumerWidget {
             child: Row(
               children: [
                 // Carte PROGRAMME (G-Code)
-                Builder(builder: (ctx) {
+                Consumer(builder: (ctx, ref, _) {
                   final scrollController = ref.watch(gcodeScrollControllerProvider);
                   final currentIndex = state?.activeLineIndex ?? 0;
 
