@@ -95,7 +95,6 @@ class _CenterZone extends ConsumerWidget {
     final state = ref.watch(machineStateProvider).valueOrNull;
     final mPos = state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
     final gcodeState = ref.watch(gcodeProvider);
-    final progress = state?.sdPercent ?? 0.0;
     final spindle = state?.spindleSpeed.toStringAsFixed(0) ?? '0';
     final isOnline = state?.status != null && state?.status != MachineStatus.offline;
 
@@ -239,7 +238,6 @@ class _CenterZone extends ConsumerWidget {
                   });
 
                   return Expanded(
-                    flex: 3,
                     child: _DashCard(
                       title: 'PROGRAMME',
                       action: IconButton(
@@ -321,62 +319,6 @@ class _CenterZone extends ConsumerWidget {
                     ),
                   );
                 }),
-                const SizedBox(width: 8),
-                // Carte HISTORIQUE
-                Expanded(
-                  flex: 3,
-                  child: _DashCard(
-                    title: 'HISTORIQUE',
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Execution timeline',
-                            style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress / 100,
-                            minHeight: 10,
-                            backgroundColor: context.fc.surfaceBorder,
-                            color: context.fc.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('${progress.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                                color: context.fc.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                fontFamily: 'JetBrains Mono')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Carte AVANCES
-                Expanded(
-                  flex: 2,
-                  child: _DashCard(
-                    title: 'AVANCES',
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _CompactFeedBar(
-                          label: 'Feed override',
-                          value: (state?.overrides.isNotEmpty == true ? state!.overrides[0] : 100).toDouble(),
-                          max: 200, color: context.fc.primary),
-                        const SizedBox(height: 8),
-                        _CompactFeedBar(
-                          label: 'Spindle override',
-                          value: (state?.overrides.length == 3 ? state!.overrides[2] : 100).toDouble(),
-                          max: 200, color: context.fc.secondary),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -426,40 +368,6 @@ class _DashCard extends StatelessWidget {
   }
 }
 
-class _CompactFeedBar extends StatelessWidget {
-  final String label;
-  final double value;
-  final double max;
-  final Color color;
-  const _CompactFeedBar({required this.label, required this.value, required this.max, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (value / max).clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(children: [
-          Text(label, style: TextStyle(color: context.fc.textDisabled, fontSize: 9)),
-          const Spacer(),
-          Text('${value.toInt()}%',
-              style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-        ]),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 6,
-            backgroundColor: context.fc.surfaceBorder,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _StatusChip extends StatelessWidget {
   final MachineState? state;
@@ -497,6 +405,9 @@ class _RightPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(machineStateProvider).valueOrNull;
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    final progress = state?.sdPercent ?? 0.0;
+    final feedOverride = state?.overrides.isNotEmpty == true ? state!.overrides[0] : 100;
+    final spindleOverride = (state?.overrides.length ?? 0) > 2 ? state!.overrides[2] : 100;
 
     return Container(
       color: context.fc.surface,
@@ -691,6 +602,95 @@ class _RightPanel extends ConsumerWidget {
                       );
                     }),
                   ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+            Container(height: 1, color: context.fc.surfaceBorder),
+            const SizedBox(height: 8),
+
+            // Section PROGRESSION & AVANCES
+            const _PanelSectionHeader(title: 'PROGRESSION & AVANCES'),
+            const SizedBox(height: 8),
+            
+            // Progression (Historique)
+            Row(
+              children: [
+                Text('HISTORIQUE',
+                    style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('${progress.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                        color: context.fc.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'JetBrains Mono')),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: progress / 100,
+                minHeight: 6,
+                backgroundColor: context.fc.surfaceBorder,
+                color: context.fc.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Avances (Feed & Spindle Override)
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('F-OVERRIDE', style: TextStyle(color: context.fc.textDisabled, fontSize: 8, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text('$feedOverride%', style: TextStyle(color: context.fc.primary, fontSize: 8, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: (feedOverride / 200.0).clamp(0.0, 1.0),
+                          minHeight: 4,
+                          backgroundColor: context.fc.surfaceBorder,
+                          color: context.fc.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('S-OVERRIDE', style: TextStyle(color: context.fc.textDisabled, fontSize: 8, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text('$spindleOverride%', style: TextStyle(color: context.fc.secondary, fontSize: 8, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: (spindleOverride / 200.0).clamp(0.0, 1.0),
+                          minHeight: 4,
+                          backgroundColor: context.fc.surfaceBorder,
+                          color: context.fc.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
