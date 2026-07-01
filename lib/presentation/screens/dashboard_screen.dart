@@ -257,7 +257,7 @@ class _CenterZone extends ConsumerWidget {
                           ? Text('Aucun programme chargé',
                               style: TextStyle(color: context.fc.textDisabled, fontSize: 10))
                           : SizedBox(
-                              height: 108,
+                              height: 98,
                               child: ListView.builder(
                                 controller: scrollController,
                                 itemCount: gcodeState.allLines.length,
