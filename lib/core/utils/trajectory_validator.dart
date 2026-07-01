@@ -16,7 +16,7 @@ class ValidationResult {
 /// Analyse le toolpath complet avant l'usinage pour prévenir les collisions matérielles.
 class TrajectoryValidator {
   // Limites physiques de la machine (conformes au dimensionnement PFE §3.4)
-  static const double minZ = -5.0; // Interdiction de descendre sous le plateau (incluant offset)
+  static const double minZ = -150.0; // Interdiction de descendre sous la course max de l'axe Z
   static const double maxA = 90.0;  // Berceau : ±90° (Trunnion)
   static const double minA = -90.0;
   

@@ -14,14 +14,14 @@ class StreamingController extends StateNotifier<bool> {
 
   StreamingController(this._ref) : super(false);
 
-  Future<void> startStream() async {
+  Future<ValidationResult> startStream() async {
     // ── Guard : ne pas lancer si déjà en cours ────────────────────────────
-    // BUG FIX: sans ce guard, chaque clic relançait un stream même si l'état
-    // UI affichait déjà "en cours" (state == true mais streaming réel arrêté).
-    if (state) return;
+    if (state) return ValidationResult.success();
 
     final gcodeState = _ref.read(gcodeProvider);
-    if (gcodeState.allLines.isEmpty) return;
+    if (gcodeState.allLines.isEmpty) {
+      return ValidationResult.error('Aucun programme G-Code chargé', 0);
+    }
 
     // 1. Validation Lookahead avant de commencer
     final result = TrajectoryValidator.validate(
@@ -33,8 +33,7 @@ class StreamingController extends StateNotifier<bool> {
     );
 
     if (!result.isValid) {
-      // Alerte UI à gérer si besoin
-      return;
+      return result;
     }
 
     // 2. Démarrer le streaming — l'état revient à false via onComplete
@@ -42,11 +41,10 @@ class StreamingController extends StateNotifier<bool> {
     await _ref.read(machineRepositoryProvider).sendGCodeBatch(
       gcodeState.allLines,
       onComplete: () {
-        // ── BUG FIX : remettre l'état à false quand l'ESP32 a acquitté
-        // la dernière ligne. Sans ça, l'UI restait bloquée sur "en cours".
         if (mounted) state = false;
       },
     );
+    return ValidationResult.success();
   }
 
   void stopStream() {

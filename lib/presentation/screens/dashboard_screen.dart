@@ -712,12 +712,22 @@ class _RightPanel extends ConsumerWidget {
                     label: 'CYCLE\nSTART',
                     color: context.fc.success,
                     icon: Icons.play_arrow_rounded,
-                    onTap: () {
+                    onTap: () async {
                       final latestState = r.read(machineStateProvider).valueOrNull;
                       if (latestState?.status == MachineStatus.hold) {
                         repo.resume();
                       } else {
-                        r.read(streamingProvider.notifier).startStream();
+                        final messenger = ScaffoldMessenger.of(ctx);
+                        final errorColor = context.fc.error;
+                        final result = await r.read(streamingProvider.notifier).startStream();
+                        if (!result.isValid) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur Lookahead : ${result.errorMessage} (ligne ${result.errorLine})'),
+                              backgroundColor: errorColor,
+                            ),
+                          );
+                        }
                       }
                       audio.play(SoundEffect.click);
                       HapticFeedback.mediumImpact();

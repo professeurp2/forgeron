@@ -147,7 +147,17 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
             if (latestState?.status == MachineStatus.hold) {
               repo.resume();
             } else {
-              ref.read(streamingProvider.notifier).startStream();
+              final messenger = ScaffoldMessenger.of(context);
+              ref.read(streamingProvider.notifier).startStream().then((result) {
+                if (!result.isValid) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur Lookahead : ${result.errorMessage} (ligne ${result.errorLine})'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              });
             }
           } else if (label == 'PAUSE') {
             repo.pause();
