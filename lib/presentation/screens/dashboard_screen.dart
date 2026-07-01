@@ -8,6 +8,7 @@ import '../../application/providers/gcode_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/services/audio_service.dart';
+import '../../application/providers/streaming_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/gauge_widgets.dart';
 import '../widgets/dashboard/workshop_layout.dart';
@@ -707,17 +708,54 @@ class _RightPanel extends ConsumerWidget {
               final audio = r.read(audioServiceProvider);
               return Row(
                 children: [
-                  _QAction(label: 'CYCLE\nSTART', color: context.fc.success, icon: Icons.play_arrow_rounded,
-                    onTap: () { repo.resume(); audio.play(SoundEffect.click); HapticFeedback.mediumImpact(); }),
+                  _QAction(
+                    label: 'CYCLE\nSTART',
+                    color: context.fc.success,
+                    icon: Icons.play_arrow_rounded,
+                    onTap: () {
+                      final latestState = r.read(machineStateProvider).valueOrNull;
+                      if (latestState?.status == MachineStatus.hold) {
+                        repo.resume();
+                      } else {
+                        r.read(streamingProvider.notifier).startStream();
+                      }
+                      audio.play(SoundEffect.click);
+                      HapticFeedback.mediumImpact();
+                    },
+                  ),
                   const SizedBox(width: 6),
-                  _QAction(label: 'FEED\nHOLD', color: context.fc.warning, icon: Icons.pause_rounded,
-                    onTap: () { repo.pause(); audio.play(SoundEffect.click); HapticFeedback.mediumImpact(); }),
+                  _QAction(
+                    label: 'FEED\nHOLD',
+                    color: context.fc.warning,
+                    icon: Icons.pause_rounded,
+                    onTap: () {
+                      repo.pause();
+                      audio.play(SoundEffect.click);
+                      HapticFeedback.mediumImpact();
+                    },
+                  ),
                   const SizedBox(width: 6),
-                  _QAction(label: 'E-STOP', color: context.fc.danger, icon: Icons.bolt_rounded,
-                    onTap: () { repo.emergencyStop(); audio.play(SoundEffect.alarm); HapticFeedback.vibrate(); }),
+                  _QAction(
+                    label: 'E-STOP',
+                    color: context.fc.danger,
+                    icon: Icons.bolt_rounded,
+                    onTap: () {
+                      r.read(streamingProvider.notifier).stopStream();
+                      audio.play(SoundEffect.alarm);
+                      HapticFeedback.vibrate();
+                    },
+                  ),
                   const SizedBox(width: 6),
-                  _QAction(label: 'JOG\nSTOP', color: context.fc.primary, icon: Icons.stop_rounded,
-                    onTap: () { r.read(secureJogProvider.notifier).stopJog(); audio.play(SoundEffect.alert); HapticFeedback.heavyImpact(); }),
+                  _QAction(
+                    label: 'JOG\nSTOP',
+                    color: context.fc.primary,
+                    icon: Icons.stop_rounded,
+                    onTap: () {
+                      r.read(secureJogProvider.notifier).stopJog();
+                      audio.play(SoundEffect.alert);
+                      HapticFeedback.heavyImpact();
+                    },
+                  ),
                 ],
               );
             }),
