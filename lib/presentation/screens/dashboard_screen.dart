@@ -14,6 +14,7 @@ import '../widgets/dashboard/workshop_layout.dart';
 import '../widgets/trunnion_visualizer.dart';
 import 'cnc_panel_screen.dart';
 import '../../core/utils/file_picker_service.dart';
+import '../../core/utils/gcode_highlighter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -219,46 +220,106 @@ class _CenterZone extends ConsumerWidget {
             child: Row(
               children: [
                 // Carte PROGRAMME (G-Code)
-                Expanded(
-                  flex: 3,
-                  child: _DashCard(
-                    title: 'PROGRAMME',
-                    action: IconButton(
-                      icon: Icon(Icons.file_open_rounded, color: context.fc.primary, size: 14),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () async {
-                        final content = await FilePickerService.pickGCodeContent();
-                        if (content != null) {
-                          await ref.read(gcodeProvider.notifier).loadFile(content);
-                        }
-                      },
-                      tooltip: 'Charger un fichier G-Code (.nc, .gcode)',
+                Builder(builder: (ctx) {
+                  final scrollController = ref.watch(gcodeScrollControllerProvider);
+                  final currentIndex = state?.activeLineIndex ?? 0;
+
+                  ref.listen(machineStateProvider, (previous, next) {
+                    final oldIndex = previous?.valueOrNull?.activeLineIndex ?? 0;
+                    final newIndex = next.valueOrNull?.activeLineIndex ?? 0;
+                    if (newIndex != oldIndex && scrollController.hasClients) {
+                      final targetOffset = (newIndex * 22.0) - 40;
+                      scrollController.animateTo(
+                        targetOffset > 0 ? targetOffset : 0,
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  });
+
+                  return Expanded(
+                    flex: 3,
+                    child: _DashCard(
+                      title: 'PROGRAMME',
+                      action: IconButton(
+                        icon: Icon(Icons.file_open_rounded, color: context.fc.primary, size: 14),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          final content = await FilePickerService.pickGCodeContent();
+                          if (content != null) {
+                            await ref.read(gcodeProvider.notifier).loadFile(content);
+                          }
+                        },
+                        tooltip: 'Charger un fichier G-Code (.nc, .gcode)',
+                      ),
+                      child: gcodeState.allLines.isEmpty
+                          ? Text('Aucun programme chargé',
+                              style: TextStyle(color: context.fc.textDisabled, fontSize: 10))
+                          : SizedBox(
+                              height: 108,
+                              child: ListView.builder(
+                                controller: scrollController,
+                                itemCount: gcodeState.allLines.length,
+                                itemExtent: 22,
+                                itemBuilder: (ctx, i) {
+                                  final isCurrent = i == currentIndex;
+                                  return Container(
+                                    decoration: isCurrent
+                                        ? BoxDecoration(
+                                            color: context.fc.primary.withValues(alpha: 0.08),
+                                            border: Border(
+                                              left: BorderSide(color: context.fc.primary, width: 3),
+                                            ),
+                                          )
+                                        : null,
+                                    padding: EdgeInsets.only(
+                                      left: isCurrent ? 5.0 : 8.0,
+                                      right: 8.0,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 32,
+                                          child: Text(
+                                            '${i + 1}',
+                                            style: TextStyle(
+                                              color: isCurrent ? context.fc.primary : context.fc.textDisabled,
+                                              fontSize: 9,
+                                              fontFamily: 'JetBrains Mono',
+                                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: RichText(
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            text: TextSpan(
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontFamily: 'JetBrains Mono',
+                                              ),
+                                              children: GCodeHighlighter.buildSpans(gcodeState.allLines[i], isCurrent),
+                                            ),
+                                          ),
+                                        ),
+                                        if (isCurrent)
+                                          Icon(
+                                            Icons.chevron_left,
+                                            color: context.fc.primary,
+                                            size: 12,
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                     ),
-                    child: gcodeState.allLines.isEmpty
-                        ? Text('Aucun programme chargé',
-                            style: TextStyle(color: context.fc.textDisabled, fontSize: 10))
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: gcodeState.allLines
-                                .take(5)
-                                .toList()
-                                .asMap()
-                                .entries
-                                .map((e) {
-                              final isActive = e.key == (state?.activeLineIndex ?? 0);
-                              return Text('${e.key + 1}  ${e.value}',
-                                  style: TextStyle(
-                                      color: isActive ? context.fc.primary : context.fc.textSecondary,
-                                      fontSize: 9,
-                                      fontFamily: 'JetBrains Mono',
-                                      fontWeight: isActive ? FontWeight.w900 : FontWeight.normal),
-                                  overflow: TextOverflow.ellipsis);
-                            }).toList(),
-                          ),
-                  ),
-                ),
+                  );
+                }),
                 const SizedBox(width: 8),
                 // Carte HISTORIQUE
                 Expanded(
