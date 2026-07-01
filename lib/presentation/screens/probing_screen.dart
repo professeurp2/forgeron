@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
+import '../widgets/dashboard/gauge_widgets.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../domain/models/jog_command.dart';
@@ -302,35 +303,81 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
         SizedBox(height: 20),
         _sectionTitle('AXES ROTATIFS — TRUNNION'),
         SizedBox(height: 8),
-        Row(children: [
-          Expanded(
-            child: CncJogDial(
-              axis: 'A',
-              label: 'TILT (BERCEAU)',
-              color: AppColors.axisA,
-              currentValue: wPos[3],
-              multiplier: (jog.rotaryStep * 10).round(),
-              onJog: (step) {
-                ref.read(machineRepositoryProvider).jog('A', step, 3600);
-              },
-              size: 80,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ArcGauge(
+                    value: wPos[3],
+                    minValue: -90,
+                    maxValue: 90,
+                    color: AppColors.axisA,
+                    axisLabel: 'A',
+                    size: 90,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RotaryJogButton(
+                        isPlus: false,
+                        axisLabel: 'A',
+                        color: AppColors.axisA,
+                        onTap: () => jogN.jogRotary('A', -1),
+                      ),
+                      const SizedBox(width: 4),
+                      RotaryJogButton(
+                        isPlus: true,
+                        axisLabel: 'A',
+                        color: AppColors.axisA,
+                        onTap: () => jogN.jogRotary('A', 1),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: CncJogDial(
-              axis: 'C',
-              label: 'PLATEAU ROTATIF',
-              color: AppColors.axisC,
-              currentValue: wPos[4],
-              multiplier: (jog.rotaryStep * 10).round(),
-              onJog: (step) {
-                ref.read(machineRepositoryProvider).jog('C', step, 3600);
-              },
-              size: 80,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  RingGauge(
+                    value: wPos[4] % 360,
+                    color: AppColors.axisC,
+                    axisLabel: 'C',
+                    size: 78,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RotaryJogButton(
+                        isPlus: false,
+                        axisLabel: 'C',
+                        color: AppColors.axisC,
+                        onTap: () => jogN.jogRotary('C', -1),
+                      ),
+                      const SizedBox(width: 4),
+                      RotaryJogButton(
+                        isPlus: true,
+                        axisLabel: 'C',
+                        color: AppColors.axisC,
+                        onTap: () => jogN.jogRotary('C', 1),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
         SizedBox(height: 16),
         SizedBox(
           width: double.infinity, height: 52,
