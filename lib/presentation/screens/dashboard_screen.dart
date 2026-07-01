@@ -13,6 +13,7 @@ import '../widgets/dashboard/gauge_widgets.dart';
 import '../widgets/dashboard/workshop_layout.dart';
 import '../widgets/trunnion_visualizer.dart';
 import 'cnc_panel_screen.dart';
+import '../../core/utils/file_picker_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -222,6 +223,18 @@ class _CenterZone extends ConsumerWidget {
                   flex: 3,
                   child: _DashCard(
                     title: 'PROGRAMME',
+                    action: IconButton(
+                      icon: Icon(Icons.file_open_rounded, color: context.fc.primary, size: 14),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () async {
+                        final content = await FilePickerService.pickGCodeContent();
+                        if (content != null) {
+                          await ref.read(gcodeProvider.notifier).loadFile(content);
+                        }
+                      },
+                      tooltip: 'Charger un fichier G-Code (.nc, .gcode)',
+                    ),
                     child: gcodeState.allLines.isEmpty
                         ? Text('Aucun programme chargé',
                             style: TextStyle(color: context.fc.textDisabled, fontSize: 10))
@@ -314,7 +327,8 @@ class _CenterZone extends ConsumerWidget {
 class _DashCard extends StatelessWidget {
   final String title;
   final Widget child;
-  const _DashCard({required this.title, required this.child});
+  final Widget? action;
+  const _DashCard({required this.title, required this.child, this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +351,10 @@ class _DashCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1)),
             const Spacer(),
-            Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
+            if (action != null)
+              action!
+            else
+              Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
           ]),
           const SizedBox(height: 8),
           child,

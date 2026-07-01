@@ -112,7 +112,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       Text('MACROS RAPIDES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
       SizedBox(height: 12),
       GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8,
-        children: _macros.map((m) => InkWell(onTap: () {
+        children: _macros.map<Widget>((m) => InkWell(onTap: () {
           // Very simple mapping to simulate macro sending
           if (m.$2 == 'ORIGINES') ref.read(machineRepositoryProvider).home([]);
           if (m.$2 == 'PAUSE') ref.read(machineRepositoryProvider).pause();
