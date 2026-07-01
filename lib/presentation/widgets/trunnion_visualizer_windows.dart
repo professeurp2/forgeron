@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_windows/webview_windows.dart';
+import '../../application/providers/theme_provider.dart';
 import 'dart:typed_data';
 
-class TrunnionVisualizer extends StatefulWidget {
+class TrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
   final List<double>? targetPos;
   final List<List<double>>? toolpath;
@@ -25,10 +27,10 @@ class TrunnionVisualizer extends StatefulWidget {
   });
 
   @override
-  State<TrunnionVisualizer> createState() => _TrunnionVisualizerState();
+  ConsumerState<TrunnionVisualizer> createState() => _TrunnionVisualizerState();
 }
 
-class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
+class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
   final _controller = WebviewController();
   bool _isInitialized = false;
   bool _isReady = false;
@@ -159,11 +161,27 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     }));
   }
 
+  void _sendTheme(bool isDark) {
+    _controller.postWebMessage(jsonEncode({
+      'type': 'set_theme',
+      'payload': {
+        'isDark': isDark,
+      },
+    }));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
       return Center(child: CircularProgressIndicator());
     }
+
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    if (_isReady) {
+      _sendTheme(isDark);
+    }
+
     return Webview(_controller);
   }
 

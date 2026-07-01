@@ -4,8 +4,9 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../application/providers/theme_provider.dart';
 
-class TrunnionVisualizer extends StatefulWidget {
+class TrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
   final List<double>? targetPos;
   final List<List<double>>? toolpath;
@@ -24,10 +25,10 @@ class TrunnionVisualizer extends StatefulWidget {
   });
 
   @override
-  State<TrunnionVisualizer> createState() => _TrunnionVisualizerState();
+  ConsumerState<TrunnionVisualizer> createState() => _TrunnionVisualizerState();
 }
 
-class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
+class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
   late html.IFrameElement _iframeElement;
   late String _viewId;
   bool _isReady = false;
@@ -130,8 +131,22 @@ class _TrunnionVisualizerState extends State<TrunnionVisualizer> {
     });
   }
 
+  void _sendTheme(bool isDark) {
+    _sendMessage({
+      'type': 'set_theme',
+      'payload': {
+        'isDark': isDark,
+      },
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    if (_isReady) {
+      _sendTheme(isDark);
+    }
     return HtmlElementView(viewType: _viewId);
   }
 }

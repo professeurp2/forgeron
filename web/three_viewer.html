@@ -48,7 +48,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('#050505');
         
-        const gridHelper = new THREE.GridHelper(500, 50, '#30363d', '#21262d');
+        let gridHelper = new THREE.GridHelper(500, 50, '#30363d', '#21262d');
         gridHelper.rotation.x = Math.PI / 2;
         scene.add(gridHelper);
         const axesHelper = new THREE.AxesHelper(50);
@@ -281,6 +281,19 @@
                 if (vectorLines) vectorLines.visible = showVectors;
             } else if (data.type === 'set_limits') {
                 updateLimits(data.payload.x, data.payload.y, data.payload.z);
+            } else if (data.type === 'set_theme') {
+                const isDark = data.payload.isDark;
+                const bgColor = isDark ? '#0D0F14' : '#F0F2F5';
+                const gridColor1 = isDark ? '#30363d' : '#D0D5E0';
+                const gridColor2 = isDark ? '#21262d' : '#E2E6F0';
+                
+                scene.background = new THREE.Color(bgColor);
+                
+                scene.remove(gridHelper);
+                const newGridHelper = new THREE.GridHelper(500, 50, gridColor1, gridColor2);
+                newGridHelper.rotation.x = Math.PI / 2;
+                scene.add(newGridHelper);
+                gridHelper = newGridHelper;
             }
         };
 
