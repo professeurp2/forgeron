@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/streaming_provider.dart';
+import '../../domain/models/machine_state.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
@@ -113,11 +115,45 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       SizedBox(height: 12),
       GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8,
         children: _macros.map<Widget>((m) => InkWell(onTap: () {
-          // Very simple mapping to simulate macro sending
-          if (m.$2 == 'ORIGINES') ref.read(machineRepositoryProvider).home([]);
-          if (m.$2 == 'PAUSE') ref.read(machineRepositoryProvider).pause();
-          if (m.$2 == 'REPRENDRE') ref.read(machineRepositoryProvider).resume();
-          if (m.$2 == 'ANNULER') ref.read(machineRepositoryProvider).emergencyStop();
+          final label = m.$2;
+          final repo = ref.read(machineRepositoryProvider);
+          
+          if (label == 'ORIGINES') {
+            repo.home([]);
+          } else if (label == 'ZÉRO PIÈCE') {
+            repo.sendGCode('G92 X0 Y0 Z0 A0 C0');
+          } else if (label == 'PALPAGE Z') {
+            repo.sendGCode('G38.2 Z-50 F100');
+          } else if (label == 'BROCHE H') {
+            repo.sendGCode('M3 S5000');
+          } else if (label == 'ARRÊT B.') {
+            repo.sendGCode('M5');
+          } else if (label == 'BROCHE AH') {
+            repo.sendGCode('M4 S5000');
+          } else if (label == 'ARROSAGE ON') {
+            repo.sendGCode('M8');
+          } else if (label == 'ARROSAGE OFF') {
+            repo.sendGCode('M9');
+          } else if (label == 'SOUFFLAGE') {
+            repo.sendGCode('M7');
+          } else if (label == 'Z SÉCU') {
+            repo.sendGCode('G0 Z50');
+          } else if (label == 'PARKING') {
+            repo.sendGCode('G28');
+          } else if (label == 'CHG OUTIL') {
+            repo.sendGCode('M6 T1');
+          } else if (label == 'REPRENDRE') {
+            final latestState = ref.read(machineStateProvider).valueOrNull;
+            if (latestState?.status == MachineStatus.hold) {
+              repo.resume();
+            } else {
+              ref.read(streamingProvider.notifier).startStream();
+            }
+          } else if (label == 'PAUSE') {
+            repo.pause();
+          } else if (label == 'ANNULER') {
+            ref.read(streamingProvider.notifier).stopStream();
+          }
         }, child: Container(
           decoration: BoxDecoration(color: m.$3.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8), border: Border.all(color: m.$3.withValues(alpha: 0.25))),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(m.$1, color: m.$3, size: 22), SizedBox(height: 6), Text(m.$2, style: TextStyle(color: m.$3, fontSize: 9, fontWeight: FontWeight.w900))]),
