@@ -29,6 +29,15 @@ class FluidNCMachineRepository implements MachineRepository {
     _statusSub = _connection.status.listen((isConnected) {
       if (_stateController.isClosed) return;
       if (!isConnected) {
+        // ── CRITIQUE : purger le streaming à la coupure ─────────────────────
+        // Sans ça, _bytesInFlight / _sentByteCounts gardent les valeurs
+        // d'avant la coupure. À la reconnexion, l'ESP32 a vidé son buffer RX
+        // mais l'app croit encore y avoir des octets en vol : le
+        // character-counting est désynchronisé, le buffer de 127 octets
+        // déborde, des caractères sont perdus, et la machine exécute du
+        // G-code tronqué. stop() remet les compteurs à zéro ET notifie l'UI
+        // que le programme est interrompu.
+        _streamingService.stop();
         _currentState = _currentState.copyWith(status: MachineStatus.offline);
         _stateController.add(_currentState);
       } else {
@@ -36,6 +45,7 @@ class FluidNCMachineRepository implements MachineRepository {
         Future.delayed(const Duration(milliseconds: 500), () {
           _connection.sendRaw('\$G\n');   // État modal
           _connection.sendRaw('\$#\n');   // Offsets de travail
+          _connection.sendRaw('\$I\n');   // Build info firmware (VER/OPT)
           _connection.sendRaw('[ESP110]\n'); // WiFi info
         });
       }
@@ -78,8 +88,24 @@ class FluidNCMachineRepository implements MachineRepository {
   }
 
   @override
-  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete}) async {
-    _streamingService.streamLines(lines, onComplete: onComplete);
+  Future<void> sendGCodeBatch(
+    List<String> lines, {
+    void Function()? onComplete,
+    void Function(int index)? onProgress,
+    void Function(String reason)? onStall,
+  }) async {
+    _streamingService.streamLines(
+      lines,
+      onComplete: onComplete,
+      onStall: onStall,
+      onProgress: (idx) {
+        if (!_stateController.isClosed) {
+          _currentState = _currentState.copyWith(activeLineIndex: idx);
+          _stateController.add(_currentState);
+        }
+        onProgress?.call(idx);
+      },
+    );
   }
 
   @override
@@ -92,8 +118,18 @@ class FluidNCMachineRepository implements MachineRepository {
   }
 
   @override
-  Future<void> emergencyStop() async {
-    _connection.sendRaw('\x18'); // Soft Reset (Ctrl-X)
+  Future<bool> emergencyStop() async {
+    // 1. Purger la file de streaming : plus une seule ligne ne doit partir.
+    _streamingService.stop();
+    // 2. Soft Reset (Ctrl-X) — et vérifier qu'il est RÉELLEMENT parti.
+    final sent = _connection.sendRaw('\x18');
+    if (!sent) {
+      debugPrint(
+        '[FORGERON] 🚨 ARRÊT D\'URGENCE NON TRANSMIS — liaison coupée. '
+        'La machine n\'est PAS arrêtée.',
+      );
+    }
+    return sent;
   }
 
   @override
@@ -138,6 +174,24 @@ class FluidNCMachineRepository implements MachineRepository {
 
   @override
   void setSimulationSpeed(double speed) {} // Ignored for real hardware
+
+  static const Map<String, int> _wcsToP = {
+    'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6,
+  };
+
+  @override
+  Future<void> setWcsOffset(String wcs, List<double> offset) async {
+    final p = _wcsToP[wcs.toUpperCase()];
+    if (p == null) return;
+    const axisLetters = ['X', 'Y', 'Z', 'A', 'C'];
+    final cmd = StringBuffer('G10 L2 P$p');
+    for (var i = 0; i < offset.length && i < axisLetters.length; i++) {
+      cmd.write(' ${axisLetters[i]}${offset[i].toStringAsFixed(3)}');
+    }
+    _connection.sendGCode(cmd.toString());
+    // Rafraîchir la table des offsets réelle depuis la machine.
+    _connection.sendRaw('\$#\n');
+  }
 
   void dispose() {
     _msgSub?.cancel();

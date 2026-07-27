@@ -32,24 +32,46 @@ class ProbingState {
   final ProbingResult? lastResult;
   final List<ProbingResult> sequenceResults;
 
+  /// Point calculé (repère machine) proposé pour un zérotage WCS (G10 L20),
+  /// en attente de confirmation utilisateur. Null si rien à zérer.
+  final double? pendingZeroX;
+  final double? pendingZeroY;
+  final double? pendingZeroZ;
+
   ProbingState({
     this.step = ProbingStep.idle,
     this.statusMessage = 'Prêt pour le palpage',
     this.lastResult,
     this.sequenceResults = const [],
+    this.pendingZeroX,
+    this.pendingZeroY,
+    this.pendingZeroZ,
   });
+
+  bool get hasPendingZero =>
+      pendingZeroX != null || pendingZeroY != null || pendingZeroZ != null;
 
   ProbingState copyWith({
     ProbingStep? step,
     String? statusMessage,
     ProbingResult? lastResult,
     List<ProbingResult>? sequenceResults,
+    double? pendingZeroX,
+    double? pendingZeroY,
+    double? pendingZeroZ,
+    bool clearPendingZero = false,
   }) {
     return ProbingState(
       step: step ?? this.step,
       statusMessage: statusMessage ?? this.statusMessage,
       lastResult: lastResult ?? this.lastResult,
       sequenceResults: sequenceResults ?? this.sequenceResults,
+      pendingZeroX:
+          clearPendingZero ? null : (pendingZeroX ?? this.pendingZeroX),
+      pendingZeroY:
+          clearPendingZero ? null : (pendingZeroY ?? this.pendingZeroY),
+      pendingZeroZ:
+          clearPendingZero ? null : (pendingZeroZ ?? this.pendingZeroZ),
     );
   }
 }
@@ -123,6 +145,7 @@ class ProbingNotifier extends StateNotifier<ProbingState> {
       state = state.copyWith(
         step: ProbingStep.finished,
         statusMessage: 'Z détecté: ${result.probePos[2].toStringAsFixed(3)}',
+        pendingZeroZ: result.probePos[2],
       );
     } catch (e) {
       state = state.copyWith(step: ProbingStep.error, statusMessage: 'Erreur Z: $e');
@@ -157,7 +180,53 @@ class ProbingNotifier extends StateNotifier<ProbingState> {
     state = state.copyWith(
       step: ProbingStep.finished,
       statusMessage: 'Centre trouvé: X=${centerX.toStringAsFixed(3)}, Y=${centerY.toStringAsFixed(3)}',
+      pendingZeroX: centerX,
+      pendingZeroY: centerY,
     );
+  }
+
+  static const Map<String, int> _wcsToP = {
+    'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6,
+  };
+
+  /// Déplace la machine au point calculé (centre/hauteur détectés) puis
+  /// applique un vrai zérotage WCS (`G10 L20`) à cette position — à n'appeler
+  /// qu'après confirmation explicite de l'utilisateur, car ça redéfinit
+  /// l'origine pièce active.
+  Future<void> confirmZeroWcs(String wcs) async {
+    if (!state.hasPendingZero) return;
+    final p = _wcsToP[wcs.toUpperCase()];
+    if (p == null) return;
+
+    final repo = _ref.read(machineRepositoryProvider);
+    final moveParts = <String>[];
+    final zeroParts = <String>[];
+    if (state.pendingZeroX != null) {
+      moveParts.add('X${state.pendingZeroX!.toStringAsFixed(3)}');
+      zeroParts.add('X0');
+    }
+    if (state.pendingZeroY != null) {
+      moveParts.add('Y${state.pendingZeroY!.toStringAsFixed(3)}');
+      zeroParts.add('Y0');
+    }
+    if (state.pendingZeroZ != null) {
+      moveParts.add('Z${state.pendingZeroZ!.toStringAsFixed(3)}');
+      zeroParts.add('Z0');
+    }
+
+    await repo.sendGCode('G90 G0 ${moveParts.join(' ')}');
+    await repo.sendGCode('G10 L20 P$p ${zeroParts.join(' ')}');
+    repo.sendRaw('\$#\n'); // Rafraîchit la table d'offsets affichée.
+
+    state = state.copyWith(
+      statusMessage: 'WCS $wcs zéré à la position palpée.',
+      clearPendingZero: true,
+    );
+  }
+
+  /// Annule la proposition de zérotage sans envoyer de commande.
+  void dismissPendingZero() {
+    state = state.copyWith(clearPendingZero: true);
   }
 
   Future<ProbingResult> _waitForProbeReport() async {

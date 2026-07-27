@@ -8,7 +8,7 @@ import 'package:webview_windows/webview_windows.dart';
 import '../../application/providers/theme_provider.dart';
 import 'dart:typed_data';
 
-class TrunnionVisualizer extends ConsumerStatefulWidget {
+class WindowsTrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
   final List<double>? targetPos;
   final List<List<double>>? toolpath;
@@ -16,7 +16,7 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
   final bool showVectors;
   final List<double> machineLimits; // [Lx, Ly, Lz]
 
-  const TrunnionVisualizer({
+  const WindowsTrunnionVisualizer({
     super.key,
     required this.mPos,
     this.targetPos,
@@ -27,10 +27,10 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TrunnionVisualizer> createState() => _TrunnionVisualizerState();
+  ConsumerState<WindowsTrunnionVisualizer> createState() => _WindowsTrunnionVisualizerState();
 }
 
-class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
+class _WindowsTrunnionVisualizerState extends ConsumerState<WindowsTrunnionVisualizer> {
   final _controller = WebviewController();
   bool _isInitialized = false;
   bool _isReady = false;
@@ -97,7 +97,7 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
   }
 
   @override
-  void didUpdateWidget(covariant TrunnionVisualizer oldWidget) {
+  void didUpdateWidget(covariant WindowsTrunnionVisualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isReady) return;
 

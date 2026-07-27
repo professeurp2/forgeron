@@ -8,7 +8,19 @@ class AnalyzedGCode {
   final List<List<double>> toolpath;
   final Map<int, GCodeModalState> modalStates;
 
-  AnalyzedGCode({required this.lines, required this.toolpath, required this.modalStates});
+  /// Pour chaque point de [toolpath], l'index de la ligne brute (dans
+  /// [lines]) qui l'a produit. Nécessaire car [toolpath] ne contient qu'un
+  /// point par ligne de MOUVEMENT — les lignes vides/commentaires/M-codes
+  /// n'y figurent pas, donc `toolpath.length` < `lines.length` en général et
+  /// on ne peut pas indexer l'un avec l'index de l'autre directement.
+  final List<int> toolpathLineIndices;
+
+  AnalyzedGCode({
+    required this.lines,
+    required this.toolpath,
+    required this.modalStates,
+    this.toolpathLineIndices = const [],
+  });
 }
 
 /// État modal d'une ligne spécifique
@@ -38,6 +50,7 @@ class GCodeParser {
   static AnalyzedGCode _parseInternal(String content) {
     final lines = content.split('\n');
     final List<List<double>> toolpath = [];
+    final List<int> toolpathLineIndices = [];
     final Map<int, GCodeModalState> modalStates = {};
 
     double lastX = 0, lastY = 0, lastZ = 0, lastA = 0, lastC = 0;
@@ -64,28 +77,50 @@ class GCodeParser {
 
       // --- Extraction des coordonnées pour le toolpath ---
       if (line.startsWith('G0') || line.startsWith('G1') || line.startsWith('G2') || line.startsWith('G3') || line.contains('X') || line.contains('Y') || line.contains('Z')) {
-        final x = _extractCoord(line, 'X', lastX);
-        final y = _extractCoord(line, 'Y', lastY);
-        final z = _extractCoord(line, 'Z', lastZ);
-        final a = _extractCoord(line, 'A', lastA);
-        final c = _extractCoord(line, 'C', lastC);
+        // Les axes linéaires (X/Y/Z) sont convertis en mm (G20) et accumulés
+        // en mode relatif (G91). Les axes rotatifs (A/C) sont toujours en
+        // degrés absolus/relatifs, jamais convertis par G20/G21.
+        final x = _extractCoord(line, 'X', lastX, currentModal, isLinear: true);
+        final y = _extractCoord(line, 'Y', lastY, currentModal, isLinear: true);
+        final z = _extractCoord(line, 'Z', lastZ, currentModal, isLinear: true);
+        final a = _extractCoord(line, 'A', lastA, currentModal, isLinear: false);
+        final c = _extractCoord(line, 'C', lastC, currentModal, isLinear: false);
 
         toolpath.add([x, y, z, a, c, lastType]);
-        
+        toolpathLineIndices.add(i);
+
         lastX = x; lastY = y; lastZ = z; lastA = a; lastC = c;
       }
     }
 
-    return AnalyzedGCode(lines: lines, toolpath: toolpath, modalStates: modalStates);
+    return AnalyzedGCode(
+      lines: lines,
+      toolpath: toolpath,
+      modalStates: modalStates,
+      toolpathLineIndices: toolpathLineIndices,
+    );
   }
 
-  static double _extractCoord(String line, String axis, double lastVal) {
+  /// Extrait la coordonnée d'un axe en tenant compte du mode courant :
+  ///  - G91 (relatif) : la valeur lue est un delta ajouté à [lastVal].
+  ///  - G20 (pouces) : conversion en mm pour les axes linéaires uniquement.
+  /// Si l'axe est absent de la ligne, la position ne change pas (delta nul
+  /// en relatif, valeur inchangée en absolu).
+  static double _extractCoord(
+    String line,
+    String axis,
+    double lastVal,
+    GCodeModalState modal, {
+    required bool isLinear,
+  }) {
     final reg = RegExp('$axis([-+]?[0-9]*\\.?[0-9]+)');
     final match = reg.firstMatch(line);
-    if (match != null) {
-      return double.tryParse(match.group(1)!) ?? lastVal;
-    }
-    return lastVal;
+    if (match == null) return lastVal;
+
+    double value = double.tryParse(match.group(1)!) ?? 0.0;
+    if (isLinear && modal.isInches) value *= 25.4;
+
+    return modal.isRelative ? lastVal + value : value;
   }
 
   static GCodeModalState _updateModal(GCodeModalState current, {String? wcs, bool? relative, bool? inches}) {

@@ -3,6 +3,79 @@ import '../../core/theme/app_colors.dart';
 import 'tutorial_step.dart';
 import 'tutorial_keys.dart';
 
+/// Parcours guidé du **mobile** (Version Refondue).
+final List<TutorialStep> mobileTutorialSteps = [
+  TutorialStep(
+    id: 'm_welcome',
+    title: 'BIENVENUE DANS FORGERON',
+    description:
+        'Votre poste de commande CNC 5 axes, optimisé pour la production. Prêt pour une visite rapide ?',
+    page: 'dashboard',
+    spotlightShape: SpotlightShape.none,
+    tooltipPosition: TooltipPosition.center,
+    icon: Icons.rocket_launch,
+    accentColor: AppColors.primary,
+    action: 'DÉMARRER ›',
+  ),
+  TutorialStep(
+    id: 'm_master',
+    title: 'ONGLET MASTER',
+    description:
+        'C\'est votre centre de contrôle. Les positions (DRO) sont affichées en géant pour être lues de loin.',
+    targetKey: TutorialKeys.mobileSimulator,
+    page: 'dashboard',
+    tooltipPosition: TooltipPosition.bottom,
+    icon: Icons.analytics_outlined,
+    accentColor: AppColors.primary,
+  ),
+  TutorialStep(
+    id: 'm_jog',
+    title: 'VOS ONGLES MÉTIERS',
+    description:
+        'Basculez ici entre l\'écran MASTER, le JOG pour bouger les axes, et le PROGRAMME pour charger vos fichiers.',
+    page: 'dashboard',
+    targetKey: TutorialKeys.mobileTabs,
+    tooltipPosition: TooltipPosition.bottom,
+    icon: Icons.tab,
+    accentColor: AppColors.primary,
+  ),
+  TutorialStep(
+    id: 'm_workshop',
+    title: 'MODE ATELIER',
+    description:
+        'Le bouton magique ! Activez-le pour passer en interface "Haute Visibilité" simplifiée.',
+    page: 'dashboard',
+    targetKey: TutorialKeys.mobileNav,
+    tooltipPosition: TooltipPosition.top,
+    icon: Icons.factory_rounded,
+    accentColor: Colors.amber,
+  ),
+  TutorialStep(
+    id: 'm_estop',
+    title: 'ARRÊT D\'URGENCE',
+    description:
+        'Le bouton rouge central est accessible partout. Une pression fige immédiatement la machine.',
+    targetKey: TutorialKeys.mobileEstop,
+    page: 'dashboard',
+    tooltipPosition: TooltipPosition.top,
+    icon: Icons.warning_amber,
+    accentColor: AppColors.danger,
+  ),
+  TutorialStep(
+    id: 'm_end',
+    title: 'À VOUS DE JOUER',
+    description:
+        'Naviguez entre les modules (Palpage, Outils, Fichiers) via la barre du bas. Bon usinage !',
+    page: 'dashboard',
+    spotlightShape: SpotlightShape.none,
+    tooltipPosition: TooltipPosition.center,
+    icon: Icons.check_circle_outline,
+    accentColor: AppColors.success,
+    action: 'FORGER !',
+  ),
+];
+
+/// Parcours guidé du **desktop** (barre latérale, barre de titre, pied de page).
 final List<TutorialStep> tutorialSteps = [
   // 🚀 PHASE 0 — BIENVENUE
   TutorialStep(

@@ -1,8 +1,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Indispensable : la liaison avec l'ESP32/FluidNC passe par un WebSocket.
+         Sans cette permission, l'app se lance mais ne joint jamais la machine. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Utile pour détecter la perte de WiFi (heartbeat / reconnexion). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Requise pour demander explicitement le réseau cellulaire (4G/5G) et y
+         router le trafic de l'IA pendant que le WiFi reste dédié à l'ESP32.
+         Permission « normale » : accordée à l'installation, sans dialogue. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
+    <!-- Dictée vocale (speech_to_text) : micro. Demandée à l'exécution. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Notifications système de l'agent IA (Android 13+). Demandée à l'exécution. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Dossier de travail : lecture/écriture des fichiers G-code choisis par
+         l'utilisateur. Sur Android 11+, l'accès persistant à un dossier
+         arbitraire nécessite « Accès à tous les fichiers » (à accorder dans les
+         réglages système). -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+
+    <!-- usesCleartextTraffic : FluidNC est joint en clair (ws:// sur le LAN de
+         l'atelier), or Android 9+ bloque le trafic non chiffré par défaut.
+         Sans ça, la connexion est refusée avant même d'atteindre la machine. -->
     <application
-        android:label="forgeron"
+        android:label="Forgeron"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,6 +69,18 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Reconnaissance vocale (speech_to_text) sur Android 11+. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <!-- Synthèse vocale (flutter_tts) sur Android 11+. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
+        <!-- Capture caméra (image_picker) sur Android 11+. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
     </queries>
 </manifest>

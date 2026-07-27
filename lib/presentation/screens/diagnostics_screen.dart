@@ -12,7 +12,7 @@ import '../tutorial/tutorial_keys.dart';
 class DiagnosticsScreen extends ConsumerWidget {
   const DiagnosticsScreen({super.key});
 
-  static get _endstops => [
+  static List<(String, String, bool, Color)> get _endstops => [
     ('X', 'GPIO 34', false, AppColors.axisX),
     ('Y', 'GPIO 35', false, AppColors.axisY),
     ('Z', 'GPIO 32', true, AppColors.axisZ),
@@ -20,7 +20,7 @@ class DiagnosticsScreen extends ConsumerWidget {
     ('C', 'GPIO 25', false, AppColors.axisC),
   ];
 
-  static get _axisParams => [
+  static List<(String, Color, String, String, String, String)> get _axisParams => [
     ('X', AppColors.axisX, '160', '5000', '250', '600'),
     ('Y', AppColors.axisY, '160', '5000', '250', '800'),
     ('Z', AppColors.axisZ, '320', '2000', '150', '200'),

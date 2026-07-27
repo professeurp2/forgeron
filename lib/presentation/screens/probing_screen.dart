@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
-import '../widgets/dashboard/gauge_widgets.dart';
+import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
-import '../../domain/models/jog_command.dart';
 import '../../application/providers/probing_provider.dart';
 import '../../core/widgets/split_view.dart';
 import '../widgets/calibration_wizard.dart';
@@ -42,11 +41,8 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
     super.dispose();
   }
 
-  static const _wcsData = [
-    ('G54', [120.500, -45.200, 0.000, 0.000, 90.000]),
-    ('G55', [0.000, 0.000, 0.000, 0.000, 0.000]),
-    ('G56', [250.000, 100.000, 0.000, 45.000, 180.000]),
-  ];
+  static const _wcsLabels = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59'];
+  static const _emptyOffset = [0.0, 0.0, 0.0, 0.0, 0.0];
   static const _axisLabels = ['X', 'Y', 'Z', 'A', 'C'];
   static final _axisColors = [
     AppColors.axisX, AppColors.axisY, AppColors.axisZ,
@@ -57,7 +53,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(machineStateProvider);
     final wPos = state.valueOrNull?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
-    final mPos = state.valueOrNull?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    final mPos = ref.watch(renderMPosProvider);
     final gcodeState = ref.watch(gcodeProvider);
     final showVectors = ref.watch(showVectorsProvider);
 
@@ -70,7 +66,12 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
         Text('SYSTÈMES DE COORDONNÉES (WCS)',
             style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
         SizedBox(height: 12),
-        for (int i = 0; i < _wcsData.length; i++) _wcsCard(i, state.valueOrNull?.activeWCS ?? 'G54'),
+        for (final label in _wcsLabels)
+          _wcsCard(
+            label,
+            state.valueOrNull?.wcsOffsets[label] ?? _emptyOffset,
+            state.valueOrNull?.activeWCS ?? 'G54',
+          ),
         SizedBox(height: 24),
         Text('DRO EN DIRECT',
             style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
@@ -116,8 +117,9 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
         child: TrunnionVisualizer(
           mPos: mPos,
           targetPos: state.valueOrNull?.targetPos,
-          toolpath: gcodeState.toolpath,
-          activeIndex: state.valueOrNull?.activeLineIndex ?? 0,
+          toolpath: ref.watch(renderToolpathProvider),
+          activeIndex: gcodeState
+              .resolveToolpathIndex(state.valueOrNull?.activeLineIndex ?? 0),
           showVectors: showVectors,
         ),
       ),
@@ -190,14 +192,13 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
     );
   }
 
-  Widget _wcsCard(int i, String activeWcs) {
-    final d = _wcsData[i];
-    final sel = d.$1 == activeWcs;
+  Widget _wcsCard(String label, List<double> offset, String activeWcs) {
+    final sel = label == activeWcs;
     return InkWell(
       onTap: () {
-        ref.read(machineRepositoryProvider).sendGCode(d.$1);
+        ref.read(machineRepositoryProvider).sendGCode(label);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('WCS actif défini sur ${d.$1}'),
+          content: Text('WCS actif défini sur $label'),
           backgroundColor: Colors.deepOrange,
           duration: const Duration(seconds: 2),
         ));
@@ -217,14 +218,14 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
               color: sel ? Colors.deepOrange.withValues(alpha: 0.15) : AppColors.surfaceBright,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(d.$1,
+            child: Text(label,
                 style: TextStyle(color: sel ? Colors.deepOrange : Colors.grey, fontWeight: FontWeight.w900, fontSize: 14, fontFamily: 'JetBrains Mono')),
           ),
           SizedBox(width: 12),
           Expanded(
             child: Wrap(spacing: 6, runSpacing: 4, children: [
               for (int j = 0; j < 5; j++)
-                Text('${_axisLabels[j]}:${d.$2[j].toStringAsFixed(2)}',
+                Text('${_axisLabels[j]}:${offset[j].toStringAsFixed(2)}',
                     style: TextStyle(color: _axisColors[j], fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
             ]),
           ),
@@ -267,7 +268,6 @@ class _JogPanel5Axes extends ConsumerStatefulWidget {
 class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
   @override
   Widget build(BuildContext context) {
-    final jog = ref.watch(secureJogProvider);
     final jogN = ref.read(secureJogProvider.notifier);
     final machineState = ref.watch(machineStateProvider).valueOrNull;
     final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
@@ -275,109 +275,8 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _sectionTitle('PAS LINÉAIRE (mm)'),
-        SizedBox(height: 8),
-        Wrap(spacing: 6, children: [
-          for (final s in LinearJogStep.steps)
-            _stepChip(s.toString(), s == jog.linearStep, AppColors.axisX, () => jogN.setLinearStep(s)),
-        ]),
-        SizedBox(height: 12),
-        _sectionTitle('PAS ROTATIF (°)'),
-        SizedBox(height: 8),
-        Wrap(spacing: 6, children: [
-          for (final s in RotaryJogStep.steps)
-            _stepChip('$s°', s == jog.rotaryStep, AppColors.axisA, () => jogN.setRotaryStep(s)),
-        ]),
-        SizedBox(height: 20),
-        _sectionTitle('AXES LINÉAIRES'),
-        SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _linearGroup()),
-          SizedBox(width: 16),
-          Column(children: [
-            _jogBtn('Z+', AppColors.axisZ, () => jogN.jogLinear('Z', 1)),
-            SizedBox(height: 8),
-            _jogBtn('Z-', AppColors.axisZ, () => jogN.jogLinear('Z', -1)),
-          ]),
-        ]),
-        SizedBox(height: 20),
-        _sectionTitle('AXES ROTATIFS — TRUNNION'),
-        SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  ArcGauge(
-                    value: wPos[3],
-                    minValue: -90,
-                    maxValue: 90,
-                    color: AppColors.axisA,
-                    axisLabel: 'A',
-                    size: 90,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      RotaryJogButton(
-                        isPlus: false,
-                        axisLabel: 'A',
-                        color: AppColors.axisA,
-                        onTap: () => jogN.jogRotary('A', -1),
-                      ),
-                      const SizedBox(width: 4),
-                      RotaryJogButton(
-                        isPlus: true,
-                        axisLabel: 'A',
-                        color: AppColors.axisA,
-                        onTap: () => jogN.jogRotary('A', 1),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  RingGauge(
-                    value: wPos[4] % 360,
-                    color: AppColors.axisC,
-                    axisLabel: 'C',
-                    size: 78,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      RotaryJogButton(
-                        isPlus: false,
-                        axisLabel: 'C',
-                        color: AppColors.axisC,
-                        onTap: () => jogN.jogRotary('C', -1),
-                      ),
-                      const SizedBox(width: 4),
-                      RotaryJogButton(
-                        isPlus: true,
-                        axisLabel: 'C',
-                        color: AppColors.axisC,
-                        onTap: () => jogN.jogRotary('C', 1),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        // Design unifié avec le panneau JOG CONTROL du Dashboard.
+        JogControlPanel(wPos: wPos),
         SizedBox(height: 16),
         SizedBox(
           width: double.infinity, height: 52,
@@ -390,31 +289,6 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
         ),
       ]),
     );
-  }
-
-  Widget _linearGroup() {
-    final jogN = ref.read(secureJogProvider.notifier);
-    return Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [_jogBtn('Y+', AppColors.axisY, () => jogN.jogLinear('Y', 1))]),
-      SizedBox(height: 6),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        _jogBtn('X-', AppColors.axisX, () => jogN.jogLinear('X', -1)),
-        SizedBox(width: 8),
-        Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceBright, border: Border.all(color: AppColors.surfaceBorder)), child: Center(child: Icon(Icons.add, size: 12, color: AppColors.textDisabled))),
-        SizedBox(width: 8),
-        _jogBtn('X+', AppColors.axisX, () => jogN.jogLinear('X', 1)),
-      ]),
-      SizedBox(height: 6),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [_jogBtn('Y-', AppColors.axisY, () => jogN.jogLinear('Y', -1))]),
-    ]);
-  }
-
-  Widget _sectionTitle(String t) => Text(t, style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5));
-  Widget _stepChip(String label, bool selected, Color color, VoidCallback onTap) {
-    return GestureDetector(onTap: onTap, child: AnimatedContainer(duration: const Duration(milliseconds: 150), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: selected ? color.withValues(alpha: 0.18) : AppColors.surface, borderRadius: BorderRadius.circular(3), border: Border.all(color: selected ? color : AppColors.surfaceBorder, width: selected ? 1.5 : 1)), child: Text(label, style: TextStyle(color: selected ? color : AppColors.textDisabled, fontSize: 10, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono'))));
-  }
-  Widget _jogBtn(String label, Color color, VoidCallback onTap) {
-    return GestureDetector(onTap: onTap, child: Container(width: 56, height: 40, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.4))), child: Center(child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')))));
   }
 }
 
@@ -528,6 +402,18 @@ class _ProbingWizardTab extends ConsumerWidget {
             ),
           ),
         ]),
+        if (probing.hasPendingZero) ...[
+          SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity, height: 50,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white),
+              onPressed: () => _confirmZero(context, ref),
+              icon: Icon(Icons.my_location),
+              label: Text('ZÉRER LE WCS ICI', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+            ),
+          ),
+        ],
         SizedBox(height: 20),
         if (probing.step != ProbingStep.idle)
           SizedBox(
@@ -539,6 +425,37 @@ class _ProbingWizardTab extends ConsumerWidget {
             ),
           ),
       ]),
+    );
+  }
+
+  void _confirmZero(BuildContext context, WidgetRef ref) {
+    final activeWcs = ref.read(machineStateProvider).valueOrNull?.activeWCS ?? 'G54';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Color(0xFF1A1A2E),
+        title: Text('Zérer $activeWcs ici ?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'La machine va se déplacer au point calculé par le palpage, puis '
+          'redéfinir l\'origine du système de coordonnées $activeWcs à cette '
+          'position (G10 L20). Cette action modifie l\'origine pièce active.',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+            onPressed: () {
+              ref.read(probingProvider.notifier).confirmZeroWcs(activeWcs);
+              Navigator.pop(ctx);
+            },
+            child: Text('Confirmer le zérotage'),
+          ),
+        ],
+      ),
     );
   }
 

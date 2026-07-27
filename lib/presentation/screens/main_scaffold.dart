@@ -1,11 +1,12 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
+import '../../application/providers/discovery_provider.dart';
 import '../tutorial/tutorial_overlay.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../tutorial/tutorial_controller.dart';
@@ -15,10 +16,20 @@ import 'tool_table_screen.dart';
 import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
+import 'ai_assistant_screen.dart';
+import 'ai_agent_settings_screen.dart';
+import '../../application/providers/ai_agent_provider.dart';
 import 'connection_settings_screen.dart';
 import 'mobile_dashboard_screen.dart';
 import 'mobile_screens.dart';
 import '../../core/widgets/responsive_layout.dart';
+import '../widgets/forgeron_wordmark.dart';
+import '../widgets/safety_banner.dart';
+import '../widgets/nav/cube_page_view.dart';
+import '../widgets/nav/forge_bottom_nav.dart';
+import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/ui_state_provider.dart';
+import '../../application/providers/ai_inbox_provider.dart';
 
 import '../../application/services/audio_service.dart';
 import '../../application/providers/di_providers.dart';
@@ -33,12 +44,50 @@ class MainScaffold extends ConsumerStatefulWidget {
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
   bool _isSidebarExpanded = true;
-  
+
+  /// Pilote la navigation en cube 3D sur mobile. Détenu ici pour synchroniser
+  /// la barre du bas (tap) et le glissement horizontal.
+  final PageController _pageController = PageController();
+  bool _wasTransitioning = false;
+
+  @override
+  void dispose() {
+    _pageController.removeListener(_onPageScroll);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  /// Signale « transition en cours » dès que la page quitte un entier, pour que
+  /// le simulateur (WebView) se masque le temps de la rotation du cube.
+  void _onPageScroll() {
+    if (!_pageController.hasClients ||
+        !_pageController.position.haveDimensions) {
+      return;
+    }
+    final page = _pageController.page ?? 0;
+    final transitioning = (page - page.round()).abs() > 0.001;
+    if (transitioning != _wasTransitioning) {
+      _wasTransitioning = transitioning;
+      ref.read(pageTransitioningProvider.notifier).state = transitioning;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(tutorialProvider.notifier).checkAutoStart();
+    _pageController.addListener(_onPageScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Le mobile a son propre parcours : les étapes desktop visent une barre
+      // latérale et un pied de page qui n'existent pas ici. Même critère que
+      // ResponsiveLayout (côté court) pour rester cohérent en paysage.
+      final isMobile = ResponsiveLayout.isMobile(context);
+      ref.read(tutorialProvider.notifier).checkAutoStart(isMobile: isMobile);
+      
+      // 1. Charge la dernière adresse IP connue
+      await loadNetworkPreferences(ref);
+      
+      // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
+      ref.read(discoveryProvider.notifier).scan(autoConnect: true);
     });
   }
 
@@ -58,6 +107,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     FileManagerScreen(),
     MDITerminalScreen(),
     DiagnosticsScreen(),
+    AiAssistantScreen(),
   ];
 
   static const _navItems = [
@@ -67,6 +117,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     _NavDef(Icons.folder_open, 'ESPACE DE TRAVAIL'),
     _NavDef(Icons.terminal, 'TERMINAL MDI'),
     _NavDef(Icons.monitor_heart, 'DIAGNOSTICS'),
+    _NavDef(Icons.smart_toy_outlined, 'AGENT IA'),
   ];
 
   @override
@@ -92,14 +143,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       ),
       body: Column(
         children: [
+          const SafetyBanner(),
           _HeaderBar(
             key: TutorialKeys.headerBar,
             isSidebarExpanded: isExpanded,
             onMenuToggle: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
             machineState: machineState,
             onEmergencyStop: () {
-              final repo = ref.read(machineRepositoryProvider);
-              repo.emergencyStop();
+              // Passe par le contrôleur : il purge le flux ET vérifie que la
+              // commande est réellement partie (sinon SafetyBanner alerte).
+              ref.read(streamingProvider.notifier).stopStream();
             },
             onSettingsPressed: () {
               Navigator.of(context).push(
@@ -133,6 +186,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   // ── Écrans mobiles : séparation complète desktop/mobile par page
   // Chaque écran est une version dédiée optimisée pour les petits écrans.
+  // L'Agent IA n'est plus une face du cube : il est accessible via le bouton
+  // flottant animé (_FloatingAiButton), pour désengorger la barre de nav.
   static const List<Widget> _mobileScreens = [
     MobileDashboardScreen(),     // 0 — Tableau de bord
     MobileProbingScreen(),       // 1 — Palpage & Origines
@@ -142,35 +197,37 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     MobileDiagnosticsScreen(),   // 5 — Diagnostics
   ];
 
+  // Libellés courts pour la barre de navigation mobile (l'ordre suit
+  // _navItems / _mobileScreens). L'IA est volontairement exclue (bouton flottant).
+  static const List<String> _mobileNavLabels = [
+    'TABLEAU', 'PALPAGE', 'OUTILS', 'TRAVAIL', 'MDI', 'DIAG',
+  ];
+
   Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
+    final fc = context.fc;
+    final aiInbox = ref.watch(aiInboxProvider);
     final state = machineState.valueOrNull;
-    final statusColor = _getMachineStatusColor(state?.status ?? MachineStatus.offline);
+    final statusColor =
+        _getMachineStatusColor(context, state?.status ?? MachineStatus.offline);
     final statusLabel = state?.status.name.toUpperCase() ?? 'OFFLINE';
     final isOnline = state?.status != null && state?.status != MachineStatus.offline;
 
-    // Tous les index utilisent leur écran mobile dédié
-    final body = _mobileScreens[selectedIndex];
+    final destinations = [
+      for (int i = 0; i < _mobileNavLabels.length; i++)
+        ForgeNavDestination(_navItems[i].icon, _mobileNavLabels[i]),
+    ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: fc.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: fc.surface,
         elevation: 0,
         titleSpacing: 12,
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 26),
+            const ForgeronLogoGlow(height: 26),
             SizedBox(width: 10),
-            Text(
-              'FORGERON',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                fontStyle: FontStyle.italic,
-                letterSpacing: 2.0,
-              ),
-            ),
+            const ForgeronWordmark(fontSize: 16),
             SizedBox(width: 10),
             // Badge statut compact
             Container(
@@ -209,10 +266,34 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
+          // Bascule de thème clair / sombre.
+          IconButton(
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Icon(
+                ref.watch(themeModeProvider) == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                key: ValueKey(ref.watch(themeModeProvider)),
+                color: fc.primary,
+                size: 20,
+              ),
+            ),
+            tooltip: 'Changer le thème (clair / sombre)',
+            onPressed: () {
+              final notifier = ref.read(themeModeProvider.notifier);
+              notifier.state = notifier.state == ThemeMode.dark
+                  ? ThemeMode.light
+                  : ThemeMode.dark;
+              HapticFeedback.lightImpact();
+            },
+          ),
           IconButton(
             icon: Icon(
               isOnline ? Icons.wifi : Icons.wifi_off,
-              color: isOnline ? AppColors.success : AppColors.textDisabled,
+              color: isOnline ? fc.success : fc.textDisabled,
               size: 20,
             ),
             tooltip: 'Connexion ESP32',
@@ -223,86 +304,522 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.surfaceBorder),
+          child: Container(height: 1, color: fc.surfaceBorder),
         ),
       ),
-      // ── FAB E-STOP persistant ──────────────────────────────────────────
-      floatingActionButton: FloatingActionButton.extended(
+      // ── FAB E-STOP persistant, pulsant, au centre (accès pouce) ─────────
+      floatingActionButton: _EstopFab(
+        key: TutorialKeys.mobileEstop,
         onPressed: () {
           ref.read(machineRepositoryProvider).emergencyStop();
           HapticFeedback.heavyImpact();
         },
-        backgroundColor: AppColors.danger,
-        foregroundColor: Colors.white,
-        icon: Icon(Icons.warning_amber_rounded, size: 20),
-        label: Text('ARRÊT',
-            style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 11,
-                letterSpacing: 1.0)),
-        elevation: 6,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
-      body: body,
-      bottomNavigationBar: BottomAppBar(
-        color: AppColors.surface,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: SizedBox(
-          height: 56,
-          child: Row(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      // ── Navigation en cube 3D rotatif ──────────────────────────────────
+      body: Stack(
+        children: [
+          Column(
             children: [
-              // 5 premiers onglets (les 5 premières entrées)
-              ..._navItems.asMap().entries.take(5).map((e) {
-                final i = e.key;
-                final item = e.value;
-                final sel = selectedIndex == i;
-                return Expanded(
-                  child: InkWell(
-                    onTap: () => _onNavItemTapped(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(item.icon,
-                            size: 22,
-                            color: sel
-                                ? AppColors.primary
-                                : AppColors.textDisabled),
-                        SizedBox(height: 2),
-                        Text(
-                          item.title.split(' ').first,
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: sel
-                                  ? AppColors.primary
-                                  : AppColors.textDisabled,
-                              fontWeight: sel
-                                  ? FontWeight.w900
-                                  : FontWeight.normal),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-              // Espace pour le FAB
-              SizedBox(width: 56),
+              const SafetyBanner(),
+              Expanded(
+                child: CubePageView(
+                  controller: _pageController,
+                  onPageChanged: _onNavItemTapped,
+                  children: _mobileScreens,
+                ),
+              ),
             ],
           ),
-        ),
+          // ── Bouton IA flottant, déplaçable à la main ────────────────────
+          Positioned.fill(
+            child: _DraggableAiButton(
+              alert: aiInbox.hasAlert,
+              problem: aiInbox.problem,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                ref.read(aiInboxProvider.notifier).markRead();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const _AiAssistantPage(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: ForgeBottomNav(
+        key: TutorialKeys.mobileNav,
+        destinations: destinations,
+        selectedIndex: selectedIndex,
+        onTap: (i) {
+          _onNavItemTapped(i);
+          HapticFeedback.selectionClick();
+          if (_pageController.hasClients) {
+            _pageController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 460),
+              curve: Curves.easeInOutCubic,
+            );
+          }
+        },
       ),
     );
   }
 
-  Color _getMachineStatusColor(MachineStatus s) {
+  Color _getMachineStatusColor(BuildContext context, MachineStatus s) {
+    final fc = context.fc;
     switch (s) {
-      case MachineStatus.idle: return AppColors.success;
-      case MachineStatus.run: return AppColors.primary;
-      case MachineStatus.hold: return AppColors.warning;
-      case MachineStatus.alarm: return AppColors.error;
-      case MachineStatus.home: return AppColors.axisZ;
-      default: return AppColors.textDisabled;
+      case MachineStatus.idle: return fc.success;
+      case MachineStatus.run: return fc.primary;
+      case MachineStatus.hold: return fc.warning;
+      case MachineStatus.alarm: return fc.error;
+      case MachineStatus.home: return fc.axisZ;
+      default: return fc.textDisabled;
     }
+  }
+}
+
+/// FAB E-STOP pulsant — halo rouge respirant pour être impossible à rater.
+/// S'insère dans l'encoche centrale de [ForgeBottomNav].
+class _EstopFab extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _EstopFab({super.key, required this.onPressed});
+
+  @override
+  State<_EstopFab> createState() => _EstopFabState();
+}
+
+class _EstopFabState extends State<_EstopFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final danger = context.fc.danger;
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) {
+        final t = _pulse.value;
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: danger.withValues(alpha: 0.35 + 0.35 * t),
+                blurRadius: 12 + 12 * t,
+                spreadRadius: 1 + 3 * t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: FloatingActionButton(
+        onPressed: widget.onPressed,
+        backgroundColor: danger,
+        foregroundColor: Colors.white,
+        elevation: 6,
+        shape: const CircleBorder(),
+        tooltip: 'Arrêt d\'urgence',
+        child: const Icon(Icons.warning_amber_rounded, size: 26),
+      ),
+    );
+  }
+}
+
+/// Page hôte de l'Agent IA lorsqu'il est ouvert via le bouton flottant.
+/// [AiAssistantScreen] est conçu sans Scaffold (embarqué comme onglet) : on lui
+/// fournit ici le chrome (Material + AppBar unique + retour). L'AppBar porte
+/// titre, paramètres et effacer → pas de double barre.
+class _AiAssistantPage extends ConsumerWidget {
+  const _AiAssistantPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    return Scaffold(
+      backgroundColor: fc.background,
+      appBar: AppBar(
+        backgroundColor: fc.surface,
+        elevation: 0,
+        foregroundColor: fc.textPrimary,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [fc.primary, fc.primary.withValues(alpha: 0.7)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: fc.primary.withValues(alpha: 0.4),
+                    blurRadius: 10,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: const Text('🤖', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AGENT IA',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: fc.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                          fontSize: 15,
+                          height: 1.1)),
+                  Text('Assistant CNC · Gemini',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: fc.textDisabled,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(builder: (context) {
+            final ttsOn = ref.watch(aiTtsEnabledProvider);
+            return IconButton(
+              icon: Icon(ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                  color: ttsOn ? fc.primary : fc.textSecondary, size: 20),
+              tooltip: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
+              onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
+            );
+          }),
+          IconButton(
+            icon: Icon(Icons.settings_outlined, color: fc.textSecondary, size: 20),
+            tooltip: 'Paramètres de l\'agent',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiAgentSettingsScreen()),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: fc.textSecondary, size: 20),
+            tooltip: 'Effacer la conversation',
+            onPressed: () =>
+                ref.read(aiAgentControllerProvider.notifier).clearConversation(),
+          ),
+          const SizedBox(width: 4),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: fc.surfaceBorder),
+        ),
+      ),
+      body: const SafeArea(child: AiAssistantScreen(embedded: true)),
+    );
+  }
+}
+
+/// Enveloppe déplaçable du bouton IA : l'opérateur peut le glisser n'importe où
+/// pour dégager la vue ; au relâcher il s'aimante au bord gauche ou droit le
+/// plus proche et reste toujours dans l'écran. Un simple tap ouvre l'assistant.
+class _DraggableAiButton extends StatefulWidget {
+  final bool alert;
+  final bool problem;
+  final VoidCallback onTap;
+  const _DraggableAiButton({
+    required this.alert,
+    required this.problem,
+    required this.onTap,
+  });
+
+  @override
+  State<_DraggableAiButton> createState() => _DraggableAiButtonState();
+}
+
+class _DraggableAiButtonState extends State<_DraggableAiButton> {
+  // Position du coin haut-gauche du bouton dans la zone de contenu.
+  Offset? _pos;
+  bool _dragging = false;
+  static const double _size = 58;
+  static const double _margin = 12;
+
+  Offset _clamp(Offset p, double w, double h) => Offset(
+        p.dx.clamp(_margin, w - _size - _margin),
+        p.dy.clamp(_margin, h - _size - _margin),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        // Défaut : bas-droite (au-dessus du FAB E-STOP central).
+        final pos = _clamp(
+          _pos ?? Offset(w - _size - 16, h - _size - 24),
+          w,
+          h,
+        );
+        return Stack(
+          children: [
+            AnimatedPositioned(
+              duration: _dragging
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
+              curve: Curves.easeOutBack,
+              left: pos.dx,
+              top: pos.dy,
+              child: GestureDetector(
+                onPanStart: (_) => setState(() => _dragging = true),
+                onPanUpdate: (d) {
+                  setState(() => _pos = _clamp(pos + d.delta, w, h));
+                },
+                onPanEnd: (_) {
+                  // Aimantation horizontale au bord le plus proche.
+                  final center = pos.dx + _size / 2;
+                  final snapped = center < w / 2
+                      ? _margin
+                      : w - _size - _margin;
+                  setState(() {
+                    _dragging = false;
+                    _pos = _clamp(Offset(snapped, pos.dy), w, h);
+                  });
+                  HapticFeedback.selectionClick();
+                },
+                child: _FloatingAiButton(
+                  alert: widget.alert,
+                  problem: widget.problem,
+                  onTap: widget.onTap,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Bouton flottant « Agent IA » — un emoji robot qui respire, ondule et
+/// réagit au toucher. Remplace l'onglet IA dans la barre de navigation.
+class _FloatingAiButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool alert;
+  final bool problem;
+  const _FloatingAiButton({
+    required this.onTap,
+    this.alert = false,
+    this.problem = false,
+  });
+
+  @override
+  State<_FloatingAiButton> createState() => _FloatingAiButtonState();
+}
+
+class _FloatingAiButtonState extends State<_FloatingAiButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  bool _pressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final t = _ctrl.value; // 0 → 1
+        // Ondulation verticale douce + léger balancement.
+        final bob = sin(t * 2 * pi) * 4.0;
+        final tilt = sin(t * 2 * pi) * 0.06;
+        return Transform.translate(
+          offset: Offset(0, bob),
+          child: Transform.rotate(angle: tilt, child: child),
+        );
+      },
+      child: _buildButton(fc),
+    );
+  }
+
+  Widget _buildButton(ForgeronColorPalette fc) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, _) {
+            final glow = 0.35 + 0.35 * (0.5 + 0.5 * sin(_ctrl.value * 4 * pi));
+            return Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    fc.primary,
+                    fc.primary.withValues(alpha: 0.75),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: fc.primary.withValues(alpha: glow),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.30),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: const Text('🤖', style: TextStyle(fontSize: 28)),
+            );
+          },
+            ),
+            // Badge d'alerte : « ? » (info) ou « ! » (problème).
+            if (widget.alert)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: _AiBadge(problem: widget.problem, fc: fc),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pastille d'alerte du bouton IA — pulse doucement pour attirer l'œil.
+class _AiBadge extends StatefulWidget {
+  final bool problem;
+  final ForgeronColorPalette fc;
+  const _AiBadge({required this.problem, required this.fc});
+
+  @override
+  State<_AiBadge> createState() => _AiBadgeState();
+}
+
+class _AiBadgeState extends State<_AiBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = widget.fc;
+    final color = widget.problem ? fc.danger : fc.warning;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final t = _ctrl.value;
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.4 + 0.4 * t),
+                blurRadius: 6 + 4 * t,
+                spreadRadius: 0.5 + t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: Container(
+        width: 21,
+        height: 21,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: fc.background, width: 2),
+        ),
+        child: Text(
+          widget.problem ? '!' : '?',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -355,18 +872,9 @@ class _HeaderBar extends ConsumerWidget {
             onPressed: onMenuToggle,
           ),
           SizedBox(width: 8),
-          Image.asset('assets/logo.png', height: 32),
+          const ForgeronLogoGlow(height: 32),
           SizedBox(width: 12),
-          Text(
-            'FORGERON',
-            style: TextStyle(
-              color: context.fc.primary,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              fontStyle: FontStyle.italic,
-              letterSpacing: 2.0,
-            ),
-          ),
+          const ForgeronWordmark(fontSize: 22),
           SizedBox(width: 24),
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
@@ -389,12 +897,23 @@ class _HeaderBar extends ConsumerWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: Icon(
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, anim) => RotationTransition(
+                turns: Tween<double>(begin: 0.75, end: 1.0).animate(anim),
+                child: ScaleTransition(scale: anim, child: child),
+              ),
+              child: Icon(
                 ref.watch(themeModeProvider) == ThemeMode.dark
                     ? Icons.light_mode_rounded
                     : Icons.dark_mode_rounded,
-                color: context.fc.textSecondary,
-                size: 20),
+                key: ValueKey(ref.watch(themeModeProvider)),
+                color: ref.watch(themeModeProvider) == ThemeMode.dark
+                    ? context.fc.primary
+                    : context.fc.textSecondary,
+                size: 20,
+              ),
+            ),
             tooltip: 'Changer le thème',
             onPressed: () {
               final notifier = ref.read(themeModeProvider.notifier);
@@ -467,7 +986,7 @@ class _HeaderBar extends ConsumerWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
+class _StatusBadge extends StatefulWidget {
   final String label;
   final Color color;
   final bool isActive;
@@ -475,30 +994,67 @@ class _StatusBadge extends StatelessWidget {
       {required this.label, required this.color, required this.isActive});
 
   @override
+  State<_StatusBadge> createState() => _StatusBadgeState();
+}
+
+class _StatusBadgeState extends State<_StatusBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: widget.color.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive ? color : context.fc.textDisabled,
-              boxShadow: isActive
-                  ? [BoxShadow(color: color, blurRadius: 8)]
-                  : null,
-            ),
+          AnimatedBuilder(
+            animation: _pulse,
+            builder: (context, _) {
+              final t = widget.isActive ? _pulse.value : 0.0;
+              return Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.isActive ? widget.color : context.fc.textDisabled,
+                  boxShadow: widget.isActive
+                      ? [
+                          BoxShadow(
+                            color: widget.color.withValues(alpha: 0.6 + 0.4 * t),
+                            blurRadius: 5 + 6 * t,
+                            spreadRadius: 0.5 * t,
+                          ),
+                        ]
+                      : null,
+                ),
+              );
+            },
           ),
           const SizedBox(width: 8),
-          Text(label,
+          Text(widget.label,
               style: TextStyle(
-                  color: color,
+                  color: widget.color,
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                   letterSpacing: 1.0)),
@@ -542,7 +1098,7 @@ class _Sidebar extends StatelessWidget {
             child: isExpanded
                 ? Row(
                     children: [
-                      Image.asset('assets/logo.png', height: 32),
+                      const ForgeronLogoGlow(height: 32),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -565,7 +1121,7 @@ class _Sidebar extends StatelessWidget {
                       ),
                     ],
                   )
-                : Image.asset('assets/logo.png', height: 28),
+                : const ForgeronLogoGlow(height: 28),
           ),
           const SizedBox(height: 8),
           ...List.generate(items.length, (i) {

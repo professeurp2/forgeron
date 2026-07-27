@@ -20,10 +20,22 @@ abstract class MachineRepository {
   void sendRaw(String data);
 
   /// Envoie plusieurs lignes de G-code optimisées pour le streaming haute vitesse.
-  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete});
+  ///
+  /// [onStall] est appelé si la machine cesse d'acquitter (liaison ou blocage) —
+  /// sans quoi l'UI resterait indéfiniment en « RUN ».
+  Future<void> sendGCodeBatch(
+    List<String> lines, {
+    void Function()? onComplete,
+    void Function(int index)? onProgress,
+    void Function(String reason)? onStall,
+  });
 
   /// Déclenche un arrêt d'urgence.
-  Future<void> emergencyStop();
+  ///
+  /// SÉCURITÉ : retourne `false` si la commande n'a **pas pu être transmise**
+  /// (liaison coupée). L'appelant DOIT alors alerter l'opérateur : la machine
+  /// n'est pas arrêtée, quoi qu'affiche l'interface.
+  Future<bool> emergencyStop();
 
   /// Effectue la prise d'origine (Home) des axes spécifiés. Si vide, tous les axes configurés.
   Future<void> home([List<String> axes = const []]);
@@ -48,4 +60,10 @@ abstract class MachineRepository {
 
   /// Définit la vitesse de simulation (ignoré par les repositories physiques).
   void setSimulationSpeed(double speed);
+
+  /// Définit l'offset d'un système de coordonnées pièce via `G10 L2`.
+  ///
+  /// [wcs] est le nom du système ('G54'..'G59'), [offset] une liste de 5
+  /// valeurs [X, Y, Z, A, C] en unités machine (mm / degrés).
+  Future<void> setWcsOffset(String wcs, List<double> offset);
 }

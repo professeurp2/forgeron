@@ -13,10 +13,17 @@ class FluidNcConfigRepository implements ConfigRepository {
   @override
   Future<String> getConfig() async {
     try {
-      final uri = Uri.parse('$baseUrl/config');
+      final uri = Uri.parse('$baseUrl/config.yaml');
       final response =
           await _client.get(uri).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) return response.body;
+      if (response.statusCode == 200) {
+        final body = response.body;
+        // Détection du Captive Portal (ESP32 non connecté au WiFi renvoie du HTML)
+        if (body.trimLeft().startsWith('<HTML>') || body.trimLeft().startsWith('<!DOCTYPE html>')) {
+          throw Exception('Captive Portal détecté (ESP32 en mode Point d\'Accès). Le fichier config.yaml est inaccessible.');
+        }
+        return body;
+      }
       throw Exception('HTTP ${response.statusCode}');
     } catch (e) {
       return '# FluidNC — Impossible de charger la configuration\n# Erreur: $e\n'
@@ -26,7 +33,7 @@ class FluidNcConfigRepository implements ConfigRepository {
 
   @override
   Future<void> saveConfig(String yaml) async {
-    final uri = Uri.parse('$baseUrl/config');
+    final uri = Uri.parse('$baseUrl/config.yaml');
     final response = await _client
         .post(uri, body: yaml, headers: {'Content-Type': 'text/plain'})
         .timeout(const Duration(seconds: 15));

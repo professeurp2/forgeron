@@ -721,10 +721,10 @@ class _ZAxisButtonState extends ConsumerState<ZAxisButton> {
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
-        width: 52,
-        height: 40,
+        width: 60,
+        height: 52, // cible tactile confortable (≥ 48 dp)
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           color: _pressed
               ? context.fc.axisZ.withValues(alpha: 0.2)
               : context.fc.surfaceBright,
@@ -800,9 +800,9 @@ class _RotaryJogButtonState extends ConsumerState<RotaryJogButton> {
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           color: _pressed
               ? widget.color.withValues(alpha: 0.2)
               : context.fc.surfaceBright,

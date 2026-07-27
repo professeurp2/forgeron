@@ -5,423 +5,221 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgeron 3D Visualizer</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; color: #58a6ff; font-family: monospace; }
+        body { margin: 0; overflow: hidden; background-color: #050505; color: #FF6B35; font-family: monospace; }
         canvas { display: block; }
-        #debug { position: absolute; top: 10px; left: 10px; font-size: 10px; pointer-events: none; }
+        #debug { position: absolute; top: 10px; left: 10px; font-size: 10px; pointer-events: none; opacity: 0.7; }
         .btn-container {
-            position: absolute; bottom: 20px; right: 20px;
-            display: flex; gap: 10px;
+            position: absolute; bottom: 15px; right: 15px;
+            display: flex; gap: 8px;
             z-index: 1000;
         }
-        button { 
-            background: rgba(0,0,0,0.5); border: 1px solid #58a6ff; color: #58a6ff; 
-            padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 12px;
-            display: flex; align-items: center; gap: 8px;
+        button {
+            background: rgba(0,0,0,0.6); border: 1px solid #FF6B35; color: #FF6B35;
+            padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 10px;
+            display: flex; align-items: center; gap: 6px;
             font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
         }
-        button:hover { background: rgba(88, 166, 255, 0.2); }
-        .active-btn { background: rgba(88, 166, 255, 0.3); font-weight: bold; }
+        button:hover { background: rgba(255, 107, 53, 0.2); }
+        svg { width: 14px; height: 14px; }
     </style>
 </head>
 <body>
     <div id="debug">ENGINE: INITIALIZING...</div>
     <div class="btn-container">
+        <button id="reset-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span>Reset</span>
+        </button>
         <button id="mode-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span id="mode-text">PARCOURS OUTILS</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span id="mode-text">Parcours</span>
         </button>
         <button id="fs-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            <span id="fs-text">PLEIN ÉCRAN</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
         </button>
     </div>
+
     <script src="js/three.min.js"></script>
     <script src="js/OrbitControls.js"></script>
     <script>
-        const debug = (msg) => { document.getElementById('debug').innerText = msg; console.log(msg); };
-        
-        if (typeof THREE === 'undefined') {
-            debug("ERROR: THREE.JS NOT LOADED");
+        const debug = (msg) => { document.getElementById('debug').innerText = msg; };
+
+        // --- VOXEL SYSTEM (S'intègre au design sans le casser) ---
+        class VoxelWorkpiece {
+            constructor(parent, size, res, material) {
+                this.res = res;
+                this.voxelSize = size.x / res;
+                this.nx = Math.ceil(size.x / this.voxelSize);
+                this.ny = Math.ceil(size.y / this.voxelSize);
+                this.nz = Math.ceil(size.z / this.voxelSize);
+                this.count = this.nx * this.ny * this.nz;
+
+                const geo = new THREE.BoxGeometry(this.voxelSize, this.voxelSize, this.voxelSize);
+                this.mesh = new THREE.InstancedMesh(geo, material, this.count);
+                this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+                this.states = new Uint8Array(this.count).fill(1);
+                this.dummy = new THREE.Object3D();
+                this.matrix = new THREE.Matrix4();
+                this.reset();
+                parent.add(this.mesh);
+            }
+            reset() {
+                let i = 0;
+                const ox = -(this.nx * this.voxelSize)/2, oy = -(this.ny * this.voxelSize)/2;
+                for(let x=0; x<this.nx; x++) for(let y=0; y<this.ny; y++) for(let z=0; z<this.nz; z++) {
+                    this.dummy.position.set(ox+(x+0.5)*this.voxelSize, oy+(y+0.5)*this.voxelSize, (z+0.5)*this.voxelSize);
+                    this.dummy.scale.set(1,1,1); this.dummy.updateMatrix();
+                    this.mesh.setMatrixAt(i, this.dummy.matrix); this.states[i] = 1; i++;
+                }
+                this.mesh.instanceMatrix.needsUpdate = true;
+            }
+            cut(worldToolPos, radius) {
+                const local = this.mesh.worldToLocal(worldToolPos.clone());
+                const rSq = radius * radius;
+                const ox = -(this.nx * this.voxelSize)/2, oy = -(this.ny * this.voxelSize)/2;
+                const iMinX = Math.max(0, Math.floor((local.x - radius - ox)/this.voxelSize));
+                const iMaxX = Math.min(this.nx-1, Math.ceil((local.x + radius - ox)/this.voxelSize));
+                const iMinY = Math.max(0, Math.floor((local.y - radius - oy)/this.voxelSize));
+                const iMaxY = Math.min(this.ny-1, Math.ceil((local.y + radius - oy)/this.voxelSize));
+                const iMinZ = Math.max(0, Math.floor((local.z - radius)/this.voxelSize));
+                const iMaxZ = Math.min(this.nz-1, Math.ceil((local.z + radius)/this.voxelSize));
+                let changed = false;
+                for(let x=iMinX; x<=iMaxX; x++) for(let y=iMinY; y<=iMaxY; y++) for(let z=iMinZ; z<=iMaxZ; z++) {
+                    const idx = x*(this.ny*this.nz) + y*this.nz + z;
+                    if(this.states[idx] === 0) continue;
+                    const dx = (ox+(x+0.5)*this.voxelSize) - local.x;
+                    const dy = (oy+(y+0.5)*this.voxelSize) - local.y;
+                    const dz = ((z+0.5)*this.voxelSize) - local.z;
+                    if(dx*dx + dy*dy < rSq && Math.abs(dz) < radius) {
+                        this.states[idx]=0; this.matrix.makeScale(0,0,0);
+                        this.mesh.setMatrixAt(idx, this.matrix); changed = true;
+                    }
+                }
+                if(changed) this.mesh.instanceMatrix.needsUpdate = true;
+            }
         }
 
-        // --- SCENE SETUP ---
+        // --- SCENE & MATERIALS ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('#050505');
-        
-        let gridHelper = new THREE.GridHelper(500, 50, '#30363d', '#21262d');
-        gridHelper.rotation.x = Math.PI / 2;
-        scene.add(gridHelper);
-        const axesHelper = new THREE.AxesHelper(50);
-        scene.add(axesHelper);
-
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
-        camera.position.set(250, -350, 300);
-        camera.up.set(0, 0, 1);
-
+        camera.position.set(250, -350, 300); camera.up.set(0, 0, 1);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.target.set(0, 0, 50);
+        controls.enableDamping = true; controls.target.set(0, 0, 50);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(100, -100, 200); scene.add(dirLight);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(100, -100, 200);
-        scene.add(dirLight);
+        const matPlate = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.55, roughness: 0.5 });
+        const matExtrusion = new THREE.MeshStandardMaterial({ color: 0x8b939c, metalness: 0.75, roughness: 0.35 });
+        const matMotor = new THREE.MeshStandardMaterial({ color: 0x131313, metalness: 0.35, roughness: 0.75 });
+        const matCap = new THREE.MeshStandardMaterial({ color: 0xbe8a5c, metalness: 0.65, roughness: 0.45 });
+        const matSteel = new THREE.MeshStandardMaterial({ color: 0xc2c8ce, metalness: 0.95, roughness: 0.18 });
+        const matAccent = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.85, roughness: 0.35 });
+        const matTool = new THREE.MeshStandardMaterial({ color: 0xFF6B35, metalness: 0.9, roughness: 0.2 });
+        const matTeal = new THREE.MeshStandardMaterial({ color: 0x0f8b7d, metalness: 0.5, roughness: 0.4 });
+        const matWorkpiece = new THREE.MeshStandardMaterial({ color: 0xd9dde1, metalness: 0.15, roughness: 0.85 });
 
-        // --- VIEW MODES ---
-        let viewMode = 'machine'; 
-        const toolpathGroup = new THREE.Group();
-        toolpathGroup.visible = false;
-        scene.add(toolpathGroup);
-        
-        const machineGroup = new THREE.Group();
-        scene.add(machineGroup);
-
-        // --- TOOLPATH COMPONENTS ---
-        const pathMaterial = new THREE.LineBasicMaterial({ vertexColors: true });
-        let pathLines = null;
-        let vectorLines = null;
-        let showVectors = false;
-        
-        const ghostMaterial = new THREE.MeshPhongMaterial({ color: 0x58a6ff, wireframe: true, transparent: true, opacity: 0.8 });
-        const ghostMesh = new THREE.Mesh(new THREE.ConeGeometry(5, 20, 16), ghostMaterial);
-        ghostMesh.geometry.translate(0, 10, 0); 
-        ghostMesh.geometry.rotateX(Math.PI / 2); 
-        toolpathGroup.add(ghostMesh);
-
-        const highlightMaterial = new THREE.LineBasicMaterial({ color: 0xffea00, linewidth: 3 });
-        const highlightGeo = new THREE.BufferGeometry();
-        highlightGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-        const highlightLine = new THREE.Line(highlightGeo, highlightMaterial);
-        toolpathGroup.add(highlightLine);
-        let toolpathData = []; 
-
-        // --- MATERIALS & AESTHETICS ---
-        const matExtrusion = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.7, roughness: 0.3 }); // Aluminum profile
-        const matPlate = new THREE.MeshStandardMaterial({ color: 0x2c3e50, metalness: 0.5, roughness: 0.6 }); // Dark anodized steel
-        const matMotor = new THREE.MeshStandardMaterial({ color: 0x17202a, metalness: 0.3, roughness: 0.8 }); // Black matte stepper
-        const matAccent = new THREE.MeshStandardMaterial({ color: 0x95a5a6, metalness: 0.8, roughness: 0.4 }); // Silver accents (Chuck/Platter)
-        const matTool = new THREE.MeshStandardMaterial({ color: 0xe67e22, metalness: 0.9, roughness: 0.2 }); // Titanium endmill
-        const matTable = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.4, roughness: 0.6 }); // Iron tables
-        const matWorkpiece = new THREE.MeshStandardMaterial({ color: 0xecf0f1, metalness: 0.1, roughness: 0.9 }); // Stock
-
-        // Wrapper to add CAD-like edges to structural parts
-        function createMesh(geometry, material, addEdges = true) {
-            const mesh = new THREE.Mesh(geometry, material);
-            if (addEdges) {
-                const edges = new THREE.EdgesGeometry(geometry);
-                const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 1, transparent: true, opacity: 0.5 }));
-                mesh.add(line);
-            }
-            return mesh;
+        function createMesh(geo, mat) {
+            const m = new THREE.Mesh(geo, mat);
+            const e = new THREE.EdgesGeometry(geo);
+            m.add(new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })));
+            return m;
         }
 
-        // --- MACHINE COMPONENTS (C-FRAME KINEMATICS) ---
-        // Base L-Shape (Floor Rails + Vertical Column)
-        const baseFloor = createMesh(new THREE.BoxGeometry(100, 300, 20), matTable);
-        baseFloor.position.set(0, -50, -10);
-        machineGroup.add(baseFloor);
-
-        const baseColumn = createMesh(new THREE.BoxGeometry(100, 60, 350), matExtrusion);
-        baseColumn.position.set(0, 130, 165);
-        machineGroup.add(baseColumn);
-
-        // Column Extension Arm
-        // Connects Column (Y=100) to Z Rail (Y=50)
-        const extensionArm = createMesh(new THREE.BoxGeometry(40, 50, 80), matExtrusion);
-        extensionArm.position.set(0, 75, 200); 
-        machineGroup.add(extensionArm);
-
-        // Fixed Z Rail and Motor (Behind Spindle)
-        const zRailGroup = new THREE.Group();
-        zRailGroup.position.set(0, 40, 200); // Center Y=40, Z=200
-        machineGroup.add(zRailGroup);
-
-        const zExtrusion = createMesh(new THREE.BoxGeometry(40, 20, 200), matExtrusion);
-        zRailGroup.add(zExtrusion);
-
-        const zStepper = createMesh(new THREE.BoxGeometry(40, 40, 40), matMotor);
-        zStepper.position.set(0, 0, 100 + 20); // Top of extrusion
-        zRailGroup.add(zStepper);
-
-        // Moving Z Carriage
-        const zAxis = new THREE.Group();
-        zAxis.position.set(0, 0, 200); // Initial height at Y=0
-        machineGroup.add(zAxis);
-
-        const spindleMount = createMesh(new THREE.BoxGeometry(45, 10, 70), matPlate);
-        spindleMount.position.set(0, 25, 0); // Connects Motor(Y=20) to Rail(Y=30)
-
-        const spindleMotor = createMesh(new THREE.CylinderGeometry(20, 20, 90, 32), matMotor, false);
-        spindleMotor.rotation.x = Math.PI / 2;
-        spindleMotor.position.set(0, 0, 0); // Y=0 relative to zAxis
-
-        const spindleChuck = createMesh(new THREE.CylinderGeometry(8, 8, 25, 16), matAccent, false);
-        spindleChuck.rotation.x = Math.PI / 2;
-        spindleChuck.position.set(0, 0, -57.5);
-
-        const toolBit = createMesh(new THREE.CylinderGeometry(2, 0, 20, 16), matTool, false);
-        toolBit.rotation.x = Math.PI / 2;
-        toolBit.position.set(0, 0, -80);
-
-        zAxis.add(spindleMount, spindleMotor, spindleChuck, toolBit);
-
-        // Workpiece Chain: Base -> Y Axis -> X Axis -> Trunnion (A) -> Platter (C)
-        const yAxis = new THREE.Group();
-        yAxis.position.set(0, 0, 0); // Rides on base floor
-        machineGroup.add(yAxis);
-
-        const yTable = createMesh(new THREE.BoxGeometry(100, 160, 10), matTable);
-        yTable.position.set(0, 0, 5); // Table surface at Z=5
-        yAxis.add(yTable);
-
-        const xAxis = new THREE.Group();
-        xAxis.position.set(0, 0, 10); // Rides on Y table
-        yAxis.add(xAxis);
-
-        const xTable = createMesh(new THREE.BoxGeometry(140, 80, 5), matPlate);
-        xTable.position.set(0, 0, 2.5); // Surface at Z=5
-        xAxis.add(xTable);
-
-        const trunnionBase = new THREE.Group();
-        trunnionBase.position.set(0, 0, 5); // Sits on X table
-        xAxis.add(trunnionBase);
-
-        const tSupportL = createMesh(new THREE.BoxGeometry(10, 40, 50), matPlate);
-        tSupportL.position.set(-65, 0, 25);
-        const tSupportR = createMesh(new THREE.BoxGeometry(10, 40, 50), matPlate);
-        tSupportR.position.set(65, 0, 25);
-        trunnionBase.add(tSupportL, tSupportR);
-
-        const aAxis = new THREE.Group();
-        aAxis.position.set(0, 0, 40); // Pivot height
-        trunnionBase.add(aAxis);
-
-        const cradle = createMesh(new THREE.BoxGeometry(110, 35, 10), matPlate);
-        cradle.position.set(0, 0, -15);
-        aAxis.add(cradle);
-
-        const cAxis = new THREE.Group();
-        cAxis.position.set(0, 0, -10); // Platter surface relative to cradle center
-        aAxis.add(cAxis);
-
-        const platter = createMesh(new THREE.CylinderGeometry(30, 30, 5, 32), matAccent, false);
-        platter.rotation.x = Math.PI / 2;
-        cAxis.add(platter);
-
-        const dummyWorkpiece = createMesh(new THREE.CylinderGeometry(15, 15, 20, 16), matWorkpiece, false);
-        dummyWorkpiece.rotation.x = Math.PI / 2;
-        dummyWorkpiece.position.set(0, 0, 12.5); // Resting on platter
-        cAxis.add(dummyWorkpiece);
-
-        // --- LIMITS BOUNDING BOX ---
-        let limitsLines = null;
-        function updateLimits(lx, ly, lz) {
-            if (limitsLines) machineGroup.remove(limitsLines);
-            const limitsGeo = new THREE.BoxGeometry(lx, ly, lz);
-            const limitsEdges = new THREE.EdgesGeometry(limitsGeo);
-            limitsLines = new THREE.LineSegments(limitsEdges, new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.3 }));
-            // Center the box roughly around the working volume
-            limitsLines.position.set(0, 0, lz/2);
-            machineGroup.add(limitsLines);
+        function createStepper(size, len, shaftLen) {
+            const g = new THREE.Group();
+            const body = createMesh(new THREE.BoxGeometry(size, size, len), matMotor); body.position.z = -len/2;
+            const cap = createMesh(new THREE.BoxGeometry(size*0.9, size*0.9, size*0.16), matCap); cap.position.z = size*0.08;
+            const shaft = createMesh(new THREE.CylinderGeometry(size*0.08, size*0.08, shaftLen, 12), matSteel);
+            shaft.rotation.x = Math.PI/2; shaft.position.z = size*0.16 + shaftLen/2;
+            g.add(body, cap, shaft); return g;
         }
-        updateLimits(200, 300, 150);
 
-        // --- EVENT HANDLERS ---
-        const fsBtn = document.getElementById('fs-btn');
-        const modeBtn = document.getElementById('mode-btn');
-        const fsText = document.getElementById('fs-text');
-        const modeText = document.getElementById('mode-text');
+        // --- MACHINE MODEL (RESTAURÉ) ---
+        const machineGroup = new THREE.Group(); scene.add(machineGroup);
 
-        modeBtn.addEventListener('click', () => {
-            if (viewMode === 'machine') {
-                viewMode = 'toolpath';
-                modeText.innerText = 'MACHINE PHYSIQUE';
-                machineGroup.visible = false;
-                toolpathGroup.visible = true;
-            } else {
-                viewMode = 'machine';
-                modeText.innerText = 'PARCOURS OUTILS';
-                machineGroup.visible = true;
-                toolpathGroup.visible = false;
-            }
+        // Base & Colonne
+        const floor = createMesh(new THREE.BoxGeometry(120, 300, 22), matPlate); floor.position.set(0, -50, -11); machineGroup.add(floor);
+        const col = createMesh(new THREE.BoxGeometry(130, 45, 350), matPlate); col.position.set(0, 145, 165); machineGroup.add(col);
+        [-48, 48].forEach(x => {
+            const p = createMesh(new THREE.BoxGeometry(22, 30, 340), matExtrusion); p.position.set(x, 112, 168); machineGroup.add(p);
         });
 
-        const updateFsButton = () => {
-            fsText.innerText = document.fullscreenElement ? 'QUITTER' : 'PLEIN ÉCRAN';
-            setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+        // Z-Axis
+        const zRailGroup = new THREE.Group(); zRailGroup.position.set(0, 40, 200); machineGroup.add(zRailGroup);
+        const zPlate = createMesh(new THREE.BoxGeometry(60, 12, 210), matPlate); zPlate.position.set(0, 8, 0); zRailGroup.add(zPlate);
+        const zStepper = createStepper(42, 42, 16); zStepper.rotation.x = Math.PI; zStepper.position.set(0, 1, 118); zRailGroup.add(zStepper);
+
+        const zAxis = new THREE.Group(); machineGroup.add(zAxis);
+        const spindle = createMesh(new THREE.CylinderGeometry(20, 20, 90, 32), matMotor); spindle.rotation.x = Math.PI/2; zAxis.add(spindle);
+        const chuck = createMesh(new THREE.CylinderGeometry(8, 10, 22, 20), matAccent); chuck.rotation.x = Math.PI/2; chuck.position.set(0,0,-56); zAxis.add(chuck);
+        const toolBit = createMesh(new THREE.CylinderGeometry(2, 0, 22, 16), matTool); toolBit.rotation.x = Math.PI/2; toolBit.position.set(0,0,-80); zAxis.add(toolBit);
+
+        // Kinematics Y -> X -> A -> C
+        const yAxis = new THREE.Group(); machineGroup.add(yAxis);
+        const yTable = createMesh(new THREE.BoxGeometry(110, 170, 10), matPlate); yTable.position.z = 5; yAxis.add(yTable);
+        const yMotor = createStepper(38, 38, 12); yMotor.rotation.x = -Math.PI/2; yMotor.position.set(0, -128, -3); machineGroup.add(yMotor);
+
+        const xAxis = new THREE.Group(); xAxis.position.z = 10; yAxis.add(xAxis);
+        const xTable = createMesh(new THREE.BoxGeometry(150, 90, 6), matPlate); xTable.position.z = 3; xAxis.add(xTable);
+        const xMotor = createStepper(38, 38, 12); xMotor.rotation.y = Math.PI/2; xMotor.position.set(-85, 0, 8); yAxis.add(xMotor);
+
+        const trunnionBase = new THREE.Group(); trunnionBase.position.z = 6; xAxis.add(trunnionBase);
+        const tSuppL = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate); tSuppL.position.set(-62, 0, 31); trunnionBase.add(tSuppL);
+        const tSuppR = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate); tSuppR.position.set(62, 0, 31); trunnionBase.add(tSuppR);
+        const aMotor = createStepper(36, 36, 12); aMotor.rotation.y = -Math.PI/2; aMotor.position.set(80, 0, 40); trunnionBase.add(aMotor);
+
+        const aAxis = new THREE.Group(); aAxis.position.set(0, 0, 40); trunnionBase.add(aAxis);
+        const cradle = createMesh(new THREE.BoxGeometry(118, 46, 10), matPlate); cradle.position.z = -14; aAxis.add(cradle);
+        const cMotor = createStepper(34, 34, 10); cMotor.position.z = -44; aAxis.add(cMotor);
+
+        const cAxis = new THREE.Group(); cAxis.position.z = -8; aAxis.add(cAxis);
+        const platter = createMesh(new THREE.CylinderGeometry(40, 40, 8, 48), matTeal); platter.rotation.x = Math.PI/2; cAxis.add(platter);
+
+        // --- WORKPIECE & LOGIC ---
+        const workpiece = new VoxelWorkpiece(cAxis, {x: 35, y: 35, z: 25}, 30, matWorkpiece);
+        let lastToolPos = new THREE.Vector3();
+
+        function updateMachineStatus(payload) {
+            const m = payload.mPos;
+            zAxis.position.z = 200 + m[2];
+            xAxis.position.x = -m[0];
+            yAxis.position.y = -m[1];
+            aAxis.rotation.x = m[3] * Math.PI / 180;
+            cAxis.rotation.z = m[4] * Math.PI / 180;
+
+            if (payload.activeIndex > 0) {
+                const currentPos = new THREE.Vector3(); toolBit.getWorldPosition(currentPos);
+                currentPos.z -= 11; // Pointe de l'outil
+                workpiece.cut(currentPos, 3);
+            }
+        }
+
+        // UI Handlers
+        document.getElementById('reset-btn').onclick = () => workpiece.reset();
+        document.getElementById('mode-btn').onclick = () => {
+            const m = machineGroup.visible; machineGroup.visible = !m;
+            document.getElementById('mode-text').innerText = m ? 'Outil' : 'Machine';
         };
 
-        fsBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(e => console.error(e));
-            } else if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        });
+        window.handleMessage = (data) => {
+            if (data.type === 'update_machine') updateMachineStatus(data.payload);
+            else if (data.type === 'set_theme') scene.background = new THREE.Color(data.payload.isDark ? '#050505' : '#f0f0f0');
+        };
 
-        document.addEventListener('fullscreenchange', updateFsButton);
+        window.addEventListener('message', (e) => handleMessage(e.data));
+        if (window.ForgeronChannel) window.ForgeronChannel.postMessage(JSON.stringify({ type: 'viewer_ready' }));
 
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        animate();
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-
-        const handleMessage = (data) => {
-            if (data.type === 'load_toolpath') loadToolpath(data.payload);
-            else if (data.type === 'update_machine') updateMachineStatus(data.payload);
-            else if (data.type === 'toggle_vectors') {
-                showVectors = data.payload;
-                if (vectorLines) vectorLines.visible = showVectors;
-            } else if (data.type === 'set_limits') {
-                updateLimits(data.payload.x, data.payload.y, data.payload.z);
-            } else if (data.type === 'set_theme') {
-                const isDark = data.payload.isDark;
-                const bgColor = isDark ? '#0D0F14' : '#F0F2F5';
-                const gridColor1 = isDark ? '#30363d' : '#D0D5E0';
-                const gridColor2 = isDark ? '#21262d' : '#E2E6F0';
-                
-                scene.background = new THREE.Color(bgColor);
-                
-                scene.remove(gridHelper);
-                const newGridHelper = new THREE.GridHelper(500, 50, gridColor1, gridColor2);
-                newGridHelper.rotation.x = Math.PI / 2;
-                scene.add(newGridHelper);
-                gridHelper = newGridHelper;
-            }
-        };
-
-        window.addEventListener('message', (event) => handleMessage(event.data));
-        if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.addEventListener('message', (event) => handleMessage(event.data));
-            // Fullscreen API is not supported in the Windows webview wrapper
-            fsBtn.style.display = 'none';
-        }
-
-        // --- TOOLPATH RENDERING ---
-        function loadToolpath(pointsArray) {
-            let flatData = pointsArray;
-            if (Array.isArray(pointsArray) && Array.isArray(pointsArray[0])) {
-                flatData = new Float32Array(pointsArray.length * 6);
-                for (let i = 0; i < pointsArray.length; i++) {
-                    for (let j = 0; j < 6; j++) flatData[i * 6 + j] = pointsArray[i][j];
-                }
-            }
-
-            if (pathLines) toolpathGroup.remove(pathLines);
-            if (vectorLines) toolpathGroup.remove(vectorLines);
-            
-            toolpathData = flatData;
-            const numPoints = flatData.length / 6;
-            
-            const positions = new Float32Array(numPoints * 3);
-            const colors = new Float32Array(numPoints * 3);
-            const vecPositions = [], vecColors = [];
-
-            let minX = Infinity, maxX = -Infinity;
-            let minY = Infinity, maxY = -Infinity;
-            let minZ = Infinity, maxZ = -Infinity;
-
-            const colorG0 = new THREE.Color('#f85149');
-            const colorG1 = new THREE.Color('#3fb950');
-
-            for (let i = 0; i < numPoints; i++) {
-                const idx = i * 6;
-                const x = flatData[idx], y = flatData[idx+1], z = flatData[idx+2];
-                const a = flatData[idx+3] || 0, c = flatData[idx+4] || 0;
-                const type = flatData[idx+5];
-
-                if(x < minX) minX = x; if(x > maxX) maxX = x;
-                if(y < minY) minY = y; if(y > maxY) maxY = y;
-                if(z < minZ) minZ = z; if(z > maxZ) maxZ = z;
-
-                positions[i*3] = x; positions[i*3+1] = y; positions[i*3+2] = z;
-
-                const color = (type === 0.0) ? colorG0 : colorG1;
-                colors[i*3] = color.r; colors[i*3+1] = color.g; colors[i*3+2] = color.b;
-
-                if (i % 5 === 0) {
-                    const vecLength = 15;
-                    const dir = new THREE.Vector3(0, 0, 1);
-                    dir.applyAxisAngle(new THREE.Vector3(1,0,0), -a * Math.PI / 180);
-                    dir.applyAxisAngle(new THREE.Vector3(0,0,1), -c * Math.PI / 180);
-                    
-                    vecPositions.push(x, y, z, x + dir.x * vecLength, y + dir.y * vecLength, z + dir.z * vecLength);
-                    vecColors.push(0, 0.5, 1, 0, 0.5, 1);
-                }
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            pathLines = new THREE.Line(geometry, pathMaterial);
-            toolpathGroup.add(pathLines);
-
-            if (vecPositions.length > 0) {
-                const vecGeo = new THREE.BufferGeometry();
-                vecGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vecPositions), 3));
-                vecGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vecColors), 3));
-                vectorLines = new THREE.LineSegments(vecGeo, new THREE.LineBasicMaterial({ vertexColors: true, opacity: 0.5, transparent: true }));
-                vectorLines.visible = showVectors;
-                toolpathGroup.add(vectorLines);
-            }
-
-            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
-            controls.target.set(cx, cy, cz);
-            if (viewMode === 'toolpath') camera.position.set(cx + 100, cy - 150, cz + 100);
-        }
-
-        // --- REAL-TIME UPDATE ---
-        function updateMachineStatus(payload) {
-            const mPos = payload.mPos;
-            const idx = payload.activeIndex;
-
-            // Ghost Tool Update (Toolpath mode)
-            ghostMesh.position.set(mPos[0], mPos[1], mPos[2]);
-            ghostMesh.setRotationFromEuler(new THREE.Euler(-mPos[3] * Math.PI/180, 0, -mPos[4] * Math.PI/180, 'ZXY'));
-
-            if (idx > 0 && toolpathData.length > idx * 6) {
-                const pos = highlightGeo.attributes.position.array;
-                const p1 = (idx - 1) * 6, p2 = idx * 6;
-                pos[0] = toolpathData[p1]; pos[1] = toolpathData[p1+1]; pos[2] = toolpathData[p1+2];
-                pos[3] = toolpathData[p2]; pos[4] = toolpathData[p2+1]; pos[5] = toolpathData[p2+2];
-                highlightGeo.attributes.position.needsUpdate = true;
-            }
-
-            // --- PHYSICAL MACHINE KINEMATICS ---
-            // Tool axes (Fixed rail, moving carriage)
-            zAxis.position.z = 200 + mPos[2]; // Base Z offset + Z displacement
-
-            // Workpiece axes (Cross-slide table)
-            // Tool moves X+ -> Table moves Left (-X)
-            xAxis.position.x = -mPos[0];
-            // Tool moves Y+ -> Table moves Front (-Y).
-            yAxis.position.y = -mPos[1];
-
-            
-            // A tilts the cradle around X
-            aAxis.rotation.x = mPos[3] * Math.PI / 180;
-            // C rotates the platter around Z
-            cAxis.rotation.z = mPos[4] * Math.PI / 180;
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        window.parent.postMessage({ type: 'viewer_ready' }, '*');
-        if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.postMessage(JSON.stringify({ type: 'viewer_ready' }));
-        }
     </script>
 </body>
 </html>

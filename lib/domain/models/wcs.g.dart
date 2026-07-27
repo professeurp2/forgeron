@@ -14,7 +14,7 @@ _$WorkCoordinateSystemImpl _$$WorkCoordinateSystemImplFromJson(
       (json['offsets'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList() ??
-      [0.0, 0.0, 0.0, 0.0, 0.0],
+      const [0.0, 0.0, 0.0, 0.0, 0.0],
 );
 
 Map<String, dynamic> _$$WorkCoordinateSystemImplToJson(

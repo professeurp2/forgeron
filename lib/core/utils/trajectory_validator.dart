@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
+import '../../domain/models/trunnion_config.dart';
 import 'gcode_parser.dart';
 
 /// Résultat de la validation Lookahead
@@ -15,22 +16,34 @@ class ValidationResult {
 /// Service de Validation Lookahead (Anticipation de trajectoire).
 /// Analyse le toolpath complet avant l'usinage pour prévenir les collisions matérielles.
 class TrajectoryValidator {
-  // Limites physiques de la machine (conformes au dimensionnement PFE §3.4)
-  static const double minZ = -150.0; // Interdiction de descendre sous la course max de l'axe Z
-  static const double maxA = 90.0;  // Berceau : ±90° (Trunnion)
-  static const double minA = -90.0;
-  
-  /// Valide l'intégralité d'un programme G-Code analysé
-  static ValidationResult validate(AnalyzedGCode analyzed) {
+  /// Valide l'intégralité d'un programme G-Code analysé contre les limites
+  /// mécaniques réelles de la machine (course Z, plage angulaire A).
+  /// [config] doit refléter la configuration Trunnion active — ne jamais
+  /// utiliser de constantes figées ici, la machine peut être reconfigurée.
+  static ValidationResult validate(
+    AnalyzedGCode analyzed, {
+    required TrunnionConfig config,
+  }) {
+    final minZ = -config.travelZ;
+    final maxA = config.aAxisMaxAngle;
+    final minA = -config.aAxisMaxAngle;
+
     for (int i = 0; i < analyzed.toolpath.length; i++) {
       final pos = analyzed.toolpath[i]; // [X, Y, Z, A, C]
-      
+      // Ligne brute d'origine (toolpath ne contient qu'un point par ligne de
+      // mouvement — i seul ne correspond pas au numéro de ligne réel dès que
+      // le fichier contient des commentaires/lignes vides avant ce point).
+      final lineNum = (i < analyzed.toolpathLineIndices.length
+              ? analyzed.toolpathLineIndices[i]
+              : i) +
+          1;
+
       // 1. Vérification Limite Z (Sécurité Plateau)
       // On vérifie si la coordonnée Z dépasse la limite basse de sécurité
       if (pos[2] < minZ) {
         return ValidationResult.error(
           'Collision détectée avec le plateau (Z=${pos[2].toStringAsFixed(2)} < $minZ)',
-          i + 1,
+          lineNum,
         );
       }
 
@@ -38,7 +51,7 @@ class TrajectoryValidator {
       if (pos[3] > maxA || pos[3] < minA) {
         return ValidationResult.error(
           'Dépassement de limite angulaire sur l\'axe A (${pos[3].toStringAsFixed(1)}°)',
-          i + 1,
+          lineNum,
         );
       }
 

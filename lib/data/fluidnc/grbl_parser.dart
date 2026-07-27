@@ -263,6 +263,39 @@ class GrblParser {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // OFFSETS WCS (réponse à $#) : [G54:0.000,0.000,0.000,0.000,0.000,0.000]
+  // Couvre G54..G59 ainsi que G28/G30/G92 (points de référence).
+  // ──────────────────────────────────────────────────────────────────────────
+  static final RegExp _wcsOffsetRegex =
+      RegExp(r'^\[(G5[4-9]|G28|G30|G92):(.+)\]$');
+
+  static MachineState? parseWcsOffsetReport(
+      String message, MachineState currentState) {
+    final match = _wcsOffsetRegex.firstMatch(message);
+    if (match == null) return null;
+
+    final label = match.group(1)!;
+    final coords = match.group(2)!.split(',').map(double.tryParse).toList();
+    final offset = List<double>.filled(5, 0.0);
+    if (coords.length >= 6) {
+      // FluidNC : X=0, Y=1, Z=2, A=3, B=4, C=5
+      if (coords[0] != null) offset[0] = coords[0]!;
+      if (coords[1] != null) offset[1] = coords[1]!;
+      if (coords[2] != null) offset[2] = coords[2]!;
+      if (coords[3] != null) offset[3] = coords[3]!;
+      if (coords[5] != null) offset[4] = coords[5]!; // C axis
+    } else {
+      for (int j = 0; j < coords.length && j < 5; j++) {
+        if (coords[j] != null) offset[j] = coords[j]!;
+      }
+    }
+
+    final offsets = Map<String, List<double>>.from(currentState.wcsOffsets);
+    offsets[label] = offset;
+    return currentState.copyWith(wcsOffsets: offsets);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Point d'entrée unique — dispatch selon le type de message
   // ──────────────────────────────────────────────────────────────────────────
   static MachineState? parse(String message, MachineState currentState) {
@@ -282,6 +315,8 @@ class GrblParser {
       }
     } else if (trimmed.startsWith('[MSG:')) {
       return parseMessage(trimmed, currentState);
+    } else if (trimmed.startsWith('[G')) {
+      return parseWcsOffsetReport(trimmed, currentState);
     }
     return null; // ok, error → ignorés ici
   }

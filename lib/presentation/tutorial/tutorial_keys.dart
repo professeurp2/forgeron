@@ -46,4 +46,13 @@ class TutorialKeys {
   // Phase 9 : Connexion
   static final networkConfig = GlobalKey(debugLabel: 'tutorial_network_config');
   static final scannerBtn = GlobalKey(debugLabel: 'tutorial_scanner_btn');
+
+  // ── Mobile ────────────────────────────────────────────────────────────────
+  // Le mobile n'a ni barre latérale, ni barre de titre, ni pied de page : ses
+  // étapes doivent viser SES propres éléments, sinon le surlignage tombe dans
+  // le vide (aucun currentContext) et l'écran devient noir sans trou.
+  static final mobileNav = GlobalKey(debugLabel: 'tutorial_mobile_nav');
+  static final mobileEstop = GlobalKey(debugLabel: 'tutorial_mobile_estop');
+  static final mobileSimulator = GlobalKey(debugLabel: 'tutorial_mobile_sim');
+  static final mobileTabs = GlobalKey(debugLabel: 'tutorial_mobile_tabs');
 }

@@ -1,16 +1,22 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
-import '../../domain/models/jog_command.dart';
 import '../../application/providers/probing_provider.dart';
 import '../../application/providers/config_provider.dart';
+import '../../application/providers/machine_params_provider.dart';
+import '../../application/providers/firmware_provider.dart';
+import '../../application/providers/network_stats_provider.dart';
+import '../widgets/mobile/mobile_visualizer_panel.dart';
+import '../widgets/mobile/mobile_tab_bar.dart';
 import '../../application/services/logger_service.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
+import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/di_providers.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -28,15 +34,12 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
-  static get _wcsData => [
-    ('G54', [120.500, -45.200, 0.000, 0.000, 90.000]),
-    ('G55', [0.000, 0.000, 0.000, 0.000, 0.000]),
-    ('G56', [250.000, 100.000, 0.000, 45.000, 180.000]),
-  ];
-  static get _axisLabels => ['X', 'Y', 'Z', 'A', 'C'];
-  static get _axisColors => [
-    AppColors.axisX, AppColors.axisY, AppColors.axisZ,
-    AppColors.axisA, AppColors.axisC,
+  static const _wcsLabels = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59'];
+  static const _emptyOffset = [0.0, 0.0, 0.0, 0.0, 0.0];
+  static List<String> get _axisLabels => ['X', 'Y', 'Z', 'A', 'C'];
+  static List<Color> _axisColors(ForgeronColorPalette c) => [
+    c.axisX, c.axisY, c.axisZ,
+    c.axisA, c.axisC,
   ];
 
   @override
@@ -56,27 +59,22 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
     final state = ref.watch(machineStateProvider);
     final wPos = state.valueOrNull?.wPos ?? List.filled(5, 0.0);
     final activeWCS = state.valueOrNull?.activeWCS ?? 'G54';
+    final wcsOffsets = state.valueOrNull?.wcsOffsets ?? const {};
+    final wcsData = [
+      for (final label in _wcsLabels) (label, wcsOffsets[label] ?? _emptyOffset)
+    ];
 
     return Column(
       children: [
-        // ── Tab bar ────────────────────────────────────────────────────
-        Container(
-          color: AppColors.surface,
-          child: TabBar(
-            controller: _tab,
-            isScrollable: false,
-            indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textDisabled,
-            labelStyle: TextStyle(
-                fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-            tabs: const [
-              Tab(icon: Icon(Icons.grid_on, size: 18), text: 'WCS'),
-              Tab(icon: Icon(Icons.center_focus_strong, size: 18), text: 'JOG'),
-              Tab(icon: Icon(Icons.vertical_align_bottom, size: 18), text: 'PALPAGE'),
-              Tab(icon: Icon(Icons.home, size: 18), text: 'HOMING'),
-            ],
-          ),
+        // ── Tab bar compacte (48 px au lieu de 72) ─────────────────────
+        MobileTabBar(
+          controller: _tab,
+          tabs: const [
+            MobileTab(Icons.grid_on, 'WCS'),
+            MobileTab(Icons.center_focus_strong, 'JOG'),
+            MobileTab(Icons.vertical_align_bottom, 'PALPAGE'),
+            MobileTab(Icons.home, 'HOMING'),
+          ],
         ),
 
         // ── Content ────────────────────────────────────────────────────
@@ -85,11 +83,11 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
             controller: _tab,
             children: [
               _WCSTab(
-                  wcsData: _wcsData,
+                  wcsData: wcsData,
                   wPos: wPos,
                   activeWCS: activeWCS,
                   axisLabels: _axisLabels,
-                  axisColors: _axisColors),
+                  axisColors: _axisColors(context.fc)),
               const _MobileJogTab(),
               const _MobileProbingTab(),
               const _MobileHomingTab(),
@@ -135,7 +133,7 @@ class _WCSTab extends ConsumerWidget {
               HapticFeedback.selectionClick();
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text('WCS actif: ${d.$1}'),
-                backgroundColor: AppColors.primary,
+                backgroundColor: context.fc.primary,
                 duration: const Duration(seconds: 1),
               ));
             },
@@ -143,10 +141,10 @@ class _WCSTab extends ConsumerWidget {
               margin: EdgeInsets.only(bottom: 8),
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: context.fc.surface,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: sel ? AppColors.primary : AppColors.surfaceBorder,
+                  color: sel ? context.fc.primary : context.fc.surfaceBorder,
                   width: sel ? 1.5 : 1,
                 ),
               ),
@@ -155,13 +153,13 @@ class _WCSTab extends ConsumerWidget {
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: sel
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : AppColors.surfaceBright,
+                        ? context.fc.primary.withValues(alpha: 0.15)
+                        : context.fc.surfaceBright,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(d.$1,
                       style: TextStyle(
-                          color: sel ? AppColors.primary : AppColors.textSecondary,
+                          color: sel ? context.fc.primary : context.fc.textSecondary,
                           fontWeight: FontWeight.w900,
                           fontSize: 15,
                           fontFamily: 'JetBrains Mono')),
@@ -186,7 +184,7 @@ class _WCSTab extends ConsumerWidget {
                 ),
                 if (sel)
                   Icon(Icons.check_circle,
-                      color: AppColors.primary, size: 16),
+                      color: context.fc.primary, size: 16),
               ]),
             ),
           );
@@ -201,7 +199,7 @@ class _WCSTab extends ConsumerWidget {
             margin: EdgeInsets.only(bottom: 4),
             padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: context.fc.surface,
               border: Border(
                   left: BorderSide(color: axisColors[i], width: 3)),
             ),
@@ -215,14 +213,14 @@ class _WCSTab extends ConsumerWidget {
               SizedBox(width: 4),
               Text(isRotary ? '°' : 'mm',
                   style: TextStyle(
-                      color: AppColors.textDisabled, fontSize: 9)),
+                      color: context.fc.textDisabled, fontSize: 9)),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
                   wPos[i].toStringAsFixed(isRotary ? 2 : 3),
                   textAlign: TextAlign.right,
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.fc.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'JetBrains Mono'),
@@ -235,14 +233,14 @@ class _WCSTab extends ConsumerWidget {
         SizedBox(height: 16),
         _MActionButton(
           'ALLER AU ZÉRO',
-          AppColors.textSecondary,
+          context.fc.textSecondary,
           Icons.gps_fixed,
           () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
         ),
         SizedBox(height: 8),
         _MActionButton(
           'ORIGINES (TOUS)',
-          AppColors.axisZ,
+          context.fc.axisZ,
           Icons.home,
           () => ref.read(secureJogProvider.notifier).homeAll(),
         ),
@@ -261,169 +259,155 @@ class _MobileJogTab extends ConsumerStatefulWidget {
 class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
   @override
   Widget build(BuildContext context) {
-    final jog = ref.watch(secureJogProvider);
     final jogN = ref.read(secureJogProvider.notifier);
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // ── Pas linéaire ───────────────────────────────────────────
-        const _MLabel('PAS LINÉAIRE (mm)'),
-        SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: LinearJogStep.steps
-              .map((s) => _StepChip(
-                  s.toString(), s == jog.linearStep, AppColors.axisX,
-                  () => jogN.setLinearStep(s)))
-              .toList(),
+    // Le simulateur reste PERSISTANT en haut et le JOG STOP en bas : on ne
+    // commande plus « à l'aveugle ». Seul le panneau de jog défile entre les
+    // deux si l'écran est trop court — le simulateur ne sort jamais du cadre.
+    return LayoutBuilder(builder: (context, box) {
+      final simH = (box.maxHeight * 0.34).clamp(160.0, 300.0);
+      return Column(children: [
+        SizedBox(height: simH, child: const MobileVisualizerPanel(expand: true)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: _JogDroStrip(wPos: wPos),
         ),
-        SizedBox(height: 16),
-
-        // ── Pas rotatif ────────────────────────────────────────────
-        const _MLabel('PAS ROTATIF (°)'),
-        SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: RotaryJogStep.steps
-              .map((s) => _StepChip(
-                  '$s°', s == jog.rotaryStep, AppColors.axisA,
-                  () => jogN.setRotaryStep(s)))
-              .toList(),
+        // Commandes de jog — défilent seules si nécessaire.
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [context.fc.surfaceBright, context.fc.surface],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.fc.surfaceBorder),
+              ),
+              child: JogControlPanel(wPos: wPos),
+            ),
+          ),
         ),
-        SizedBox(height: 20),
+        // JOG STOP épinglé en bas, toujours atteignable au pouce.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: _JogStopButton(onStop: () {
+            jogN.stopJog();
+            HapticFeedback.heavyImpact();
+          }),
+        ),
+      ]);
+    });
+  }
+}
 
-        // ── Croix directionnelle XY + Z ───────────────────────────
-        const _MLabel('AXES LINÉAIRES X / Y / Z'),
-        SizedBox(height: 12),
-        Row(
-          children: [
-            // Croix XY
+// ── Bandeau DRO live + bouton STOP (onglet Jog) ─────────────────────────────
+/// Bandeau compact des 5 axes (X/Y/Z/A/C) avec valeurs en direct, pour garder
+/// la position sous les yeux pendant le jog.
+class _JogDroStrip extends StatelessWidget {
+  final List<double> wPos;
+  const _JogDroStrip({required this.wPos});
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    final axes = [
+      ('X', fc.axisX, false),
+      ('Y', fc.axisY, false),
+      ('Z', fc.axisZ, false),
+      ('A', fc.axisA, true),
+      ('C', fc.axisC, true),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fc.surfaceBorder),
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < 5; i++)
             Expanded(
-              flex: 3,
               child: Column(
                 children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _JogBtn('Y+', AppColors.axisY,
-                        () { jogN.jogLinear('Y', 1); HapticFeedback.lightImpact(); }),
-                  ]),
-                  SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _JogBtn('X-', AppColors.axisX,
-                          () { jogN.jogLinear('X', -1); HapticFeedback.lightImpact(); }),
-                      SizedBox(width: 8),
-                      Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.surfaceBright,
-                          border: Border.all(color: AppColors.surfaceBorder),
-                        ),
-                        child: Center(child: Icon(Icons.add, size: 14, color: AppColors.textDisabled)),
-                      ),
-                      SizedBox(width: 8),
-                      _JogBtn('X+', AppColors.axisX,
-                          () { jogN.jogLinear('X', 1); HapticFeedback.lightImpact(); }),
-                    ],
+                  Text(axes[i].$1,
+                      style: TextStyle(
+                          color: axes[i].$2,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12)),
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      axes[i].$3
+                          ? '${wPos[i].toStringAsFixed(2)}°'
+                          : wPos[i].toStringAsFixed(3),
+                      style: TextStyle(
+                          color: fc.textPrimary,
+                          fontFamily: 'JetBrains Mono',
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13),
+                    ),
                   ),
-                  SizedBox(height: 6),
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _JogBtn('Y-', AppColors.axisY,
-                        () { jogN.jogLinear('Y', -1); HapticFeedback.lightImpact(); }),
-                  ]),
                 ],
               ),
             ),
-            SizedBox(width: 20),
-            // Axe Z
-            Column(
-              children: [
-                _JogBtn('Z+', AppColors.axisZ,
-                    () { jogN.jogLinear('Z', 1); HapticFeedback.lightImpact(); }),
-                SizedBox(height: 10),
-                Text('Z', style: TextStyle(color: AppColors.axisZ, fontSize: 11, fontWeight: FontWeight.w900)),
-                SizedBox(height: 10),
-                _JogBtn('Z-', AppColors.axisZ,
-                    () { jogN.jogLinear('Z', -1); HapticFeedback.lightImpact(); }),
-              ],
-            ),
-          ],
-        ),
-
-        SizedBox(height: 20),
-        const _MLabel('AXES ROTATIFS — TRUNNION'),
-        SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _RotaryCard('A', 'TILT', AppColors.axisA, Icons.rotate_90_degrees_ccw,
-                  () => jogN.jogRotary('A', -1), () => jogN.jogRotary('A', 1)),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _RotaryCard('C', 'PLATEAU', AppColors.axisC, Icons.sync,
-                  () => jogN.jogRotary('C', -1), () => jogN.jogRotary('C', 1)),
-            ),
-          ],
-        ),
-
-        SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity, height: 54,
-          child: ElevatedButton.icon(
-            icon: Icon(Icons.stop_rounded, size: 22),
-            label: Text('JOG STOP',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.danger, foregroundColor: Colors.white),
-            onPressed: () {
-              jogN.stopJog();
-              HapticFeedback.heavyImpact();
-            },
-          ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
 
-class _RotaryCard extends StatelessWidget {
-  final String axis;
-  final String label;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-  const _RotaryCard(this.axis, this.label, this.color, this.icon,
-      this.onMinus, this.onPlus);
+/// Bouton JOG STOP premium — dégradé rouge + halo, hauteur généreuse.
+class _JogStopButton extends StatelessWidget {
+  final VoidCallback onStop;
+  const _JogStopButton({required this.onStop});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(children: [
-        Icon(icon, color: color, size: 24),
-        SizedBox(height: 4),
-        Text('$axis — $label',
-            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900)),
-        SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _JogBtn('$axis-', color, () { onMinus(); HapticFeedback.lightImpact(); }),
-            _JogBtn('$axis+', color, () { onPlus(); HapticFeedback.lightImpact(); }),
-          ],
+    final fc = context.fc;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onStop,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 58,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [fc.danger, fc.danger.withValues(alpha: 0.72)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                  color: fc.danger.withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  spreadRadius: -2),
+            ],
+          ),
+          child: const Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.stop_rounded, color: Colors.white, size: 24),
+                SizedBox(width: 10),
+                Text('JOG STOP',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        letterSpacing: 1.5)),
+              ],
+            ),
+          ),
         ),
-      ]),
+      ),
     );
   }
 }
@@ -446,13 +430,13 @@ class _MobileProbingTab extends ConsumerWidget {
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: probing.step == ProbingStep.error
-                ? AppColors.danger.withValues(alpha: 0.1)
-                : AppColors.primary.withValues(alpha: 0.05),
+                ? context.fc.danger.withValues(alpha: 0.1)
+                : context.fc.primary.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: probing.step == ProbingStep.error
-                  ? AppColors.danger
-                  : AppColors.primary,
+                  ? context.fc.danger
+                  : context.fc.primary,
               width: 0.5,
             ),
           ),
@@ -460,8 +444,8 @@ class _MobileProbingTab extends ConsumerWidget {
             Icon(
               probing.step == ProbingStep.error ? Icons.error : Icons.info,
               color: probing.step == ProbingStep.error
-                  ? AppColors.danger
-                  : AppColors.primary,
+                  ? context.fc.danger
+                  : context.fc.primary,
               size: 16,
             ),
             SizedBox(width: 10),
@@ -470,8 +454,8 @@ class _MobileProbingTab extends ConsumerWidget {
                 probing.statusMessage,
                 style: TextStyle(
                   color: probing.step == ProbingStep.error
-                      ? AppColors.danger
-                      : AppColors.textPrimary,
+                      ? context.fc.danger
+                      : context.fc.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -483,8 +467,8 @@ class _MobileProbingTab extends ConsumerWidget {
           Padding(
             padding: EdgeInsets.only(top: 8),
             child: LinearProgressIndicator(
-                color: AppColors.primary,
-                backgroundColor: AppColors.surfaceBright),
+                color: context.fc.primary,
+                backgroundColor: context.fc.surfaceBright),
           ),
 
         SizedBox(height: 16),
@@ -519,7 +503,7 @@ class _MobileProbingTab extends ConsumerWidget {
             width: double.infinity, height: 54,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
+                  backgroundColor: context.fc.danger,
                   foregroundColor: Colors.white),
               onPressed: () { probingN.cancel(); HapticFeedback.heavyImpact(); },
               child: Text('ANNULER LE PALPAGE',
@@ -546,41 +530,77 @@ class _ProbingCard extends StatelessWidget {
         onTap!();
         HapticFeedback.mediumImpact();
       },
-      child: Opacity(
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
         opacity: onTap == null ? 0.4 : 1.0,
         child: Container(
           padding: EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                context.fc.primary.withValues(alpha: 0.10),
+                context.fc.surface,
+              ],
+              stops: const [0.0, 0.65],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.fc.primary.withValues(alpha: 0.3)),
+            boxShadow: onTap == null
+                ? null
+                : [
+                    BoxShadow(
+                        color: context.fc.primary.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        spreadRadius: -4),
+                  ],
           ),
           child: Column(children: [
-            Icon(icon, color: AppColors.primary, size: 28),
-            SizedBox(height: 8),
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: context.fc.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: context.fc.primary, size: 26),
+            ),
+            SizedBox(height: 10),
             Text(title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: context.fc.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 11)),
             SizedBox(height: 4),
             Text(desc,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: AppColors.textDisabled, fontSize: 9, height: 1.4)),
+                    color: context.fc.textDisabled, fontSize: 9, height: 1.4)),
             SizedBox(height: 10),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(4),
+                gradient: LinearGradient(colors: [
+                  context.fc.primary,
+                  context.fc.primary.withValues(alpha: 0.75),
+                ]),
+                borderRadius: BorderRadius.circular(5),
+                boxShadow: [
+                  BoxShadow(
+                      color: context.fc.primary.withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      spreadRadius: -2),
+                ],
               ),
               child: Text('LANCER',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 9,
-                      fontWeight: FontWeight.w900)),
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0)),
             ),
           ]),
         ),
@@ -602,26 +622,26 @@ class _MobileHomingTab extends ConsumerWidget {
         Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.axisZ.withValues(alpha: 0.06),
+            color: context.fc.axisZ.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.axisZ.withValues(alpha: 0.2)),
+            border: Border.all(color: context.fc.axisZ.withValues(alpha: 0.2)),
           ),
           child: Row(children: [
-            Icon(Icons.info_outline, color: AppColors.axisZ, size: 14),
+            Icon(Icons.info_outline, color: context.fc.axisZ, size: 14),
             SizedBox(width: 8),
             Expanded(
               child: Text('Séquence recommandée : Z → X → Y → A → C',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 10, height: 1.5)),
+                  style: TextStyle(color: context.fc.textSecondary, fontSize: 10, height: 1.5)),
             ),
           ]),
         ),
         SizedBox(height: 16),
         for (final e in [
-          ('HOME Z', 'Dégager broche', AppColors.axisZ, () => jogN.homeAxis('Z')),
-          ('HOME X', 'Axe horizontal', AppColors.axisX, () => jogN.homeAxis('X')),
-          ('HOME Y', 'Axe frontal', AppColors.axisY, () => jogN.homeAxis('Y')),
-          ('HOME A', 'Basculement trunnion', AppColors.axisA, () => jogN.homeAxis('A')),
-          ('HOME C', 'Rotation plateau', AppColors.axisC, () => jogN.homeAxis('C')),
+          ('HOME Z', 'Dégager broche', context.fc.axisZ, () => jogN.homeAxis('Z')),
+          ('HOME X', 'Axe horizontal', context.fc.axisX, () => jogN.homeAxis('X')),
+          ('HOME Y', 'Axe frontal', context.fc.axisY, () => jogN.homeAxis('Y')),
+          ('HOME A', 'Basculement trunnion', context.fc.axisA, () => jogN.homeAxis('A')),
+          ('HOME C', 'Rotation plateau', context.fc.axisC, () => jogN.homeAxis('C')),
         ])
           Padding(
             padding: EdgeInsets.only(bottom: 10),
@@ -637,7 +657,7 @@ class _MobileHomingTab extends ConsumerWidget {
             label: Text('HOME ALL (\$H)',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.axisZ, foregroundColor: Colors.white),
+                backgroundColor: context.fc.axisZ, foregroundColor: Colors.white),
             onPressed: () { jogN.homeAll(); HapticFeedback.heavyImpact(); },
           ),
         ),
@@ -659,23 +679,24 @@ class MobileToolTableScreen extends ConsumerStatefulWidget {
 
 class _MobileToolTableScreenState
     extends ConsumerState<MobileToolTableScreen> {
-  int _selectedTool = 0;
   final _searchCtrl = TextEditingController();
   String _query = '';
 
-  static get _tools => [
-    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, AppColors.success, 'OK'),
-    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, AppColors.success, 'OK'),
-    ('T3', 'FRAISE HÉMISP. Ø6', 65.02, 6.00, AppColors.success, 'OK'),
-    ('T4', 'FORET CENTRE D3', 45.00, 3.00, AppColors.success, 'OK'),
-    ('T5', 'TARAUDEUR M8', 70.00, 8.00, AppColors.warning, 'USURE: 85%'),
-    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, AppColors.success, 'OK'),
-    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, AppColors.success, 'OK'),
-    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, AppColors.success, 'OK'),
-    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, AppColors.error, 'BRIS DÉTECTÉ'),
-    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, AppColors.success, 'OK'),
-    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, AppColors.success, 'OK'),
-    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, AppColors.info, 'CALIBRÉ'),
+  static List<(String, String, double, double, Color, String)> _tools(
+          ForgeronColorPalette c) =>
+      [
+    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, c.success, 'OK'),
+    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, c.success, 'OK'),
+    ('T3', 'FRAISE HÉMISP. Ø6', 65.02, 6.00, c.success, 'OK'),
+    ('T4', 'FORET CENTRE D3', 45.00, 3.00, c.success, 'OK'),
+    ('T5', 'TARAUDEUR M8', 70.00, 8.00, c.warning, 'USURE: 85%'),
+    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, c.success, 'OK'),
+    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, c.success, 'OK'),
+    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, c.success, 'OK'),
+    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, c.error, 'BRIS DÉTECTÉ'),
+    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, c.success, 'OK'),
+    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, c.success, 'OK'),
+    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, c.info, 'CALIBRÉ'),
   ];
 
   @override
@@ -688,7 +709,7 @@ class _MobileToolTableScreenState
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.fc.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => DraggableScrollableSheet(
@@ -697,7 +718,7 @@ class _MobileToolTableScreenState
         maxChildSize: 0.95,
         minChildSize: 0.4,
         builder: (ctx, ctrl) => _ToolDetailSheet(
-          tool: _tools[index],
+          tool: _tools(context.fc)[index],
           scrollController: ctrl,
           activeToolNum: activeToolNum,
           ref: ref,
@@ -712,7 +733,7 @@ class _MobileToolTableScreenState
     final activeToolNum = machineState?.activeToolNum ?? 0;
     final activeWCS = machineState?.activeWCS ?? 'G54';
 
-    final filtered = _tools.asMap().entries.where((e) {
+    final filtered = _tools(context.fc).asMap().entries.where((e) {
       if (_query.isEmpty) return true;
       return e.value.$1.toLowerCase().contains(_query.toLowerCase()) ||
           e.value.$2.toLowerCase().contains(_query.toLowerCase());
@@ -723,12 +744,12 @@ class _MobileToolTableScreenState
         // Header
         Container(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          color: AppColors.surface,
+          color: context.fc.surface,
           child: Column(children: [
             Row(children: [
               Text('MAGASIN',
                   style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.fc.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2.0)),
@@ -737,26 +758,26 @@ class _MobileToolTableScreenState
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
+                    color: context.fc.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                        color: AppColors.success.withValues(alpha: 0.4)),
+                        color: context.fc.success.withValues(alpha: 0.4)),
                   ),
                   child: Row(children: [
-                    Icon(Icons.build, color: AppColors.success, size: 10),
+                    Icon(Icons.build, color: context.fc.success, size: 10),
                     SizedBox(width: 4),
                     Text('ACTIF: T$activeToolNum',
                         style: TextStyle(
-                            color: AppColors.success,
+                            color: context.fc.success,
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'JetBrains Mono')),
                   ]),
                 ),
               SizedBox(width: 8),
-              Text('${_tools.length}/24',
+              Text('${_tools(context.fc).length}/24',
                   style: TextStyle(
-                      color: AppColors.primary,
+                      color: context.fc.primary,
                       fontSize: 13,
                       fontFamily: 'JetBrains Mono',
                       fontWeight: FontWeight.w900)),
@@ -766,23 +787,23 @@ class _MobileToolTableScreenState
             TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _query = v),
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              style: TextStyle(color: context.fc.textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Rechercher T# ou nom...',
                 hintStyle: TextStyle(
-                    color: AppColors.textDisabled, fontSize: 12),
+                    color: context.fc.textDisabled, fontSize: 12),
                 prefixIcon: Icon(Icons.search,
-                    color: AppColors.textDisabled, size: 18),
+                    color: context.fc.textDisabled, size: 18),
                 filled: true,
-                fillColor: AppColors.surfaceBright,
+                fillColor: context.fc.surfaceBright,
                 isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.surfaceBorder),
+                  borderSide: BorderSide(color: context.fc.surfaceBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.surfaceBorder),
+                  borderSide: BorderSide(color: context.fc.surfaceBorder),
                 ),
                 contentPadding:
                     EdgeInsets.symmetric(vertical: 10),
@@ -806,7 +827,6 @@ class _MobileToolTableScreenState
 
               return InkWell(
                 onTap: () {
-                  setState(() => _selectedTool = origIdx);
                   _showDetail(origIdx, activeToolNum, activeWCS);
                   HapticFeedback.selectionClick();
                 },
@@ -815,13 +835,13 @@ class _MobileToolTableScreenState
                       horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? AppColors.success.withValues(alpha: 0.04)
+                        ? context.fc.success.withValues(alpha: 0.04)
                         : Colors.transparent,
                     border: Border(
-                      bottom: BorderSide(color: AppColors.surfaceBorder),
+                      bottom: BorderSide(color: context.fc.surfaceBorder),
                       left: BorderSide(
                           color: isActive
-                              ? AppColors.success
+                              ? context.fc.success
                               : Colors.transparent,
                           width: 3),
                     ),
@@ -833,19 +853,19 @@ class _MobileToolTableScreenState
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isActive
-                            ? AppColors.success.withValues(alpha: 0.15)
-                            : AppColors.surfaceBright,
+                            ? context.fc.success.withValues(alpha: 0.15)
+                            : context.fc.surfaceBright,
                         borderRadius: BorderRadius.circular(6),
                         border: isActive
                             ? Border.all(
-                                color: AppColors.success, width: 1.5)
+                                color: context.fc.success, width: 1.5)
                             : null,
                       ),
                       child: Text(t.$1,
                           style: TextStyle(
                               color: isActive
-                                  ? AppColors.success
-                                  : AppColors.textSecondary,
+                                  ? context.fc.success
+                                  : context.fc.textSecondary,
                               fontWeight: FontWeight.w900,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono')),
@@ -857,7 +877,7 @@ class _MobileToolTableScreenState
                           children: [
                             Text(t.$2,
                                 style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: context.fc.textPrimary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis),
@@ -865,7 +885,7 @@ class _MobileToolTableScreenState
                             Text(
                                 'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
                                 style: TextStyle(
-                                    color: AppColors.textDisabled,
+                                    color: context.fc.textDisabled,
                                     fontSize: 9,
                                     fontFamily: 'JetBrains Mono')),
                           ]),
@@ -880,7 +900,7 @@ class _MobileToolTableScreenState
                               boxShadow: [BoxShadow(color: t.$5, blurRadius: 4)])),
                       SizedBox(height: 4),
                       Icon(Icons.chevron_right,
-                          color: AppColors.textDisabled, size: 16),
+                          color: context.fc.textDisabled, size: 16),
                     ]),
                   ]),
                 ),
@@ -920,7 +940,7 @@ class _ToolDetailSheet extends ConsumerWidget {
           child: Container(
             width: 40, height: 4,
             decoration: BoxDecoration(
-              color: AppColors.textDisabled,
+              color: context.fc.textDisabled,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -934,14 +954,14 @@ class _ToolDetailSheet extends ConsumerWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: isActive
-                  ? AppColors.success.withValues(alpha: 0.15)
-                  : AppColors.primary.withValues(alpha: 0.15),
+                  ? context.fc.success.withValues(alpha: 0.15)
+                  : context.fc.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
-              border: isActive ? Border.all(color: AppColors.success, width: 2) : null,
+              border: isActive ? Border.all(color: context.fc.success, width: 2) : null,
             ),
             child: Text(tool.$1,
                 style: TextStyle(
-                    color: isActive ? AppColors.success : AppColors.primary,
+                    color: isActive ? context.fc.success : context.fc.primary,
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
                     fontFamily: 'JetBrains Mono')),
@@ -951,7 +971,7 @@ class _ToolDetailSheet extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tool.$2,
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.fc.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w900)),
               SizedBox(height: 4),
@@ -971,12 +991,12 @@ class _ToolDetailSheet extends ConsumerWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
+                      color: context.fc.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text('▶ EN BROCHE',
                         style: TextStyle(
-                            color: AppColors.success,
+                            color: context.fc.success,
                             fontSize: 9,
                             fontWeight: FontWeight.w900)),
                   ),
@@ -995,7 +1015,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               icon: Icon(Icons.build, size: 14),
               label: Text('APPELER ${tool.$1}  (M6)'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.fc.primary,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 14)),
               onPressed: () {
@@ -1007,18 +1027,18 @@ class _ToolDetailSheet extends ConsumerWidget {
           SizedBox(width: 10),
           Expanded(
             child: OutlinedButton.icon(
-              icon: Icon(Icons.straighten, size: 14, color: AppColors.secondary),
+              icon: Icon(Icons.straighten, size: 14, color: context.fc.secondary),
               label: Text('G43 H$toolNum',
-                  style: TextStyle(color: AppColors.secondary)),
+                  style: TextStyle(color: context.fc.secondary)),
               style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.secondary),
+                  side: BorderSide(color: context.fc.secondary),
                   padding: EdgeInsets.symmetric(vertical: 14)),
               onPressed: () {
                 ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text('✓ G43 H$toolNum appliqué'),
-                  backgroundColor: AppColors.secondary,
+                  backgroundColor: context.fc.secondary,
                 ));
               },
             ),
@@ -1046,7 +1066,7 @@ class _ToolDetailSheet extends ConsumerWidget {
         Container(
           padding: EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surfaceBright,
+            color: context.fc.surfaceBright,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(children: [
@@ -1056,11 +1076,11 @@ class _ToolDetailSheet extends ConsumerWidget {
                 CircularProgressIndicator(
                     value: 0.68,
                     strokeWidth: 6,
-                    backgroundColor: AppColors.surface,
-                    color: AppColors.success),
+                    backgroundColor: context.fc.surface,
+                    color: context.fc.success),
                 Text('68%',
                     style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: context.fc.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         fontFamily: 'JetBrains Mono')),
@@ -1079,13 +1099,13 @@ class _ToolDetailSheet extends ConsumerWidget {
                     child: Row(children: [
                       Text(e.$1,
                           style: TextStyle(
-                              color: AppColors.textDisabled,
+                              color: context.fc.textDisabled,
                               fontSize: 9,
                               fontWeight: FontWeight.w900)),
                       const Spacer(),
                       Text(e.$2,
                           style: TextStyle(
-                              color: AppColors.textPrimary,
+                              color: context.fc.textPrimary,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono',
                               fontWeight: FontWeight.bold)),
@@ -1103,18 +1123,18 @@ class _ToolDetailSheet extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.fc.surface,
         title: Text('Appel outil T$toolNum',
-            style: TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: context.fc.textPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.build, color: AppColors.primary, size: 48),
+          Icon(Icons.build, color: context.fc.primary, size: 48),
           SizedBox(height: 16),
           Text('Envoyer T$toolNum M6 ?',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.fc.textSecondary),
               textAlign: TextAlign.center),
           SizedBox(height: 8),
           Text('⚠ Changement d\'outil en cours.',
-              style: TextStyle(color: AppColors.warning, fontSize: 11),
+              style: TextStyle(color: context.fc.warning, fontSize: 11),
               textAlign: TextAlign.center),
         ]),
         actions: [
@@ -1122,7 +1142,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               onPressed: () => Navigator.pop(context),
               child: Text('ANNULER')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: context.fc.primary),
             onPressed: () {
               Navigator.pop(context);
               ref.read(machineRepositoryProvider).sendGCode('T$toolNum M6');
@@ -1148,27 +1168,27 @@ class _MParamCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceBright,
+        color: context.fc.surfaceBright,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
             style: TextStyle(
-                color: AppColors.textDisabled,
+                color: context.fc.textDisabled,
                 fontSize: 9,
                 fontWeight: FontWeight.w900)),
         SizedBox(height: 6),
         FittedBox(
           child: Text(value,
               style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: context.fc.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono')),
         ),
         Text(unit,
             style: TextStyle(
-                color: AppColors.textDisabled, fontSize: 9)),
+                color: context.fc.textDisabled, fontSize: 9)),
       ]),
     );
   }
@@ -1190,82 +1210,119 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
   late TabController _tab;
   final _ctrl = TextEditingController();
 
-  static get _logLines => [
-    ('14:02:11', 'INFO', 'Système initialisé. Connecté à FluidNC v3.7.8', AppColors.secondary),
-    ('14:02:12', '>>>', '\$H', AppColors.primary),
-    ('14:02:15', 'ok', '', AppColors.success),
-    ('14:03:01', '>>>', 'G90 G21', AppColors.primary),
-    ('14:03:01', 'ok', '', AppColors.success),
-    ('14:05:22', 'MSG', '[MSG: Vitesse broche atteinte]', AppColors.warning),
-    ('14:06:10', '>>>', 'G0 X100 Y50 Z10', AppColors.primary),
-    ('14:06:10', 'ok', '', AppColors.success),
-    ('14:08:45', 'ERR', '[ERR: Limite logicielle Z min]', AppColors.error),
-    ('14:09:00', '>>>', 'G0 Z50', AppColors.primary),
-    ('14:09:00', 'ok', '', AppColors.success),
+  // Log EN DIRECT du trafic machine (TX/RX réels via trafficStream).
+  final List<(String time, String type, String content)> _log = [];
+  // Historique des commandes réellement envoyées.
+  final List<(String cmd, String time)> _history = [];
+  StreamSubscription<String>? _trafficSub;
+  final ScrollController _logScroll = ScrollController();
+
+  String _fmtTime(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
+
+  /// Reçoit chaque trame TX/RX de la connexion et l'ajoute au log.
+  void _handleTraffic(String msg) {
+    if (!mounted) return;
+    String type = 'MSG';
+    String content = msg;
+    if (msg.startsWith('TX: ')) {
+      type = '>>>';
+      content = msg.substring(4).trim();
+    } else if (msg.startsWith('RX: ')) {
+      content = msg.substring(4).trim();
+      if (content.startsWith('ok')) {
+        type = 'ok';
+      } else if (content.startsWith('error') || content.startsWith('ALARM')) {
+        type = 'ERR';
+      } else if (content.startsWith('<')) {
+        return; // trames de statut filtrées (sinon ça défile en boucle)
+      } else {
+        type = 'MSG';
+      }
+    }
+    if (content.isEmpty) return;
+    setState(() {
+      _log.add((_fmtTime(DateTime.now()), type, content));
+      if (_log.length > 200) _log.removeAt(0);
+    });
+    Future.delayed(const Duration(milliseconds: 40), () {
+      if (_logScroll.hasClients) {
+        _logScroll.animateTo(_logScroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  /// Couleur d'une ligne selon son type (theme-aware, résolue au rendu).
+  Color _typeColor(ForgeronColorPalette fc, String type) => switch (type) {
+        '>>>' => fc.primary,
+        'ok' => fc.success,
+        'ERR' => fc.error,
+        'MSG' => fc.warning,
+        _ => fc.secondary,
+      };
+
+  static List<(IconData, String, String, Color)> _macros(
+          ForgeronColorPalette c) =>
+      [
+    (Icons.home, 'ORIGINES', '\$H', c.primary),
+    (Icons.gps_fixed, 'ZÉRO PIÈCE', 'G0 X0 Y0 Z0', c.primary),
+    (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', c.secondary),
+    (Icons.rotate_right, 'BROCHE H', 'M3 S12000', c.success),
+    (Icons.stop_circle, 'ARRÊT B.', 'M5', c.error),
+    (Icons.water_drop, 'ARROSAGE', 'M8', c.primary),
+    (Icons.water_drop_outlined, 'ARROS. OFF', 'M9', c.textDisabled),
+    (Icons.air, 'SOUFFLAGE', 'M7', c.secondary),
+    (Icons.vertical_align_top, 'Z SÉCU', 'G0 Z50', c.primary),
+    (Icons.local_parking, 'PARKING', 'G0 X0 Y200 Z50', c.textSecondary),
+    (Icons.play_arrow, 'REPRENDRE', '~', c.success),
+    (Icons.pause, 'PAUSE', '!', c.warning),
   ];
 
-  static get _macros => [
-    (Icons.home, 'ORIGINES', '\$H', AppColors.primary),
-    (Icons.gps_fixed, 'ZÉRO PIÈCE', 'G0 X0 Y0 Z0', AppColors.primary),
-    (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', AppColors.secondary),
-    (Icons.rotate_right, 'BROCHE H', 'M3 S12000', AppColors.success),
-    (Icons.stop_circle, 'ARRÊT B.', 'M5', AppColors.error),
-    (Icons.water_drop, 'ARROSAGE', 'M8', AppColors.primary),
-    (Icons.water_drop_outlined, 'ARROS. OFF', 'M9', AppColors.textDisabled),
-    (Icons.air, 'SOUFFLAGE', 'M7', AppColors.secondary),
-    (Icons.vertical_align_top, 'Z SÉCU', 'G0 Z50', AppColors.primary),
-    (Icons.local_parking, 'PARKING', 'G0 X0 Y200 Z50', AppColors.textSecondary),
-    (Icons.play_arrow, 'REPRENDRE', '~', AppColors.success),
-    (Icons.pause, 'PAUSE', '!', AppColors.warning),
-  ];
-
-  static get _history => [
-    ('G0 Z50', '14:09:00'),
-    ('M5', '14:08:50'),
-    ('G0 X100 Y50 Z10', '14:06:10'),
-    ('M3 S12000', '14:05:20'),
-    ('G90 G21', '14:03:01'),
-    ('\$H', '14:02:12'),
-  ];
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
+    _log.add((_fmtTime(DateTime.now()), 'INFO', 'Terminal prêt — en attente de trafic…'));
+    Future.microtask(() {
+      _trafficSub =
+          ref.read(machineRepositoryProvider).trafficStream.listen(_handleTraffic);
+    });
   }
 
   @override
   void dispose() {
+    _trafficSub?.cancel();
+    _logScroll.dispose();
     _tab.dispose();
     _ctrl.dispose();
     super.dispose();
   }
 
   void _send(String cmd) {
-    if (cmd.trim().isEmpty) return;
-    ref.read(machineRepositoryProvider).sendGCode(cmd.trim());
+    final c = cmd.trim();
+    if (c.isEmpty) return;
+    ref.read(machineRepositoryProvider).sendGCode(c);
+    setState(() {
+      _history.insert(0, (c, _fmtTime(DateTime.now())));
+      if (_history.length > 30) _history.removeLast();
+    });
     _ctrl.clear();
     HapticFeedback.selectionClick();
   }
 
   @override
   Widget build(BuildContext context) {
+    final rxBuf = ref.watch(machineStateProvider).valueOrNull?.rxBuffer ?? 128;
     return Column(
       children: [
-        Container(
-          color: AppColors.surface,
-          child: TabBar(
-            controller: _tab,
-            indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textDisabled,
-            labelStyle: TextStyle(
-                fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-            tabs: const [
-              Tab(icon: Icon(Icons.terminal, size: 18), text: 'TERMINAL'),
-              Tab(icon: Icon(Icons.grid_view_rounded, size: 18), text: 'MACROS'),
-            ],
-          ),
+        MobileTabBar(
+          controller: _tab,
+          tabs: const [
+            MobileTab(Icons.terminal, 'TERMINAL'),
+            MobileTab(Icons.grid_view_rounded, 'MACROS'),
+          ],
         ),
         Expanded(
           child: TabBarView(
@@ -1277,20 +1334,20 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 Container(
                   height: 36,
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  color: AppColors.surfaceBright,
+                  color: context.fc.surfaceBright,
                   child: Row(children: [
                     Icon(Icons.terminal,
-                        color: AppColors.textDisabled, size: 14),
+                        color: context.fc.textDisabled, size: 14),
                     SizedBox(width: 8),
                     Text('LOG MACHINE',
                         style: TextStyle(
-                            color: AppColors.textDisabled,
+                            color: context.fc.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
-                    Text('BUFFER: 127/128',
+                    Text('BUFFER: $rxBuf/128',
                         style: TextStyle(
-                            color: AppColors.textDisabled,
+                            color: context.fc.textDisabled,
                             fontSize: 9,
                             fontFamily: 'JetBrains Mono')),
                   ]),
@@ -1299,41 +1356,44 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 Expanded(
                   key: TutorialKeys.mdiHistory,
                   child: Container(
-                    color: AppColors.terminalBg,
+                    color: context.fc.terminalBg,
                     child: ListView.builder(
+                      controller: _logScroll,
                       padding: EdgeInsets.all(12),
-                      itemCount: _logLines.length,
+                      itemCount: _log.length,
                       itemBuilder: (ctx, i) {
-                        final l = _logLines[i];
+                        final l = _log[i];
+                        final color = _typeColor(context.fc, l.$2);
                         return Padding(
                           padding: EdgeInsets.symmetric(vertical: 2),
-                          child: Row(children: [
-                            Text(l.$1,
-                                style: TextStyle(
-                                    color: AppColors.textDisabled,
-                                    fontSize: 10,
-                                    fontFamily: 'JetBrains Mono')),
-                            SizedBox(width: 8),
-                            SizedBox(
-                              width: 32,
-                              child: Text(l.$2,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(l.$1,
                                   style: TextStyle(
-                                      color: l.$4,
+                                      color: context.fc.textDisabled,
                                       fontSize: 10,
-                                      fontWeight: FontWeight.w900,
                                       fontFamily: 'JetBrains Mono')),
-                            ),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(l.$3,
-                                  style: TextStyle(
-                                      color: l.$2 == '>>>'
-                                          ? AppColors.primary
-                                          : l.$4,
-                                      fontSize: 12,
-                                      fontFamily: 'JetBrains Mono')),
-                            ),
-                          ]),
+                              SizedBox(width: 8),
+                              SizedBox(
+                                width: 32,
+                                child: Text(l.$2,
+                                    style: TextStyle(
+                                        color: color,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        fontFamily: 'JetBrains Mono')),
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(l.$3,
+                                    style: TextStyle(
+                                        color: color,
+                                        fontSize: 12,
+                                        fontFamily: 'JetBrains Mono')),
+                              ),
+                            ],
+                          ),
                         );
                       },
                     ),
@@ -1345,13 +1405,13 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                   padding: EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.fc.surface,
                       border: Border(
-                          top: BorderSide(color: AppColors.surfaceBorder))),
+                          top: BorderSide(color: context.fc.surfaceBorder))),
                   child: Row(children: [
                     Text('❯',
                         style: TextStyle(
-                            color: AppColors.primary,
+                            color: context.fc.primary,
                             fontSize: 18,
                             fontWeight: FontWeight.w900)),
                     SizedBox(width: 8),
@@ -1359,14 +1419,14 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                       child: TextField(
                         controller: _ctrl,
                         style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: context.fc.textPrimary,
                             fontSize: 14,
                             fontFamily: 'JetBrains Mono'),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Saisir commande G-code...',
                           hintStyle: TextStyle(
-                              color: AppColors.textDisabled),
+                              color: context.fc.textDisabled),
                         ),
                         onSubmitted: _send,
                         textInputAction: TextInputAction.send,
@@ -1398,7 +1458,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
                     childAspectRatio: 1.1,
-                    children: _macros.map((m) => InkWell(
+                    children: _macros(context.fc).map((m) => InkWell(
                       onTap: () {
                         if (m.$2 == 'ORIGINES') {
                           ref.read(machineRepositoryProvider).home([]);
@@ -1411,19 +1471,42 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                         }
                         HapticFeedback.selectionClick();
                       },
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
+                      splashColor: m.$4.withValues(alpha: 0.2),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: m.$4.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(8),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              m.$4.withValues(alpha: 0.14),
+                              m.$4.withValues(alpha: 0.03),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: m.$4.withValues(alpha: 0.25)),
+                              color: m.$4.withValues(alpha: 0.3)),
+                          boxShadow: [
+                            BoxShadow(
+                                color: m.$4.withValues(alpha: 0.1),
+                                blurRadius: 10,
+                                spreadRadius: -3),
+                          ],
                         ),
                         child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                          Icon(m.$1, color: m.$4, size: 24),
-                          SizedBox(height: 6),
+                          Container(
+                            width: 34,
+                            height: 34,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: m.$4.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Icon(m.$1, color: m.$4, size: 20),
+                          ),
+                          SizedBox(height: 7),
                           Text(m.$2,
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -1448,22 +1531,22 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                         padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
-                            color: AppColors.surfaceBright,
+                            color: context.fc.surfaceBright,
                             borderRadius: BorderRadius.circular(6)),
                         child: Row(children: [
                           Icon(Icons.history,
-                              color: AppColors.textDisabled, size: 14),
+                              color: context.fc.textDisabled, size: 14),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(h.$1,
                                 style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: context.fc.textPrimary,
                                     fontSize: 12,
                                     fontFamily: 'JetBrains Mono')),
                           ),
                           Text(h.$2,
                               style: TextStyle(
-                                  color: AppColors.textDisabled,
+                                  color: context.fc.textDisabled,
                                   fontSize: 9,
                                   fontFamily: 'JetBrains Mono')),
                         ]),
@@ -1495,21 +1578,16 @@ class _MobileDiagnosticsScreenState
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
-  static get _endstops => [
-    ('X', 'GPIO 34', false, AppColors.axisX),
-    ('Y', 'GPIO 35', false, AppColors.axisY),
-    ('Z', 'GPIO 32', true, AppColors.axisZ),
-    ('A', 'GPIO 33', false, AppColors.axisA),
-    ('C', 'GPIO 25', false, AppColors.axisC),
+  static List<(String, String, bool, Color)> _endstops(
+          ForgeronColorPalette c) =>
+      [
+    ('X', 'GPIO 34', false, c.axisX),
+    ('Y', 'GPIO 35', false, c.axisY),
+    ('Z', 'GPIO 32', true, c.axisZ),
+    ('A', 'GPIO 33', false, c.axisA),
+    ('C', 'GPIO 25', false, c.axisC),
   ];
 
-  static get _axisParams => [
-    ('X', AppColors.axisX, '160', '5000', '250', '600'),
-    ('Y', AppColors.axisY, '160', '5000', '250', '800'),
-    ('Z', AppColors.axisZ, '320', '2000', '150', '200'),
-    ('A', AppColors.axisA, '88.8', '3600', '100', '120'),
-    ('C', AppColors.axisC, '88.8', '7200', '150', '360'),
-  ];
 
   @override
   void initState() {
@@ -1531,23 +1609,23 @@ class _MobileDiagnosticsScreenState
     final machineState = ref.watch(machineStateProvider).valueOrNull;
     final singularityRisk = machineState?.singularityRisk ?? 0.0;
     final temp = machineState?.coreTemp ?? 40.0;
+    final fw = ref.watch(firmwareInfoProvider);
+    final net = ref.watch(networkStatsProvider);
+    final latColor = !net.connected
+        ? context.fc.textDisabled
+        : (net.latencyMs < 30
+            ? context.fc.success
+            : (net.latencyMs < 100 ? context.fc.warning : context.fc.error));
+
 
     return Column(children: [
-      Container(
-        color: AppColors.surface,
-        child: TabBar(
-          controller: _tab,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textDisabled,
-          labelStyle: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-          tabs: const [
-            Tab(icon: Icon(Icons.developer_board, size: 18), text: 'GPIO'),
-            Tab(icon: Icon(Icons.code, size: 18), text: 'CONFIG'),
-            Tab(icon: Icon(Icons.settings_applications, size: 18), text: 'PARAMS'),
-          ],
-        ),
+      MobileTabBar(
+        controller: _tab,
+        tabs: const [
+          MobileTab(Icons.developer_board, 'GPIO'),
+          MobileTab(Icons.code, 'CONFIG'),
+          MobileTab(Icons.settings_applications, 'PARAMS'),
+        ],
       ),
       Expanded(
         child: TabBarView(
@@ -1559,13 +1637,15 @@ class _MobileDiagnosticsScreenState
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const _MLabel('FINS DE COURSE (LIVE)'),
                 SizedBox(height: 8),
-                for (int i = 0; i < _endstops.length; i++)
-                  _EndstopRow(_endstops[i].$1, _endstops[i].$2,
-                      limSw[i], _endstops[i].$4),
+                for (final e in _endstops(context.fc).asMap().entries)
+                  _EndstopRow(e.value.$1, e.value.$2,
+                      limSw[e.key], e.value.$4),
                 Row(children: [
-                  Expanded(child: _SensorMini('PALPEUR', 'GPIO 36', false, AppColors.secondary)),
+                  Expanded(child: _SensorMini('PALPEUR', 'GPIO 36',
+                      machineState?.probeTriggered ?? false, context.fc.secondary)),
                   SizedBox(width: 8),
-                  Expanded(child: _SensorMini('E-STOP', 'GPIO 27', false, AppColors.danger)),
+                  Expanded(child: _SensorMini('E-STOP', 'GPIO 27',
+                      machineState?.emergencyTriggered ?? false, context.fc.danger)),
                 ]),
 
                 SizedBox(height: 20),
@@ -1579,10 +1659,14 @@ class _MobileDiagnosticsScreenState
                   crossAxisSpacing: 8,
                   childAspectRatio: 1.8,
                   children: [
-                    _HealthCard('TEMP CPU', '58°C', Icons.thermostat, AppColors.warning),
-                    _HealthCard('USAGE RAM', '42%', Icons.memory, AppColors.success),
-                    _HealthCard('UPTIME', '14h 22m', Icons.schedule, AppColors.primary),
-                    _HealthCard('WiFi RSSI', '-64 dBm', Icons.wifi, AppColors.success),
+                    _HealthCard('TEMP CPU', '${temp.toStringAsFixed(0)}°C',
+                        Icons.thermostat, context.fc.warning),
+                    // RAM / Uptime / RSSI : non rapportés par FluidNC standard →
+                    // resteront statiques tant que le firmware n'envoie pas de
+                    // [MSG:] custom. Marqués « — » pour ne pas faire croire à du live.
+                    _HealthCard('USAGE RAM', '—', Icons.memory, context.fc.textDisabled),
+                    _HealthCard('UPTIME', '—', Icons.schedule, context.fc.textDisabled),
+                    _HealthCard('WiFi RSSI', '—', Icons.wifi, context.fc.textDisabled),
                   ],
                 ),
 
@@ -1596,63 +1680,63 @@ class _MobileDiagnosticsScreenState
                       child: Column(children: [
                         Text('LATENCE',
                             style: TextStyle(
-                                color: AppColors.textDisabled,
+                                color: context.fc.textDisabled,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w900)),
                         SizedBox(height: 4),
-                        Text('12',
+                        Text(net.connected ? '${net.latencyMs}' : '—',
                             style: TextStyle(
-                                color: AppColors.success,
+                                color: latColor,
                                 fontSize: 40,
                                 fontWeight: FontWeight.w900,
                                 fontFamily: 'JetBrains Mono')),
                         Text('ms',
-                            style: TextStyle(color: AppColors.textDisabled)),
+                            style: TextStyle(color: context.fc.textDisabled)),
                       ]),
                     ),
                     SizedBox(height: 12),
                     Row(children: [
                       Text('QUALITÉ',
                           style: TextStyle(
-                              color: AppColors.textDisabled, fontSize: 9)),
+                              color: context.fc.textDisabled, fontSize: 9)),
                       SizedBox(width: 8),
                       Expanded(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(3),
                           child: LinearProgressIndicator(
-                            value: 0.92,
-                            backgroundColor: AppColors.surfaceBright,
-                            color: AppColors.success,
+                            value: net.qualityPct / 100,
+                            backgroundColor: context.fc.surfaceBright,
+                            color: latColor,
                             minHeight: 6,
                           ),
                         ),
                       ),
                       SizedBox(width: 8),
-                      Text('92%',
+                      Text('${net.qualityPct}%',
                           style: TextStyle(
-                              color: AppColors.success,
+                              color: latColor,
                               fontSize: 11,
                               fontFamily: 'JetBrains Mono',
                               fontWeight: FontWeight.w900)),
                     ]),
                     SizedBox(height: 12),
                     for (final e in [
-                      ('PAQUETS TX', '145,892'),
-                      ('PAQUETS RX', '145,890'),
-                      ('UPTIME CONN.', '14h 22min'),
+                      ('PAQUETS TX', '${net.txCount}'),
+                      ('PAQUETS RX', '${net.rxCount}'),
+                      ('UPTIME CONN.', formatUptime(net.uptime)),
                     ])
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 3),
                         child: Row(children: [
                           Text(e.$1,
                               style: TextStyle(
-                                  color: AppColors.textDisabled,
+                                  color: context.fc.textDisabled,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900)),
                           const Spacer(),
                           Text(e.$2,
                               style: TextStyle(
-                                  color: AppColors.textPrimary,
+                                  color: context.fc.textPrimary,
                                   fontSize: 11,
                                   fontFamily: 'JetBrains Mono')),
                         ]),
@@ -1670,7 +1754,7 @@ class _MobileDiagnosticsScreenState
                       for (final r in [
                         ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
                         ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
-                        ('Latence UDP', 0.15, 'Faible'),
+                        ('Latence UDP', (net.latencyMs / 200).clamp(0.0, 1.0), 'Faible'),
                         ('Perte de Pas', 0.05, 'Faible'),
                       ])
                         Padding(
@@ -1682,12 +1766,12 @@ class _MobileDiagnosticsScreenState
                                   children: [
                                 Text(r.$1,
                                     style: TextStyle(
-                                        color: AppColors.textPrimary,
+                                        color: context.fc.textPrimary,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold)),
                                 Text('Gravité : ${r.$3}',
                                     style: TextStyle(
-                                        color: AppColors.textDisabled,
+                                        color: context.fc.textDisabled,
                                         fontSize: 8)),
                               ]),
                             ),
@@ -1697,12 +1781,12 @@ class _MobileDiagnosticsScreenState
                                 borderRadius: BorderRadius.circular(2),
                                 child: LinearProgressIndicator(
                                   value: r.$2.clamp(0.0, 1.0),
-                                  backgroundColor: AppColors.surfaceBright,
+                                  backgroundColor: context.fc.surfaceBright,
                                   color: r.$2 > 0.8
-                                      ? AppColors.error
+                                      ? context.fc.error
                                       : (r.$2 > 0.5
-                                          ? AppColors.warning
-                                          : AppColors.success),
+                                          ? context.fc.warning
+                                          : context.fc.success),
                                   minHeight: 5,
                                 ),
                               ),
@@ -1724,21 +1808,21 @@ class _MobileDiagnosticsScreenState
             Column(children: [
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                color: AppColors.surfaceBright,
+                color: context.fc.surfaceBright,
                 child: Row(children: [
-                  Icon(Icons.code, color: AppColors.warning, size: 16),
+                  Icon(Icons.code, color: context.fc.warning, size: 16),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text('CONFIG.YAML — FluidNC',
                         style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: context.fc.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                   ),
                   OutlinedButton(
                     onPressed: () {},
                     style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppColors.surfaceBorder),
+                        side: BorderSide(color: context.fc.surfaceBorder),
                         minimumSize: const Size(0, 32),
                         padding: EdgeInsets.symmetric(horizontal: 10)),
                     child: Text('ÉDITER',
@@ -1748,7 +1832,7 @@ class _MobileDiagnosticsScreenState
               ),
               Expanded(
                 child: Container(
-                  color: AppColors.terminalBg,
+                  color: context.fc.terminalBg,
                   child: configAsync.when(
                     data: (yamlStr) {
                       final lines = yamlStr.split('\n');
@@ -1767,20 +1851,20 @@ class _MobileDiagnosticsScreenState
                                 child: Text('${i + 1}',
                                     textAlign: TextAlign.right,
                                     style: TextStyle(
-                                        color: AppColors.textDisabled,
+                                        color: context.fc.textDisabled,
                                         fontSize: 9,
                                         fontFamily: 'JetBrains Mono')),
                               ),
                               Container(
                                   width: 1,
                                   height: 14,
-                                  color: AppColors.surfaceBorder,
+                                  color: context.fc.surfaceBorder,
                                   margin: EdgeInsets.symmetric(horizontal: 8)),
                               Expanded(
                                 child: isComment
                                     ? Text(l,
                                         style: TextStyle(
-                                            color: AppColors.textDisabled,
+                                            color: context.fc.textDisabled,
                                             fontSize: 11,
                                             fontFamily: 'JetBrains Mono'))
                                     : (parts.length > 1
@@ -1789,7 +1873,7 @@ class _MobileDiagnosticsScreenState
                                               TextSpan(
                                                   text: '${parts[0]}:',
                                                   style: TextStyle(
-                                                      color: AppColors.primary,
+                                                      color: context.fc.primary,
                                                       fontSize: 11,
                                                       fontFamily: 'JetBrains Mono',
                                                       fontWeight: FontWeight.bold)),
@@ -1797,14 +1881,14 @@ class _MobileDiagnosticsScreenState
                                                   text: parts.sublist(1).join(':'),
                                                   style: TextStyle(
                                                       color: parts.sublist(1).join(':').contains('"')
-                                                          ? AppColors.success
-                                                          : AppColors.warning,
+                                                          ? context.fc.success
+                                                          : context.fc.warning,
                                                       fontSize: 11,
                                                       fontFamily: 'JetBrains Mono')),
                                             ]))
                                         : Text(l,
                                             style: TextStyle(
-                                                color: AppColors.textPrimary,
+                                                color: context.fc.textPrimary,
                                                 fontSize: 11,
                                                 fontFamily: 'JetBrains Mono'))),
                               ),
@@ -1815,10 +1899,10 @@ class _MobileDiagnosticsScreenState
                     },
                     loading: () => Center(
                         child: CircularProgressIndicator(
-                            color: AppColors.primary)),
+                            color: context.fc.primary)),
                     error: (e, _) => Center(
                         child: Text('Erreur: $e',
-                            style: TextStyle(color: AppColors.error))),
+                            style: TextStyle(color: context.fc.error))),
                   ),
                 ),
               ),
@@ -1832,83 +1916,46 @@ class _MobileDiagnosticsScreenState
                   children: [
                 const _MLabel('CINÉMATIQUE DES AXES'),
                 SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.surfaceBorder),
-                  ),
-                  child: Column(children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: AppColors.surfaceBright,
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(5))),
-                      child: Row(children: [
-                        SizedBox(width: 28, child: Text('AXE', style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
-                        Expanded(child: Text('PAS', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
-                        Expanded(child: Text('F-MAX', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
-                        Expanded(child: Text('ACCEL', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
-                        Expanded(child: Text('COURSE', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))),
-                      ]),
-                    ),
-                    for (final a in _axisParams)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                            border: Border(
-                                bottom: BorderSide(
-                                    color: AppColors.surfaceBorder))),
-                        child: Row(children: [
-                          SizedBox(
-                            width: 28,
-                            child: Text(a.$1,
-                                style: TextStyle(
-                                    color: a.$2,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900)),
-                          ),
-                          for (final v in [a.$3, a.$4, a.$5, a.$6])
-                            Expanded(
-                              child: Text(v,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 10,
-                                      fontFamily: 'JetBrains Mono')),
-                            ),
-                        ]),
-                      ),
-                  ]),
-                ),
+                const _KinematicsTable(),
 
                 SizedBox(height: 20),
                 const _MLabel('IDENTITÉ FIRMWARE'),
                 SizedBox(height: 8),
                 GlassPanel(
+                  titleTrailing: fw.isKnown
+                      ? null
+                      : InkWell(
+                          onTap: () => ref
+                              .read(firmwareInfoProvider.notifier)
+                              .requestInfo(),
+                          child: Icon(Icons.refresh_rounded,
+                              size: 14, color: context.fc.textSecondary),
+                        ),
                   child: Column(children: [
                     for (final e in [
-                      ('Version', 'FluidNC v3.7.8'),
-                      ('Carte', 'ESP32_WROOM_32D'),
-                      ('Flash', '4MB (1.2MB Libre)'),
-                      ('ESP-IDF', 'v4.4.4'),
+                      ('Version', fw.version ?? (fw.isKnown ? '—' : 'en attente (\$I)…')),
+                      ('GRBL', fw.grblVersion ?? '—'),
+                      ('Carte', fw.board ?? '—'),
+                      ('Options', fw.options ?? '—'),
                     ])
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 5),
                         child: Row(children: [
                           Text(e.$1,
                               style: TextStyle(
-                                  color: AppColors.textDisabled, fontSize: 10)),
-                          const Spacer(),
-                          Text(e.$2,
-                              style: TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 11,
-                                  fontFamily: 'JetBrains Mono',
-                                  fontWeight: FontWeight.bold)),
+                                  color: context.fc.textDisabled, fontSize: 10)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(e.$2,
+                                textAlign: TextAlign.right,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: context.fc.textPrimary,
+                                    fontSize: 11,
+                                    fontFamily: 'JetBrains Mono',
+                                    fontWeight: FontWeight.bold)),
+                          ),
                         ]),
                       ),
                   ]),
@@ -1918,10 +1965,10 @@ class _MobileDiagnosticsScreenState
                 const _MLabel('ACTIONS SYSTÈME'),
                 SizedBox(height: 8),
                 for (final b in [
-                  ('SAUVEGARDE CONFIG', Icons.download, AppColors.primary),
-                  ('RESTAURER CONFIG', Icons.upload, AppColors.warning),
-                  ('FLASH FIRMWARE', Icons.system_update, AppColors.danger),
-                  ('REDÉMARRER ESP32', Icons.power_settings_new, AppColors.error),
+                  ('SAUVEGARDE CONFIG', Icons.download, context.fc.primary),
+                  ('RESTAURER CONFIG', Icons.upload, context.fc.warning),
+                  ('FLASH FIRMWARE', Icons.system_update, context.fc.danger),
+                  ('REDÉMARRER ESP32', Icons.power_settings_new, context.fc.error),
                 ])
                   Padding(
                     padding: EdgeInsets.only(bottom: 8),
@@ -1947,7 +1994,7 @@ class _MobileDiagnosticsScreenState
                                   fontWeight: FontWeight.w900)),
                           const Spacer(),
                           Icon(Icons.chevron_right,
-                              color: AppColors.textDisabled, size: 16),
+                              color: context.fc.textDisabled, size: 16),
                         ]),
                       ),
                     ),
@@ -1961,7 +2008,7 @@ class _MobileDiagnosticsScreenState
                     label: Text('DUMP DIAGNOSTIC (JSON)',
                         style: TextStyle(fontWeight: FontWeight.w900)),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: context.fc.primary,
                         foregroundColor: Colors.white),
                     onPressed: () {
                       final dump = ref.read(loggerServiceProvider.notifier)
@@ -1993,7 +2040,7 @@ class _MLabel extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         style: TextStyle(
-          color: AppColors.textDisabled,
+          color: context.fc.textDisabled,
           fontSize: 10,
           fontWeight: FontWeight.w900,
           letterSpacing: 2.0,
@@ -2017,17 +2064,41 @@ class _MActionButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(10),
+        splashColor: color.withValues(alpha: 0.18),
+        highlightColor: color.withValues(alpha: 0.06),
         child: Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: color.withValues(alpha: 0.35)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                color.withValues(alpha: 0.14),
+                color.withValues(alpha: 0.03),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                  color: color.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  spreadRadius: -4),
+            ],
           ),
           child: Row(children: [
-            Icon(icon, color: color, size: 18),
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 19),
+            ),
             SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2040,78 +2111,18 @@ class _MActionButton extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.8,
                           fontFamily: 'JetBrains Mono')),
-                  if (subtitle != null)
+                  if (subtitle != null) ...[
+                    SizedBox(height: 2),
                     Text(subtitle!,
                         style: TextStyle(
-                            color: AppColors.textDisabled, fontSize: 9)),
+                            color: context.fc.textDisabled, fontSize: 9)),
+                  ],
                 ],
               ),
             ),
+            Icon(Icons.chevron_right,
+                color: color.withValues(alpha: 0.6), size: 18),
           ]),
-        ),
-      ),
-    );
-  }
-}
-
-/// Chip de pas de jog
-class _StepChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-  const _StepChip(this.label, this.selected, this.color, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () { onTap(); HapticFeedback.selectionClick(); },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.18) : AppColors.surface,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-              color: selected ? color : AppColors.surfaceBorder,
-              width: selected ? 1.5 : 1),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? color : AppColors.textDisabled,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                fontFamily: 'JetBrains Mono')),
-      ),
-    );
-  }
-}
-
-/// Bouton de jog directionnel
-class _JogBtn extends StatelessWidget {
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _JogBtn(this.label, this.color, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 60, height: 48,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Center(
-          child: Text(label,
-              style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono')),
         ),
       ),
     );
@@ -2127,15 +2138,15 @@ class _EndstopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stateColor = triggered ? AppColors.error : AppColors.success;
+    final stateColor = triggered ? context.fc.error : context.fc.success;
     return Container(
       height: 48,
       margin: EdgeInsets.only(bottom: 6),
       padding: EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(color: context.fc.surfaceBorder),
       ),
       child: Row(children: [
         Container(
@@ -2152,7 +2163,7 @@ class _EndstopRow extends StatelessWidget {
         SizedBox(width: 8),
         Text(gpio,
             style: TextStyle(
-                color: AppColors.textDisabled,
+                color: context.fc.textDisabled,
                 fontSize: 10,
                 fontFamily: 'JetBrains Mono')),
         const Spacer(),
@@ -2193,15 +2204,15 @@ class _SensorMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = triggered ? AppColors.error : AppColors.success;
+    final s = triggered ? context.fc.error : context.fc.success;
     return Container(
       height: 48,
       margin: EdgeInsets.only(bottom: 6),
       padding: EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(color: context.fc.surfaceBorder),
       ),
       child: Row(children: [
         Text(label,
@@ -2232,22 +2243,41 @@ class _HealthCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceBright,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.surfaceBorder),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [context.fc.surfaceBright, context.fc.surface],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.fc.surfaceBorder),
+        boxShadow: [
+          BoxShadow(
+              color: color.withValues(alpha: 0.10),
+              blurRadius: 12,
+              spreadRadius: -4),
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: color, size: 16),
+        Container(
+          width: 26,
+          height: 26,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, color: color, size: 15),
+        ),
         const Spacer(),
         Text(value,
             style: TextStyle(
-                color: AppColors.textPrimary,
+                color: context.fc.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
                 fontFamily: 'JetBrains Mono')),
         Text(label,
             style: TextStyle(
-                color: AppColors.textDisabled,
+                color: context.fc.textDisabled,
                 fontSize: 8,
                 fontWeight: FontWeight.w900)),
       ]),
@@ -2261,17 +2291,17 @@ class _MaintCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(color: context.fc.surfaceBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.engineering, color: AppColors.primary, size: 14),
+          Icon(Icons.engineering, color: context.fc.primary, size: 14),
           SizedBox(width: 8),
           Text('MAINTENANCE PRÉVENTIVE',
               style: TextStyle(
-                  color: AppColors.primary,
+                  color: context.fc.primary,
                   fontSize: 10,
                   fontWeight: FontWeight.w900)),
         ]),
@@ -2296,15 +2326,15 @@ class _MaintRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = health < 20
-        ? AppColors.error
-        : (health < 60 ? AppColors.warning : AppColors.success);
+        ? context.fc.error
+        : (health < 60 ? context.fc.warning : context.fc.success);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
         Expanded(
             child: Text(label,
                 style: TextStyle(
-                    color: AppColors.textDisabled, fontSize: 9))),
+                    color: context.fc.textDisabled, fontSize: 9))),
         Text(timeLeft,
             style: TextStyle(
                 color: color, fontSize: 9, fontWeight: FontWeight.bold)),
@@ -2315,11 +2345,274 @@ class _MaintRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(1),
               child: LinearProgressIndicator(
                   value: health / 100,
-                  backgroundColor: AppColors.surfaceBright,
+                  backgroundColor: context.fc.surfaceBright,
                   color: color,
                   minHeight: 3),
             )),
       ]),
     );
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// CINÉMATIQUE ÉDITABLE — lit les vraies valeurs du config.yaml (live ou cache
+// offline) et envoie les modifications à FluidNC via `$/axes/<x>/<param>=<v>`.
+// ─────────────────────────────────────────────────────────────────────────────
+class _KinematicsTable extends ConsumerStatefulWidget {
+  const _KinematicsTable();
+  @override
+  ConsumerState<_KinematicsTable> createState() => _KinematicsTableState();
+}
+
+class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
+  final Map<String, double> _overrides = {};
+
+  Color _axisColor(BuildContext c, String axis) => switch (axis) {
+        'X' => c.fc.axisX,
+        'Y' => c.fc.axisY,
+        'Z' => c.fc.axisZ,
+        'A' => c.fc.axisA,
+        _ => c.fc.axisC,
+      };
+
+  double? _value(AxisKinematics k, KinematicField f) {
+    final o = _overrides['${k.axis}.${f.name}'];
+    if (o != null) return o;
+    return switch (f) {
+      KinematicField.steps => k.stepsPerMm,
+      KinematicField.maxRate => k.maxRate,
+      KinematicField.accel => k.accel,
+      KinematicField.maxTravel => k.maxTravel,
+    };
+  }
+
+  Future<void> _edit(AxisKinematics k, KinematicField f) async {
+    final fc = context.fc;
+    final current = _value(k, f);
+    final ctrl = TextEditingController(text: current?.toStringAsFixed(3) ?? '');
+
+    final newVal = await showDialog<double>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final preview =
+              fluidNcSetCommand(k.axis, f, double.tryParse(ctrl.text) ?? 0);
+          return AlertDialog(
+            backgroundColor: fc.surface,
+            title: Text('${k.axis} · ${f.label}',
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900)),
+            content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    onChanged: (_) => setLocal(() {}),
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true, signed: true),
+                    style: TextStyle(
+                        color: fc.primary,
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 18),
+                    decoration: InputDecoration(
+                      suffixText: f.unit,
+                      suffixStyle: TextStyle(color: fc.textDisabled),
+                      enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: fc.surfaceBorder)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('COMMANDE FLUIDNC',
+                      style: TextStyle(
+                          color: fc.textDisabled,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1)),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: fc.terminalBg,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: fc.surfaceBorder),
+                    ),
+                    child: Text(preview,
+                        style: TextStyle(
+                            color: fc.primary,
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 11)),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 13, color: fc.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                          'Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.',
+                          style: TextStyle(color: fc.warning, fontSize: 9)),
+                    ),
+                  ]),
+                ]),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child:
+                      Text('ANNULER', style: TextStyle(color: fc.textDisabled))),
+              ElevatedButton(
+                onPressed: () {
+                  final v = double.tryParse(ctrl.text.trim());
+                  if (v != null) Navigator.pop(ctx, v);
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: fc.primary, foregroundColor: Colors.white),
+                child: const Text('ENVOYER'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (newVal == null) return;
+    final cmd = fluidNcSetCommand(k.axis, f, newVal);
+    final messenger = ScaffoldMessenger.of(context);
+    final okColor = context.fc.success;
+    await ref.read(machineRepositoryProvider).sendGCode(cmd);
+    if (!mounted) return;
+    setState(() => _overrides['${k.axis}.${f.name}'] = newVal);
+    messenger.showSnackBar(
+        SnackBar(content: Text('Envoyé : $cmd'), backgroundColor: okColor));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    final async = ref.watch(axisKinematicsProvider);
+    final cfg = ref.watch(configResultProvider).valueOrNull;
+
+    Widget headerRow() => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+              color: fc.surfaceBright,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(5))),
+          child: Row(children: [
+            SizedBox(
+                width: 30,
+                child: Text('AXE',
+                    style: TextStyle(
+                        color: fc.textDisabled,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900))),
+            for (final f in KinematicField.values)
+              Expanded(
+                  child: Text(f.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: fc.textDisabled,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900))),
+          ]),
+        );
+
+    Widget cell(AxisKinematics k, KinematicField f) {
+      final v = _value(k, f);
+      return Expanded(
+        child: InkWell(
+          onTap: () => _edit(k, f),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              v == null
+                  ? '—'
+                  : (v == v.roundToDouble()
+                      ? v.toStringAsFixed(0)
+                      : v.toStringAsFixed(1)),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: v == null ? fc.textDisabled : fc.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JetBrains Mono'),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (cfg?.fromCache == true)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Icon(Icons.cloud_off, size: 12, color: fc.warning),
+            const SizedBox(width: 6),
+            Text('Hors ligne — valeurs en cache',
+                style: TextStyle(color: fc.warning, fontSize: 9)),
+          ]),
+        ),
+      Container(
+        decoration: BoxDecoration(
+          color: fc.surface,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: fc.surfaceBorder),
+        ),
+        child: async.when(
+          loading: () => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator())),
+          error: (e, _) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Config indisponible : $e',
+                  style: TextStyle(color: fc.textDisabled, fontSize: 11))),
+          data: (axes) {
+            final hasAny = axes.any((k) =>
+                k.stepsPerMm != null ||
+                k.maxRate != null ||
+                k.accel != null ||
+                k.maxTravel != null);
+            return Column(children: [
+              headerRow(),
+              if (!hasAny)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                      'Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).',
+                      style: TextStyle(color: fc.textDisabled, fontSize: 11)),
+                )
+              else
+                for (final k in axes)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                        border: Border(
+                            bottom: BorderSide(color: fc.surfaceBorder))),
+                    child: Row(children: [
+                      SizedBox(
+                        width: 30,
+                        child: Text(k.axis,
+                            style: TextStyle(
+                                color: _axisColor(context, k.axis),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                      for (final f in KinematicField.values) cell(k, f),
+                    ]),
+                  ),
+            ]);
+          },
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text('Touchez une valeur pour la modifier et l\'envoyer à la machine.',
+          style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+    ]);
   }
 }

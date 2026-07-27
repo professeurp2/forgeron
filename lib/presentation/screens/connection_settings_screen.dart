@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/widgets/responsive_layout.dart';
 import 'package:http/http.dart' as http;
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/discovery_provider.dart';
@@ -95,7 +95,7 @@ class _ConnectionSettingsScreenState
     saveNetworkPreferences(ref, ip, wsPort);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('✅ Connexion configurée: ws://$ip:$wsPort'),
-      backgroundColor: AppColors.success,
+      backgroundColor: context.fc.success,
       behavior: SnackBarBehavior.floating,
       width: 400,
     ));
@@ -126,7 +126,7 @@ class _ConnectionSettingsScreenState
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
           '✅ Connecté à ${device.firmwareInfo ?? "ESP32"} @ $ip'),
-      backgroundColor: AppColors.success,
+      backgroundColor: context.fc.success,
       behavior: SnackBarBehavior.floating,
       width: 400,
     ));
@@ -138,9 +138,9 @@ class _ConnectionSettingsScreenState
     final discovery = ref.watch(discoveryProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.fc.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.fc.background,
         elevation: 0,
         centerTitle: false,
         title: Row(
@@ -148,52 +148,46 @@ class _ConnectionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: context.fc.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.settings_input_component,
-                  color: AppColors.primary, size: 20),
+                  color: context.fc.primary, size: 20),
             ),
-            SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'RÉSEAU & CONNEXION',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'CONNEXION',
+                    style: TextStyle(
+                      color: context.fc.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                Text(
-                  'Configuration du lien ESP32 / FluidNC',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                  Text(
+                    'Lien ESP32 / FluidNC',
+                    style: TextStyle(
+                      color: context.fc.textSecondary,
+                      fontSize: 9,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: TextButton.icon(
-                onPressed: _save,
-                icon: Icon(Icons.check_circle_outline, size: 18),
-                label: Text('APPLIQUER'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  textStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                ),
-              ),
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              onPressed: _save,
+              icon: Icon(Icons.check_circle, color: context.fc.primary),
+              tooltip: 'Appliquer',
             ),
           ),
         ],
@@ -204,8 +198,8 @@ class _ConnectionSettingsScreenState
             center: Alignment.topRight,
             radius: 1.5,
             colors: [
-              AppColors.primary.withValues(alpha: 0.05),
-              AppColors.background,
+              context.fc.primary.withValues(alpha: 0.05),
+              context.fc.background,
             ],
           ),
         ),
@@ -271,11 +265,12 @@ class _ConnectionSettingsScreenState
 
   Widget _buildHeaderStatus() {
     final isSim = ref.watch(isSimulationModeProvider);
-    final color = isSim ? AppColors.axisA : AppColors.success;
+    final color = isSim ? context.fc.axisA : context.fc.success;
+    final isMobile = ResponsiveLayout.isMobile(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.4),
+        color: context.fc.surface.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.2)),
         boxShadow: [
@@ -286,99 +281,86 @@ class _ConnectionSettingsScreenState
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Row(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: Column(
         children: [
-          // Globe Icon with pulse
-          Stack(
-            alignment: Alignment.center,
+          Row(
             children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) {
-                  return Container(
-                    width: 60,
-                    height: 60,
+              // Globe Icon with pulse
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Container(
+                        width: isMobile ? 44 : 60,
+                        height: isMobile ? 44 : 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: color.withValues(
+                                alpha: 1.0 - _pulseController.value),
+                            width: 2,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Container(
+                    width: isMobile ? 32 : 44,
+                    height: isMobile ? 32 : 44,
                     decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: color.withValues(alpha: 1.0 - _pulseController.value),
-                        width: 2,
-                      ),
                     ),
-                  );
-                },
+                    child: Icon(isSim ? Icons.science_outlined : Icons.language,
+                        color: color, size: isMobile ? 18 : 24),
+                  ),
+                ],
               ),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(isSim ? Icons.science_outlined : Icons.language,
-                    color: color, size: 24),
-              ),
-            ],
-          ),
-          SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              SizedBox(width: isMobile ? 12 : 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isSim ? 'MODE SIMULATION' : 'LIAISON RÉSEAU ACTIVE',
+                      isSim ? 'SIMULATION' : 'LIAISON ACTIVE',
                       style: TextStyle(
                         color: color,
-                        fontSize: 16,
+                        fontSize: isMobile ? 14 : 16,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1,
                       ),
                     ),
-                    SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: color.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        isSim ? 'LOCAL' : 'REMOTE',
-                        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isSim ? 'LOCAL DATA' : 'REMOTE WS',
+                      style: TextStyle(
+                          color: color.withValues(alpha: 0.7),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-                SizedBox(height: 4),
-                Text(
-                  isSim
-                      ? 'L\'interface utilise des données virtuelles. Aucune machine physique n\'est requise.'
-                      : 'L\'application tente de communiquer avec l\'IP ${ref.watch(espIpProvider)} via WebSocket.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 24),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('TYPE DE SESSION',
-                  style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.bold)),
-              SizedBox(height: 4),
+              ),
               Switch(
                 value: isSim,
-                activeColor: AppColors.axisA,
-                activeTrackColor: AppColors.axisA.withValues(alpha: 0.2),
-                inactiveThumbColor: AppColors.success,
-                inactiveTrackColor: AppColors.success.withValues(alpha: 0.2),
-                onChanged: (val) => ref.read(isSimulationModeProvider.notifier).state = val,
+                activeColor: context.fc.axisA,
+                onChanged: (val) =>
+                    ref.read(isSimulationModeProvider.notifier).state = val,
               ),
             ],
           ),
+          if (!isMobile) ...[
+            const SizedBox(height: 12),
+            Text(
+              isSim
+                  ? 'L\'interface utilise des données virtuelles. Aucune machine physique n\'est requise.'
+                  : 'L\'application tente de communiquer avec l\'IP ${ref.watch(espIpProvider)} via WebSocket.',
+              style: TextStyle(color: context.fc.textSecondary, fontSize: 12),
+            ),
+          ]
         ],
       ),
     );
@@ -391,7 +373,7 @@ class _ConnectionSettingsScreenState
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.1),
+                color: context.fc.danger.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: InkWell(
@@ -401,10 +383,10 @@ class _ConnectionSettingsScreenState
                     SizedBox(
                       width: 10,
                       height: 10,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.danger),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: context.fc.danger),
                     ),
                     SizedBox(width: 8),
-                    Text('ARRÊTER', style: TextStyle(color: AppColors.danger, fontSize: 10, fontWeight: FontWeight.w900)),
+                    Text('ARRÊTER', style: TextStyle(color: context.fc.danger, fontSize: 10, fontWeight: FontWeight.w900)),
                   ],
                 ),
               ),
@@ -414,8 +396,8 @@ class _ConnectionSettingsScreenState
               icon: Icon(Icons.radar, size: 14),
               label: Text('RECHERCHER'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                foregroundColor: AppColors.primary,
+                backgroundColor: context.fc.primary.withValues(alpha: 0.1),
+                foregroundColor: context.fc.primary,
                 elevation: 0,
                 textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
               ),
@@ -426,14 +408,14 @@ class _ConnectionSettingsScreenState
           if (discovery.isScanning) ...[
             LinearProgressIndicator(
               value: discovery.progress > 0 ? discovery.progress : null,
-              backgroundColor: AppColors.surfaceBorder,
-              color: AppColors.primary,
+              backgroundColor: context.fc.surfaceBorder,
+              color: context.fc.primary,
               minHeight: 2,
             ),
             SizedBox(height: 12),
             Text(
               '${discovery.statusMessage ?? "Scan en cours..."}',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
+              style: TextStyle(color: context.fc.textSecondary, fontSize: 11, fontStyle: FontStyle.italic),
             ),
             SizedBox(height: 16),
           ],
@@ -443,20 +425,20 @@ class _ConnectionSettingsScreenState
               height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppColors.background.withValues(alpha: 0.3),
+                color: context.fc.background.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.surfaceBorder, style: BorderStyle.none),
+                border: Border.all(color: context.fc.surfaceBorder, style: BorderStyle.none),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.wifi_off_rounded, color: AppColors.textDisabled.withValues(alpha: 0.2), size: 64),
+                  Icon(Icons.wifi_off_rounded, color: context.fc.textDisabled.withValues(alpha: 0.2), size: 64),
                   SizedBox(height: 16),
                   Text('Aucun appareil détecté sur le segment réseau.',
-                      style: TextStyle(color: AppColors.textDisabled, fontSize: 12)),
+                      style: TextStyle(color: context.fc.textDisabled, fontSize: 12)),
                   SizedBox(height: 8),
                   Text('Vérifiez que l\'ESP32 est allumé et sur le même WiFi.',
-                      style: TextStyle(color: AppColors.textDisabled, fontSize: 10)),
+                      style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
                 ],
               ),
             )
@@ -478,6 +460,7 @@ class _ConnectionSettingsScreenState
 
   Widget _buildModernDeviceCard(DiscoveredDevice device, int index) {
     final isFluidNC = device.firmwareInfo?.contains('FluidNC') == true;
+    final isMobile = ResponsiveLayout.isMobile(context);
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 300 + (index * 100)),
@@ -485,88 +468,160 @@ class _ConnectionSettingsScreenState
       builder: (context, value, child) {
         return Transform.translate(
           offset: Offset(0, 20 * (1 - value)),
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
+          child: Opacity(opacity: value, child: child),
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceBright.withValues(alpha: 0.3),
+          color: context.fc.surfaceBright.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isFluidNC ? AppColors.success.withValues(alpha: 0.3) : AppColors.surfaceBorder,
+            color: isFluidNC
+                ? context.fc.success.withValues(alpha: 0.3)
+                : context.fc.surfaceBorder,
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: (isFluidNC ? AppColors.success : AppColors.primary).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isFluidNC ? Icons.precision_manufacturing : Icons.router,
-                color: isFluidNC ? AppColors.success : AppColors.primary,
-                size: 24,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: isMobile
+            ? Column(
                 children: [
                   Row(
                     children: [
-                      Text(
-                        device.ip,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'JetBrains Mono',
+                      Icon(
+                        isFluidNC ? Icons.precision_manufacturing : Icons.router,
+                        color: isFluidNC ? context.fc.success : context.fc.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          device.ip,
+                          style: TextStyle(
+                            color: context.fc.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'JetBrains Mono',
+                          ),
                         ),
                       ),
-                      SizedBox(width: 12),
                       if (isFluidNC)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.1),
+                            color: context.fc.success.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text('FLUIDNC',
-                              style: TextStyle(color: AppColors.success, fontSize: 9, fontWeight: FontWeight.w900)),
+                              style: TextStyle(
+                                  color: context.fc.success,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900)),
                         ),
                     ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Réponse: ${device.responseTime.inMilliseconds}ms • Port: ${device.wsPort}',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _connectDevice(device),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isFluidNC ? context.fc.success : context.fc.primary,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      child: const Text('CONNECTER',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 11)),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: (isFluidNC ? context.fc.success : context.fc.primary)
+                          .withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isFluidNC ? Icons.precision_manufacturing : Icons.router,
+                      color: isFluidNC ? context.fc.success : context.fc.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                device.ip,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: context.fc.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'JetBrains Mono',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            if (isFluidNC)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      context.fc.success.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text('FLUIDNC',
+                                    style: TextStyle(
+                                        color: context.fc.success,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Réponse: ${device.responseTime.inMilliseconds}ms • Port: ${device.wsPort}',
+                          style: TextStyle(
+                              color: context.fc.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () => _connectDevice(device),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          isFluidNC ? context.fc.success : context.fc.primary,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('CONNECTER',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 0.5)),
                   ),
                 ],
               ),
-            ),
-            SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: () => _connectDevice(device),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isFluidNC ? AppColors.success : AppColors.primary,
-                foregroundColor: Colors.black,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('CONNECTER',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -600,12 +655,12 @@ class _ConnectionSettingsScreenState
                   : Icon(Icons.network_check_rounded, size: 18),
               label: Text(_testing ? 'VÉRIFICATION...' : 'TESTER LA CONNEXION'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surfaceBright,
-                foregroundColor: AppColors.primary,
+                backgroundColor: context.fc.surfaceBright,
+                foregroundColor: context.fc.primary,
                 padding: const EdgeInsets.all(16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+                  side: BorderSide(color: context.fc.primary.withValues(alpha: 0.3)),
                 ),
                 textStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
               ),
@@ -616,20 +671,20 @@ class _ConnectionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: (_testSuccess ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                color: (_testSuccess ? context.fc.success : context.fc.error).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: (_testSuccess ? AppColors.success : AppColors.error).withValues(alpha: 0.3)),
+                border: Border.all(color: (_testSuccess ? context.fc.success : context.fc.error).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
                   Icon(_testSuccess ? Icons.check_circle : Icons.error,
-                      color: _testSuccess ? AppColors.success : AppColors.error, size: 16),
+                      color: _testSuccess ? context.fc.success : context.fc.error, size: 16),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _testResult!,
                       style: TextStyle(
-                        color: _testSuccess ? AppColors.success : AppColors.error,
+                        color: _testSuccess ? context.fc.success : context.fc.error,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -653,24 +708,24 @@ class _ConnectionSettingsScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+        Text(label, style: TextStyle(color: context.fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
         SizedBox(height: 8),
         TextField(
           controller: controller,
-          style: TextStyle(color: AppColors.textPrimary, fontFamily: 'JetBrains Mono', fontSize: 14),
+          style: TextStyle(color: context.fc.textPrimary, fontFamily: 'JetBrains Mono', fontSize: 14),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 18),
+            prefixIcon: Icon(icon, color: context.fc.textSecondary, size: 18),
             hintText: hint,
-            hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 13),
+            hintStyle: TextStyle(color: context.fc.textDisabled, fontSize: 13),
             filled: true,
-            fillColor: AppColors.background.withValues(alpha: 0.4),
+            fillColor: context.fc.background.withValues(alpha: 0.4),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.surfaceBorder),
+              borderSide: BorderSide(color: context.fc.surfaceBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide: BorderSide(color: context.fc.primary, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
@@ -684,20 +739,20 @@ class _ConnectionSettingsScreenState
       title: 'ARCHITECTURE MACHINE',
       child: Column(
         children: [
-          _buildInfoRow('Type Cinématique', 'Trunnion 5-Axes (XYZAC)', AppColors.primary),
+          _buildInfoRow('Type Cinématique', 'Trunnion 5-Axes (XYZAC)', context.fc.primary),
           SizedBox(height: 12),
-          _buildInfoRow('Axe Pivot (A)', '±110° sur X', AppColors.axisA),
+          _buildInfoRow('Axe Pivot (A)', '±110° sur X', context.fc.axisA),
           SizedBox(height: 12),
-          _buildInfoRow('Table Rotative (C)', '360° Continu sur Z', AppColors.axisC),
+          _buildInfoRow('Table Rotative (C)', '360° Continu sur Z', context.fc.axisC),
           SizedBox(height: 12),
-          _buildInfoRow('Taux Télémétrie', '200ms (5Hz)', AppColors.axisZ),
-          Divider(height: 32, color: AppColors.surfaceBorder),
+          _buildInfoRow('Taux Télémétrie', '200ms (5Hz)', context.fc.axisZ),
+          Divider(height: 32, color: context.fc.surfaceBorder),
           Row(
             children: [
-              Icon(Icons.security, color: AppColors.warning, size: 14),
+              Icon(Icons.security, color: context.fc.warning, size: 14),
               SizedBox(width: 8),
               Text('ARRET D\'URGENCE LOGICIEL ACTIF',
-                  style: TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: context.fc.warning, fontSize: 10, fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -709,7 +764,7 @@ class _ConnectionSettingsScreenState
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+        Text(label, style: TextStyle(color: context.fc.textSecondary, fontSize: 11)),
         Text(value, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
       ],
     );

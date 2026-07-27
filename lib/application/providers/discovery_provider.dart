@@ -44,6 +44,7 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
   final Ref _ref;
   StreamSubscription<DiscoveredDevice>? _devicesSub;
   StreamSubscription<ScanState>? _stateSub;
+  bool _autoConnectPending = false;
 
   DiscoveryNotifier(this._service, this._ref) : super(const DiscoveryState()) {
     // Écouter les appareils découverts
@@ -52,6 +53,13 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
       if (!current.any((d) => d.ip == device.ip)) {
         current.add(device);
         state = state.copyWith(devices: current);
+        
+        // Auto-connexion si demandée
+        if (_autoConnectPending) {
+          _autoConnectPending = false;
+          selectDevice(device);
+          stop();
+        }
       }
     });
 
@@ -90,7 +98,9 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
   }
 
   /// Lance le scan réseau.
-  Future<void> scan() async {
+  Future<void> scan({bool autoConnect = false}) async {
+    _autoConnectPending = autoConnect;
+    
     state = state.copyWith(
       devices: [],
       isScanning: true,

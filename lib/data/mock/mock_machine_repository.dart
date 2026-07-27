@@ -128,6 +128,8 @@ class MockMachineRepository implements MachineRepository {
   @override
   Future<void> sendGCode(String gcode) async {
     debugPrint('Mock command: $gcode');
+    _trafficController.add('TX: $gcode');
+    Future.delayed(const Duration(milliseconds: 50), () => _trafficController.add('RX: ok'));
     if (gcode == 'MOCK_DEMO') {
       _isDemoActive = true;
       _demoProgress = 0.0;
@@ -142,11 +144,21 @@ class MockMachineRepository implements MachineRepository {
   @override
   void sendRaw(String data) {
     debugPrint('Mock sendRaw: $data');
+    if (data.trim().isNotEmpty) _trafficController.add('TX: $data');
+    Future.delayed(const Duration(milliseconds: 50), () => _trafficController.add('RX: ok'));
     if (data == '\x18') reset();
+    if (data.trim() == '\$X') {
+      _updateState(_currentState.copyWith(status: MachineStatus.idle, alarmCode: null));
+    }
   }
 
   @override
-  Future<void> sendGCodeBatch(List<String> lines, {void Function()? onComplete}) async {
+  Future<void> sendGCodeBatch(
+    List<String> lines, {
+    void Function()? onComplete,
+    void Function(int index)? onProgress,
+    void Function(String reason)? onStall,
+  }) async {
     _currentProgram = lines;
     _currentProgramIndex = 0;
     _isDemoActive = false;
@@ -170,9 +182,10 @@ class MockMachineRepository implements MachineRepository {
 
 
   @override
-  Future<void> emergencyStop() async {
+  Future<bool> emergencyStop() async {
     debugPrint('Mock E-STOP');
     _updateState(_currentState.copyWith(status: MachineStatus.alarm));
+    return true; // Le mock transmet toujours.
   }
 
   @override
@@ -227,6 +240,14 @@ class MockMachineRepository implements MachineRepository {
     final overrides = List<int>.from(_currentState.overrides);
     overrides[2] = percent;
     _updateState(_currentState.copyWith(overrides: overrides));
+  }
+
+  @override
+  Future<void> setWcsOffset(String wcs, List<double> offset) async {
+    debugPrint('Mock setWcsOffset $wcs -> $offset');
+    final offsets = Map<String, List<double>>.from(_currentState.wcsOffsets);
+    offsets[wcs.toUpperCase()] = List<double>.from(offset);
+    _updateState(_currentState.copyWith(wcsOffsets: offsets));
   }
 
   void dispose() {

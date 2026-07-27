@@ -1,6 +1,7 @@
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import 'tutorial_step.dart';
 
 class TutorialTooltipCard extends StatelessWidget {
@@ -37,7 +38,9 @@ class TutorialTooltipCard extends StatelessWidget {
         );
       },
       child: Container(
-        width: 340,
+        // 340 px en dur touchait les deux bords d'un écran de 360 dp
+        // (Galaxy A03s) : on garde 16 px de marge de chaque côté.
+        width: math.min(340.0, MediaQuery.sizeOf(context).width - 32),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -246,7 +249,7 @@ class TutorialTooltipCard extends StatelessWidget {
                               child: TextButton(
                                 onPressed: currentIndex == 0 ? onSkip : onPrevious,
                                 style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.textDisabled,
+                                  foregroundColor: context.fc.textDisabled,
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   minimumSize: Size.zero,
                                 ),
@@ -288,7 +291,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                       color: isActive
                                           ? step.accentColor
                                           : (dotIndex < currentIndex
-                                              ? AppColors.success.withValues(alpha: 0.5)
+                                              ? context.fc.success.withValues(alpha: 0.5)
                                               : Color(0xFF2A3050)),
                                       boxShadow: isActive
                                           ? [

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../screens/cnc_panel_screen.dart';
-
-// WorkshopLayout délègue entièrement au Pupitre CNC industriel 5 axes.
-// Les anciens widgets (CockpitHeader, GiantIndustrialDRO, etc.) ont été
-// supprimés lors de la refonte design premium (Phase 3).
+import '../mobile/mobile_workshop_screen.dart';
 
 class WorkshopLayout extends StatelessWidget {
   const WorkshopLayout({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const CncPanelScreen();
+    return const ResponsiveLayout(
+      mobile: MobileWorkshopScreen(),
+      tablet: CncPanelScreen(),
+      desktop: CncPanelScreen(),
+    );
   }
 }

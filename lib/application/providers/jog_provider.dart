@@ -6,6 +6,9 @@ import '../../application/providers/di_providers.dart';
 
 /// Notifier pour le contrôle manuel sécurisé (Jogging).
 /// Utilise $J= (Continuous Jog) et \x85 (Jog Cancel).
+
+/// Pas de jog sélectionné sur le pupitre et dashboard (x1 / x10 / x100).
+final cncJogMultiplierProvider = StateProvider<int>((ref) => 10);
 class JogState {
   final double linearStep;
   final double rotaryStep;
@@ -42,14 +45,16 @@ class JogNotifier extends StateNotifier<JogState> {
 
   /// Déclenche un mouvement par pas (Incremental Jog).
   Future<void> jogLinear(String axis, int direction) async {
-    final distance = state.linearStep * direction;
+    final multiplier = _ref.read(cncJogMultiplierProvider);
+    final distance = multiplier.toDouble() * direction;
     final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F1000\n';
     // Les commandes $J= doivent bypasser le buffer et aller directement sur le socket
     _ref.read(machineRepositoryProvider).sendRaw(cmd);
   }
 
   Future<void> jogRotary(String axis, int direction) async {
-    final distance = state.rotaryStep * direction;
+    final multiplier = _ref.read(cncJogMultiplierProvider);
+    final distance = multiplier.toDouble() * direction;
     final cmd = '\$J=G91 G21 $axis${distance.toStringAsFixed(3)} F3600\n';
     _ref.read(machineRepositoryProvider).sendRaw(cmd);
   }

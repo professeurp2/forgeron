@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../theme/forgeron_colors.dart';
 
 /// Conteneur réutilisable style "Glassmorphism Industriel".
 /// Utilisé partout dans l'app pour les panneaux de données.
@@ -10,8 +10,10 @@ class GlassPanel extends StatelessWidget {
   final double? height;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
-  final Color borderColor;
-  final Color backgroundColor;
+  // Nullables : résolus depuis le thème (context.fc) quand non fournis, pour
+  // que le panneau suive le mode clair/sombre au lieu d'être toujours noir.
+  final Color? borderColor;
+  final Color? backgroundColor;
   final String? title;
   final Widget? titleTrailing;
   final bool expand;
@@ -23,8 +25,8 @@ class GlassPanel extends StatelessWidget {
     this.height,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 12.0, // Un peu plus arrondi pour un look moderne
-    this.borderColor = Colors.grey,
-    this.backgroundColor = Colors.black,
+    this.borderColor,
+    this.backgroundColor,
     this.title,
     this.titleTrailing,
     this.expand = false,
@@ -32,11 +34,13 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = backgroundColor ?? context.fc.surface;
+    final border = borderColor ?? context.fc.surfaceBorder;
     Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        if (title != null) _buildTitle(),
+        if (title != null) _buildTitle(context),
         if (expand)
           Expanded(child: Padding(padding: padding, child: child))
         else
@@ -58,7 +62,7 @@ class GlassPanel extends StatelessWidget {
           ),
           // Halo subtil de couleur primaire
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.03),
+            color: context.fc.primary.withValues(alpha: 0.03),
             blurRadius: 24,
             spreadRadius: -4,
           ),
@@ -76,13 +80,13 @@ class GlassPanel extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  backgroundColor.withValues(alpha: 0.45),
-                  backgroundColor.withValues(alpha: 0.8),
+                  bg.withValues(alpha: 0.55),
+                  bg.withValues(alpha: 0.85),
                 ],
               ),
               // Bordure biseautée ultra-fine
               border: Border.all(
-                color: borderColor.withValues(alpha: 0.45),
+                color: border.withValues(alpha: 0.6),
                 width: 1.2,
               ),
             ),
@@ -93,12 +97,13 @@ class GlassPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildTitle() {
+  Widget _buildTitle(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: borderColor, width: 1.0),
+          bottom: BorderSide(
+              color: borderColor ?? context.fc.surfaceBorder, width: 1.0),
         ),
       ),
       child: Row(
@@ -107,7 +112,7 @@ class GlassPanel extends StatelessWidget {
             child: Text(
               title!.toUpperCase(),
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: context.fc.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,

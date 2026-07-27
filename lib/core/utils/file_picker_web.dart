@@ -26,3 +26,13 @@ Future<({String name, List<int> bytes})?> pickFileWithMetadata() async {
   }
   return null;
 }
+
+// ── Dossier de travail — non supporté sur le web (pas d'accès fichiers) ──────
+Future<String?> pickDirectoryPath() async => null;
+
+List<({String name, String path, int size})> listDirectoryGcode(String dir) =>
+    const [];
+
+Future<String> readFileText(String path) async => '';
+
+Future<void> writeFileText(String path, String content) async {}

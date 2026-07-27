@@ -47,6 +47,9 @@ class MachineState with _$MachineState {
     @Default(0) int activeToolNum,        // T0..T99
     String? lastMessage,                  // Message GRBL [MSG:...]
 
+    // --- Offsets WCS (G54..G59), lus via la réponse $# ---
+    @Default({}) Map<String, List<double>> wcsOffsets,
+
     @Default([false, false, false, false, false]) List<bool> limitSwitches,
     @Default(false) bool probeTriggered,
     Map<String, dynamic>? probeResult,    // Résultat du dernier PRB

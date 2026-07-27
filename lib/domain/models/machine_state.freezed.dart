@@ -50,6 +50,9 @@ mixin _$MachineState {
   int get activeToolNum => throw _privateConstructorUsedError; // T0..T99
   String? get lastMessage =>
       throw _privateConstructorUsedError; // Message GRBL [MSG:...]
+  // --- Offsets WCS (G54..G59), lus via la réponse $# ---
+  Map<String, List<double>> get wcsOffsets =>
+      throw _privateConstructorUsedError;
   List<bool> get limitSwitches => throw _privateConstructorUsedError;
   bool get probeTriggered => throw _privateConstructorUsedError;
   Map<String, dynamic>? get probeResult =>
@@ -103,6 +106,7 @@ abstract class $MachineStateCopyWith<$Res> {
     String activeWCS,
     int activeToolNum,
     String? lastMessage,
+    Map<String, List<double>> wcsOffsets,
     List<bool> limitSwitches,
     bool probeTriggered,
     Map<String, dynamic>? probeResult,
@@ -148,6 +152,7 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
     Object? activeWCS = null,
     Object? activeToolNum = null,
     Object? lastMessage = freezed,
+    Object? wcsOffsets = null,
     Object? limitSwitches = null,
     Object? probeTriggered = null,
     Object? probeResult = freezed,
@@ -226,6 +231,10 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.lastMessage
                 : lastMessage // ignore: cast_nullable_to_non_nullable
                       as String?,
+            wcsOffsets: null == wcsOffsets
+                ? _value.wcsOffsets
+                : wcsOffsets // ignore: cast_nullable_to_non_nullable
+                      as Map<String, List<double>>,
             limitSwitches: null == limitSwitches
                 ? _value.limitSwitches
                 : limitSwitches // ignore: cast_nullable_to_non_nullable
@@ -302,6 +311,7 @@ abstract class _$$MachineStateImplCopyWith<$Res>
     String activeWCS,
     int activeToolNum,
     String? lastMessage,
+    Map<String, List<double>> wcsOffsets,
     List<bool> limitSwitches,
     bool probeTriggered,
     Map<String, dynamic>? probeResult,
@@ -346,6 +356,7 @@ class __$$MachineStateImplCopyWithImpl<$Res>
     Object? activeWCS = null,
     Object? activeToolNum = null,
     Object? lastMessage = freezed,
+    Object? wcsOffsets = null,
     Object? limitSwitches = null,
     Object? probeTriggered = null,
     Object? probeResult = freezed,
@@ -424,6 +435,10 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value.lastMessage
             : lastMessage // ignore: cast_nullable_to_non_nullable
                   as String?,
+        wcsOffsets: null == wcsOffsets
+            ? _value._wcsOffsets
+            : wcsOffsets // ignore: cast_nullable_to_non_nullable
+                  as Map<String, List<double>>,
         limitSwitches: null == limitSwitches
             ? _value._limitSwitches
             : limitSwitches // ignore: cast_nullable_to_non_nullable
@@ -493,6 +508,7 @@ class _$MachineStateImpl implements _MachineState {
     this.activeWCS = 'G54',
     this.activeToolNum = 0,
     this.lastMessage,
+    final Map<String, List<double>> wcsOffsets = const {},
     final List<bool> limitSwitches = const [false, false, false, false, false],
     this.probeTriggered = false,
     final Map<String, dynamic>? probeResult,
@@ -509,6 +525,7 @@ class _$MachineStateImpl implements _MachineState {
        _wco = wco,
        _targetPos = targetPos,
        _overrides = overrides,
+       _wcsOffsets = wcsOffsets,
        _limitSwitches = limitSwitches,
        _probeResult = probeResult;
 
@@ -618,8 +635,19 @@ class _$MachineStateImpl implements _MachineState {
   @override
   final String? lastMessage;
   // Message GRBL [MSG:...]
-  final List<bool> _limitSwitches;
+  // --- Offsets WCS (G54..G59), lus via la réponse $# ---
+  final Map<String, List<double>> _wcsOffsets;
   // Message GRBL [MSG:...]
+  // --- Offsets WCS (G54..G59), lus via la réponse $# ---
+  @override
+  @JsonKey()
+  Map<String, List<double>> get wcsOffsets {
+    if (_wcsOffsets is EqualUnmodifiableMapView) return _wcsOffsets;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_wcsOffsets);
+  }
+
+  final List<bool> _limitSwitches;
   @override
   @JsonKey()
   List<bool> get limitSwitches {
@@ -674,7 +702,7 @@ class _$MachineStateImpl implements _MachineState {
 
   @override
   String toString() {
-    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, lastMessage: $lastMessage, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, probeResult: $probeResult, emergencyTriggered: $emergencyTriggered, machiningMode: $machiningMode, forceGuardActive: $forceGuardActive, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
+    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, lastMessage: $lastMessage, wcsOffsets: $wcsOffsets, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, probeResult: $probeResult, emergencyTriggered: $emergencyTriggered, machiningMode: $machiningMode, forceGuardActive: $forceGuardActive, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
   }
 
   @override
@@ -714,6 +742,10 @@ class _$MachineStateImpl implements _MachineState {
                 other.activeToolNum == activeToolNum) &&
             (identical(other.lastMessage, lastMessage) ||
                 other.lastMessage == lastMessage) &&
+            const DeepCollectionEquality().equals(
+              other._wcsOffsets,
+              _wcsOffsets,
+            ) &&
             const DeepCollectionEquality().equals(
               other._limitSwitches,
               _limitSwitches,
@@ -762,6 +794,7 @@ class _$MachineStateImpl implements _MachineState {
     activeWCS,
     activeToolNum,
     lastMessage,
+    const DeepCollectionEquality().hash(_wcsOffsets),
     const DeepCollectionEquality().hash(_limitSwitches),
     probeTriggered,
     const DeepCollectionEquality().hash(_probeResult),
@@ -807,6 +840,7 @@ abstract class _MachineState implements MachineState {
     final String activeWCS,
     final int activeToolNum,
     final String? lastMessage,
+    final Map<String, List<double>> wcsOffsets,
     final List<bool> limitSwitches,
     final bool probeTriggered,
     final Map<String, dynamic>? probeResult,
@@ -860,6 +894,9 @@ abstract class _MachineState implements MachineState {
   int get activeToolNum; // T0..T99
   @override
   String? get lastMessage; // Message GRBL [MSG:...]
+  // --- Offsets WCS (G54..G59), lus via la réponse $# ---
+  @override
+  Map<String, List<double>> get wcsOffsets;
   @override
   List<bool> get limitSwitches;
   @override

@@ -5,19 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Gestionnaire de connexion robuste pour FluidNC (Industrial Grade).
-/// Gère : 
+/// Gère :
 ///  - Exponential Backoff pour la résilience réseau.
 ///  - Heartbeat (Ping/Pong) via la commande '?' de GRBL.
 ///  - Backpressure via un compteur d'octets précis (Buffer RX de 128 octets).
 class FluidNCConnection {
   final String url;
-  
+
   WebSocketChannel? _channel;
   final _messageController = StreamController<String>.broadcast();
   final _statusController = StreamController<bool>.broadcast();
   final _trafficController = StreamController<String>.broadcast();
-  
+
   bool _isConnected = false;
+  bool _connecting = false;
   int _retryCount = 0;
   Timer? _heartbeatTimer;
   Timer? _retryTimer;
@@ -35,15 +36,21 @@ class FluidNCConnection {
 
   /// Tente une connexion avec Exponential Backoff
   Future<void> connect() async {
-    if (_isConnected || _disposed) return;
+    // Garde _connecting : sans elle, deux appels concurrents pendant qu'une
+    // connexion est EN COURS (mais pas encore établie) créaient deux
+    // WebSocketChannel — l'ancien restait ouvert et fantôme.
+    if (_isConnected || _connecting || _disposed) return;
+    _connecting = true;
 
     try {
       final uri = Uri.parse(url);
-      debugPrint('[FluidNC] Connecting to $url (Attempt ${_retryCount + 1})...');
-      
+      debugPrint(
+        '[FORGERON] Connecting to $url (Attempt ${_retryCount + 1})...',
+      );
+
       // Tentative SANS sous-protocole (plus compatible)
       _channel = WebSocketChannel.connect(uri);
-      
+
       // Timeout de 5 secondes pour le handshake
       await _channel!.ready.timeout(
         const Duration(seconds: 5),
@@ -51,11 +58,13 @@ class FluidNCConnection {
           throw TimeoutException('WebSocket handshake timeout after 5s');
         },
       );
-      
+
       _onConnected();
     } catch (e) {
-      debugPrint('[FluidNC] Connection failed: $e');
+      debugPrint('[FORGERON] Connection failed: $e');
       _onConnectionFailed();
+    } finally {
+      _connecting = false;
     }
   }
 
@@ -64,7 +73,7 @@ class FluidNCConnection {
     _retryCount = 0;
     _statusController.add(true);
     _lastResponseTime = DateTime.now();
-    debugPrint('[FluidNC] ✅ Connected to $url');
+    debugPrint('[FORGERON] ✅ Connected to $url');
 
     _channel!.stream.listen(
       _handleIncomingMessage,
@@ -89,7 +98,7 @@ class FluidNCConnection {
     final delay = math.min(math.pow(2, exponent).toInt(), 30);
     _retryCount++;
 
-    debugPrint('[FluidNC] ⏳ Retrying in ${delay}s... (attempt $_retryCount)');
+    debugPrint('[FORGERON] ⏳ Retrying in ${delay}s... (attempt $_retryCount)');
     _retryTimer?.cancel();
     _retryTimer = Timer(Duration(seconds: delay), () {
       if (!_disposed) connect();
@@ -104,12 +113,12 @@ class FluidNCConnection {
     } else {
       msg = message.toString().trim();
     }
-    
+
     if (msg.isEmpty) return;
     _lastResponseTime = DateTime.now();
-    debugPrint('[FluidNC RX] $msg');
+    debugPrint('[FORGERON RX] $msg');
     _trafficController.add('RX: $msg');
-    
+
     // Détection des acquittements déléguée au GCodeStreamingService via le repository.
     _messageController.add(msg);
   }
@@ -127,39 +136,49 @@ class FluidNCConnection {
       sendRaw('?');
 
       // Si pas de réponse depuis plus de 10 secondes, on considère la connexion comme perdue
-      if (_lastResponseTime != null && 
+      if (_lastResponseTime != null &&
           DateTime.now().difference(_lastResponseTime!).inSeconds > 10) {
         _handleDisconnect('Heartbeat timeout (Dead connection)');
       }
     });
   }
 
-  /// Envoi sécurisé via le StreamingService (pas de buffer local ici)
-  void sendGCode(String gcode) {
+  /// Envoi sécurisé via le StreamingService (pas de buffer local ici).
+  /// Retourne `true` si la donnée a réellement été transmise.
+  bool sendGCode(String gcode) {
     final cleanCmd = gcode.endsWith('\n') ? gcode : '$gcode\n';
-    sendRaw(cleanCmd);
+    return sendRaw(cleanCmd);
   }
 
-  /// Envoi brut (pour commandes temps réel comme ?, !, ~)
-  void sendRaw(String data) {
+  /// Envoi brut (pour commandes temps réel comme ?, !, ~, \x18).
+  ///
+  /// Retourne `true` si la donnée a réellement été poussée dans le socket.
+  /// SÉCURITÉ : sur liaison coupée, l'envoi est un échec **silencieux**. Les
+  /// appelants critiques (arrêt d'urgence) DOIVENT tester ce retour et le
+  /// remonter à l'opérateur — sans quoi il croira la machine arrêtée.
+  bool sendRaw(String data) {
     if (_isConnected && _channel != null) {
-      debugPrint('[FluidNC TX] $data');
+      debugPrint('[FORGERON TX] $data');
       _trafficController.add('TX: $data');
       _channel!.sink.add(data);
+      return true;
     }
+    debugPrint('[FORGERON] ⚠️ TX IGNORÉ (liaison coupée) : $data');
+    _trafficController.add('TX ÉCHEC (hors ligne) : $data');
+    return false;
   }
 
   void _handleDisconnect(String reason) {
     if (!_isConnected && !_disposed) return; // Déjà déconnecté
-    debugPrint('[FluidNC] ❌ Disconnected: $reason');
+    debugPrint('[FORGERON] ❌ Disconnected: $reason');
     _isConnected = false;
     _statusController.add(false);
     _heartbeatTimer?.cancel();
     _channel?.sink.close();
     _channel = null;
-    
+
     // Les buffers du streaming service seront réinitialisés par le repository.
-    
+
     if (!_disposed) {
       _onConnectionFailed();
     }
@@ -177,7 +196,10 @@ class FluidNCConnection {
 }
 
 // Provider Riverpod pour la connexion
-final fluidNCConnectionProvider = Provider.family<FluidNCConnection, String>((ref, url) {
+final fluidNCConnectionProvider = Provider.family<FluidNCConnection, String>((
+  ref,
+  url,
+) {
   final connection = FluidNCConnection(url);
   ref.onDispose(() => connection.dispose());
   return connection;

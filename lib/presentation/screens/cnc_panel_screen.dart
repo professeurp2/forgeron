@@ -7,11 +7,12 @@ import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/ui_state_provider.dart';
+import '../../application/providers/streaming_provider.dart';
 import '../../application/services/audio_service.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/trunnion_visualizer.dart';
-import '../widgets/dashboard/gauge_widgets.dart';
+import '../widgets/dashboard/jog_control_panel.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL SCREEN — Pupitre CNC 5 Axes style FANUC 0i-M
@@ -31,8 +32,6 @@ import '../widgets/dashboard/gauge_widgets.dart';
 /// Provider du mode machine sélectionné sur le pupitre (AUTO/MDI/MEM/JOG/HANDLE).
 final cncPanelModeProvider = StateProvider<CncOperatingMode>((ref) => CncOperatingMode.auto);
 
-/// Pas de jog sélectionné sur le pupitre (x1 / x10 / x100).
-final cncJogMultiplierProvider = StateProvider<int>((ref) => 10);
 
 enum CncOperatingMode { auto, mdi, mem, jog, handle }
 
@@ -117,7 +116,7 @@ class CncPanelScreen extends ConsumerWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: TrunnionVisualizer(
-                          mPos: state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0],
+                          mPos: ref.watch(renderMPosProvider),
                         ),
                       ),
                     ),
@@ -586,7 +585,12 @@ class _CyclePanel extends ConsumerWidget {
             color: AppColors.ledGreen,
             onTap: () {
               ref.read(audioServiceProvider).play(SoundEffect.click);
-              repo.resume();
+              final status = ref.read(machineStateProvider).valueOrNull?.status;
+              if (status == MachineStatus.hold) {
+                repo.resume();
+              } else if (status == MachineStatus.idle) {
+                ref.read(streamingProvider.notifier).startStream();
+              }
               HapticFeedback.mediumImpact();
             },
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -819,7 +823,6 @@ class _JogPanel5Axis extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final jogN = ref.read(secureJogProvider.notifier);
-    final multiplier = ref.watch(cncJogMultiplierProvider);
     final mode = ref.watch(cncPanelModeProvider);
     final isJogEnabled = mode == CncOperatingMode.jog || mode == CncOperatingMode.handle;
 
@@ -846,144 +849,25 @@ class _JogPanel5Axis extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sélecteur de pas
-              const CncSectionLabel('PAS (INCRÉMENT)'),
-              Row(children: [
-                for (final mult in [1, 10, 100])
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: CncKeyButton(
-                        height: 34,
-                        color: AppColors.axisZ,
-                        isActive: multiplier == mult,
-                        onTap: () {
-                          ref.read(cncJogMultiplierProvider.notifier).state = mult;
-                          HapticFeedback.selectionClick();
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CncLedIndicator(
-                              color: AppColors.axisZ,
-                              isActive: multiplier == mult,
-                              size: 5,
-                            ),
-                            Text('×$mult',
-                                style: TextStyle(
-                                    color: multiplier == mult
-                                        ? AppColors.axisZ
-                                        : AppColors.textDisabled,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ]),
-
-              SizedBox(height: 12),
-
-              // Layout jog principal
-              Column(
-                children: [
-                  const CncSectionLabel('AXES LINÉAIRES'),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Croix XY
-                      DpadCross(
-                        onXPlus:  () => jogN.jogLinear('X', 1),
-                        onXMinus: () => jogN.jogLinear('X', -1),
-                        onYPlus:  () => jogN.jogLinear('Y', 1),
-                        onYMinus: () => jogN.jogLinear('Y', -1),
-                        onStop:   () => jogN.stopJog(),
-                        size: 130,
-                      ),
-                      // Z buttons
-                      Column(
-                        children: [
-                          ZAxisButton(isPlus: true, onTap: () => jogN.jogLinear('Z', 1)),
-                          SizedBox(height: 8),
-                          ZAxisButton(isPlus: false, onTap: () => jogN.jogLinear('Z', -1)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  const CncSectionLabel('AXES ROTATIFS'),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Axe A
-                      Column(
-                        children: [
-                          ArcGauge(
-                            value: wPos[3],
-                            minValue: -90,
-                            maxValue: 90,
-                            color: AppColors.axisA,
-                            axisLabel: 'A',
-                            size: 110,
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotaryJogButton(isPlus: false, axisLabel: 'A', color: AppColors.axisA,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', -multiplier.toDouble(), 3600)),
-                              SizedBox(width: 8),
-                              RotaryJogButton(isPlus: true, axisLabel: 'A', color: AppColors.axisA,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('A', multiplier.toDouble(), 3600)),
-                            ],
-                          ),
-                        ],
-                      ),
-                      // Axe C
-                      Column(
-                        children: [
-                          RingGauge(
-                            value: wPos[4] % 360,
-                            color: AppColors.axisC,
-                            axisLabel: 'C',
-                            size: 100,
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotaryJogButton(isPlus: false, axisLabel: 'C', color: AppColors.axisC,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', -multiplier.toDouble(), 3600)),
-                              SizedBox(width: 8),
-                              RotaryJogButton(isPlus: true, axisLabel: 'C', color: AppColors.axisC,
-                                  onTap: () => ref.read(machineRepositoryProvider).jog('C', multiplier.toDouble(), 3600)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  // JOG STOP global
-                  CncKeyButton(
-                    height: 44,
-                    color: AppColors.danger,
-                    isDanger: true,
-                    onTap: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.stop_rounded, color: AppColors.danger, size: 18),
-                      SizedBox(width: 8),
-                      Text('JOG STOP  [0x85]',
-                          style: TextStyle(
-                              color: AppColors.danger,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8)),
-                    ]),
-                  ),
-                ],
+              // Design unifié avec le panneau JOG CONTROL du Dashboard.
+              JogControlPanel(wPos: wPos, showHeader: false),
+              SizedBox(height: 16),
+              // JOG STOP global
+              CncKeyButton(
+                height: 44,
+                color: AppColors.danger,
+                isDanger: true,
+                onTap: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.stop_rounded, color: AppColors.danger, size: 18),
+                  SizedBox(width: 8),
+                  Text('JOG STOP  [0x85]',
+                      style: TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8)),
+                ]),
               ),
             ],
           ),

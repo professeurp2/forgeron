@@ -1,9 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/widgets/responsive_layout.dart';
 import 'tutorial_controller.dart';
 import 'tutorial_highlight_painter.dart';
 import 'tutorial_tooltip_card.dart';
-import 'tutorial_data.dart';
 import 'tutorial_step.dart';
 
 class TutorialOverlay extends ConsumerStatefulWidget {
@@ -39,8 +40,29 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final tutorialState = ref.watch(tutorialProvider);
     if (!tutorialState.isActive) return widget.child;
 
-    final step = tutorialSteps[tutorialState.currentStepIndex];
-    
+    // Auto-correction : le parcours dépend de la mise en page RÉELLE au moment
+    // où l'on peint, pas d'un drapeau figé au démarrage. Sans ça, un mobile
+    // pouvait se voir servir les 33 étapes desktop (barre latérale, pied de
+    // page…) qui ne surlignent rien ici. Doit utiliser le MÊME critère que
+    // ResponsiveLayout (côté le plus court) : un simple `width < 600` bascule
+    // à tort vers le parcours desktop sur un téléphone en paysage (largeur
+    // ~800 mais mise en page mobile bel et bien affichée), et le tutoriel se
+    // retrouve à viser des widgets desktop qui n'existent pas ici.
+    final isMobile = ResponsiveLayout.isMobile(context);
+    if (isMobile != tutorialState.isMobile) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(tutorialProvider.notifier).setLayout(isMobile: isMobile);
+        }
+      });
+    }
+
+    // Tant que la correction n'est pas appliquée, on borne l'index pour ne pas
+    // sortir de la liste courante.
+    final steps = tutorialState.steps;
+    final index = tutorialState.currentStepIndex.clamp(0, steps.length - 1);
+    final step = steps[index];
+
     return Stack(
       children: [
         widget.child,
@@ -83,14 +105,15 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
             // Tooltip positioning
             _buildTooltip(step, targetRect, constraints, state),
             
-            // Close button
+            // Fermeture — sous la barre de statut, pas dessous.
             Positioned(
-              top: 40,
-              right: 40,
+              top: MediaQuery.paddingOf(context).top + 8,
+              right: 8,
               child: Material(
                 type: MaterialType.transparency,
                 child: IconButton(
-                  icon: Icon(Icons.close, color: Colors.white, size: 32),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  tooltip: 'Quitter la visite',
                   onPressed: () => ref.read(tutorialProvider.notifier).skip(),
                 ),
               ),
@@ -101,48 +124,49 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     );
   }
 
-  Widget _buildTooltip(TutorialStep step, Rect? targetRect, BoxConstraints constraints, TutorialState state) {
-    Offset tooltipOffset;
+  Widget _buildTooltip(TutorialStep step, Rect? targetRect,
+      BoxConstraints constraints, TutorialState state) {
+    final maxW = constraints.maxWidth;
+    final maxH = constraints.maxHeight;
 
-    if (targetRect == null || step.tooltipPosition == TooltipPosition.center) {
-      tooltipOffset = Offset(
-        (constraints.maxWidth - 320) / 2,
-        (constraints.maxHeight - 200) / 2,
-      );
-    } else {
-      switch (step.tooltipPosition) {
-        case TooltipPosition.bottom:
-          tooltipOffset = Offset(
-            targetRect.center.dx - 160,
-            targetRect.bottom + 20,
-          );
-          break;
-        case TooltipPosition.top:
-          tooltipOffset = Offset(
-            targetRect.center.dx - 160,
-            targetRect.top - 250,
-          );
-          break;
-        case TooltipPosition.left:
-          tooltipOffset = Offset(
-            targetRect.left - 340,
-            targetRect.center.dy - 100,
-          );
-          break;
-        case TooltipPosition.right:
-          tooltipOffset = Offset(
-            targetRect.right + 20,
-            targetRect.center.dy - 100,
-          );
-          break;
-        default:
-          tooltipOffset = const Offset(100, 100);
-      }
+    // La carte s'adapte à l'écran (elle faisait 340 px en dur).
+    const cardH = 250.0;
+    final cardW = math.min(340.0, maxW - 32);
+
+    // Un écran étroit n'a pas la place de poser la carte à gauche ou à droite
+    // de la cible : on bascule au-dessus ou en dessous selon où elle se trouve.
+    final narrow = maxW < 500;
+    var pos = step.tooltipPosition;
+    if (narrow &&
+        (pos == TooltipPosition.left || pos == TooltipPosition.right)) {
+      pos = (targetRect != null && targetRect.center.dy > maxH / 2)
+          ? TooltipPosition.top
+          : TooltipPosition.bottom;
     }
 
-    // Boundary check
-    double x = tooltipOffset.dx.clamp(20, constraints.maxWidth - 340);
-    double y = tooltipOffset.dy.clamp(20, constraints.maxHeight - 250);
+    Offset offset;
+    if (targetRect == null || pos == TooltipPosition.center) {
+      offset = Offset((maxW - cardW) / 2, (maxH - cardH) / 2);
+    } else {
+      offset = switch (pos) {
+        TooltipPosition.bottom =>
+          Offset(targetRect.center.dx - cardW / 2, targetRect.bottom + 16),
+        TooltipPosition.top =>
+          Offset(targetRect.center.dx - cardW / 2, targetRect.top - cardH - 16),
+        TooltipPosition.left =>
+          Offset(targetRect.left - cardW - 16, targetRect.center.dy - 100),
+        TooltipPosition.right =>
+          Offset(targetRect.right + 16, targetRect.center.dy - 100),
+        _ => Offset((maxW - cardW) / 2, (maxH - cardH) / 2),
+      };
+    }
+
+    // Bornes sûres : sur un écran étroit, `maxW - 340` pouvait passer SOUS la
+    // borne basse, et clamp() lève alors une assertion (lowerBound > upperBound).
+    final maxX = math.max(16.0, maxW - cardW - 16);
+    final maxY = math.max(16.0, maxH - cardH - 16);
+    final x = offset.dx.clamp(16.0, maxX);
+    final y = offset.dy.clamp(16.0, maxY);
 
     return Positioned(
       left: x,
