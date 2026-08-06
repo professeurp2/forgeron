@@ -31,6 +31,14 @@ void main() {
   const feed = 600.0; // mm/min (air-cut)
   const nPts = turns * ptsPerTurn;
 
+  // Sens de l'axe A de CETTE machine : +A = dos à la broche. Pour que la surface
+  // regarde la broche il faut commander A NÉGATIF. On écrit donc A = aSign·φ dans
+  // le G-code, mais on calcule X/Y/Z avec la rotation PHYSIQUE réelle (φ) : sur
+  // une commande A négative la table bascule physiquement de +φ (sens modèle),
+  // donc la compensation linéaire reste juste. Mettre aSign=1 si un jour l'axe
+  // n'est plus inversé.
+  const aSign = -1;
+
   // Centre du dôme DÉCALÉ du pivot rotatif : en tournant, la table entraîne ce
   // point → les axes linéaires X/Y/Z doivent suivre → vraie interpolation 5 axes
   // (les 5 axes bougent ensemble, pas seulement A/C).
@@ -49,19 +57,21 @@ void main() {
     final p = domeCenter +
         (Vector3(sin(phiR) * cos(theta), sin(phiR) * sin(theta), cos(phiR))
           ..scale(R));
-    final a = phi;
+    final a = phi; // angle PHYSIQUE (convention modèle) qui présente la surface
     final c = 90.0 - theta * 180 / pi;
-    final m = k.inverseRTCP(p, a, c);
+    final m = k.inverseRTCP(p, a, c); // X/Y/Z pour la rotation physique
 
-    // auto-vérification : forward doit reconstruire le point pièce.
+    // auto-vérification : forward (convention modèle, angle physique) doit
+    // reconstruire le point pièce.
     final err = (k.forward(m, a, c) - p).length;
     if (err > maxErr) maxErr = err;
 
-    rows.add([m.x, m.y, m.z, a, c]);
+    final aCmd = aSign * a; // valeur ÉCRITE dans le G-code (machine réelle)
+    rows.add([m.x, m.y, m.z, aCmd, c]);
     minX = min(minX, m.x); maxX = max(maxX, m.x);
     minY = min(minY, m.y); maxY = max(maxY, m.y);
     minZ = min(minZ, m.z); maxZ = max(maxZ, m.z);
-    minA = min(minA, a); maxA = max(maxA, a);
+    minA = min(minA, aCmd); maxA = max(maxA, aCmd);
     minC = min(minC, c); maxC = max(maxC, c);
   }
 
@@ -71,8 +81,10 @@ void main() {
 
   final b = StringBuffer()
     ..writeln('(DOME 5 AXES CONTINU - AIR-CUT - genere par Forgeron)')
-    ..writeln('(Dome R=$R mm, spirale phi ${f3(phi0)}..${f3(phi1)} deg = A,'
+    ..writeln('(Dome R=$R mm, spirale phi ${f3(phi0)}..${f3(phi1)} deg,'
         ' C continu, $turns tours)')
+    ..writeln('(A = signe INVERSE de phi : +A=dos broche sur cette machine,')
+    ..writeln('( donc A negatif pour que la surface regarde la broche.)')
     ..writeln('(COORDS MACHINE - origine programme = PIVOT rotatif A/C)')
     ..writeln('(AIR-CUT: poser G54 au centre de l enveloppe, sans brut,')
     ..writeln('( et REGARDER le mouvement continu A+C sans alarme.)')
