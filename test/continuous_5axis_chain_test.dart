@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/core/utils/gcode_adapter.dart';
@@ -90,6 +91,25 @@ void main() {
           reason: 'point $i : rayon reconstruit');
       expect(tip.z, closeTo(0, 1e-3), reason: 'point $i : Z pièce = 0');
     }
+  });
+
+  test('le parcours dôme livré passe l\'adaptateur (5 axes couplés)', () {
+    // Fichier produit par `dart run tool/gen_5axes_dome.dart`.
+    final f = File('scratch/demo_dome_5axes_continu.nc');
+    expect(f.existsSync(), true,
+        reason: 'régénérer via tool/gen_5axes_dome.dart');
+    final r = GcodeAdapter.adaptForFluidNC(f.readAsStringSync());
+    expect(r.blocking, false, reason: 'coords machine, rien à bloquer');
+    // Beaucoup de lignes où X, Y, Z, A et C évoluent ENSEMBLE (vrai 5 axes).
+    final coupled = r.gcode
+        .split('\n')
+        .where((l) =>
+            l.startsWith('G1 X') &&
+            l.contains('Z') &&
+            l.contains('A') &&
+            l.contains('C'))
+        .length;
+    expect(coupled > 100, true, reason: '5 axes couplés sur la spirale');
   });
 }
 
