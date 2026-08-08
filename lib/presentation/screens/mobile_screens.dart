@@ -11,7 +11,6 @@ import '../../application/providers/config_provider.dart';
 import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/firmware_provider.dart';
 import '../../application/providers/network_stats_provider.dart';
-import '../widgets/mobile/mobile_visualizer_panel.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
 import '../../application/services/logger_service.dart';
 import '../tutorial/tutorial_keys.dart';
@@ -230,6 +229,70 @@ class _WCSTab extends ConsumerWidget {
           );
         }),
 
+        SizedBox(height: 20),
+        const _MLabel('DÉFINIR L\'ORIGINE PIÈCE (position actuelle = 0)'),
+        SizedBox(height: 8),
+        Row(children: [
+          for (int i = 0; i < 5; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  ref
+                      .read(machineRepositoryProvider)
+                      .sendGCode('G10 L20 P0 ${axisLabels[i]}0');
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(
+                        '${axisLabels[i]} = 0 à la position actuelle ($activeWCS)'),
+                    backgroundColor: axisColors[i],
+                    duration: const Duration(seconds: 1),
+                  ));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: axisColors[i].withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: axisColors[i].withValues(alpha: 0.5)),
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(axisLabels[i],
+                        style: TextStyle(
+                            color: axisColors[i],
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            fontFamily: 'JetBrains Mono')),
+                    Text('= 0',
+                        style: TextStyle(
+                            color: axisColors[i].withValues(alpha: 0.8),
+                            fontSize: 9)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
+        ]),
+        SizedBox(height: 8),
+        _MActionButton(
+          'TOUT METTRE À ZÉRO (ICI)',
+          context.fc.primary,
+          Icons.adjust_rounded,
+          () {
+            ref
+                .read(machineRepositoryProvider)
+                .sendGCode('G10 L20 P0 X0 Y0 Z0 A0 C0');
+            HapticFeedback.mediumImpact();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Origine pièce définie ici ($activeWCS)'),
+              backgroundColor: context.fc.primary,
+              duration: const Duration(seconds: 1),
+            ));
+          },
+        ),
+
         SizedBox(height: 16),
         _MActionButton(
           'ALLER AU ZÉRO',
@@ -263,46 +326,40 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
     final machineState = ref.watch(machineStateProvider).valueOrNull;
     final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
 
-    // Le simulateur reste PERSISTANT en haut et le JOG STOP en bas : on ne
-    // commande plus « à l'aveugle ». Seul le panneau de jog défile entre les
-    // deux si l'écran est trop court — le simulateur ne sort jamais du cadre.
-    return LayoutBuilder(builder: (context, box) {
-      final simH = (box.maxHeight * 0.34).clamp(160.0, 300.0);
-      return Column(children: [
-        SizedBox(height: simH, child: const MobileVisualizerPanel(expand: true)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: _JogDroStrip(wPos: wPos),
-        ),
-        // Commandes de jog — défilent seules si nécessaire.
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [context.fc.surfaceBright, context.fc.surface],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.fc.surfaceBorder),
+    // DRO en haut, commandes de jog au milieu, JOG STOP épinglé en bas.
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: _JogDroStrip(wPos: wPos),
+      ),
+      // Commandes de jog — défilent seules si nécessaire.
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [context.fc.surfaceBright, context.fc.surface],
               ),
-              child: JogControlPanel(wPos: wPos),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.fc.surfaceBorder),
             ),
+            child: JogControlPanel(wPos: wPos),
           ),
         ),
-        // JOG STOP épinglé en bas, toujours atteignable au pouce.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: _JogStopButton(onStop: () {
-            jogN.stopJog();
-            HapticFeedback.heavyImpact();
-          }),
-        ),
-      ]);
-    });
+      ),
+      // JOG STOP épinglé en bas, toujours atteignable au pouce.
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: _JogStopButton(onStop: () {
+          jogN.stopJog();
+          HapticFeedback.heavyImpact();
+        }),
+      ),
+    ]);
   }
 }
 
@@ -1819,15 +1876,6 @@ class _MobileDiagnosticsScreenState
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                   ),
-                  OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: context.fc.surfaceBorder),
-                        minimumSize: const Size(0, 32),
-                        padding: EdgeInsets.symmetric(horizontal: 10)),
-                    child: Text('ÉDITER',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
-                  ),
                 ]),
               ),
               Expanded(
@@ -1914,11 +1962,6 @@ class _MobileDiagnosticsScreenState
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                const _MLabel('CINÉMATIQUE DES AXES'),
-                SizedBox(height: 8),
-                const _KinematicsTable(),
-
-                SizedBox(height: 20),
                 const _MLabel('IDENTITÉ FIRMWARE'),
                 SizedBox(height: 8),
                 GlassPanel(
@@ -1964,16 +2007,83 @@ class _MobileDiagnosticsScreenState
                 SizedBox(height: 20),
                 const _MLabel('ACTIONS SYSTÈME'),
                 SizedBox(height: 8),
-                for (final b in [
-                  ('SAUVEGARDE CONFIG', Icons.download, context.fc.primary),
-                  ('RESTAURER CONFIG', Icons.upload, context.fc.warning),
-                  ('FLASH FIRMWARE', Icons.system_update, context.fc.danger),
-                  ('REDÉMARRER ESP32', Icons.power_settings_new, context.fc.error),
+                for (final b in <(String, IconData, Color, VoidCallback)>[
+                  (
+                    'COPIER CONFIG.YAML',
+                    Icons.copy_all_rounded,
+                    context.fc.primary,
+                    () {
+                      final cfg = ref.read(configResultProvider).valueOrNull;
+                      final m = ScaffoldMessenger.of(context);
+                      if (cfg == null) {
+                        m.showSnackBar(const SnackBar(
+                            content: Text('Config non chargée.')));
+                        return;
+                      }
+                      Clipboard.setData(ClipboardData(text: cfg.yaml));
+                      HapticFeedback.mediumImpact();
+                      m.showSnackBar(const SnackBar(
+                          content: Text(
+                              'config.yaml copié dans le presse-papiers')));
+                    }
+                  ),
+                  (
+                    'REDÉMARRER ESP32',
+                    Icons.power_settings_new,
+                    context.fc.error,
+                    () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: context.fc.surface,
+                          title: Text('Redémarrer l\'ESP32 ?',
+                              style: TextStyle(
+                                  color: context.fc.textPrimary, fontSize: 16)),
+                          content: Row(children: [
+                            Icon(Icons.warning_amber_rounded,
+                                size: 18, color: context.fc.warning),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'La liaison va être coupée : l\'app se '
+                                'déconnectera quelques secondes, le temps du '
+                                'reboot. La reconnexion est automatique.',
+                                style: TextStyle(
+                                    color: context.fc.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.4),
+                              ),
+                            ),
+                          ]),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text('Annuler',
+                                    style: TextStyle(
+                                        color: context.fc.textSecondary))),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: context.fc.error,
+                                  foregroundColor: Colors.white),
+                              child: const Text('Redémarrer'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok == true) {
+                        ref
+                            .read(machineRepositoryProvider)
+                            .sendRaw('\$Bye\n');
+                        HapticFeedback.heavyImpact();
+                      }
+                    }
+                  ),
                 ])
                   Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: () => HapticFeedback.mediumImpact(),
+                      onTap: b.$4,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         height: 52,
@@ -2357,14 +2467,35 @@ class _MaintRow extends StatelessWidget {
 // CINÉMATIQUE ÉDITABLE — lit les vraies valeurs du config.yaml (live ou cache
 // offline) et envoie les modifications à FluidNC via `$/axes/<x>/<param>=<v>`.
 // ─────────────────────────────────────────────────────────────────────────────
-class _KinematicsTable extends ConsumerStatefulWidget {
-  const _KinematicsTable();
+class KinematicsTable extends ConsumerStatefulWidget {
+  const KinematicsTable({super.key});
   @override
-  ConsumerState<_KinematicsTable> createState() => _KinematicsTableState();
+  ConsumerState<KinematicsTable> createState() => KinematicsTableState();
 }
 
-class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
+class KinematicsTableState extends ConsumerState<KinematicsTable> {
   final Map<String, double> _overrides = {};
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Synchro depuis la carte à l'ouverture : l'affichage doit refléter la
+    // mémoire réelle (config.yaml), pas un cache éventuellement périmé. En cas
+    // d'échec réseau, configResultProvider retombe proprement sur le cache.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(configResultProvider);
+    });
+  }
+
+  /// Relit les paramètres depuis la carte et abandonne les édits locaux non
+  /// enregistrés — pour lever toute ambiguïté « affiché vs mémoire de la carte ».
+  void _syncFromBoard() {
+    ref.invalidate(configResultProvider);
+    setState(() => _overrides.clear());
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Lecture des paramètres depuis la carte…')));
+  }
 
   Color _axisColor(BuildContext c, String axis) => switch (axis) {
         'X' => c.fc.axisX,
@@ -2478,15 +2609,18 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
       ),
     );
 
-    if (newVal == null) return;
+    if (newVal == null || !mounted) return;
     final cmd = fluidNcSetCommand(k.axis, f, newVal);
     final messenger = ScaffoldMessenger.of(context);
     final okColor = context.fc.success;
     await ref.read(machineRepositoryProvider).sendGCode(cmd);
     if (!mounted) return;
     setState(() => _overrides['${k.axis}.${f.name}'] = newVal);
-    messenger.showSnackBar(
-        SnackBar(content: Text('Envoyé : $cmd'), backgroundColor: okColor));
+    messenger.showSnackBar(SnackBar(
+        content: Text('Appliqué à chaud (volatil, perdu au reboot). '
+            '« Enregistrer dans la config » pour la mémoire de la carte.'),
+        backgroundColor: okColor,
+        duration: const Duration(seconds: 4)));
   }
 
   @override
@@ -2547,16 +2681,43 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (cfg?.fromCache == true)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(children: [
-            Icon(Icons.cloud_off, size: 12, color: fc.warning),
-            const SizedBox(width: 6),
-            Text('Hors ligne — valeurs en cache',
-                style: TextStyle(color: fc.warning, fontSize: 9)),
-          ]),
-        ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(children: [
+          Icon(cfg?.fromCache == true ? Icons.cloud_off : Icons.cloud_done,
+              size: 12,
+              color: cfg?.fromCache == true ? fc.warning : fc.success),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              cfg == null
+                  ? 'Lecture depuis la carte…'
+                  : cfg.fromCache
+                      ? 'Hors ligne — valeurs en CACHE (non synchronisées)'
+                      : 'Synchronisé avec la carte (config.yaml)',
+              style: TextStyle(
+                  color: cfg?.fromCache == true ? fc.warning : fc.textDisabled,
+                  fontSize: 9),
+            ),
+          ),
+          InkWell(
+            onTap: _saving ? null : _syncFromBoard,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.sync, size: 13, color: fc.primary),
+                const SizedBox(width: 3),
+                Text('SYNCHRONISER',
+                    style: TextStyle(
+                        color: fc.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900)),
+              ]),
+            ),
+          ),
+        ]),
+      ),
       Container(
         decoration: BoxDecoration(
           color: fc.surface,
@@ -2611,8 +2772,156 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
         ),
       ),
       const SizedBox(height: 6),
-      Text('Touchez une valeur pour la modifier et l\'envoyer à la machine.',
+      Text('Touchez une valeur : appliquée à chaud (volatile). '
+          '« Enregistrer » l\'écrit dans la mémoire de la carte.',
+          style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _saving ? null : _saveToConfig,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: fc.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: Icon(
+              _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
+              size: 18),
+          label: Text(
+              _saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS LA CONFIG FLUIDNC',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+          'Écrit les valeurs actuelles dans config.yaml (permanent) puis '
+          'redémarre FluidNC pour les appliquer.',
           style: TextStyle(color: fc.textDisabled, fontSize: 9)),
     ]);
+  }
+
+  Future<void> _saveToConfig() async {
+    final fc = context.fc;
+    final kin = ref.read(axisKinematicsProvider).valueOrNull;
+    if (kin == null || kin.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Cinématique indisponible (config non chargée).')));
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Enregistrer dans FluidNC ?',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Les valeurs de cinématique actuelles seront écrites dans '
+              'config.yaml (permanent), puis FluidNC redémarrera pour les '
+              'appliquer.',
+              style:
+                  TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: fc.warning.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: fc.warning.withValues(alpha: 0.4)),
+              ),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Le redémarrage va couper la liaison : l\'app sera '
+                    'déconnectée quelques secondes, le temps que l\'ESP32 '
+                    'reboote. La reconnexion est automatique.',
+                    style: TextStyle(
+                        color: fc.warning, fontSize: 11, height: 1.35),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child:
+                  Text('Annuler', style: TextStyle(color: fc.textSecondary))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.primary, foregroundColor: Colors.white),
+            child: const Text('Enregistrer & redémarrer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final okColor = context.fc.success;
+    final errColor = context.fc.error;
+    try {
+      // On repart du YAML déjà chargé (évite un GET fragile sur l'AP ESP32).
+      final yaml = ref.read(configResultProvider).valueOrNull?.yaml;
+      if (yaml == null || !yaml.contains('axes:')) {
+        throw Exception('config.yaml non chargé ou sans section axes '
+            '(machine hors ligne ?)');
+      }
+      // Construit {axe: {clé_yaml: valeur}} depuis l'affichage (overrides inclus).
+      final byAxis = <String, Map<String, double>>{};
+      for (final k in kin) {
+        final m = <String, double>{};
+        for (final f in KinematicField.values) {
+          final v = _value(k, f);
+          if (v != null) m[f.yamlKey] = v;
+        }
+        if (m.isNotEmpty) byAxis[k.axis.toLowerCase()] = m;
+      }
+      final patched = patchAxisKinematicsYaml(yaml, byAxis);
+
+      try {
+        await ref.read(configRepositoryProvider).saveConfig(patched);
+        // Les édits locaux sont maintenant dans config.yaml → on abandonne les
+        // overrides pour que l'affichage relise la carte (source de vérité).
+        if (mounted) setState(() => _overrides.clear());
+        ref.invalidate(configResultProvider);
+        ref.read(machineRepositoryProvider).sendRaw('\$Bye\n');
+        messenger.showSnackBar(SnackBar(
+            content: const Text('Config enregistrée — redémarrage de FluidNC…'),
+            backgroundColor: okColor));
+      } catch (_) {
+        // Écriture auto impossible (endpoint non supporté) → repli fiable :
+        // on copie la config patchée pour la coller dans la WebUI FluidNC.
+        await Clipboard.setData(ClipboardData(text: patched));
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(
+          content: const Text(
+              'Écriture auto impossible. Config copiée : colle-la dans la WebUI '
+              'FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.'),
+          backgroundColor: errColor,
+          duration: const Duration(seconds: 6),
+        ));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+          content: Text('Échec : $e'),
+          backgroundColor: errColor,
+          duration: const Duration(seconds: 5)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
