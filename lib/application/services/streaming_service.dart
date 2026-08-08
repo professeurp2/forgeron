@@ -21,6 +21,15 @@ class GCodeStreamingService {
   final Queue<int> _sentLineIndices = Queue<int>();
   int _bytesInFlight = 0;
   bool _isPaused = false;
+  bool _active = false;
+
+  /// Vrai tant qu'un programme est en cours de streaming (entre [streamLines] et
+  /// [stop] ou la fin). Le repository s'en sert pour n'attribuer les 'ok'/'error'
+  /// AU STREAMING que quand il est actif : sinon un 'ok' hors-bande (typiquement
+  /// la réponse au `$X` de déverrouillage après une alarme) serait compté comme
+  /// l'acquittement d'une ligne — ce qui désynchronise le comptage d'octets ET
+  /// relance l'envoi de la ligne suivante (retour dans la butée → re-alarme).
+  bool get isStreaming => _active;
 
   /// Callback appelé quand toutes les lignes ont été acquittées par l'ESP32.
   void Function()? _onComplete;
@@ -32,9 +41,13 @@ class GCodeStreamingService {
   /// SÉCURITÉ : sans lui, l'UI resterait indéfiniment en « RUN ».
   void Function(String reason)? _onStall;
 
-  // Watchdog pour la résilience réseau
+  // Watchdog pour la résilience réseau.
+  // 3 s : marge au-dessus du heartbeat de 2 s (la connexion réclame un statut
+  // '?' toutes les 2 s). Réarmé par [notifyActivity] dès que la machine donne
+  // signe de vie (mouvement en cours), donc un mouvement long — pendant lequel
+  // aucune nouvelle ligne n'est acquittée — ne déclenche PAS de faux blocage.
   Timer? _watchdogTimer;
-  static const Duration _watchdogTimeout = Duration(seconds: 2);
+  static const Duration _watchdogTimeout = Duration(seconds: 3);
 
   GCodeStreamingService(this._connection);
 
@@ -51,6 +64,7 @@ class GCodeStreamingService {
     // BUG FIX: sans ça, _isPaused / _bytesInFlight / _sentByteCounts
     // gardaient les valeurs du run précédent et bloquaient silencieusement.
     _resetBuffers();
+    _active = true;
     _onComplete = onComplete;
     _onProgress = onProgress;
     _onStall = onStall;
@@ -71,6 +85,7 @@ class GCodeStreamingService {
   /// Vide toutes les files et remet le compteur d'octets à zéro.
   void _resetBuffers() {
     _isPaused = false;
+    _active = false;
     _pendingLines.clear();
     _pendingLineIndices.clear();
     _sentLineIndices.clear();
@@ -95,6 +110,7 @@ class GCodeStreamingService {
     // Toutes les lignes ont été envoyées ET acquittées par l'ESP32.
     if (_pendingLines.isEmpty && _bytesInFlight == 0 && _sentByteCounts.isEmpty) {
       _watchdogTimer?.cancel();
+      _active = false;
       debugPrint('[Streaming] ✅ Toutes les lignes acquittées — streaming terminé.');
       final cb = _onComplete;
       _onComplete = null;
@@ -143,11 +159,23 @@ class GCodeStreamingService {
     _watchdogTimer = Timer(_watchdogTimeout, _handleStall);
   }
 
-  /// Gère une perte de synchronisation ou de réseau.
+  /// Signal « la machine est vivante et bouge » (rapport de statut Run/Jog/Home
+  /// reçu). Réarme le watchdog pendant un mouvement long : la carte n'acquitte
+  /// pas de nouvelle ligne tant que son buffer de planification est plein, mais
+  /// elle avance — ce n'est donc PAS un blocage. Sans ça, tout mouvement plus
+  /// long que le timeout suspendait le programme à tort.
+  void notifyActivity() {
+    if (_isPaused) return;
+    if (_bytesInFlight > 0) _startWatchdog();
+  }
+
+  /// Gère une perte de synchronisation ou de réseau (aucun acquittement NI
+  /// mouvement pendant le timeout → machine réellement muette/bloquée).
   void _handleStall() {
     _isPaused = true;
     _connection.sendRaw('?');
-    const reason = 'Aucun acquittement de l\'ESP32 depuis 2 s';
+    const reason =
+        'Aucun acquittement ni mouvement de l\'ESP32 — le programme est interrompu';
     debugPrint('[Streaming] ⏸ SUSPENDU — $reason');
     _onStall?.call(reason);
   }

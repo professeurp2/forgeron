@@ -126,6 +126,26 @@ void main() {
       expect(reason, isNotEmpty);
     });
 
+    test('notifyActivity() évite le faux blocage sur un mouvement long', () async {
+      // Régression du bug « FLUX SUSPENDU » : sur un mouvement plus long que le
+      // timeout, la carte n'acquitte pas de nouvelle ligne (buffer de
+      // planification plein) mais bouge et répond au heartbeat. Ces signaux de
+      // vie doivent réarmer le watchdog.
+      var stalled = false;
+      svc.streamLines([line, line], onStall: (_) => stalled = true);
+      svc.handleAck(); // il reste 22 octets en vol → watchdog armé
+
+      // La machine donne signe de vie régulièrement (< timeout de 3 s).
+      final ticker = Timer.periodic(
+          const Duration(milliseconds: 1500), (_) => svc.notifyActivity());
+      await Future<void>.delayed(const Duration(seconds: 4));
+      ticker.cancel();
+
+      expect(stalled, isFalse,
+          reason: 'Un mouvement long ne doit pas être pris pour un blocage '
+              'tant que la machine donne signe de vie.');
+    });
+
     test('se tait quand tout est acquitté', () async {
       var stalledCalled = false;
       var completed = false;
@@ -141,6 +161,42 @@ void main() {
       // Passé le délai du watchdog, aucun faux positif ne doit survenir.
       await Future<void>.delayed(const Duration(milliseconds: 2600));
       expect(stalledCalled, isFalse);
+    });
+  });
+
+  group('isStreaming — garde du déverrouillage d\'alarme', () {
+    test('faux avant, vrai pendant, faux après stop()', () {
+      expect(svc.isStreaming, isFalse);
+      svc.streamLines(List.filled(3, line));
+      expect(svc.isStreaming, isTrue);
+      svc.stop();
+      expect(svc.isStreaming, isFalse);
+    });
+
+    test('faux une fois tout acquitté (les ok suivants sont hors-bande)', () {
+      svc.streamLines([line, line]);
+      expect(svc.isStreaming, isTrue);
+      svc.handleAck();
+      svc.handleAck();
+      expect(svc.isStreaming, isFalse);
+    });
+
+    test('après une alarme (stop en plein run), le \$X ne relance rien', () {
+      // Simule un dépassement de limite en plein programme : 5 lignes en vol.
+      svc.streamLines(List.filled(10, line));
+      expect(conn.gcodeLines.length, 5);
+      final sentBefore = conn.gcodeLines.length;
+
+      // Le repository purge le flux à l'entrée en ALARM.
+      svc.stop();
+      expect(svc.isStreaming, isFalse);
+
+      // Même si un 'ok' de \$X arrivait et déclenchait handleAck par erreur, la
+      // file est purgée → aucune ligne ne repart dans la butée (défense en
+      // profondeur, en plus du garde isStreaming côté repository).
+      svc.handleAck();
+      expect(conn.gcodeLines.length, sentBefore,
+          reason: 'aucun renvoi après la purge d\'alarme');
     });
   });
 }
