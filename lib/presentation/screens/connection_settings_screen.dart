@@ -7,6 +7,8 @@ import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../../application/services/auto_discovery_service.dart';
+import '../../core/net/esp_wifi_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../tutorial/tutorial_keys.dart';
 
 /// Écran de configuration de la connexion à l'ESP32/FluidNC
@@ -28,12 +30,20 @@ class _ConnectionSettingsScreenState
   bool _testSuccess = false;
   late AnimationController _pulseController;
 
+  // Connexion assistée à l'AP WiFi de l'ESP32.
+  final _ssidCtrl = TextEditingController(text: 'FluidNC');
+  final _pwdCtrl = TextEditingController(text: '00000001');
+  bool _wifiConnecting = false;
+  String? _wifiMsg;
+  bool _wifiOk = false;
+
   @override
   void initState() {
     super.initState();
     _ipCtrl = TextEditingController(text: ref.read(espIpProvider));
     _wsPortCtrl =
         TextEditingController(text: ref.read(wsPortProvider).toString());
+    _loadWifiPrefs();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -49,8 +59,67 @@ class _ConnectionSettingsScreenState
   void dispose() {
     _ipCtrl.dispose();
     _wsPortCtrl.dispose();
+    _ssidCtrl.dispose();
+    _pwdCtrl.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWifiPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ssid = prefs.getString('esp_ap_ssid');
+      final pwd = prefs.getString('esp_ap_pwd');
+      if (!mounted) return;
+      setState(() {
+        if (ssid != null && ssid.isNotEmpty) _ssidCtrl.text = ssid;
+        if (pwd != null) _pwdCtrl.text = pwd;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _connectWifi() async {
+    final ssid = _ssidCtrl.text.trim();
+    if (ssid.isEmpty) {
+      setState(() => _wifiMsg = 'Renseigne le SSID de l\'AP ESP32.');
+      return;
+    }
+    setState(() {
+      _wifiConnecting = true;
+      _wifiMsg = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('esp_ap_ssid', ssid);
+      await prefs.setString('esp_ap_pwd', _pwdCtrl.text);
+      final ok = await EspWifiService.connect(ssid, _pwdCtrl.text);
+      if (!mounted) return;
+      setState(() {
+        _wifiOk = ok;
+        _wifiMsg = ok
+            ? 'Connecté à $ssid. Reconnexion auto après un reboot.'
+            : 'Connexion non établie.';
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _wifiOk = false;
+          _wifiMsg = '$e';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _wifiConnecting = false);
+    }
+  }
+
+  Future<void> _disconnectWifi() async {
+    await EspWifiService.disconnect();
+    if (mounted) {
+      setState(() {
+        _wifiOk = false;
+        _wifiMsg = 'Détaché de l\'AP ESP32.';
+      });
+    }
   }
 
   Future<void> _testConnection() async {
@@ -214,6 +283,10 @@ class _ConnectionSettingsScreenState
                   _buildHeaderStatus(),
                   SizedBox(height: 32),
 
+                  if (EspWifiService.isSupported) ...[
+                    _buildWifiCard(),
+                    SizedBox(height: 24),
+                  ],
                   Builder(builder: (context) {
                     if (ResponsiveLayout.isMobile(context)) {
                       return Column(
@@ -259,6 +332,99 @@ class _ConnectionSettingsScreenState
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWifiCard() {
+    final fc = context.fc;
+    InputDecoration deco(String label) => InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: fc.textDisabled, fontSize: 12),
+          filled: true,
+          fillColor: fc.background.withValues(alpha: 0.4),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.surfaceBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.primary, width: 1.5),
+          ),
+        );
+
+    return GlassPanel(
+      title: 'CONNEXION WIFI ESP32',
+      borderColor: fc.surfaceBorder,
+      backgroundColor: fc.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rejoins le point d\'accès de l\'ESP32 directement depuis l\'app. '
+            'Android demandera d\'approuver la première fois ; ensuite la '
+            'reconnexion est automatique (même après un reboot).',
+            style: TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _ssidCtrl,
+            style: TextStyle(color: fc.textPrimary, fontSize: 14),
+            decoration: deco('SSID de l\'AP ESP32'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _pwdCtrl,
+            obscureText: true,
+            style: TextStyle(color: fc.textPrimary, fontSize: 14),
+            decoration: deco('Mot de passe'),
+          ),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _wifiConnecting ? null : _connectWifi,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: fc.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: Icon(
+                    _wifiConnecting ? Icons.hourglass_top_rounded : Icons.wifi,
+                    size: 18),
+                label: Text(
+                    _wifiConnecting ? 'CONNEXION…' : 'SE CONNECTER À L\'ESP32',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 12)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: _disconnectWifi,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: fc.textSecondary,
+                side: BorderSide(color: fc.surfaceBorder),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+              ),
+              child: const Icon(Icons.wifi_off, size: 18),
+            ),
+          ]),
+          if (_wifiMsg != null) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              Icon(_wifiOk ? Icons.check_circle : Icons.info_outline,
+                  size: 14, color: _wifiOk ? fc.success : fc.warning),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_wifiMsg!,
+                    style: TextStyle(
+                        color: _wifiOk ? fc.success : fc.warning, fontSize: 11)),
+              ),
+            ]),
+          ],
+        ],
       ),
     );
   }

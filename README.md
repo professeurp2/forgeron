@@ -71,6 +71,17 @@ Les macros G-Code multi-lignes sont envoyées ligne par ligne avec 200ms d'inter
 | C   | GPIO 17   | GPIO 16  |
 | ENA (partagé ×5) | **GPIO 22** | — |
 
+### Fins de course & broche
+
+| Fonction | GPIO | Câblage / config |
+|----------|------|------------------|
+| Fin de course X | GPIO 4  | switch NO → GND, pull-up interne (`gpio.4:low:pu`) |
+| Fin de course Y | GPIO 13 | switch NO → GND (`gpio.13:low:pu`) |
+| Fin de course Z | GPIO 14 | switch NO → GND (`gpio.14:low:pu`) |
+| Broche DC (relais) | GPIO 21 | signal 3.3 V → IN du module relais, tout-ou-rien (`Relay: output_pin`). `M3`=ON, `M5`=OFF |
+
+> `hard_limits` reste à `false` tant que le câblage n'est pas validé via l'écran **Fins de course → Test**. GPIO 5 / 15 restent libres pour d'éventuels switches A et C.
+
 **Config FluidNC** : `scratch/config_5axes_production.yaml`
 
 ---

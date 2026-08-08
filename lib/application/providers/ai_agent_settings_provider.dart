@@ -13,6 +13,7 @@ enum AiActionCategory {
   spindleCoolant, // Broche, arrosage
   wcsTool, // Changement de WCS, offsets, outil
   streaming, // Démarrage/pause/reprise/reset d'un programme G-code
+  fileEdit, // Écriture/correction d'un fichier G-code de l'espace de travail
 }
 
 extension AiActionCategoryLabel on AiActionCategory {
@@ -26,6 +27,8 @@ extension AiActionCategoryLabel on AiActionCategory {
         return 'WCS & Outil';
       case AiActionCategory.streaming:
         return 'Streaming G-code';
+      case AiActionCategory.fileEdit:
+        return 'Édition de fichiers G-code';
     }
   }
 }
@@ -50,6 +53,7 @@ class AiAgentSettings {
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.wcsTool: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.streaming: AiAutonomyLevel.requireConfirmation,
+      AiActionCategory.fileEdit: AiAutonomyLevel.requireConfirmation,
     },
   });
 

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/machine_provider.dart';
+import '../../domain/models/machine_state.dart';
+import '../screens/limit_recovery_screen.dart';
 
 /// Bannière d'alerte de sécurité, affichée en haut de l'application.
 ///
@@ -43,6 +46,32 @@ class SafetyBanner extends ConsumerWidget {
       );
     }
 
+    // Alarme machine (dont fins de course / hard limit) → récupération guidée.
+    final state = ref.watch(machineStateProvider).valueOrNull;
+    if (state?.status == MachineStatus.alarm) {
+      final active = <String>[];
+      const axes = ['X', 'Y', 'Z', 'A', 'C'];
+      for (int i = 0; i < 5 && i < state!.limitSwitches.length; i++) {
+        if (state.limitSwitches[i]) active.add(axes[i]);
+      }
+      final code = state?.alarmCode != null ? ' (code ${state!.alarmCode})' : '';
+      final lim = active.isNotEmpty
+          ? ' Fin(s) de course active(s) : ${active.join(', ')}.'
+          : '';
+      return _Bar(
+        color: context.fc.danger,
+        icon: Icons.error_rounded,
+        title: 'MACHINE EN ALARME$code',
+        detail: 'La machine est verrouillée.$lim '
+            'Lance la récupération guidée pour reprendre en sécurité.',
+        actionLabel: 'RÉCUPÉRER',
+        onAction: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+              builder: (_) => const LimitRecoveryScreen()),
+        ),
+      );
+    }
+
     return const SizedBox.shrink();
   }
 }
@@ -52,14 +81,18 @@ class _Bar extends StatelessWidget {
   final IconData icon;
   final String title;
   final String detail;
-  final VoidCallback onDismiss;
+  final VoidCallback? onDismiss;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const _Bar({
     required this.color,
     required this.icon,
     required this.title,
     required this.detail,
-    required this.onDismiss,
+    this.onDismiss,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
@@ -104,11 +137,29 @@ class _Bar extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.close_rounded, color: color, size: 18),
-              tooltip: 'Acquitter',
-              onPressed: onDismiss,
-            ),
+            if (actionLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 2),
+                child: ElevatedButton(
+                  onPressed: onAction,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: Text(actionLabel!,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 11)),
+                ),
+              ),
+            if (onDismiss != null)
+              IconButton(
+                icon: Icon(Icons.close_rounded, color: color, size: 18),
+                tooltip: 'Acquitter',
+                onPressed: onDismiss,
+              ),
           ],
         ),
       ),

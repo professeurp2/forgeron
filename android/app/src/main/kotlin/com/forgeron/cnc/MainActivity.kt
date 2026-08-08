@@ -5,6 +5,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiNetworkSpecifier
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
@@ -32,7 +34,11 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "forgeron/cellular"
         private const val STREAM_CHANNEL = "forgeron/cellular_stream"
+        private const val WIFI_CHANNEL = "forgeron/wifi"
     }
+
+    // Callback de la connexion assistée à l'AP WiFi de l'ESP32.
+    private var wifiCallback: ConnectivityManager.NetworkCallback? = null
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -77,6 +83,93 @@ class MainActivity : FlutterActivity() {
                     streamCancel?.set(true)
                 }
             })
+
+        // Connexion assistée à l'AP WiFi de l'ESP32.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIFI_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "connect" -> connectWifi(
+                        call.argument("ssid"), call.argument("password"), result)
+                    "disconnect" -> {
+                        disconnectWifi(); result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Rejoint l'AP WiFi [ssid] via [WifiNetworkSpecifier] (Android 10+). Android
+     * affiche un dialogue d'approbation la première fois. À la connexion, on lie
+     * le process à ce réseau (le WebSocket/HTTP CNC passe dessus ; l'IA reste sur
+     * la 4G via son binding explicite). Le callback rejoint automatiquement l'AP
+     * quand il revient (ex. après un reboot de l'ESP32).
+     */
+    private fun connectWifi(
+        ssid: String?, password: String?, result: MethodChannel.Result
+    ) {
+        if (ssid.isNullOrEmpty()) {
+            result.error("bad_args", "SSID manquant", null); return
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            result.error(
+                "unsupported",
+                "Android 10+ requis pour la connexion assistée.", null); return
+        }
+        val cm = connectivityManager ?: run {
+            result.error("no_cm", "ConnectivityManager indisponible", null); return
+        }
+        disconnectWifi() // nettoie une demande précédente
+
+        val specBuilder = WifiNetworkSpecifier.Builder().setSsid(ssid)
+        if (!password.isNullOrEmpty()) specBuilder.setWpa2Passphrase(password)
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            // L'AP de l'ESP32 n'a pas d'accès Internet.
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .setNetworkSpecifier(specBuilder.build())
+            .build()
+
+        val replied = AtomicBoolean(false)
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                // Trafic par défaut de l'app → ce WiFi (l'IA reste sur la 4G).
+                cm.bindProcessToNetwork(network)
+                if (replied.compareAndSet(false, true)) {
+                    mainHandler.post { result.success(true) }
+                }
+            }
+
+            override fun onUnavailable() {
+                if (replied.compareAndSet(false, true)) {
+                    mainHandler.post {
+                        result.error("unavailable",
+                            "Connexion refusée ou AP introuvable.", null)
+                    }
+                }
+            }
+        }
+        wifiCallback = cb
+        try {
+            cm.requestNetwork(request, cb)
+        } catch (e: Exception) {
+            wifiCallback = null
+            result.error("request_failed", e.message ?: e.toString(), null)
+        }
+    }
+
+    private fun disconnectWifi() {
+        try {
+            connectivityManager?.bindProcessToNetwork(null)
+        } catch (_: Exception) {
+        }
+        wifiCallback?.let { cb ->
+            try {
+                connectivityManager?.unregisterNetworkCallback(cb)
+            } catch (_: Exception) {
+            }
+        }
+        wifiCallback = null
     }
 
     /** Ouvre la requête SSE sur la 4G et pousse chaque payload `data:` au sink. */
@@ -262,6 +355,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         networkCallback = null
+        disconnectWifi()
         executor.shutdown()
         super.onDestroy()
     }

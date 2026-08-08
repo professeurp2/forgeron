@@ -136,7 +136,16 @@ class MockMachineRepository implements MachineRepository {
       _updateState(_currentState.copyWith(status: MachineStatus.run));
       return;
     }
-    if (gcode.startsWith('M3') || gcode.startsWith('G')) {
+    // Broche : M3/M4 = ON, M5 = OFF (le relais ignore la vitesse S).
+    if (gcode.startsWith('M3') || gcode.startsWith('M4')) {
+      _updateState(_currentState.copyWith(spindleOn: true));
+      return;
+    }
+    if (gcode.startsWith('M5')) {
+      _updateState(_currentState.copyWith(spindleOn: false, spindleSpeed: 0));
+      return;
+    }
+    if (gcode.startsWith('G')) {
       _updateState(_currentState.copyWith(status: MachineStatus.run));
     }
   }

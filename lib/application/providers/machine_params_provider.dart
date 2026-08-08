@@ -104,6 +104,57 @@ List<AxisKinematics> parseAxisKinematics(String yaml) {
       .toList();
 }
 
+/// Réécrit dans [yaml] les valeurs de cinématique fournies ([byAxis] : axe
+/// minuscule → {clé_yaml: valeur}), en respectant l'indentation FluidNC. Seules
+/// les lignes de valeurs concernées sont modifiées ; le reste est intact.
+/// Retourne le YAML patché (à ré-uploader vers config.yaml).
+String patchAxisKinematicsYaml(
+    String yaml, Map<String, Map<String, double>> byAxis) {
+  const want = ['x', 'y', 'z', 'a', 'c'];
+  final lines = yaml.split('\n');
+  bool inAxes = false;
+  int axesIndent = -1;
+  String? curAxis;
+
+  for (int i = 0; i < lines.length; i++) {
+    final line = lines[i].replaceAll('\t', '  ');
+    final trimmed = line.trimLeft();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+    final indent = line.length - trimmed.length;
+
+    if (trimmed.startsWith('axes:')) {
+      inAxes = true;
+      axesIndent = indent;
+      curAxis = null;
+      continue;
+    }
+    if (!inAxes) continue;
+    if (indent <= axesIndent) {
+      inAxes = false;
+      curAxis = null;
+      continue;
+    }
+
+    final head = RegExp(r'^([a-zA-Z]):\s*$').firstMatch(trimmed);
+    if (head != null && indent == axesIndent + 2) {
+      final letter = head.group(1)!.toLowerCase();
+      curAxis = want.contains(letter) ? letter : null;
+      continue;
+    }
+    if (curAxis == null || !byAxis.containsKey(curAxis)) continue;
+
+    final km = RegExp(r'^([a-z_]+):\s*[-\d.]+').firstMatch(trimmed);
+    if (km != null) {
+      final key = km.group(1)!;
+      final nv = byAxis[curAxis]![key];
+      if (nv != null) {
+        lines[i] = '${' ' * indent}$key: ${nv.toStringAsFixed(3)}';
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
 /// Cinématique réelle des axes, dérivée du config (live ou cache offline).
 final axisKinematicsProvider = Provider<AsyncValue<List<AxisKinematics>>>((ref) {
   final cfg = ref.watch(configResultProvider);

@@ -10,6 +10,7 @@ import '../widgets/dashboard/jog_control_panel.dart';
 import '../../domain/models/machine_state.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/stream_progress_provider.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/mobile/mobile_visualizer_panel.dart';
@@ -45,6 +46,25 @@ class _MobileDashboardScreenState extends ConsumerState<MobileDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(machineStateProvider).valueOrNull;
+
+    // Avertissements de l'adaptateur G-code au chargement d'un programme (codes
+    // CAM traduits, ou blocage si incompatible → à corriger dans le post).
+    ref.listen(gcodeProvider, (prev, next) {
+      if (next.isLoading || next.adaptWarnings.isEmpty) return;
+      if (identical(prev?.adaptWarnings, next.adaptWarnings)) return;
+      final fc = context.fc;
+      final blocked = next.adaptBlocking;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          '${blocked ? '⛔ ' : '✓ '}G-code adapté — '
+          '${next.adaptWarnings.length} point(s). ${next.adaptWarnings.first}'
+          '${blocked ? ' Corrige le post CAM avant d\'exécuter.' : ''}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        backgroundColor: blocked ? fc.danger : fc.surfaceBright,
+        duration: Duration(seconds: blocked ? 7 : 4),
+      ));
+    });
 
     return Column(
       children: [
@@ -88,16 +108,12 @@ class _MasterTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final wPos = state?.wPos ?? List.filled(5, 0.0);
-    final isOnline = state?.status != null && state?.status != MachineStatus.offline;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _MobileStatusBanner(isOnline: isOnline, status: state?.status),
-          const SizedBox(height: 16),
-
           // ── Simulateur 3D Compact ──
           GestureDetector(
             key: TutorialKeys.mobileSimulator,
@@ -289,12 +305,15 @@ class _ProgramTab extends ConsumerWidget {
     final gcodeState = ref.watch(gcodeProvider);
     final currentIndex = state?.activeLineIndex ?? 0;
     final lines = gcodeState.allLines;
+    final progress = ref.watch(streamProgressProvider);
 
     return Column(
       children: [
+        // Panneau de progression, visible pendant l'exécution.
+        if (progress.active) _ExecutionProgressPanel(fc: fc, p: progress),
         // Macros en haut pour accès rapide
         _QuickMacrosBar(repo: ref.read(machineRepositoryProvider)),
-        
+
         Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -303,9 +322,10 @@ class _ProgramTab extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: fc.surfaceBorder),
             ),
-            child: lines.isEmpty 
+            child: lines.isEmpty
               ? _buildEmptyState(fc)
-              : _buildGCodeList(lines, currentIndex, fc),
+              : _GCodeListView(
+                  lines: lines, current: currentIndex, running: progress.active),
           ),
         ),
 
@@ -314,7 +334,7 @@ class _ProgramTab extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Row(
             children: [
-              Expanded(child: _MobileGCodeInput(repo: ref.read(machineRepositoryProvider))),
+              const Expanded(child: _MobileGCodeInput()),
               const SizedBox(width: 8),
               _CircleIconButton(
                 icon: Icons.file_open_rounded,
@@ -346,18 +366,196 @@ class _ProgramTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildGCodeList(List<String> lines, int current, ForgeronColorPalette fc) {
+}
+
+/// Panneau esthétique de progression pendant l'exécution d'un programme :
+/// anneau de %, ligne courante, temps écoulé / restant, barre de progression.
+class _ExecutionProgressPanel extends StatelessWidget {
+  final ForgeronColorPalette fc;
+  final StreamProgress p;
+  const _ExecutionProgressPanel({required this.fc, required this.p});
+
+  @override
+  Widget build(BuildContext context) {
+    final eta = p.eta;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [fc.primary.withValues(alpha: 0.12), fc.surface],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 54,
+                height: 54,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: p.fraction,
+                        strokeWidth: 5,
+                        backgroundColor: fc.surfaceBorder,
+                        color: fc.primary,
+                      ),
+                    ),
+                    Text('${p.percent}%',
+                        style: TextStyle(
+                            color: fc.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.play_arrow_rounded, size: 14, color: fc.primary),
+                      const SizedBox(width: 6),
+                      Text('EXÉCUTION EN COURS',
+                          style: TextStyle(
+                              color: fc.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8)),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      _stat(Icons.tag, 'LIGNE', '${p.currentLine}/${p.totalLines}'),
+                      _stat(Icons.timer_outlined, 'ÉCOULÉ',
+                          formatDuration(p.elapsed)),
+                      _stat(Icons.hourglass_bottom_rounded, 'RESTANT',
+                          eta != null ? formatDuration(eta) : '—'),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: p.fraction,
+              minHeight: 6,
+              backgroundColor: fc.surfaceBorder,
+              color: fc.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(IconData icon, String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 11, color: fc.textDisabled),
+            const SizedBox(width: 3),
+            Text(label,
+                style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+          ]),
+          const SizedBox(height: 2),
+          Text(value,
+              style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JetBrains Mono')),
+        ],
+      ),
+    );
+  }
+}
+
+/// Liste G-code qui surligne la ligne courante et défile automatiquement vers
+/// elle pendant l'exécution (fini l'usinage « à l'aveugle »).
+class _GCodeListView extends StatefulWidget {
+  final List<String> lines;
+  final int current;
+  final bool running;
+  const _GCodeListView(
+      {required this.lines, required this.current, required this.running});
+
+  @override
+  State<_GCodeListView> createState() => _GCodeListViewState();
+}
+
+class _GCodeListViewState extends State<_GCodeListView> {
+  final _ctrl = ScrollController();
+  static const double _extent = 32.0;
+
+  @override
+  void didUpdateWidget(covariant _GCodeListView old) {
+    super.didUpdateWidget(old);
+    if (widget.running && widget.current != old.current) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
+    }
+  }
+
+  void _scrollToCurrent() {
+    if (!_ctrl.hasClients) return;
+    final vp = _ctrl.position.viewportDimension;
+    final target = (widget.current * _extent) - vp / 2 + _extent / 2;
+    final max = _ctrl.position.maxScrollExtent;
+    _ctrl.animateTo(
+      target.clamp(0.0, max),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
     return ListView.builder(
-      itemCount: lines.length,
-      itemExtent: 32,
+      controller: _ctrl,
+      itemCount: widget.lines.length,
+      itemExtent: _extent,
       itemBuilder: (ctx, i) {
-        final isCurrent = i == current;
+        final isCurrent = i == widget.current;
         return Container(
-          color: isCurrent ? fc.primary.withValues(alpha: 0.15) : null,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: isCurrent ? fc.primary.withValues(alpha: 0.18) : null,
+            border: isCurrent
+                ? Border(left: BorderSide(color: fc.primary, width: 3))
+                : null,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(children: [
-            Text('${i + 1}'.padLeft(4), style: TextStyle(color: isCurrent ? fc.primary : fc.textDisabled, fontSize: 11, fontFamily: 'JetBrains Mono')),
-            const SizedBox(width: 12),
+            SizedBox(
+              width: 14,
+              child: isCurrent
+                  ? Icon(Icons.play_arrow_rounded, size: 14, color: fc.primary)
+                  : null,
+            ),
+            Text('${i + 1}'.padLeft(4),
+                style: TextStyle(
+                    color: isCurrent ? fc.primary : fc.textDisabled,
+                    fontSize: 11,
+                    fontFamily: 'JetBrains Mono')),
+            const SizedBox(width: 10),
             Expanded(
               child: RichText(
                 maxLines: 1,
@@ -365,7 +563,7 @@ class _ProgramTab extends ConsumerWidget {
                 text: TextSpan(
                   style: const TextStyle(
                       fontSize: 14, fontFamily: 'JetBrains Mono'),
-                  children: GCodeHighlighter.buildSpans(lines[i], isCurrent),
+                  children: GCodeHighlighter.buildSpans(widget.lines[i], isCurrent),
                 ),
               ),
             ),
@@ -567,48 +765,8 @@ class _CircleIconButton extends StatelessWidget {
   }
 }
 
-class _MobileStatusBanner extends StatelessWidget {
-  final bool isOnline;
-  final MachineStatus? status;
-  const _MobileStatusBanner({required this.isOnline, this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final fc = context.fc;
-    final color = isOnline ? _statusColor(context) : fc.textDisabled;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.circle, color: color, size: 12),
-          const SizedBox(width: 12),
-          Text(isOnline ? 'ESP32 CONNECTÉ' : 'HORS LIGNE', style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12)),
-          const Spacer(),
-          Text(status?.name.toUpperCase() ?? '-', style: TextStyle(color: color, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
-        ],
-      ),
-    );
-  }
-
-  Color _statusColor(BuildContext context) {
-    switch (status) {
-      case MachineStatus.idle: return context.fc.success;
-      case MachineStatus.run: return context.fc.primary;
-      case MachineStatus.hold: return context.fc.warning;
-      case MachineStatus.alarm: return context.fc.error;
-      default: return context.fc.textDisabled;
-    }
-  }
-}
-
 class _MobileGCodeInput extends ConsumerStatefulWidget {
-  final dynamic repo;
-  const _MobileGCodeInput({required this.repo});
+  const _MobileGCodeInput();
   @override
   ConsumerState<_MobileGCodeInput> createState() => _MobileGCodeInputState();
 }
@@ -616,8 +774,21 @@ class _MobileGCodeInput extends ConsumerStatefulWidget {
 class _MobileGCodeInputState extends ConsumerState<_MobileGCodeInput> {
   final _ctrl = TextEditingController();
   void _send() {
-    if (_ctrl.text.trim().isEmpty) return;
-    widget.repo.sendGCode(_ctrl.text.trim());
+    final cmd = _ctrl.text.trim();
+    if (cmd.isEmpty) return;
+    // Retour clair si la machine est hors ligne (sinon l'utilisateur croit que
+    // « rien ne s'envoie » alors qu'elle est simplement déconnectée).
+    final offline = ref.read(machineStateProvider).valueOrNull?.status ==
+        MachineStatus.offline;
+    if (offline) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Machine hors ligne — commande non envoyée'),
+      ));
+      return;
+    }
+    // Lire le repo FRAIS à l'envoi (pas le `widget.repo` capturé au build, qui
+    // pouvait rester le mock de simulation après une connexion réelle).
+    ref.read(machineRepositoryProvider).sendGCode(cmd);
     _ctrl.clear();
   }
   @override

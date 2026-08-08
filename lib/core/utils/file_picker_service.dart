@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 
 // Import conditionnel pour le file_picker
 import 'file_picker_web.dart' if (dart.library.io) 'file_picker_desktop.dart';
@@ -11,7 +9,12 @@ class FilePickerService {
       allowedExtensions: ['nc', 'gcode', 'txt'],
     );
     if (bytes != null) {
-      return utf8.decode(bytes);
+      // UTF-8 d'abord, repli Latin-1 (posts CAM type SolidWorks avec accents).
+      try {
+        return utf8.decode(bytes);
+      } on FormatException {
+        return latin1.decode(bytes);
+      }
     }
     return null;
   }

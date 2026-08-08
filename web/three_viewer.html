@@ -206,8 +206,74 @@
             document.getElementById('mode-text').innerText = m ? 'Outil' : 'Machine';
         };
 
+        // --- PRÉVISUALISATION DU PARCOURS D'OUTIL (restaurée) -------------
+        // La refonte du simulateur avait retiré ce rendu : Dart envoyait bien
+        // 'load_toolpath', mais le JS ne le traitait plus → aucun tracé.
+        const toolpathGroup = new THREE.Group();
+        scene.add(toolpathGroup);
+        const pathMaterial = new THREE.LineBasicMaterial({ vertexColors: true });
+        let pathLines = null;
+        let vectorLines = null;
+        let showVectors = false;
+
+        function loadToolpath(pointsArray) {
+            let flat = pointsArray;
+            if (Array.isArray(pointsArray) && Array.isArray(pointsArray[0])) {
+                flat = new Float32Array(pointsArray.length * 6);
+                for (let i = 0; i < pointsArray.length; i++)
+                    for (let j = 0; j < 6; j++) flat[i * 6 + j] = pointsArray[i][j];
+            }
+            if (pathLines) toolpathGroup.remove(pathLines);
+            if (vectorLines) toolpathGroup.remove(vectorLines);
+            const n = Math.floor(flat.length / 6);
+            if (n < 2) return;
+
+            const positions = new Float32Array(n * 3);
+            const colors = new Float32Array(n * 3);
+            const vecPos = [], vecCol = [];
+            const cG0 = new THREE.Color('#f85149'); // rapide (G0)
+            const cG1 = new THREE.Color('#3fb950'); // travail (G1)
+
+            for (let i = 0; i < n; i++) {
+                const k = i * 6;
+                const x = flat[k], y = flat[k + 1], z = flat[k + 2];
+                const a = flat[k + 3] || 0, c = flat[k + 4] || 0, type = flat[k + 5];
+                positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
+                const col = (type === 0.0) ? cG0 : cG1;
+                colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+                if (i % 5 === 0) {
+                    const dir = new THREE.Vector3(0, 0, 1);
+                    dir.applyAxisAngle(new THREE.Vector3(1, 0, 0), -a * Math.PI / 180);
+                    dir.applyAxisAngle(new THREE.Vector3(0, 0, 1), -c * Math.PI / 180);
+                    const L = 15;
+                    vecPos.push(x, y, z, x + dir.x * L, y + dir.y * L, z + dir.z * L);
+                    vecCol.push(0, 0.5, 1, 0, 0.5, 1);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            pathLines = new THREE.Line(geo, pathMaterial);
+            toolpathGroup.add(pathLines);
+
+            if (vecPos.length > 0) {
+                const vg = new THREE.BufferGeometry();
+                vg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vecPos), 3));
+                vg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vecCol), 3));
+                vectorLines = new THREE.LineSegments(vg, new THREE.LineBasicMaterial({ vertexColors: true, opacity: 0.5, transparent: true }));
+                vectorLines.visible = showVectors;
+                toolpathGroup.add(vectorLines);
+            }
+        }
+
         window.handleMessage = (data) => {
             if (data.type === 'update_machine') updateMachineStatus(data.payload);
+            else if (data.type === 'load_toolpath') loadToolpath(data.payload);
+            else if (data.type === 'toggle_vectors') {
+                showVectors = data.payload;
+                if (vectorLines) vectorLines.visible = showVectors;
+            }
             else if (data.type === 'set_theme') scene.background = new THREE.Color(data.payload.isDark ? '#050505' : '#f0f0f0');
         };
 

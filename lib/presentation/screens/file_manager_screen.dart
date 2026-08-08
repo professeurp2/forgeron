@@ -1,10 +1,11 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
 import '../../application/providers/file_provider.dart';
 import '../../application/providers/gcode_provider.dart';
+import '../../application/providers/streaming_provider.dart';
 import '../../application/providers/workspace_provider.dart';
 import '../../domain/models/gcode_file.dart';
 import '../../core/utils/file_picker_service.dart';
@@ -135,6 +136,8 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final hasProgram = ref.watch(gcodeProvider).allLines.isNotEmpty;
+    final streaming = ref.watch(streamingProvider);
     return Column(children: [
       // ── BARRE D'ONGLETS compacte (48 px) ──────────────────────────────
       MobileTabBar(
@@ -156,7 +159,62 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
           ],
         ),
       ),
+
+      // ── DÉPART CYCLE : disponible dès qu'un programme est chargé ──────────
+      if (hasProgram) _buildCycleStartBar(streaming),
     ]);
+  }
+
+  /// Bandeau bas de l'écran Travail : lance le programme chargé (validé +
+  /// ForceGuard, même chemin que le bouton du Tableau).
+  Widget _buildCycleStartBar(bool streaming) {
+    final fc = context.fc;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(top: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: streaming ? null : _handleCycleStart,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: streaming ? fc.surfaceBright : fc.success,
+              foregroundColor: streaming ? fc.textDisabled : Colors.white,
+              disabledBackgroundColor: fc.surfaceBright,
+              disabledForegroundColor: fc.textDisabled,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: Icon(streaming
+                ? Icons.hourglass_top_rounded
+                : Icons.play_arrow_rounded),
+            label: Text(
+              streaming ? 'EXÉCUTION EN COURS…' : 'DÉPART CYCLE',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w900, letterSpacing: 0.8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCycleStart() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final errColor = context.fc.error;
+    HapticFeedback.mediumImpact();
+    final result = await ref.read(streamingProvider.notifier).startStream();
+    if (!result.isValid) {
+      final line = result.errorLine != null ? ' (ligne ${result.errorLine})' : '';
+      messenger.showSnackBar(SnackBar(
+        content: Text('Refusé : ${result.errorMessage}$line'),
+        backgroundColor: errColor,
+      ));
+    }
   }
 
   // ── Onglet DOSSIER DE TRAVAIL ─────────────────────────────────────────────

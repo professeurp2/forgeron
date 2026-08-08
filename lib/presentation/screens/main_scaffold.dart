@@ -18,6 +18,7 @@ import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'ai_assistant_screen.dart';
 import 'ai_agent_settings_screen.dart';
+import 'app_settings_screen.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import 'connection_settings_screen.dart';
 import 'mobile_dashboard_screen.dart';
@@ -28,6 +29,9 @@ import '../widgets/safety_banner.dart';
 import '../widgets/nav/cube_page_view.dart';
 import '../widgets/nav/forge_bottom_nav.dart';
 import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/stream_progress_provider.dart';
+import '../../application/providers/activity_log_provider.dart';
+import '../../application/providers/critical_event_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 
@@ -76,6 +80,11 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   void initState() {
     super.initState();
     _pageController.addListener(_onPageScroll);
+    // Démarre le journal d'activité dès l'ouverture (pour que l'IA connaisse
+    // toutes les actions opérateur, même celles faites avant d'ouvrir l'IA).
+    ref.read(activityLogProvider);
+    // Démarre le veilleur d'évènements critiques (alarme, E-STOP, surchauffe).
+    ref.read(criticalEventWatcherProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Le mobile a son propre parcours : les étapes desktop visent une barre
       // latérale et un pied de page qui n'existent pas ici. Même critère que
@@ -266,28 +275,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
-          // Bascule de thème clair / sombre.
+          // Paramètres de l'app (remplace l'ancienne bascule de thème, qui a
+          // déménagé dans Paramètres → Apparence).
           IconButton(
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: Icon(
-                ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-                key: ValueKey(ref.watch(themeModeProvider)),
-                color: fc.primary,
-                size: 20,
-              ),
-            ),
-            tooltip: 'Changer le thème (clair / sombre)',
+            icon: Icon(Icons.settings_rounded, color: fc.primary, size: 20),
+            tooltip: 'Paramètres',
             onPressed: () {
-              final notifier = ref.read(themeModeProvider.notifier);
-              notifier.state = notifier.state == ThemeMode.dark
-                  ? ThemeMode.light
-                  : ThemeMode.dark;
               HapticFeedback.lightImpact();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AppSettingsScreen()),
+              );
             },
           ),
           IconButton(
@@ -322,6 +319,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           Column(
             children: [
               const SafetyBanner(),
+              // Progression d'exécution — globale, visible sur toutes les pages.
+              const _GlobalProgressBar(),
               Expanded(
                 child: CubePageView(
                   controller: _pageController,
@@ -543,6 +542,67 @@ class _AiAssistantPage extends ConsumerWidget {
         ),
       ),
       body: const SafeArea(child: AiAssistantScreen(embedded: true)),
+    );
+  }
+}
+
+/// Barre de progression d'exécution globale : slim, affichée sur toutes les
+/// pages tant qu'un programme G-code tourne (fini de changer d'onglet pour
+/// suivre l'avancement).
+class _GlobalProgressBar extends ConsumerWidget {
+  const _GlobalProgressBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(streamProgressProvider);
+    if (!p.active) return const SizedBox.shrink();
+    final fc = context.fc;
+    final eta = p.eta;
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.primary.withValues(alpha: 0.10),
+        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 5),
+            child: Row(
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 15, color: fc.primary),
+                const SizedBox(width: 6),
+                Text('${p.percent}%',
+                    style: TextStyle(
+                        color: fc.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12)),
+                const SizedBox(width: 12),
+                Text('Ligne ${p.currentLine}/${p.totalLines}',
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11)),
+                const Spacer(),
+                Icon(Icons.timer_outlined, size: 11, color: fc.textDisabled),
+                const SizedBox(width: 4),
+                Text(
+                  eta != null
+                      ? '${formatDuration(p.elapsed)} · -${formatDuration(eta)}'
+                      : formatDuration(p.elapsed),
+                  style: TextStyle(
+                      color: fc.textSecondary,
+                      fontSize: 11,
+                      fontFamily: 'JetBrains Mono'),
+                ),
+              ],
+            ),
+          ),
+          LinearProgressIndicator(
+            value: p.fraction,
+            minHeight: 3,
+            backgroundColor: fc.surfaceBorder,
+            color: fc.primary,
+          ),
+        ],
+      ),
     );
   }
 }
