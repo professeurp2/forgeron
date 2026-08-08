@@ -228,6 +228,27 @@ control:
   # champ Pn: (écran Test) avant de compter dessus ; inverser en :low si NO.
   estop_pin: gpio.34:high
 
+# =============================================================================
+# INDICATION D'ÉTAT NATIVE — FluidNC pilote ces GPIO AUTOMATIQUEMENT selon l'état
+# machine (un seul actif à la fois), y compris EN ALARME et pendant l'usinage
+# (c'est le firmware, pas du G-code). LED RGB (cathode commune → GND), une
+# couleur par état, chaque broche via une résistance 330 Ω :
+#   idle  → VERT  (prêt)
+#   run   → BLEU  (usinage / mouvement — jog & homing à vérifier sur machine)
+#   alarm → ROUGE + BUZZER actif en parallèle = alarme / E-stop
+# Sorties FIXES (pas de clignotement natif). Pins sûrs au boot (must_home:false
+# → démarrage en Idle) : gpio.15 haut au boot OK ; gpio.2 / gpio.12 bas au boot
+# (états inactifs). ⚠️ NE PAS activer must_home:true → la carte démarrerait en
+# alarme, gpio.12 (strap MTDI) forcé haut au boot = risque de non-démarrage.
+# =============================================================================
+status_outputs:
+  report_interval_ms: 500
+  idle_pin: gpio.15
+  run_pin: gpio.2
+  hold_pin: NO_PIN
+  alarm_pin: gpio.12
+  door_pin: NO_PIN
+
 coolant:
   flood_pin: NO_PIN
   mist_pin: NO_PIN
@@ -266,21 +287,16 @@ Relay:
   off_on_alarm: true
 
 macros:
-  # Indication d'état par macros NATIVES (fiable, sans app, sans interférer avec
-  # le streaming). P0 = LED (gpio.15), P1 = buzzer (gpio.2). M62=allume, M63=éteint.
-  # LED allumée dès la mise sous tension = machine prête.
-  startup_line0: M62 P0
+  # (Indication d'état gérée nativement par status_outputs — plus de macros LED.)
+  startup_line0:
   startup_line1:
   Macro0:
   Macro1:
   Macro2:
   Macro3:
-  # Bip de confirmation à la fin du homing (origine faite).
-  after_homing: M62 P1 G4 P0.2 M63 P1
-  # Un reset (Ctrl-X) remet les sorties à zéro → on rallume la LED d'état.
-  after_reset: M62 P0
-  # Bip court au déverrouillage d'alarme ($X).
-  after_unlock: M62 P1 G4 P0.1 M63 P1
+  after_homing:
+  after_reset:
+  after_unlock:
 
 start:
   must_home: false
@@ -304,12 +320,10 @@ user_outputs:
   analog1_hz: 5000
   analog2_hz: 5000
   analog3_hz: 5000
-  # LED d'état (P0) : GPIO15 → LED + 330 Ω → GND. Pilotée par M62 P0 (allume) /
-  # M63 P0 (éteint). Allumée = machine sous tension/prête (voir macros).
-  digital0_pin: gpio.15
-  # Buzzer (P1) : GPIO2 → buzzer ACTIF (module à transistor). M62 P1 / M63 P1.
-  # GPIO2 = bas au boot → pas de bip parasite à la mise sous tension.
-  digital1_pin: gpio.2
+  # LED/buzzer désormais pilotés par `status_outputs` (natif, selon l'état) —
+  # gpio.15/2/12 réservés là-bas, plus de user_outputs ici.
+  digital0_pin: NO_PIN
+  digital1_pin: NO_PIN
   digital2_pin: NO_PIN
   digital3_pin: NO_PIN
   digital4_pin: NO_PIN
