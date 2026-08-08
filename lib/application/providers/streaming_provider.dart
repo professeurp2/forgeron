@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/trajectory_validator.dart';
 import '../../core/utils/gcode_parser.dart';
+import '../../domain/models/machine_state.dart';
 import '../services/force_guard_service.dart';
 import 'gcode_provider.dart';
 import 'machining_mode_provider.dart';
@@ -37,6 +38,22 @@ class StreamingController extends StateNotifier<bool> {
     if (gcodeState.allLines.isEmpty) {
       debugPrint('[StreamingController] ❌ Aucun programme G-Code chargé !');
       return ValidationResult.error('Aucun programme G-Code chargé', 0);
+    }
+
+    // ── Guard : G-code adapté mais BLOQUÉ ─────────────────────────────────
+    // L'adaptateur (au chargement) a détecté des codes CAM que FluidNC ne peut
+    // pas exécuter et qu'on ne peut pas traduire ici (RTCP, compensation de
+    // rayon MACHINE G41/G42, cycle non géré) → à corriger dans le post CAM.
+    if (gcodeState.adaptBlocking) {
+      final why = gcodeState.adaptWarnings
+          .where((w) => w.contains('⚠️'))
+          .join(' ');
+      debugPrint('[StreamingController] ❌ G-code bloqué par l\'adaptateur : $why');
+      return ValidationResult.error(
+        'G-code incompatible FluidNC — à corriger dans le post CAM. '
+        '${why.isEmpty ? '' : why}',
+        0,
+      );
     }
 
     debugPrint('[StreamingController] 🔍 Validation Lookahead de ${gcodeState.allLines.length} lignes...');
@@ -82,6 +99,16 @@ class StreamingController extends StateNotifier<bool> {
       onComplete: () {
         debugPrint('[StreamingController] 🏁 onComplete appelé ! Fin du flux.');
         if (mounted) state = false;
+        // Bip de FIN DE PROGRAMME (buzzer P1). Le streaming est terminé
+        // (isStreaming=false) → envoi sûr, sans désync ; la commande se met en
+        // file après le dernier mouvement, donc le bip sonne quand c'est
+        // vraiment fini. On n'envoie pas en alarme/hors-ligne (G-code refusé).
+        final st = _ref.read(machineRepositoryProvider).currentState.status;
+        if (st != MachineStatus.alarm && st != MachineStatus.offline) {
+          _ref
+              .read(machineRepositoryProvider)
+              .sendGCode('M62 P1 G4 P0.4 M63 P1');
+        }
       },
       onStall: (reason) {
         debugPrint('[StreamingController] ⏸ Flux bloqué : $reason');

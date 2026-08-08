@@ -46,19 +46,35 @@ axes:
   # STEP → GPIO26 (D26) | DIR → GPIO27 (D27)
   # ─────────────────────────────────────────────
   x:
-    # T8 (8mm/tour) + 1/16 micro : 200×16/8=400
-    steps_per_mm: 400.000
+    # X recalibré (2026-08-05) : 90 mm physique = 80 mm affiché → 297 trop haut
+    # de 12,5 %. 297 × 80/90 = 264. (À vérifier : G91 G0 X50 doit faire 50 mm.)
+    steps_per_mm: 264.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 50.000
-    # Adapter à la course réelle de ton axe X
-    max_travel_mm: 200.000
-    soft_limits: false
+    # Course physique ~90 mm ; soft limit à 88 (2 mm de marge sous la butée).
+    max_travel_mm: 88.000
+    soft_limits: true
+    # HOMING — ⚠️ VÉRIFIE positive_direction par un jog AVANT $H (sinon crash).
+    # false = l'axe cherche son switch en direction NÉGATIVE (côté min).
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 500.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Fin de course X — switch NO vers GND, pull-up interne (actif bas)
+      limit_all_pin: gpio.4:low:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      hard_limits: true
+      # Pull-off augmenté (1→5) : le switch X a une course longue et 1 mm ne le
+      # relâchait pas après le 1er contact → ALARM:8. 5 mm le dégage franchement.
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.26
         direction_pin: gpio.27
@@ -71,13 +87,26 @@ axes:
     steps_per_mm: 400.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 50.000
-    max_travel_mm: 200.000
-    soft_limits: false
+    # Course réelle mesurée au calibrage (Y)
+    max_travel_mm: 150.000
+    soft_limits: true
+    # HOMING — ⚠️ VÉRIFIE positive_direction par un jog AVANT $H (sinon crash).
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 500.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
+      # Fin de course Y — switch NO vers GND, pull-up interne (actif bas)
+      limit_all_pin: gpio.13:low:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      hard_limits: true
       pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.25
@@ -92,13 +121,28 @@ axes:
     # Z plus lent pour la sécurité
     max_rate_mm_per_min: 800.000
     acceleration_mm_per_sec2: 30.000
-    max_travel_mm: 150.000
-    soft_limits: false
+    # Course réelle mesurée au calibrage (Z)
+    max_travel_mm: 110.000
+    soft_limits: true
+    # HOMING — switch Z EN HAUT → direction POSITIVE (positive_direction: true).
+    # Z se home vers le HAUT et se DÉGAGE (retrait outil) — convention standard,
+    # SÛR. Zéro machine Z = en haut ; course utile 0 → -110 mm (vers le bas).
+    homing:
+      cycle: 1
+      positive_direction: true
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 400.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
+      # Fin de course Z — switch NO vers GND, pull-up interne (actif bas)
+      limit_all_pin: gpio.14:low:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      hard_limits: true
       pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.32
@@ -110,18 +154,36 @@ axes:
   # steps_per_mm = en réalité steps_per_DEGREE ici
   # ─────────────────────────────────────────────
   a:
-    # 200 pas × 1/16 micro × rapport réduc 5:1 / 360°
-    steps_per_mm: 44.444
+    # steps_per_DEGRÉ : poulies GT2 16T→60T = 3,75:1, micro 1/8 (TB6600).
+    # 200 × 8 × 3,75 / 360 = 16,667. Cohérent avec la mesure (cmd 35° = 90° réel).
+    steps_per_mm: 16.667
     max_rate_mm_per_min: 3600.000
     acceleration_mm_per_sec2: 50.000
-    max_travel_mm: 720.000
-    soft_limits: false
+    # Switch A à -95° (mesuré : l'horizontale est à 95° du switch). Course -95→+90.
+    max_travel_mm: 185.000
+    soft_limits: true
+    # HOMING A — capteur à l'extrémité NÉGATIVE, réellement à -95° → mpos_mm: -95
+    # (positive_direction: false). Ainsi A=0 correspond pile à l'horizontale.
+    homing:
+      cycle: 3
+      positive_direction: false
+      mpos_mm: -95.000
+      feed_mm_per_min: 200.000
+      seek_mm_per_min: 1000.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Capteur de homing A — switch NO vers GND, pull-up interne (actif bas).
+      # GPIO5 = broche de strap : ne pas laisser le berceau sur le switch au boot.
+      limit_all_pin: gpio.5:low:pu
+      # Câblage + homing A validés (A=0 = horizontale) → alarme si switch touché.
+      hard_limits: true
+      # Pull-off 5° : 1° ne relâchait pas le switch A après le 1er contact →
+      # ALARM:8 (comme X). En degrés ici (axe rotatif).
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.19
         direction_pin: gpio.18
@@ -131,7 +193,9 @@ axes:
   # STEP → GPIO17 (TX2) | DIR → GPIO16 (RX2)
   # ─────────────────────────────────────────────
   c:
-    steps_per_mm: 44.444
+    # steps_per_DEGRÉ : poulies GT2 16T→60T = 3,75:1, micro 1/8 → 16,667
+    # (identique à A ; la mesure C donnait ~19,8, écart = imprécision).
+    steps_per_mm: 16.667
     max_rate_mm_per_min: 3600.000
     acceleration_mm_per_sec2: 50.000
     max_travel_mm: 720.000
@@ -156,7 +220,13 @@ control:
   macro2_pin: NO_PIN
   macro3_pin: NO_PIN
   fault_pin: NO_PIN
-  estop_pin: NO_PIN
+  # ARRÊT D'URGENCE matériel — bouton coup-de-poing NF (normalement fermé).
+  # Câblage : GPIO34 --[bouton NF]-- GND, ET une résistance 10 kΩ de GPIO34 vers
+  # 3.3 V (GPIO34 est ENTRÉE SEULE, sans pull-up interne). Repos = fermé = LOW ;
+  # appui OU fil coupé = ouvert = HIGH (pull-up) → déclenche = FAIL-SAFE.
+  # Déclenche un reset FluidNC (arrêt immédiat). ⚠️ Vérifier le niveau via le
+  # champ Pn: (écran Test) avant de compter dessus ; inverser en :low si NO.
+  estop_pin: gpio.34:high
 
 coolant:
   flood_pin: NO_PIN
@@ -169,16 +239,48 @@ probe:
   check_mode_start: true
   hard_stop: false
 
+# =============================================================================
+# BROCHE — Moteur à courant continu (DC) piloté en TOUT-OU-RIEN via un module
+# relais 5 V (type KY-019 / VMA406, transistor + diode intégrés sur la carte).
+# Câblage : VCC→5V(VIN), GND→GND ESP32, IN→GPIO21 (signal seul). Moteur sur
+# COM + NO, avec sa PROPRE alimentation. ⚠️ Ne jamais piloter une bobine de
+# relais directement par un GPIO : passer par un module (transistor intégré).
+# M3 S1000 = broche ON, M5 = broche OFF.
+# Module simple (transistor, sans opto) = ACTIF HAUT → gpio.21 sans suffixe.
+# ⚠️ Si le relais est collé au repos (module actif bas) : mets « gpio.21:low ».
+# off_on_alarm = la broche coupe si une alarme survient (fin de course, etc.)
+# =============================================================================
+Relay:
+  # Module relais ACTIF HAUT (GPIO21 HIGH => transistor passant => relais collé)
+  output_pin: gpio.21
+  enable_pin: NO_PIN
+  direction_pin: NO_PIN
+  # false = M3 allume le relais quelle que soit la vitesse (tout-ou-rien)
+  disable_with_s0: false
+  s0_with_disable: true
+  spinup_ms: 1000
+  spindown_ms: 1000
+  tool_num: 0
+  # speed_map REQUIS : sans lui la broche relais peut ne jamais passer à ON
+  speed_map: 0=0.000% 1000=100.000%
+  off_on_alarm: true
+
 macros:
-  startup_line0:
+  # Indication d'état par macros NATIVES (fiable, sans app, sans interférer avec
+  # le streaming). P0 = LED (gpio.15), P1 = buzzer (gpio.2). M62=allume, M63=éteint.
+  # LED allumée dès la mise sous tension = machine prête.
+  startup_line0: M62 P0
   startup_line1:
   Macro0:
   Macro1:
   Macro2:
   Macro3:
-  after_homing:
-  after_reset:
-  after_unlock:
+  # Bip de confirmation à la fin du homing (origine faite).
+  after_homing: M62 P1 G4 P0.2 M63 P1
+  # Un reset (Ctrl-X) remet les sorties à zéro → on rallume la LED d'état.
+  after_reset: M62 P0
+  # Bip court au déverrouillage d'alarme ($X).
+  after_unlock: M62 P1 G4 P0.1 M63 P1
 
 start:
   must_home: false
@@ -202,8 +304,12 @@ user_outputs:
   analog1_hz: 5000
   analog2_hz: 5000
   analog3_hz: 5000
-  digital0_pin: NO_PIN
-  digital1_pin: NO_PIN
+  # LED d'état (P0) : GPIO15 → LED + 330 Ω → GND. Pilotée par M62 P0 (allume) /
+  # M63 P0 (éteint). Allumée = machine sous tension/prête (voir macros).
+  digital0_pin: gpio.15
+  # Buzzer (P1) : GPIO2 → buzzer ACTIF (module à transistor). M62 P1 / M63 P1.
+  # GPIO2 = bas au boot → pas de bip parasite à la mise sous tension.
+  digital1_pin: gpio.2
   digital2_pin: NO_PIN
   digital3_pin: NO_PIN
   digital4_pin: NO_PIN
