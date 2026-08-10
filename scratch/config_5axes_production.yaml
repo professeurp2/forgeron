@@ -143,7 +143,9 @@ axes:
       limit_all_pin: gpio.14:low:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
       hard_limits: true
-      pulloff_mm: 1.000
+      # Pull-off Z augmenté (1→5) : comme X et A, 1 mm ne relâchait pas le
+      # capteur au 1er contact du homing → il restait « bloqué » (ALARM:8).
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.32
         direction_pin: gpio.23
