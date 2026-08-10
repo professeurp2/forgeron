@@ -280,7 +280,11 @@ macros:
   after_unlock:
 
 start:
-  must_home: false
+  # Exige le homing avant TOUTE exécution/mouvement : FluidNC refuse de lancer un
+  # programme tant que la machine n'est pas homée (position connue + soft-limits
+  # actives). La carte démarre en « Alarm: homing required » → se lève en homant
+  # ($H). Récupération hors-course : $X + jog doux hors du switch, puis $H.
+  must_home: true
   deactivate_parking: false
   check_limits: true
 
