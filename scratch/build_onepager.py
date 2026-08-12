@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère le one-pager Forgeron (HTML autonome, logo + maquettes app embarqués)."""
+"""Generate the Forgeron one-pager (self-contained HTML, logo + app mockups embedded)."""
 import base64, pathlib
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -7,7 +7,7 @@ logo_b64 = base64.b64encode((root / "assets/logo.png").read_bytes()).decode()
 logo_uri = f"data:image/png;base64,{logo_b64}"
 
 HTML = f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Forgeron — One Pager</title>
@@ -49,7 +49,7 @@ HTML = f"""<!doctype html>
     background:radial-gradient(circle,rgba(255,106,26,.35),transparent 70%); }}
   .hero .kicker {{ font-size:10px; font-weight:700; letter-spacing:1.4px;
     text-transform:uppercase; color:var(--ember); }}
-  .hero h2 {{ font-size:17px; line-height:1.24; margin-top:4px; font-weight:750; max-width:93%; }}
+  .hero h2 {{ font-size:17px; line-height:1.24; margin-top:4px; font-weight:750; max-width:94%; }}
   .hero h2 b {{ color:var(--forge2); }}
 
   /* Grid */
@@ -81,22 +81,31 @@ HTML = f"""<!doctype html>
   .traction p {{ font-size:10px; line-height:1.4; color:#256b45; }}
   .traction b {{ color:#0f5c34; }}
   .metricchips {{ display:flex; gap:6px; }}
-  .chip {{ background:#fff; border:1px solid #bfe6cd; border-radius:8px; padding:5px 8px; text-align:center; min-width:52px; }}
+  .chip {{ background:#fff; border:1px solid #bfe6cd; border-radius:8px; padding:5px 8px; text-align:center; min-width:50px; }}
   .chip .v {{ font-size:13px; font-weight:800; color:var(--steel); line-height:1; }}
   .chip .l {{ font-size:7px; color:#4f7a63; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }}
 
   /* Showcase band */
   .showcase {{ grid-column:1 / -1; }}
   .showcase .sh-head {{ font-size:9px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
-    font-weight:700; margin-bottom:5px; padding-left:2px; }}
-  .shots {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; }}
-  .screen {{ height:214px; border-radius:12px; overflow:hidden; position:relative;
-    border:1px solid var(--line); box-shadow:0 3px 10px rgba(20,24,31,.08); }}
-  .cap {{ font-size:8px; color:var(--muted); text-align:center; margin-top:4px; letter-spacing:.2px; }}
+    font-weight:700; margin-bottom:6px; padding-left:2px; }}
+  .shots {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }}
+
+  /* Phone frame */
+  .phone {{ width:100%; max-width:184px; margin:0 auto; position:relative;
+    background:linear-gradient(160deg,#2a313b,#0d1117); border-radius:26px;
+    padding:12px 7px 10px; box-shadow:0 9px 22px rgba(20,24,31,.24); }}
+  .phone .island {{ position:absolute; top:5px; left:50%; transform:translateX(-50%);
+    width:48px; height:7px; background:#05070a; border-radius:999px; z-index:6; }}
+  .phone .home {{ position:absolute; bottom:4px; left:50%; transform:translateX(-50%);
+    width:56px; height:3px; background:#4a5462; border-radius:999px; }}
+  .phscreen {{ border-radius:18px; overflow:hidden; height:236px; position:relative; background:#fff;
+    display:flex; flex-direction:column; }}
+  .cap {{ font-size:8px; color:var(--muted); text-align:center; margin-top:5px; letter-spacing:.2px; }}
   .cap b {{ color:var(--ink2); }}
 
   /* ---- Dashboard mock (light) ---- */
-  .m-dash {{ background:#f4f6f9; font-size:8px; color:#2a3340; padding:0; }}
+  .m-dash {{ background:#f4f6f9; font-size:8px; color:#2a3340; }}
   .m-dash .top {{ display:flex; align-items:center; gap:4px; padding:6px 7px; background:#fff; border-bottom:1px solid #eceff3; }}
   .m-dash .hex {{ width:13px; height:13px; background:var(--steel); color:#fff; border-radius:4px;
     display:flex; align-items:center; justify-content:center; font-weight:800; font-size:8px; }}
@@ -104,7 +113,7 @@ HTML = f"""<!doctype html>
   .m-dash .off {{ background:#eef1f4; color:#8b95a1; font-size:6.5px; padding:2px 5px; border-radius:999px; margin-left:2px; }}
   .m-dash .gear {{ margin-left:auto; color:var(--forge); font-size:9px; }}
   .m-dash .wifi {{ color:#aab2bd; font-size:9px; }}
-  .m-dash .tabs {{ display:flex; gap:12px; justify-content:center; padding:5px 0; background:#fff; border-bottom:1px solid #eceff3; font-size:7px; font-weight:700; color:#aab2bd; }}
+  .m-dash .tabs {{ display:flex; gap:11px; justify-content:center; padding:5px 0; background:#fff; border-bottom:1px solid #eceff3; font-size:7px; font-weight:700; color:#aab2bd; }}
   .m-dash .tabs .act {{ color:var(--forge); border-bottom:2px solid var(--forge); padding-bottom:3px; }}
   .m-dash .body {{ padding:7px; }}
   .m-dash .sim {{ background:#fff; border:1px solid #e7ebf0; border-radius:7px; padding:5px 7px; font-weight:700; color:#5b6672; font-size:7px; display:flex; align-items:center; gap:4px; margin-bottom:6px; }}
@@ -120,26 +129,28 @@ HTML = f"""<!doctype html>
   .m-dash .stop {{ background:#fdeaea; color:#e5484d; border:1px solid #f4c9c9; border-radius:8px; text-align:center; padding:6px; font-weight:800; font-size:8px; }}
 
   /* ---- AI chat mock (dark) ---- */
-  .m-ai {{ background:#171b22; color:#e8ebf0; font-size:8px; display:flex; flex-direction:column; }}
+  .m-ai {{ background:#171b22; color:#e8ebf0; font-size:8px; }}
   .m-ai .top {{ display:flex; align-items:center; gap:5px; padding:6px 7px; background:#1e232c; border-bottom:1px solid #262c36; }}
   .m-ai .av {{ width:14px; height:14px; border-radius:999px; background:var(--forge); color:#fff; display:flex; align-items:center; justify-content:center; font-size:8px; }}
   .m-ai .tt {{ font-weight:800; font-size:8.5px; }} .m-ai .st {{ color:#8b95a1; font-size:6.5px; }}
   .m-ai .ic {{ color:#8b95a1; font-size:8px; }} .m-ai .grow {{ margin-left:auto; display:flex; gap:6px; }}
   .m-ai .chatbody {{ padding:7px; display:flex; flex-direction:column; gap:5px; flex:1; overflow:hidden; }}
-  .m-ai .ubub {{ align-self:flex-end; background:#5a3a2a; color:#f4e3d7; border-radius:9px 9px 3px 9px; padding:5px 7px; max-width:82%; font-size:7.5px; }}
+  .m-ai .ubub {{ align-self:flex-end; background:#5a3a2a; color:#f4e3d7; border-radius:9px 9px 3px 9px; padding:5px 7px; max-width:84%; font-size:7.5px; }}
   .m-ai .tool {{ align-self:flex-start; background:#12321f; color:#4fd07f; border:1px solid #1f5a37; border-radius:7px; padding:3px 7px; font-family:'Courier New',monospace; font-size:7.5px; font-weight:700; }}
-  .m-ai .bbub {{ align-self:flex-start; background:#20262f; border:1px solid #2b323d; border-radius:9px 9px 9px 3px; padding:6px 7px; max-width:92%; font-size:7px; line-height:1.5; }}
+  .m-ai .bbub {{ align-self:flex-start; background:#20262f; border:1px solid #2b323d; border-radius:9px 9px 9px 3px; padding:6px 7px; max-width:94%; font-size:7px; line-height:1.5; }}
   .m-ai .bbub b {{ color:#cfd6df; }}
   .m-ai .inbar {{ display:flex; align-items:center; gap:5px; padding:6px 7px; border-top:1px solid #262c36; background:#1e232c; }}
   .m-ai .inbox {{ flex:1; background:#2a303a; color:#8b95a1; border-radius:999px; padding:4px 8px; font-size:7px; }}
   .m-ai .send {{ width:16px; height:16px; border-radius:999px; background:var(--forge); color:#fff; display:flex; align-items:center; justify-content:center; font-size:8px; }}
-  .m-ai .quota {{ font-size:6px; color:#6b7480; text-align:center; padding:3px 0 5px; background:#1e232c; }}
+  .m-ai .quota {{ font-size:6px; color:#6b7480; text-align:center; padding:3px 0 4px; background:#1e232c; }}
 
   /* ---- Machine placeholder ---- */
-  .m-slot {{ background:var(--soft); border:1.5px dashed #c7d0dc; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center; gap:6px; padding:10px; }}
-  .m-slot .ic {{ font-size:26px; }} .m-slot .t {{ font-size:9px; color:var(--ink2); font-weight:700; }}
-  .m-slot .s {{ font-size:8px; color:var(--muted); line-height:1.4; max-width:88%; }}
+  .m-slot {{ background:var(--soft); border:1.5px dashed #c7d0dc; border-radius:14px; height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:7px; padding:12px; }}
+  .m-slot .ic {{ font-size:30px; }} .m-slot .t {{ font-size:9px; color:var(--ink2); font-weight:800; }}
+  .m-slot .s {{ font-size:8px; color:var(--muted); line-height:1.45; max-width:90%; }}
+  .m-slot .badge2 {{ margin-top:2px; font-size:6.5px; font-weight:700; color:var(--ok); background:var(--ok-soft);
+    border:1px solid #bfe6cd; padding:2px 7px; border-radius:999px; letter-spacing:.3px; }}
 
   /* Footer */
   footer {{ margin-top:auto; padding-top:7px; border-top:1px solid var(--line);
@@ -158,148 +169,160 @@ HTML = f"""<!doctype html>
     <img class="logo" src="{logo_uri}" alt="Forgeron">
     <div class="brand">
       <h1>FORGERON</h1>
-      <div class="sub">Contrôleur CNC 5-axes · piloté par IA</div>
+      <div class="sub">5-axis CNC controller · AI-piloted</div>
     </div>
     <div class="tags">
       <span class="pill ai">AI-ENABLED PROTOTYPE</span>
-      <span class="pill ok">MACHINE PHYSIQUE FONCTIONNELLE</span>
+      <span class="pill ok">WORKING PHYSICAL MACHINE</span>
     </div>
   </header>
 
   <div class="hero">
     <div class="kicker">METI-funded UniPods AI Programme · timbuktoo / UNDP</div>
-    <h2>Le premier contrôleur CNC 5-axes <b>piloté par IA</b>, pensé pour l'industrie africaine —
-       un microcontrôleur à 8&nbsp;$ transformé en machine-outil qu'on opère <b>en langage naturel</b>.</h2>
+    <h2>The first <b>AI-piloted</b> 5-axis CNC controller, built for African industry —
+       an $8 microcontroller turned into a machine tool you operate <b>in plain language</b>.</h2>
   </div>
 
   <div class="grid">
     <div class="card">
-      <h3><span class="n">1</span> Le problème</h3>
-      <p>Les contrôleurs CNC 5-axes industriels (Fanuc, Heidenhain, Siemens) coûtent
-      <b>5 000 – 50 000&nbsp;$</b>, sont fermés et exigent des opérateurs très formés.</p>
-      <p>Ateliers, fablabs et PME manufacturières africaines sont donc <b>exclus</b> de la
-      fabrication de précision — outillage, moules, prothèses, pièces — qui reste importée.</p>
+      <h3><span class="n">1</span> The problem</h3>
+      <p>Industrial 5-axis CNC controllers (Fanuc, Heidenhain, Siemens) cost
+      <b>$5,000 – $50,000</b>, are closed, and require highly trained operators.</p>
+      <p>African workshops, fablabs and manufacturing SMEs are therefore <b>locked out</b> of
+      precision manufacturing — tooling, molds, prosthetics, parts — which stays imported.</p>
     </div>
     <div class="card">
-      <h3><span class="n">2</span> La solution</h3>
-      <p>Forgeron transforme un <b>ESP32 (~8&nbsp;$)</b> sous firmware open-source FluidNC + drivers
-      pas-à-pas en un <b>contrôleur 5-axes de grade industriel</b>, piloté depuis un smartphone ou un PC.</p>
-      <p>DRO temps réel, jog 5 axes, streaming G-code, visualiseur 3D Trunnion, palpage, WCS,
-      sécurité matérielle (arrêt d'urgence, watchdog).</p>
+      <h3><span class="n">2</span> The solution</h3>
+      <p>Forgeron turns an <b>ESP32 (~$8)</b> running open-source FluidNC firmware + cheap stepper
+      drivers into an <b>industrial-grade 5-axis controller</b>, operated from a phone or PC.</p>
+      <p>Real-time DRO, 5-axis jog, G-code streaming, 3D Trunnion visualizer, probing, WCS,
+      hardware safety (emergency stop, watchdog).</p>
     </div>
 
     <div class="card ai-card">
-      <h3><span class="n">IA</span> L'intelligence artificielle — le cœur du « next leap »</h3>
+      <h3><span class="n">AI</span> Artificial intelligence — the core of the "next leap"</h3>
       <div class="ai-cols">
-        <p>Un <b>agent IA agentique</b> (LLM en <i>function calling</i>) pilote la machine en langage
-        naturel : «&nbsp;<i>palpe le centre de la pièce, puis lance le programme à 80&nbsp;% d'avance</i>&nbsp;».
-        12 outils machine sûrs, planifiés et exécutés par l'agent. L'IA fait tomber la
-        <b>barrière de compétence</b> qui tient la CNC hors de portée.</p>
+        <p>An <b>agentic AI assistant</b> (LLM with <i>function calling</i>) drives the machine in plain
+        language: "<i>probe the part center, then run the program at 80% feed</i>." 12 safe machine tools,
+        planned and executed by the agent. AI removes the <b>skill barrier</b> that keeps CNC out of reach.</p>
         <ul class="ai-feats">
-          <li><b>Contrôle agentique sûr</b> — permissions par outil + arrêt d'urgence prioritaire</li>
-          <li><b>Validation <i>lookahead</i></b> — simule tout le parcours vs. limites mécaniques réelles <b>avant</b> tout mouvement : pas de collision</li>
-          <li><b>Résilience connectivité</b> — WiFi machine + appels IA en 4G/5G ; repli multi-modèles gratuit</li>
+          <li><b>Safe agentic control</b> — per-tool permissions + always-on emergency stop</li>
+          <li><b>Lookahead validation</b> — simulates the full toolpath vs. real mechanical limits <b>before</b> any motion: no collisions</li>
+          <li><b>Connectivity resilience</b> — machine WiFi + AI calls over 4G/5G; free multi-model fallback</li>
         </ul>
       </div>
     </div>
 
     <div class="traction">
-      <div class="badge"><div class="big">RÉEL</div><div class="small">Hardware</div></div>
-      <p><b>La machine physique 5-axes est déjà construite et fonctionnelle</b> — ESP32 DevKit V1 +
-      FluidNC v3.7 + 5× drivers TB6600, axes X/Y/Z linéaires + A/C rotatifs (Trunnion). Démontré de
-      bout en bout sur matériel réel. <b>Prêt à passer de prototype à venture.</b></p>
+      <div class="badge"><div class="big">REAL</div><div class="small">Hardware</div></div>
+      <p><b>The physical 5-axis machine is already built and working</b> — ESP32 DevKit V1 +
+      FluidNC v3.7 + 5× TB6600 drivers, X/Y/Z linear + A/C rotary (Trunnion) axes. Demonstrated
+      end-to-end on real hardware. <b>Ready to move from prototype to venture.</b></p>
       <div class="metricchips">
         <div class="chip"><div class="v">5</div><div class="l">Axes</div></div>
-        <div class="chip"><div class="v">12</div><div class="l">Outils IA</div></div>
-        <div class="chip"><div class="v">134</div><div class="l">Fichiers</div></div>
+        <div class="chip"><div class="v">12</div><div class="l">AI tools</div></div>
+        <div class="chip"><div class="v">134</div><div class="l">Files</div></div>
       </div>
     </div>
 
     <div class="showcase">
-      <div class="sh-head">Le produit en action</div>
+      <div class="sh-head">The product in action</div>
       <div class="shots">
         <!-- Dashboard -->
         <div>
-          <div class="screen m-dash">
-            <div class="top">
-              <span class="hex">F</span><span class="nm">FORGERON</span><span class="off">● OFFLINE</span>
-              <span class="gear">⚙</span><span class="wifi">⚏</span>
-            </div>
-            <div class="tabs"><span class="act">MASTER</span><span>JOG</span><span>PROGRAMME</span></div>
-            <div class="body">
-              <div class="sim">⬚ SIMULATEUR 3D ⌄</div>
-              <div class="dro">
-                <div class="dcell"><span class="ax d-x">● X</span><span class="u">mm</span><div class="val">0.000</div></div>
-                <div class="dcell"><span class="ax d-y">● Y</span><span class="u">mm</span><div class="val">0.000</div></div>
-                <div class="dcell"><span class="ax d-z">● Z</span><span class="u">mm</span><div class="val">0.000</div></div>
+          <div class="phone">
+            <span class="island"></span>
+            <div class="phscreen m-dash">
+              <div class="top">
+                <span class="hex">F</span><span class="nm">FORGERON</span><span class="off">● OFFLINE</span>
+                <span class="gear">⚙</span><span class="wifi">⚏</span>
               </div>
-              <div class="dro two">
-                <div class="dcell"><span class="ax d-a">● A</span><span class="u">°</span><div class="val">0.000</div></div>
-                <div class="dcell"><span class="ax d-c">● C</span><span class="u">°</span><div class="val">0.000</div></div>
+              <div class="tabs"><span class="act">MASTER</span><span>JOG</span><span>PROGRAM</span></div>
+              <div class="body">
+                <div class="sim">⬚ 3D SIMULATOR ⌄</div>
+                <div class="dro">
+                  <div class="dcell"><span class="ax d-x">● X</span><span class="u">mm</span><div class="val">0.000</div></div>
+                  <div class="dcell"><span class="ax d-y">● Y</span><span class="u">mm</span><div class="val">0.000</div></div>
+                  <div class="dcell"><span class="ax d-z">● Z</span><span class="u">mm</span><div class="val">0.000</div></div>
+                </div>
+                <div class="dro two">
+                  <div class="dcell"><span class="ax d-a">● A</span><span class="u">°</span><div class="val">0.000</div></div>
+                  <div class="dcell"><span class="ax d-c">● C</span><span class="u">°</span><div class="val">0.000</div></div>
+                </div>
+                <div class="cyc">▶ CYCLE START</div>
+                <div class="duo"><div class="pause">❚❚ PAUSE</div><div class="stop">■ STOP</div></div>
               </div>
-              <div class="cyc">▶ DÉPART CYCLE</div>
-              <div class="duo"><div class="pause">❚❚ PAUSE</div><div class="stop">■ STOP</div></div>
             </div>
+            <span class="home"></span>
           </div>
-          <div class="cap"><b>Dashboard</b> · DRO 5 axes temps réel</div>
+          <div class="cap"><b>Dashboard</b> · real-time 5-axis DRO</div>
         </div>
 
         <!-- AI agent -->
         <div>
-          <div class="screen m-ai">
-            <div class="top">
-              <span class="ic">‹</span><span class="av">🤖</span>
-              <div><div class="tt">AGENT IA</div><div class="st">Assistant CNC · Gemini</div></div>
-              <span class="grow"><span class="ic">🔇</span><span class="ic">⚙</span><span class="ic">🗑</span></span>
+          <div class="phone">
+            <span class="island"></span>
+            <div class="phscreen m-ai">
+              <div class="top">
+                <span class="ic">‹</span><span class="av">🤖</span>
+                <div><div class="tt">AI AGENT</div><div class="st">CNC Assistant · Gemini</div></div>
+                <span class="grow"><span class="ic">🔇</span><span class="ic">⚙</span><span class="ic">🗑</span></span>
+              </div>
+              <div class="chatbody">
+                <div class="ubub">Give me the machine's full status.</div>
+                <div class="tool">⟳ get_machine_state ✓</div>
+                <div class="bbub">Here is the current status:<br>• <b>Status</b>: Offline<br>• <b>WCS</b>: X 0.0 · Y 0.0 · Z 0.0 mm<br>• <b>Coord.</b>: G54 · Tool 0<br>• <b>Feed</b>: 0.0 mm/min · <b>Spindle</b>: 0 rpm<br>• <b>Alarm</b>: None</div>
+              </div>
+              <div class="inbar"><div class="inbox">Message the agent…</div><span class="send">➤</span></div>
+              <div class="quota">Gemini Flash Lite · 0/500 · 500 left</div>
             </div>
-            <div class="chatbody">
-              <div class="ubub">Donne-moi l'état complet de la machine.</div>
-              <div class="tool">⟳ get_machine_state ✓</div>
-              <div class="bbub">Voici l'état actuel :<br>• <b>Statut</b> : Hors ligne<br>• <b>WCS</b> : X 0,0 · Y 0,0 · Z 0,0 mm<br>• <b>Coord.</b> : G54 · Outil 0<br>• <b>Avance</b> : 0,0 mm/min<br>• <b>Broche</b> : 0 tr/min<br>• <b>Alarme</b> : Aucune</div>
-            </div>
-            <div class="inbar"><div class="inbox">Écris à l'agent…</div><span class="send">➤</span></div>
-            <div class="quota">Gemini Flash Lite · 0/500 · 500 restantes</div>
+            <span class="home"></span>
           </div>
-          <div class="cap"><b>Agent IA</b> · function calling (Gemini)</div>
+          <div class="cap"><b>AI agent</b> · function calling (Gemini)</div>
         </div>
 
         <!-- Machine physical (placeholder) -->
         <div>
-          <div class="screen m-slot">
-            <div class="ic">🛠️</div>
-            <div class="t">Machine 5-axes physique</div>
-            <div class="s">Photo réelle en fonctionnement à insérer ici (modèle 3D → photo).</div>
+          <div class="phone">
+            <span class="island"></span>
+            <div class="phscreen m-slot">
+              <div class="ic">🛠️</div>
+              <div class="t">5-axis physical machine</div>
+              <div class="s">Real in-operation photo to be inserted here (3D model → photo).</div>
+              <div class="badge2">BUILT &amp; WORKING</div>
+            </div>
+            <span class="home"></span>
           </div>
-          <div class="cap"><b>Hardware</b> · construit &amp; fonctionnel</div>
+          <div class="cap"><b>Hardware</b> · real 5-axis rig</div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h3><span class="n">3</span> Marché &amp; modèle</h3>
-      <p><b>Cible :</b> ateliers d'usinage, fablabs/makerspaces, écoles techniques et PME
-      manufacturières d'Afrique ; puis fabricants de kits CNC.</p>
-      <p><b>Revenu :</b> app freemium → Pro (IA, multi-machines) → bundles hardware certifiés →
-      marketplace de configs.</p>
+      <h3><span class="n">3</span> Market &amp; model</h3>
+      <p><b>Target:</b> machine shops, fablabs/makerspaces, technical schools and manufacturing
+      SMEs across Africa; then CNC-kit builders.</p>
+      <p><b>Revenue:</b> freemium app → Pro (AI, multi-machine) → certified hardware bundles →
+      config marketplace.</p>
     </div>
     <div class="card">
-      <h3><span class="n">4</span> Pourquoi ce programme</h3>
-      <p>Le prototype est là ; il faut bâtir la <b>venture</b>. Skilling IA (Ethiopian AI Institute)
-      pour durcir l'agent et viser l'edge/on-device.</p>
-      <p>Parcours Wadhwani (14 sem.) : customer discovery, business model, go-to-market,
-      <b>investment readiness</b> + réseau timbuktoo.</p>
+      <h3><span class="n">4</span> Why this programme</h3>
+      <p>The prototype exists; we need to build the <b>venture</b>. AI skilling (Ethiopian AI Institute)
+      to harden the agent and target edge / on-device.</p>
+      <p>Wadhwani track (14 weeks): customer discovery, business modelling, go-to-market,
+      <b>investment readiness</b> + the timbuktoo network.</p>
     </div>
   </div>
 
   <footer>
-    <div class="ask"><b>La demande :</b> passer d'un prototype fonctionnel à une venture investissable,
-      pour <b>démocratiser la fabrication de précision en Afrique</b> — produire localement ce qui est importé.
-      <span class="deadline">Candidature · deadline 21 août 2026</span>
+    <div class="ask"><b>The ask:</b> move from a working prototype to an investable venture, to
+      <b>democratize precision manufacturing in Africa</b> — producing locally what is currently imported.
+      <span class="deadline">Application · deadline 21 August 2026</span>
     </div>
     <div class="contact">
-      <b>&#10214;Ton nom&#10215;</b> — Founder &amp; Engineer<br>
-      &#10214;email&#10215; · &#10214;téléphone&#10215;<br>
-      &#10214;pays/ville&#10215; · &#10214;github.com/…/forgeron&#10215;
+      <b>Lamine SACKO</b> — Founder &amp; Engineer<br>
+      sackolamine994@gmail.com<br>
+      Mali · github.com/professeurp2/forgeron
     </div>
   </footer>
 </div>
