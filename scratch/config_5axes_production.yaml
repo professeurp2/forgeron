@@ -71,12 +71,11 @@ axes:
       # Fin de course X — switch NO vers GND, pull-up interne (actif bas)
       limit_all_pin: gpio.4:low:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
-      # hard_limits DÉSACTIVÉ (mise au point) : de faux « ALARM:1 Hard Limit »
-      # se déclenchaient au homing par parasitage des fils capteurs quand les
-      # moteurs tournent. Le homing utilise toujours les capteurs ; les
-      # soft_limits protègent après homing. Réactiver (true) une fois le bruit
-      # traité (condensateur 100 nF capteur→GND + fils capteurs séparés/blindés).
-      hard_limits: false
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
       # Pull-off augmenté (1→5) : le switch X a une course longue et 1 mm ne le
       # relâchait pas après le 1er contact → ALARM:8. 5 mm le dégage franchement.
       pulloff_mm: 5.000
@@ -111,12 +110,11 @@ axes:
       # Fin de course Y — switch NO vers GND, pull-up interne (actif bas)
       limit_all_pin: gpio.13:low:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
-      # hard_limits DÉSACTIVÉ (mise au point) : de faux « ALARM:1 Hard Limit »
-      # se déclenchaient au homing par parasitage des fils capteurs quand les
-      # moteurs tournent. Le homing utilise toujours les capteurs ; les
-      # soft_limits protègent après homing. Réactiver (true) une fois le bruit
-      # traité (condensateur 100 nF capteur→GND + fils capteurs séparés/blindés).
-      hard_limits: false
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
       pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.25
@@ -152,12 +150,11 @@ axes:
       # Fin de course Z — switch NO vers GND, pull-up interne (actif bas)
       limit_all_pin: gpio.14:low:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
-      # hard_limits DÉSACTIVÉ (mise au point) : de faux « ALARM:1 Hard Limit »
-      # se déclenchaient au homing par parasitage des fils capteurs quand les
-      # moteurs tournent. Le homing utilise toujours les capteurs ; les
-      # soft_limits protègent après homing. Réactiver (true) une fois le bruit
-      # traité (condensateur 100 nF capteur→GND + fils capteurs séparés/blindés).
-      hard_limits: false
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
       # Pull-off Z augmenté (1→5) : comme X et A, 1 mm ne relâchait pas le
       # capteur au 1er contact du homing → il restait « bloqué » (ALARM:8).
       pulloff_mm: 5.000
@@ -197,12 +194,11 @@ axes:
       # GPIO5 = broche de strap : ne pas laisser le berceau sur le switch au boot.
       limit_all_pin: gpio.5:low:pu
       # Câblage + homing A validés (A=0 = horizontale) → alarme si switch touché.
-      # hard_limits DÉSACTIVÉ (mise au point) : de faux « ALARM:1 Hard Limit »
-      # se déclenchaient au homing par parasitage des fils capteurs quand les
-      # moteurs tournent. Le homing utilise toujours les capteurs ; les
-      # soft_limits protègent après homing. Réactiver (true) une fois le bruit
-      # traité (condensateur 100 nF capteur→GND + fils capteurs séparés/blindés).
-      hard_limits: false
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
       # Pull-off 5° : 1° ne relâchait pas le switch A après le 1er contact →
       # ALARM:8 (comme X). En degrés ici (axe rotatif).
       pulloff_mm: 5.000
