@@ -290,7 +290,7 @@ HTML = f"""<!doctype html>
             <div class="phscreen m-slot">
               <div class="ic">🛠️</div>
               <div class="t">5-axis physical machine</div>
-              <div class="s">Real in-operation photo to be inserted here (3D model → photo).</div>
+              <div class="s">ESP32 + FluidNC + 5× TB6600 · X/Y/Z linear + A/C Trunnion. Photo attached with this application.</div>
               <div class="badge2">BUILT &amp; WORKING</div>
             </div>
             <span class="home"></span>

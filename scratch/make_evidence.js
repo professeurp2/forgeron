@@ -71,7 +71,7 @@ const doc = new Document({
 
       h('3. Physical machine (hardware proof)'),
       p([txt('A fully built, working physical 5-axis CNC machine: ESP32 DevKit V1 + FluidNC v3.7 + 5× TB6600 drivers, X/Y/Z linear + A/C rotary (Trunnion) axes. See attached photos and the one-pager.')]),
-      bullet([note('[ Photos of the real machine attached as separate image files ]')]),
+      bullet([txt('A photo of the real, fully assembled machine is attached with this application as a separate image file.')]),
 
       h('4. AI capability (technical evidence)'),
       p([txt('The core AI is an agentic assistant: an LLM using function calling, exposed to 12 safe machine-control tools, with a permissions layer and a pre-motion trajectory validator that prevents collisions. Key source files:')]),
