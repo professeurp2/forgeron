@@ -88,7 +88,9 @@ HTML = f"""<!doctype html>
   /* Showcase band */
   .showcase {{ grid-column:1 / -1; }}
   .showcase .sh-head {{ font-size:9px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
-    font-weight:700; margin-bottom:4px; padding-left:2px; }}
+    font-weight:700; margin-bottom:4px; padding-left:2px;
+    display:flex; justify-content:space-between; align-items:baseline; }}
+  .showcase .sh-head .demo {{ color:var(--forge); text-transform:none; letter-spacing:.2px; font-weight:700; }}
   .shots {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }}
 
   /* Phone frame */
@@ -226,7 +228,7 @@ HTML = f"""<!doctype html>
     </div>
 
     <div class="showcase">
-      <div class="sh-head">The product in action</div>
+      <div class="sh-head"><span>The product in action</span><span class="demo">▶ Watch the demo — youtube.com/shorts/wCH-2Z9WxEw</span></div>
       <div class="shots">
         <!-- Dashboard -->
         <div>

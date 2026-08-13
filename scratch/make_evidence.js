@@ -67,7 +67,7 @@ const doc = new Document({
 
       h('2. Demo video'),
       p([txt('Short walkthrough of the app driving the 5-axis machine, including the AI agent controlling the machine by plain-language commands.')]),
-      bullet([label('Video link: '), note('[ À COLLER — paste your demo video URL here before submitting ]')]),
+      bullet([label('Video link: '), link('https://youtube.com/shorts/wCH-2Z9WxEw', 'https://youtube.com/shorts/wCH-2Z9WxEw')]),
 
       h('3. Physical machine (hardware proof)'),
       p([txt('A fully built, working physical 5-axis CNC machine: ESP32 DevKit V1 + FluidNC v3.7 + 5× TB6600 drivers, X/Y/Z linear + A/C rotary (Trunnion) axes. See attached photos and the one-pager.')]),
