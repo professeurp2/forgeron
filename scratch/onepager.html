@@ -138,6 +138,13 @@
   .m-ai .send { width:16px; height:16px; border-radius:999px; background:var(--forge); color:#fff; display:flex; align-items:center; justify-content:center; font-size:8px; }
   .m-ai .quota { font-size:6px; color:#a7afb9; text-align:center; padding:3px 0 4px; background:#fff; }
 
+  /* ---- Machine photo (real) ---- */
+  .m-photo { position:relative; background:#000; }
+  .m-photo img { width:100%; height:100%; object-fit:cover; object-position:center; display:block; }
+  .m-photo .ph-tag { position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    background:rgba(15,157,88,.92); color:#fff; font-size:7.5px; font-weight:800; letter-spacing:.4px;
+    padding:3px 9px; border-radius:999px; white-space:nowrap; }
+
   /* ---- Machine placeholder ---- */
   .m-slot { background:var(--soft); border:1.5px dashed #c7d0dc; border-radius:14px; height:100%;
     display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:7px; padding:12px; }
@@ -279,12 +286,7 @@
         <div>
           <div class="phone">
             <span class="island"></span>
-            <div class="phscreen m-slot">
-              <div class="ic">🛠️</div>
-              <div class="t">5-axis physical machine</div>
-              <div class="s">ESP32 + FluidNC + 5× TB6600 · X/Y/Z linear + A/C Trunnion. Photo attached with this application.</div>
-              <div class="badge2">BUILT &amp; WORKING</div>
-            </div>
+            <div class="phscreen m-slot"><div class="ic">🛠️</div><div class="t">5-axis physical machine</div><div class="s">ESP32 + FluidNC + 5× TB6600 · X/Y/Z linear + A/C Trunnion. Photo attached with this application.</div><div class="badge2">BUILT &amp; WORKING</div></div>
             <span class="home"></span>
           </div>
           <div class="cap"><b>Hardware</b> · real 5-axis rig</div>

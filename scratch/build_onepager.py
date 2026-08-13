@@ -6,6 +6,28 @@ root = pathlib.Path(__file__).resolve().parent.parent
 logo_b64 = base64.b64encode((root / "assets/logo.png").read_bytes()).decode()
 logo_uri = f"data:image/png;base64,{logo_b64}"
 
+# Optional real machine photo — embedded when scratch/machine.jpg exists,
+# otherwise a descriptive fallback card is shown.
+_machine = root / "scratch/machine.jpg"
+if _machine.exists():
+    _m_b64 = base64.b64encode(_machine.read_bytes()).decode()
+    machine_screen = (
+        '<div class="phscreen m-photo">'
+        f'<img src="data:image/jpeg;base64,{_m_b64}" alt="Forgeron 5-axis machine">'
+        '<span class="ph-tag">BUILT &amp; WORKING</span>'
+        '</div>'
+    )
+else:
+    machine_screen = (
+        '<div class="phscreen m-slot">'
+        '<div class="ic">🛠️</div>'
+        '<div class="t">5-axis physical machine</div>'
+        '<div class="s">ESP32 + FluidNC + 5× TB6600 · X/Y/Z linear + A/C Trunnion. '
+        'Photo attached with this application.</div>'
+        '<div class="badge2">BUILT &amp; WORKING</div>'
+        '</div>'
+    )
+
 HTML = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -145,6 +167,13 @@ HTML = f"""<!doctype html>
   .m-ai .inbox {{ flex:1; background:#f1f4f7; color:#98a1ac; border-radius:999px; padding:4px 8px; font-size:7px; }}
   .m-ai .send {{ width:16px; height:16px; border-radius:999px; background:var(--forge); color:#fff; display:flex; align-items:center; justify-content:center; font-size:8px; }}
   .m-ai .quota {{ font-size:6px; color:#a7afb9; text-align:center; padding:3px 0 4px; background:#fff; }}
+
+  /* ---- Machine photo (real) ---- */
+  .m-photo {{ position:relative; background:#000; }}
+  .m-photo img {{ width:100%; height:100%; object-fit:cover; object-position:center; display:block; }}
+  .m-photo .ph-tag {{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    background:rgba(15,157,88,.92); color:#fff; font-size:7.5px; font-weight:800; letter-spacing:.4px;
+    padding:3px 9px; border-radius:999px; white-space:nowrap; }}
 
   /* ---- Machine placeholder ---- */
   .m-slot {{ background:var(--soft); border:1.5px dashed #c7d0dc; border-radius:14px; height:100%;
@@ -287,12 +316,7 @@ HTML = f"""<!doctype html>
         <div>
           <div class="phone">
             <span class="island"></span>
-            <div class="phscreen m-slot">
-              <div class="ic">🛠️</div>
-              <div class="t">5-axis physical machine</div>
-              <div class="s">ESP32 + FluidNC + 5× TB6600 · X/Y/Z linear + A/C Trunnion. Photo attached with this application.</div>
-              <div class="badge2">BUILT &amp; WORKING</div>
-            </div>
+            {machine_screen}
             <span class="home"></span>
           </div>
           <div class="cap"><b>Hardware</b> · real 5-axis rig</div>
