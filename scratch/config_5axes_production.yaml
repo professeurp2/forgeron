@@ -173,15 +173,18 @@ axes:
     steps_per_mm: 16.667
     max_rate_mm_per_min: 3600.000
     acceleration_mm_per_sec2: 50.000
-    # Switch A à -95° (mesuré : l'horizontale est à 95° du switch). Course -95→+90.
-    max_travel_mm: 185.000
+    # Switch A recalé à -88° : contact réel mesuré après homing (l'ancien 95° était
+    # faux → A=0 ne tombait pas à l'horizontale). Course -88→+90.
+    max_travel_mm: 178.000
     soft_limits: true
-    # HOMING A — capteur à l'extrémité NÉGATIVE, réellement à -95° → mpos_mm: -95
-    # (positive_direction: false). Ainsi A=0 correspond pile à l'horizontale.
+    # HOMING A — capteur à l'extrémité NÉGATIVE. Contact réel = -88° de
+    # l'horizontale (mesuré ; l'ancien 95 était faux) → mpos_mm: -88 pour que A=0
+    # tombe pile à l'horizontale ET que le capteur = limite basse (plus de course
+    # "fantôme" au-delà du switch). positive_direction: false.
     homing:
       cycle: 3
       positive_direction: false
-      mpos_mm: -95.000
+      mpos_mm: -88.000
       feed_mm_per_min: 200.000
       seek_mm_per_min: 1000.000
       settle_ms: 250
