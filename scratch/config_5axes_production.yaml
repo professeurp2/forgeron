@@ -68,8 +68,8 @@ axes:
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      # Fin de course X — switch NO vers GND, pull-up interne (actif bas)
-      limit_all_pin: gpio.4:low:pu
+      # Fin de course X — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.4:high:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
       # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
       # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
@@ -107,8 +107,8 @@ axes:
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      # Fin de course Y — switch NO vers GND, pull-up interne (actif bas)
-      limit_all_pin: gpio.13:low:pu
+      # Fin de course Y — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.13:high:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
       # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
       # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
@@ -147,8 +147,8 @@ axes:
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      # Fin de course Z — switch NO vers GND, pull-up interne (actif bas)
-      limit_all_pin: gpio.14:low:pu
+      # Fin de course Z — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.14:high:pu
       # Câblage validé + homing OK → alarme si le switch est touché en usinage.
       # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
       # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
@@ -193,9 +193,9 @@ axes:
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      # Capteur de homing A — switch NO vers GND, pull-up interne (actif bas).
+      # Capteur de homing A — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE).
       # GPIO5 = broche de strap : ne pas laisser le berceau sur le switch au boot.
-      limit_all_pin: gpio.5:low:pu
+      limit_all_pin: gpio.5:high:pu
       # Câblage + homing A validés (A=0 = horizontale) → alarme si switch touché.
       # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
       # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
