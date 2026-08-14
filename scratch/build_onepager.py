@@ -6,14 +6,17 @@ root = pathlib.Path(__file__).resolve().parent.parent
 logo_b64 = base64.b64encode((root / "assets/logo.png").read_bytes()).decode()
 logo_uri = f"data:image/png;base64,{logo_b64}"
 
-# Optional real machine photo — embedded when scratch/machine.jpg exists,
+# Optional real machine photo — embedded when scratch/machine.{png,jpg} exists,
 # otherwise a descriptive fallback card is shown.
-_machine = root / "scratch/machine.jpg"
-if _machine.exists():
-    _m_b64 = base64.b64encode(_machine.read_bytes()).decode()
+_machine = next((root / f"scratch/machine.{ext}" for ext in ("png", "jpg", "jpeg")
+                 if (root / f"scratch/machine.{ext}").exists()), None)
+if _machine is not None:
+    _data = _machine.read_bytes()
+    _mime = "image/png" if _data[:4] == b"\x89PNG" else "image/jpeg"
+    _m_b64 = base64.b64encode(_data).decode()
     machine_screen = (
         '<div class="phscreen m-photo">'
-        f'<img src="data:image/jpeg;base64,{_m_b64}" alt="Forgeron 5-axis machine">'
+        f'<img src="data:{_mime};base64,{_m_b64}" alt="Forgeron 5-axis machine">'
         '<span class="ph-tag">BUILT &amp; WORKING</span>'
         '</div>'
     )
