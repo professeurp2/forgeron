@@ -238,14 +238,16 @@ control:
   macro2_pin: NO_PIN
   macro3_pin: NO_PIN
   fault_pin: NO_PIN
-  # ARRÊT D'URGENCE matériel — DÉSACTIVÉ tant que le bouton n'est pas câblé.
-  # ⚠️ gpio.34 est une ENTRÉE SEULE, SANS pull-up interne : laissée en l'air elle
-  # flotte à HIGH → FluidNC croit l'E-stop enfoncé au boot → ALARM:11 « Input Pin
-  # Initially On » (impossible à lever par $X). Ne réactiver `gpio.34:high`
-  # qu'UNE FOIS le bouton câblé : GPIO34 --[bouton NF]-- GND + résistance 10 kΩ
-  # de GPIO34 vers 3.3 V. Repos (fermé) = LOW = inactif ; appui/fil coupé = HIGH
-  # = déclenche (fail-safe). Vérifier au champ Pn: avant de compter dessus.
-  estop_pin: NO_PIN
+  # ARRÊT D'URGENCE matériel — bouton coup-de-poing NF (normalement fermé).
+  # Câblage : GPIO34 --[bouton NF]-- GND  +  résistance 10 kΩ de GPIO34 vers 3.3 V
+  # (gpio.34 = ENTRÉE SEULE, sans pull-up interne → le 10 kΩ est OBLIGATOIRE).
+  # Repos (NF fermé) = LOW = inactif ; appui OU fil coupé = ouvert = HIGH (pull-up)
+  # → déclenche = FAIL-SAFE (reset FluidNC immédiat).
+  # ⚠️⚠️ NE TÉLÉVERSER cette config QU'UNE FOIS LE BOUTON + LE 10 kΩ CÂBLÉS :
+  # sinon gpio.34 flotte à HIGH → ALARM:11 « Input Pin Initially On » au boot
+  # (impossible à lever par $X). Après câblage, vérifier au champ Pn: (écran Test)
+  # que c'est INACTIF au repos et ACTIF quand on appuie.
+  estop_pin: gpio.34:high
 
 coolant:
   flood_pin: NO_PIN
