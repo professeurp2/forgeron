@@ -242,15 +242,17 @@ control:
   macro3_pin: NO_PIN
   fault_pin: NO_PIN
   # ARRÊT D'URGENCE matériel — bouton coup-de-poing NF (normalement fermé).
-  # Câblage : GPIO34 --[bouton NF]-- GND  +  résistance 10 kΩ de GPIO34 vers 3.3 V
-  # (gpio.34 = ENTRÉE SEULE, sans pull-up interne → le 10 kΩ est OBLIGATOIRE).
-  # Repos (NF fermé) = LOW = inactif ; appui OU fil coupé = ouvert = HIGH (pull-up)
-  # → déclenche = FAIL-SAFE (reset FluidNC immédiat).
-  # ⚠️⚠️ NE TÉLÉVERSER cette config QU'UNE FOIS LE BOUTON + LE 10 kΩ CÂBLÉS :
-  # sinon gpio.34 flotte à HIGH → ALARM:11 « Input Pin Initially On » au boot
-  # (impossible à lever par $X). Après câblage, vérifier au champ Pn: (écran Test)
-  # que c'est INACTIF au repos et ACTIF quand on appuie.
-  estop_pin: gpio.34:high
+  # Câblage SIMPLIFIÉ : GPIO15 --[bouton NF]-- GND  (AUCUNE résistance externe :
+  # gpio.15 possède un pull-up INTERNE, activé par le suffixe ':pu').
+  # Repos (NF fermé) = LOW = inactif ; appui OU fil coupé = ouvert = HIGH (pull-up
+  # interne) → déclenche = FAIL-SAFE (reset FluidNC immédiat).
+  # ⚠️ gpio.15 est un « strapping pin » : CÂBLER LE BOUTON AVANT DE TÉLÉVERSER.
+  #    Sans bouton connecté, le pull-up lit HIGH → E-STOP actif → ALARM au boot.
+  #    (Au repos LOW, gpio.15 masque seulement le log ROM de boot sur l'UART —
+  #     sans effet sur FluidNC ni sur la liaison WebSocket.)
+  # Après câblage, vérifier au champ Pn: (écran Diagnostics) que c'est INACTIF au
+  # repos et ACTIF quand on appuie.
+  estop_pin: gpio.15:high:pu
 
 coolant:
   flood_pin: NO_PIN

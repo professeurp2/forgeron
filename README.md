@@ -99,7 +99,7 @@ L'alimentation des moteurs est une **alim ATX de bureautique HP** (Delta **DPS-4
 | Fin de course Y | GPIO 13 | switch **NC** → GND (`gpio.13:high:pu`) |
 | Fin de course Z | GPIO 14 | switch **NC** → GND (`gpio.14:high:pu`) |
 | Fin de course / homing **A** | GPIO 5 | switch **NC** → GND (`gpio.5:high:pu`) ; capteur à **-88°** → A=0 = horizontale |
-| **ARRÊT D'URGENCE** | GPIO 34 | bouton **NF** → GND **+ 10 kΩ → 3.3 V** (gpio.34 = entrée seule), fail-safe (`estop_pin: gpio.34:high`) |
+| **ARRÊT D'URGENCE** | GPIO 15 | bouton **NF** → GND, pull-up interne (`estop_pin: gpio.15:high:pu`) — fail-safe, sans résistance externe |
 | Broche DC | GPIO 21 | module relais tout-ou-rien (`Relay: output_pin`). `M3`=ON, `M5`=OFF |
 
 > **Fins de course en NC (fail-safe)** : un fil coupé/débranché déclenche une **alarme** au lieu de désactiver la sécurité en silence. `hard_limits` **réactivés** (les faux déclenchements venaient du bruit, réglé par un **câblage propre en coffret** — fils capteurs séparés des fils moteurs).

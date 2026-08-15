@@ -7,8 +7,8 @@ import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 
-/// Récupération guidée après une alarme (dont fin de course / hard limit) :
-/// déverrouiller ($X) → dégager l'axe de la butée → re-homing.
+/// Récupération guidée après une alarme (fin de course, hard limit ou arrêt
+/// d'urgence matériel) : réarmer (Ctrl-X + $X) → dégager l'axe → re-homing.
 class LimitRecoveryScreen extends ConsumerWidget {
   const LimitRecoveryScreen({super.key});
 
@@ -76,18 +76,27 @@ class LimitRecoveryScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Étape 1 : Déverrouiller ─────────────────────────────────────
-          _stepLabel(fc, 1, 'Déverrouiller'),
+          // ── Étape 1 : Réarmer ───────────────────────────────────────────
+          _stepLabel(fc, 1, 'Réarmer'),
           const SizedBox(height: 6),
           Text(
-            'La machine est verrouillée en alarme. Déverrouille-la pour '
+            'La machine est verrouillée en alarme (fin de course OU arrêt '
+            'd\'urgence). Réarme-la — soft-reset puis déverrouillage — pour '
             'autoriser un mouvement de dégagement.',
             style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 10),
           _bigButton(fc, fc.warning, Icons.lock_open_rounded,
-              'DÉVERROUILLER (\$X)', inAlarm, () {
-            ref.read(machineRepositoryProvider).sendRaw('\$X\n');
+              'RÉARMER (Reset + \$X)', inAlarm, () {
+            // Réarmement UNIVERSEL. Le soft-reset (Ctrl-X) est OBLIGATOIRE pour
+            // sortir d'un ARRÊT D'URGENCE matériel : le pin estop verrouille un
+            // reset que « \$X » seul ne lève pas. Le « \$X » qui suit déverrouille
+            // l'alarme restante. Marche aussi pour les fins de course (où « \$X »
+            // seul aurait suffi) → un seul geste pour tous les cas.
+            final repo = ref.read(machineRepositoryProvider);
+            repo.sendRaw('\x18'); // 1. soft-reset (Ctrl-X)
+            Future.delayed(const Duration(milliseconds: 500),
+                () => repo.sendRaw('\$X\n')); // 2. déverrouillage ($X)
             HapticFeedback.mediumImpact();
           }),
           const SizedBox(height: 24),
