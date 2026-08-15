@@ -530,9 +530,42 @@ class _AiAssistantPage extends ConsumerWidget {
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, color: fc.textSecondary, size: 20),
-            tooltip: 'Effacer la conversation',
-            onPressed: () =>
-                ref.read(aiAgentControllerProvider.notifier).clearConversation(),
+            tooltip: 'Effacer la discussion',
+            // Confirmation obligatoire : l'historique est irrécupérable, et le
+            // bouton est juste à côté de « paramètres ».
+            onPressed: () async {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: fc.surface,
+                  title: Text('Effacer cette discussion ?',
+                      style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+                  content: Text(
+                    'Tous les messages de la discussion ouverte seront '
+                    'supprimés. Les autres discussions ne sont pas touchées.',
+                    style: TextStyle(
+                        color: fc.textSecondary, fontSize: 13, height: 1.4),
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Annuler')),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: fc.danger,
+                          foregroundColor: Colors.white),
+                      child: const Text('Effacer'),
+                    ),
+                  ],
+                ),
+              );
+              if (ok == true) {
+                ref
+                    .read(aiAgentControllerProvider.notifier)
+                    .clearConversation();
+              }
+            },
           ),
           const SizedBox(width: 4),
         ],

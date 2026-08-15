@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,11 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/utils/chat_markdown.dart';
+import '../../core/utils/file_picker_service.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/providers/workspace_provider.dart';
 import 'ai_agent_settings_screen.dart';
 
 /// Écran de chat avec l'agent IA — reprend le pattern visuel du terminal MDI
@@ -31,6 +35,10 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
+  /// Vue collée au dernier message : tant que c'est vrai, l'arrivée de texte
+  /// fait défiler. Dès que l'opérateur remonte lire, on le laisse tranquille.
+  bool _atBottom = true;
+
   // Image en attente d'envoi (multimodal Gemini vision).
   Uint8List? _pendingImage;
   String? _pendingImageMime;
@@ -40,13 +48,27 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final FlutterTts _tts = FlutterTts();
   bool _listening = false;
 
+  /// Entrée clavier physique : Entrée envoie, Maj+Entrée passe à la ligne.
+  /// Réservé au desktop — sur mobile la touche « retour » du clavier logiciel
+  /// doit rester un saut de ligne.
+  static final bool _hardwareEnterSends =
+      defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS;
+
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     // Écran ouvert → l'opérateur voit les messages en direct, on efface le
     // badge du bouton IA.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(aiInboxProvider.notifier).setScreenOpen(true);
+      // L'historique est restauré AVANT l'ouverture de l'écran : les bulles
+      // sont déjà là au premier build, donc aucun événement « nouveau
+      // message » ne déclenche le défilement. Sans ce saut, on ouvre sur la
+      // toute première discussion au lieu de la dernière.
+      _snapToEnd();
     });
     _tts.setLanguage('fr-FR');
     _tts.setSpeechRate(0.5);
@@ -57,9 +79,22 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     ref.read(aiInboxProvider.notifier).setScreenOpen(false);
     _speech.stop();
     _tts.stop();
+    _scrollCtrl.removeListener(_onScroll);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  /// Marge sous laquelle on considère la vue « en bas » : le streaming ajoute
+  /// du texte en continu, il faut un peu de jeu pour ne pas décrocher au
+  /// moindre pixel.
+  static const _bottomSlack = 80.0;
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    final atEnd = _scrollCtrl.offset >=
+        _scrollCtrl.position.maxScrollExtent - _bottomSlack;
+    if (atEnd != _atBottom && mounted) setState(() => _atBottom = atEnd);
   }
 
   /// Dictée vocale : bascule l'écoute du micro et remplit le champ de saisie.
@@ -101,6 +136,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
   Future<void> _speak(String text) async {
     final clean = text
+        .replaceAll(RegExp(r'```[\s\S]*?```'), ' bloc de code ')
         .replaceAll(RegExp(r'[*_`#>]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -122,7 +158,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       _pendingImage = null;
       _pendingImageMime = null;
     });
+    // Envoi volontaire → on recolle en bas même si l'opérateur lisait plus haut.
+    _atBottom = true;
     _scrollToEnd();
+  }
+
+  void _stop() {
+    ref.read(aiAgentControllerProvider.notifier).stopGeneration();
+    _tts.stop();
   }
 
   final ImagePicker _picker = ImagePicker();
@@ -198,27 +241,223 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     return 'image/jpeg';
   }
 
-  /// Copie un message dans le presse-papiers (avec confirmation).
-  void _copy(String text) {
+  /// Copie un texte dans le presse-papiers (avec confirmation).
+  void _copy(String text, [String label = 'Message copié']) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Message copié'),
-        duration: Duration(seconds: 1),
-      ),
+      SnackBar(content: Text(label), duration: const Duration(seconds: 1)),
     );
   }
 
   /// Envoi direct d'un texte prédéfini (chips de suggestion / compétences).
   void _sendText(String text) {
     ref.read(aiAgentControllerProvider.notifier).sendUserMessage(text);
+    _atBottom = true;
     _scrollToEnd();
+  }
+
+  // ---------------------------------------------------------------------
+  // Enregistrement d'un bloc G-code proposé par l'agent
+  // ---------------------------------------------------------------------
+
+  /// Écrit un bloc de code de la réponse dans l'espace de travail, sous un nom
+  /// choisi par l'opérateur. L'écrasement d'un fichier existant est confirmé
+  /// séparément : un programme de la veille ne doit pas disparaître sur un
+  /// simple appui.
+  Future<void> _saveGcode(String code) async {
+    final folder = ref.read(workFolderProvider);
+    if (folder == null || folder.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Choisis d\'abord un dossier dans Espace de travail.')),
+      );
+      return;
+    }
+
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final suggested =
+        'agent_${now.year}${two(now.month)}${two(now.day)}_${two(now.hour)}${two(now.minute)}.nc';
+
+    final name = await _askFileName(suggested);
+    if (name == null || name.trim().isEmpty) return;
+    final clean = name.trim();
+
+    // Relit le dossier avant le test d'existence : une liste périmée ferait
+    // écraser un fichier sans jamais demander confirmation.
+    ref.read(workFilesRefreshProvider.notifier).state++;
+    final existing = ref
+        .read(workFilesProvider)
+        .where((f) => f.name.toLowerCase() == clean.toLowerCase())
+        .toList();
+    if (existing.isNotEmpty) {
+      final overwrite = await _confirmOverwrite(clean);
+      if (overwrite != true) return;
+    }
+
+    final path = existing.isNotEmpty
+        ? existing.first.path
+        : '${folder.endsWith('/') ? folder : '$folder/'}$clean';
+    try {
+      await FilePickerService.writeWorkFile(path, code);
+      ref.read(workFilesRefreshProvider.notifier).state++;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Enregistré dans l\'espace de travail : $clean')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Écriture impossible : $e')),
+      );
+    }
+  }
+
+  Future<String?> _askFileName(String suggested) {
+    final fc = context.fc;
+    final ctrl = TextEditingController(text: suggested);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Enregistrer le G-code',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: TextStyle(color: fc.textPrimary),
+          decoration: InputDecoration(
+            labelText: 'Nom du fichier',
+            labelStyle: TextStyle(color: fc.textSecondary),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmOverwrite(String name) {
+    final fc = context.fc;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Remplacer « $name » ?',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Text(
+          'Ce fichier existe déjà dans l\'espace de travail. Son contenu actuel '
+          'sera définitivement perdu.',
+          style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.danger, foregroundColor: Colors.white),
+            child: const Text('Remplacer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Discussions
+  // ---------------------------------------------------------------------
+
+  Future<void> _openConversations() async {
+    final fc = context.fc;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: fc.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => _ConversationSheet(fc: fc),
+    );
+  }
+
+  Future<void> _confirmClear() async {
+    final fc = context.fc;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Effacer cette discussion ?',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Text(
+          'Tous les messages de la discussion ouverte seront supprimés. Les '
+          'autres discussions ne sont pas touchées.',
+          style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.danger, foregroundColor: Colors.white),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      ref.read(aiAgentControllerProvider.notifier).clearConversation();
+    }
   }
 
   static String _fmtTime(DateTime t) {
     final h = t.hour.toString().padLeft(2, '0');
     final m = t.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  /// Libellé d'un séparateur de jour : « Aujourd'hui », « Hier », ou la date.
+  static String _fmtDay(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Aujourd\'hui';
+    if (diff == 1) return 'Hier';
+    const months = [
+      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+    ];
+    final label = '${day.day} ${months[day.month - 1]}';
+    return day.year == now.year ? label : '$label ${day.year}';
+  }
+
+  /// Intercale un séparateur de jour à chaque changement de date.
+  static List<Object> _rows(List<AiChatMessage> messages) {
+    final rows = <Object>[];
+    DateTime? lastDay;
+    for (final m in messages) {
+      final day =
+          DateTime(m.timestamp.year, m.timestamp.month, m.timestamp.day);
+      if (lastDay == null || day != lastDay) {
+        rows.add(day);
+        lastDay = day;
+      }
+      rows.add(m);
+    }
+    return rows;
   }
 
   void _scrollToEnd() {
@@ -233,6 +472,30 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     });
   }
 
+  /// Place la vue sur le dernier message, sans animation (ouverture de
+  /// l'écran). Le `ListView.builder` est paresseux : `maxScrollExtent` n'est
+  /// qu'une estimation qui grandit à mesure que les bulles se construisent —
+  /// un seul saut s'arrêterait au milieu de la conversation. On re-saute donc
+  /// tant que le bas recule, avec un garde-fou de [tries] frames.
+  void _snapToEnd([int tries = 0]) {
+    if (!mounted || tries > 15) return;
+    if (!_scrollCtrl.hasClients) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _snapToEnd(tries + 1));
+      return;
+    }
+    final max = _scrollCtrl.position.maxScrollExtent;
+    if (_scrollCtrl.offset < max) _scrollCtrl.jumpTo(max);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      // Le bas a encore reculé (nouvelles bulles mesurées) → on continue.
+      if (_scrollCtrl.position.maxScrollExtent > _scrollCtrl.offset + 1) {
+        _snapToEnd(tries + 1);
+      }
+    });
+    if (!_atBottom && mounted) setState(() => _atBottom = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
@@ -242,10 +505,20 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final model = ref.watch(aiModelProvider);
 
     ref.listen(aiAgentControllerProvider, (previous, next) {
+      // Bascule de discussion / historique restauré après l'ouverture de
+      // l'écran : on saute en bas au lieu d'animer tout le fil depuis le haut.
+      if (previous?.activeId != next.activeId ||
+          ((previous?.messages.isEmpty ?? true) && next.messages.length > 1)) {
+        _snapToEnd();
+        return;
+      }
       final grew = (previous?.messages.length ?? 0) < next.messages.length;
-      if (grew ||
-          previous?.isProcessing != next.isProcessing ||
-          previous?.streamingText != next.streamingText) {
+      // On ne suit le fil que si l'opérateur est déjà en bas : sinon il est en
+      // train de relire plus haut, et le ramener de force serait pénible.
+      if (_atBottom &&
+          (grew ||
+              previous?.isProcessing != next.isProcessing ||
+              previous?.streamingText != next.streamingText)) {
         _scrollToEnd();
       }
       // Lecture vocale du dernier message de l'assistant si le TTS est actif.
@@ -307,14 +580,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   IconButton(
                     icon: Icon(Icons.delete_outline,
                         color: fc.textSecondary, size: 20),
-                    tooltip: 'Effacer la conversation',
-                    onPressed: () => ref
-                        .read(aiAgentControllerProvider.notifier)
-                        .clearConversation(),
+                    tooltip: 'Effacer la discussion',
+                    onPressed: _confirmClear,
                   ),
                 ],
               ),
             ),
+          _conversationBar(fc, chat),
           if (!settings.enabled)
             _banner(
               fc,
@@ -326,28 +598,41 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           Expanded(
             child: (chat.messages.isEmpty && !chat.isProcessing)
                 ? _emptyState(fc, settings.enabled)
-                : Builder(builder: (context) {
-                    final streaming = chat.streamingText != null &&
-                        chat.streamingText!.isNotEmpty;
-                    final thinking = chat.isProcessing &&
-                        chat.pendingConfirmation == null &&
-                        !streaming;
-                    final extra = (streaming || thinking) ? 1 : 0;
-                    return ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: chat.messages.length + extra,
-                      itemBuilder: (ctx, i) {
-                        if (i >= chat.messages.length) {
-                          if (streaming) {
-                            return _streamingBubble(fc, chat.streamingText!);
-                          }
-                          return _ThinkingBubble(fc: fc);
-                        }
-                        return _messageBubble(fc, chat.messages[i]);
-                      },
-                    );
-                  }),
+                : Stack(
+                    children: [
+                      Builder(builder: (context) {
+                        final streaming = chat.streamingText != null &&
+                            chat.streamingText!.isNotEmpty;
+                        final thinking = chat.isProcessing &&
+                            chat.pendingConfirmation == null &&
+                            !streaming;
+                        final rows = _rows(chat.messages);
+                        final extra = (streaming || thinking) ? 1 : 0;
+                        return ListView.builder(
+                          controller: _scrollCtrl,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: rows.length + extra,
+                          itemBuilder: (ctx, i) {
+                            if (i >= rows.length) {
+                              if (streaming) {
+                                return _streamingBubble(fc, chat.streamingText!);
+                              }
+                              return _ThinkingBubble(fc: fc);
+                            }
+                            final row = rows[i];
+                            if (row is DateTime) return _daySeparator(fc, row);
+                            return _messageBubble(fc, row as AiChatMessage);
+                          },
+                        );
+                      }),
+                      if (!_atBottom)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: _scrollDownButton(fc),
+                        ),
+                    ],
+                  ),
           ),
           if (chat.pendingConfirmation != null)
             _confirmationCard(fc, chat.pendingConfirmation!),
@@ -364,6 +649,98 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             ),
           _quotaStrip(fc, usage, model),
           _inputBar(fc, chat, settings.enabled),
+        ],
+      ),
+    );
+  }
+
+  /// Barre fine : discussion ouverte, accès à la liste, nouvelle discussion.
+  Widget _conversationBar(ForgeronColorPalette fc, AiChatState chat) {
+    final active = chat.conversations
+        .where((c) => c.id == chat.activeId)
+        .toList();
+    final title = active.isEmpty
+        ? AiAgentController.kDefaultTitle
+        : active.first.title;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _openConversations,
+            tooltip: 'Discussions enregistrées',
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.forum_outlined, color: fc.textSecondary),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: _openConversations,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: fc.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () =>
+                ref.read(aiAgentControllerProvider.notifier).newConversation(),
+            tooltip: 'Nouvelle discussion',
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.add_comment_outlined, color: fc.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scrollDownButton(ForgeronColorPalette fc) {
+    return Material(
+      color: fc.surface,
+      shape: CircleBorder(side: BorderSide(color: fc.surfaceBorder)),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: _snapToEnd,
+        child: Padding(
+          padding: const EdgeInsets.all(9),
+          child: Icon(Icons.arrow_downward_rounded, size: 18, color: fc.primary),
+        ),
+      ),
+    );
+  }
+
+  Widget _daySeparator(ForgeronColorPalette fc, DateTime day) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: fc.surfaceBorder, height: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              _fmtDay(day),
+              style: TextStyle(
+                  color: fc.textDisabled,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6),
+            ),
+          ),
+          Expanded(child: Divider(color: fc.surfaceBorder, height: 1)),
         ],
       ),
     );
@@ -410,6 +787,27 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     return spans;
   }
 
+  /// Contenu rendu d'une réponse d'assistant : prose et blocs de code.
+  List<Widget> _assistantContent(ForgeronColorPalette fc, String text,
+      TextStyle baseStyle) {
+    final widgets = <Widget>[];
+    for (final block in parseChatBlocks(text)) {
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+      if (block.isCode) {
+        widgets.add(_CodeBlock(
+          fc: fc,
+          block: block,
+          onCopy: () => _copy(block.text, 'Code copié'),
+          onSave: () => _saveGcode(block.text),
+        ));
+      } else {
+        widgets.add(SelectableText.rich(TextSpan(
+            style: baseStyle, children: _assistantSpans(block.text.trim()))));
+      }
+    }
+    return widgets;
+  }
+
   Widget _messageBubble(ForgeronColorPalette fc, AiChatMessage m) {
     if (m.role == 'tool') {
       return _ToolResultTile(fc: fc, raw: m.text, time: _fmtTime(m.timestamp));
@@ -434,10 +832,26 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     }
     if (m.text.isNotEmpty) {
       if (bubbleItems.isNotEmpty) bubbleItems.add(const SizedBox(height: 8));
-      bubbleItems.add(isUser
-          ? SelectableText(m.text, style: baseStyle)
-          : SelectableText.rich(
-              TextSpan(style: baseStyle, children: _assistantSpans(m.text))));
+      if (isUser) {
+        bubbleItems.add(SelectableText(m.text, style: baseStyle));
+      } else {
+        bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle));
+      }
+    }
+    if (m.interrupted) {
+      bubbleItems.add(const SizedBox(height: 6));
+      bubbleItems.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.stop_circle_outlined, size: 12, color: fc.warning),
+          const SizedBox(width: 5),
+          Text('Réponse interrompue',
+              style: TextStyle(
+                  color: fc.warning,
+                  fontSize: 10,
+                  fontStyle: FontStyle.italic)),
+        ],
+      ));
     }
     final content = Column(
       crossAxisAlignment:
@@ -507,41 +921,36 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          margin: const EdgeInsets.only(top: 6),
-          width: 28,
-          height: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: fc.primary.withValues(alpha: 0.15),
-            border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
-          ),
-          child: const Text('🤖', style: TextStyle(fontSize: 14)),
-        ),
+        _avatar(fc),
         const SizedBox(width: 8),
         Flexible(child: content),
       ],
     );
   }
 
+  Widget _avatar(ForgeronColorPalette fc) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: fc.primary.withValues(alpha: 0.15),
+        border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
+      ),
+      child: const Text('🤖', style: TextStyle(fontSize: 14)),
+    );
+  }
+
   /// Bulle de réponse en cours de streaming (avatar + texte live + curseur).
   Widget _streamingBubble(ForgeronColorPalette fc, String text) {
+    final baseStyle =
+        TextStyle(color: fc.textPrimary, fontSize: 13, height: 1.35);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          margin: const EdgeInsets.only(top: 6),
-          width: 28,
-          height: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: fc.primary.withValues(alpha: 0.15),
-            border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
-          ),
-          child: const Text('🤖', style: TextStyle(fontSize: 14)),
-        ),
+        _avatar(fc),
         const SizedBox(width: 8),
         Flexible(
           child: Container(
@@ -558,15 +967,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               border: Border.all(color: fc.surfaceBorder),
             ),
-            child: Text.rich(
-              TextSpan(
-                style:
-                    TextStyle(color: fc.textPrimary, fontSize: 13, height: 1.35),
-                children: [
-                  ..._assistantSpans(text),
-                  TextSpan(text: ' ▍', style: TextStyle(color: fc.primary)),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ..._assistantContent(fc, text, baseStyle),
+                Text('▍', style: TextStyle(color: fc.primary, fontSize: 13)),
+              ],
             ),
           ),
         ),
@@ -808,9 +1215,10 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _inputBar(ForgeronColorPalette fc, AiChatState chat, bool agentEnabled) {
-    final enabled = agentEnabled &&
-        !chat.isProcessing &&
-        chat.pendingConfirmation == null;
+    // « En cours » couvre le streaming ET l'attente de confirmation : dans les
+    // deux cas l'agent a un tour ouvert, donc on montre Stop au lieu d'Envoyer.
+    final busy = chat.isProcessing || chat.pendingConfirmation != null;
+    final enabled = agentEnabled && !busy;
     final String hint;
     if (!agentEnabled) {
       hint = 'Agent désactivé — voir paramètres';
@@ -858,6 +1266,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
             ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               IconButton(
                 onPressed: enabled ? _showImageSourceSheet : null,
@@ -886,32 +1295,381 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: TextField(
-                  controller: _inputCtrl,
-                  enabled: enabled,
-                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: TextStyle(color: fc.textDisabled),
-                    filled: true,
-                    fillColor: fc.surfaceBright,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+                child: Focus(
+                  onKeyEvent: (node, event) {
+                    if (!_hardwareEnterSends || !enabled) {
+                      return KeyEventResult.ignored;
+                    }
+                    if (event is! KeyDownEvent ||
+                        event.logicalKey != LogicalKeyboardKey.enter) {
+                      return KeyEventResult.ignored;
+                    }
+                    // Maj+Entrée = saut de ligne, Entrée seule = envoi.
+                    if (HardwareKeyboard.instance.isShiftPressed) {
+                      return KeyEventResult.ignored;
+                    }
+                    _send();
+                    return KeyEventResult.handled;
+                  },
+                  child: TextField(
+                    controller: _inputCtrl,
+                    enabled: enabled,
+                    minLines: 1,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: TextStyle(color: fc.textDisabled),
+                      filled: true,
+                      fillColor: fc.surfaceBright,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                  onSubmitted: enabled ? (_) => _send() : null,
                 ),
               ),
               const SizedBox(width: 10),
-              IconButton.filled(
-                onPressed: enabled ? _send : null,
-                style: IconButton.styleFrom(backgroundColor: fc.primary),
-                icon: const Icon(Icons.send, color: Colors.black),
-              ),
+              // Un seul bouton qui bascule : envoyer ↔ interrompre.
+              if (busy)
+                IconButton.filled(
+                  onPressed: _stop,
+                  tooltip: 'Interrompre',
+                  style: IconButton.styleFrom(backgroundColor: fc.danger),
+                  icon: const Icon(Icons.stop_rounded, color: Colors.white),
+                )
+              else
+                IconButton.filled(
+                  onPressed: enabled ? _send : null,
+                  tooltip: 'Envoyer',
+                  style: IconButton.styleFrom(backgroundColor: fc.primary),
+                  icon: const Icon(Icons.send, color: Colors.black),
+                ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bloc de code d'une réponse : monospace, défilement horizontal (les lignes
+/// de G-code sont longues), et actions « copier » / « enregistrer » — sans
+/// quoi il faudrait re-saisir le programme à la main.
+class _CodeBlock extends StatefulWidget {
+  final ForgeronColorPalette fc;
+  final ChatBlock block;
+  final VoidCallback onCopy;
+  final VoidCallback onSave;
+
+  const _CodeBlock({
+    required this.fc,
+    required this.block,
+    required this.onCopy,
+    required this.onSave,
+  });
+
+  @override
+  State<_CodeBlock> createState() => _CodeBlockState();
+}
+
+class _CodeBlockState extends State<_CodeBlock> {
+  /// Au-delà, le bloc est replié : un programme complet noierait la discussion.
+  static const _collapsedLines = 18;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = widget.fc;
+    final isGcode = looksLikeGcode(widget.block);
+    final code = widget.block.text.trimRight();
+    final lines = code.split('\n');
+    final truncated = !_expanded && lines.length > _collapsedLines;
+    final shown =
+        truncated ? lines.take(_collapsedLines).join('\n') : code;
+    final label = widget.block.lang.isEmpty
+        ? (isGcode ? 'gcode' : 'code')
+        : widget.block.lang;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: fc.terminalBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fc.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // En-tête : langage + actions.
+          Container(
+            padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$label · ${lines.length} ligne${lines.length > 1 ? 's' : ''}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: fc.textDisabled,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5),
+                  ),
+                ),
+                _action(fc, Icons.copy_rounded, 'Copier', widget.onCopy),
+                if (isGcode)
+                  _action(fc, Icons.save_alt_rounded, 'Enregistrer',
+                      widget.onSave),
+              ],
+            ),
+          ),
+          // Code : défilement horizontal, jamais de retour à la ligne — une
+          // ligne de G-code coupée en deux se lit très mal.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(
+                shown,
+                style: TextStyle(
+                  color: fc.textPrimary,
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11.5,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+          if (lines.length > _collapsedLines)
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: fc.surfaceBorder)),
+                ),
+                child: Text(
+                  truncated
+                      ? 'Afficher les ${lines.length - _collapsedLines} lignes restantes'
+                      : 'Replier',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: fc.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _action(ForgeronColorPalette fc, IconData icon, String tooltip,
+      VoidCallback onTap) {
+    return IconButton(
+      onPressed: onTap,
+      tooltip: tooltip,
+      iconSize: 15,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 28),
+      icon: Icon(icon, color: fc.textSecondary),
+    );
+  }
+}
+
+/// Sélecteur de discussions : liste des fils sauvegardés, avec renommage et
+/// suppression. Le fil ouvert est mis en évidence.
+class _ConversationSheet extends ConsumerWidget {
+  final ForgeronColorPalette fc;
+  const _ConversationSheet({required this.fc});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chat = ref.watch(aiAgentControllerProvider);
+    final notifier = ref.read(aiAgentControllerProvider.notifier);
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('DISCUSSIONS',
+                        style: TextStyle(
+                            color: fc.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      notifier.newConversation();
+                    },
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Nouvelle'),
+                    style: TextButton.styleFrom(foregroundColor: fc.primary),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: fc.surfaceBorder),
+            Flexible(
+              child: chat.conversations.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text('Aucune discussion enregistrée.',
+                          style: TextStyle(
+                              color: fc.textDisabled, fontSize: 12)),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: chat.conversations.length,
+                      itemBuilder: (ctx, i) {
+                        final c = chat.conversations[i];
+                        final active = c.id == chat.activeId;
+                        return ListTile(
+                          dense: true,
+                          selected: active,
+                          selectedTileColor: fc.primary.withValues(alpha: 0.08),
+                          leading: Icon(
+                            active
+                                ? Icons.chat_bubble
+                                : Icons.chat_bubble_outline,
+                            size: 18,
+                            color: active ? fc.primary : fc.textDisabled,
+                          ),
+                          title: Text(
+                            c.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: fc.textPrimary,
+                              fontSize: 13,
+                              fontWeight:
+                                  active ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${c.messageCount} message${c.messageCount > 1 ? 's' : ''} · '
+                            '${_fmtDate(c.updatedAt)}',
+                            style: TextStyle(
+                                color: fc.textDisabled, fontSize: 10.5),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            icon: Icon(Icons.more_vert,
+                                size: 16, color: fc.textDisabled),
+                            color: fc.surface,
+                            onSelected: (value) async {
+                              if (value == 'rename') {
+                                final name =
+                                    await _askName(context, c.title);
+                                if (name != null) {
+                                  notifier.renameConversation(c.id, name);
+                                }
+                              } else if (value == 'delete') {
+                                final ok = await _confirmDelete(context, c.title);
+                                if (ok == true) {
+                                  notifier.deleteConversation(c.id);
+                                }
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                  value: 'rename', child: Text('Renommer')),
+                              const PopupMenuItem(
+                                  value: 'delete', child: Text('Supprimer')),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            notifier.switchConversation(c.id);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _fmtDate(DateTime t) {
+    final now = DateTime.now();
+    final day = DateTime(t.year, t.month, t.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(day).inDays;
+    String two(int v) => v.toString().padLeft(2, '0');
+    if (diff == 0) return '${two(t.hour)}:${two(t.minute)}';
+    if (diff == 1) return 'hier';
+    return '${two(t.day)}/${two(t.month)}';
+  }
+
+  Future<String?> _askName(BuildContext context, String current) {
+    final ctrl = TextEditingController(text: current);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Renommer la discussion',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: TextStyle(color: fc.textPrimary),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('Renommer')),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context, String title) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text('Supprimer « $title » ?',
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Text(
+          'Cette discussion et son historique seront définitivement perdus.',
+          style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.danger, foregroundColor: Colors.white),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -943,7 +1701,8 @@ class _ToolResultTileState extends State<_ToolResultTile> {
     final name = sep >= 0 ? widget.raw.substring(0, sep) : widget.raw;
     final detail = sep >= 0 ? widget.raw.substring(sep + 3) : '';
     final isError = detail.toLowerCase().contains('erreur') ||
-        detail.toLowerCase().contains('refusé');
+        detail.toLowerCase().contains('refusé') ||
+        detail.toLowerCase().contains('interrompu');
     final accent = isError ? fc.danger : fc.secondary;
 
     return Padding(
