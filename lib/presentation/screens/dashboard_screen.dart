@@ -13,7 +13,6 @@ import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import '../widgets/dashboard/workshop_layout.dart';
 import '../widgets/trunnion_visualizer.dart';
-import 'cnc_panel_screen.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/gcode_editor_dialog.dart';

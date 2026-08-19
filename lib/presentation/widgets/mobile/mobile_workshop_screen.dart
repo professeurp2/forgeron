@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/ui_state_provider.dart';
-import '../../../application/providers/jog_provider.dart';
 import '../../../application/providers/di_providers.dart';
 import '../../../domain/models/machine_state.dart';
 import '../../../application/providers/streaming_provider.dart';
