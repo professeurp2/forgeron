@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/split_view.dart';
 import '../../application/providers/machine_provider.dart';
@@ -62,8 +62,8 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+              color: context.fc.surface,
+              border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
           child: Row(children: [
             Text('MAGASIN D\'OUTILS',
                 style: TextStyle(
@@ -104,16 +104,16 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
         // Recherche
         Container(
           padding: const EdgeInsets.all(12),
-          color: AppColors.surface,
+          color: context.fc.surface,
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Rechercher T# ou Nom...',
-              hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 12),
-              prefixIcon: Icon(Icons.search, color: AppColors.textDisabled),
-              border: const OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.surfaceBorder)),
+              hintStyle: TextStyle(color: context.fc.textDisabled, fontSize: 12),
+              prefixIcon: Icon(Icons.search, color: context.fc.textDisabled),
+              border: OutlineInputBorder(
+                  borderSide: BorderSide(color: context.fc.surfaceBorder)),
               filled: true,
-              fillColor: AppColors.surfaceBright,
+              fillColor: context.fc.surfaceBright,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -137,9 +137,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                   decoration: BoxDecoration(
                     color: sel
                         ? Colors.deepOrange.withValues(alpha: 0.08)
-                        : AppColors.surface,
+                        : context.fc.surface,
                     border: Border(
-                      bottom: BorderSide(color: AppColors.surfaceBorder),
+                      bottom: BorderSide(color: context.fc.surfaceBorder),
                       left: BorderSide(
                           color: sel ? Colors.deepOrange : Colors.transparent,
                           width: 3),
@@ -156,7 +156,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                             ? Colors.green.withValues(alpha: 0.2)
                             : (sel
                                 ? Colors.deepOrange.withValues(alpha: 0.2)
-                                : AppColors.surfaceBright),
+                                : context.fc.surfaceBright),
                         borderRadius: BorderRadius.circular(4),
                         border: isActiveOnMachine
                             ? Border.all(color: Colors.green, width: 1.5)
@@ -178,14 +178,14 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(t.$2,
                             style: TextStyle(
-                                color: AppColors.textPrimary,
+                                color: context.fc.textPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis),
                         Text(
                           'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
                           style: TextStyle(
-                              color: AppColors.textDisabled,
+                              color: context.fc.textDisabled,
                               fontSize: 9,
                               fontFamily: 'JetBrains Mono'),
                         ),
@@ -223,8 +223,8 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+            color: context.fc.surface,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
         child: Row(children: [
           Container(
             width: 56,
@@ -251,7 +251,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(t.$2,
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.fc.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w900)),
               SizedBox(height: 4),
@@ -317,13 +317,13 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       // Tabs
       Container(
         decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+            color: context.fc.surface,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
         child: TabBar(
           controller: _tabCtrl,
           indicatorColor: Colors.deepOrange,
           labelColor: Colors.deepOrange,
-          unselectedLabelColor: AppColors.textDisabled,
+          unselectedLabelColor: context.fc.textDisabled,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           tabs: [
@@ -347,9 +347,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.fc.surface,
         title: Text('Appel outil T$toolNum',
-            style: TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: context.fc.textPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.build, color: Colors.deepOrange, size: 48),
           SizedBox(height: 16),
@@ -458,7 +458,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
             style: TextStyle(
-                color: AppColors.textDisabled,
+                color: context.fc.textDisabled,
                 fontSize: 9,
                 fontWeight: FontWeight.w900)),
         SizedBox(height: 8),
@@ -471,7 +471,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                 fit: BoxFit.scaleDown,
                 child: Text(value,
                     style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: context.fc.textPrimary,
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         fontFamily: 'JetBrains Mono')),
@@ -480,7 +480,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             SizedBox(width: 6),
             Text(unit,
                 style: TextStyle(
-                    color: AppColors.textDisabled, fontSize: 10)),
+                    color: context.fc.textDisabled, fontSize: 10)),
           ],
         ),
       ]),
@@ -528,9 +528,9 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-                color: AppColors.surfaceBright,
+                color: context.fc.surfaceBright,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppColors.surfaceBorder)),
+                border: Border.all(color: context.fc.surfaceBorder)),
             child: Row(children: [
               Text(cmd,
                   style: TextStyle(
@@ -561,14 +561,14 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
             width: 120,
             height: 120,
             child: Stack(alignment: Alignment.center, children: [
-              const CircularProgressIndicator(
+              CircularProgressIndicator(
                   value: 0.68,
                   strokeWidth: 8,
-                  backgroundColor: AppColors.surfaceBright,
+                  backgroundColor: context.fc.surfaceBright,
                   color: Colors.green),
               Text('68%',
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.fc.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'JetBrains Mono')),
@@ -587,13 +587,13 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen>
                   child: Row(children: [
                     Text(e.$1,
                         style: TextStyle(
-                            color: AppColors.textDisabled,
+                            color: context.fc.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
                     Text(e.$2,
                         style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: context.fc.textPrimary,
                             fontSize: 12,
                             fontFamily: 'JetBrains Mono',
                             fontWeight: FontWeight.bold)),

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forgeron/application/services/audio_service.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/streaming_provider.dart';
 import '../../domain/models/machine_state.dart';
@@ -33,7 +33,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       _formatTime(DateTime.now()),
       'INFO',
       'Terminal prêt. En attente de trafic...',
-      AppColors.secondary,
+      context.fc.secondary,
     ));
 
     Future.microtask(() {
@@ -48,25 +48,25 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
 
     String type = 'MSG';
     String content = msg;
-    Color color = AppColors.secondary;
+    Color color = context.fc.secondary;
 
     if (msg.startsWith('TX: ')) {
       type = '>>>';
       content = msg.substring(4);
-      color = AppColors.primary;
+      color = context.fc.primary;
     } else if (msg.startsWith('RX: ')) {
       content = msg.substring(4);
       if (content.startsWith('ok')) {
         type = 'ok';
-        color = AppColors.success;
+        color = context.fc.success;
       } else if (content.startsWith('error') || content.startsWith('ALARM')) {
         type = 'ERR';
-        color = AppColors.error;
+        color = context.fc.error;
       } else if (content.startsWith('<')) {
         return; // Filtrer les trames de statut pour ne pas polluer
       } else {
         type = 'MSG';
-        color = AppColors.warning;
+        color = context.fc.warning;
       }
     }
 
@@ -115,23 +115,23 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
     super.dispose();
   }
 
-  static List<(IconData, String, Color)> get _macros => [
-    (Icons.home, 'ORIGINES', AppColors.primary),
-    (Icons.gps_fixed, 'ZÉRO PIÈCE', AppColors.primary),
-    (Icons.sensors, 'PALPAGE Z', AppColors.secondary),
-    (Icons.rotate_right, 'BROCHE H', AppColors.success),
-    (Icons.stop_circle, 'ARRÊT B.', AppColors.error),
-    (Icons.rotate_left, 'BROCHE AH', AppColors.success),
-    (Icons.water_drop, 'ARROSAGE ON', AppColors.primary),
-    (Icons.water_drop_outlined, 'ARROSAGE OFF', AppColors.textDisabled),
-    (Icons.air, 'SOUFFLAGE', AppColors.secondary),
-    (Icons.vertical_align_top, 'Z SÉCU', AppColors.primary),
-    (Icons.local_parking, 'PARKING', AppColors.textSecondary),
-    (Icons.build, 'CHG OUTIL', AppColors.warning),
-    (Icons.play_arrow, 'REPRENDRE', AppColors.success),
-    (Icons.pause, 'PAUSE', AppColors.warning),
-    (Icons.cancel, 'ANNULER', AppColors.error),
-    (Icons.lock_open, 'DÉBLOQUER', AppColors.primary),
+  List<(IconData, String, Color)> get _macros => [
+    (Icons.home, 'ORIGINES', context.fc.primary),
+    (Icons.gps_fixed, 'ZÉRO PIÈCE', context.fc.primary),
+    (Icons.sensors, 'PALPAGE Z', context.fc.secondary),
+    (Icons.rotate_right, 'BROCHE H', context.fc.success),
+    (Icons.stop_circle, 'ARRÊT B.', context.fc.error),
+    (Icons.rotate_left, 'BROCHE AH', context.fc.success),
+    (Icons.water_drop, 'ARROSAGE ON', context.fc.primary),
+    (Icons.water_drop_outlined, 'ARROSAGE OFF', context.fc.textDisabled),
+    (Icons.air, 'SOUFFLAGE', context.fc.secondary),
+    (Icons.vertical_align_top, 'Z SÉCU', context.fc.primary),
+    (Icons.local_parking, 'PARKING', context.fc.textSecondary),
+    (Icons.build, 'CHG OUTIL', context.fc.warning),
+    (Icons.play_arrow, 'REPRENDRE', context.fc.success),
+    (Icons.pause, 'PAUSE', context.fc.warning),
+    (Icons.cancel, 'ANNULER', context.fc.error),
+    (Icons.lock_open, 'DÉBLOQUER', context.fc.primary),
   ];
 
   @override
@@ -143,17 +143,17 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           height: 36,
           padding: EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: AppColors.surfaceBright,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
+            color: context.fc.surfaceBright,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
           ),
           child: Row(
             children: [
-              Icon(Icons.terminal, color: AppColors.textDisabled, size: 14),
+              Icon(Icons.terminal, color: context.fc.textDisabled, size: 14),
               SizedBox(width: 8),
               Text(
                 'TERMINAL MDI / LOGS',
                 style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
                 ),
@@ -162,7 +162,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               Text(
                 'BUFFER: 127/128',
                 style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: 9,
                   fontFamily: 'JetBrains Mono',
                 ),
@@ -174,7 +174,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
         Expanded(
           key: TutorialKeys.mdiHistory,
           child: Container(
-            color: AppColors.terminalBg,
+            color: context.fc.terminalBg,
             child: ListView.builder(
               controller: _scrollController,
               padding: EdgeInsets.all(16),
@@ -188,7 +188,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                       Text(
                         l.$1,
                         style: TextStyle(
-                          color: AppColors.textDisabled,
+                          color: context.fc.textDisabled,
                           fontSize: 10,
                           fontFamily: 'JetBrains Mono',
                         ),
@@ -211,7 +211,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                         child: Text(
                           l.$3,
                           style: TextStyle(
-                            color: l.$2 == '>>>' ? AppColors.primary : l.$4,
+                            color: l.$2 == '>>>' ? context.fc.primary : l.$4,
                             fontSize: 12,
                             fontFamily: 'JetBrains Mono',
                           ),
@@ -229,15 +229,15 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           key: TutorialKeys.mdiInput,
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
+            color: context.fc.surface,
+            border: Border(top: BorderSide(color: context.fc.surfaceBorder)),
           ),
           child: Row(
             children: [
               Text(
                 '❯',
                 style: TextStyle(
-                  color: AppColors.primary,
+                  color: context.fc.primary,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -248,23 +248,23 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                   height: 44,
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceBright,
+                    color: context.fc.surfaceBright,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.surfaceBorder),
+                    border: Border.all(color: context.fc.surfaceBorder),
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: TextField(
                       controller: _controller,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: context.fc.textPrimary,
                         fontSize: 14,
                         fontFamily: 'JetBrains Mono',
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Saisir commande...',
-                        hintStyle: TextStyle(color: AppColors.textDisabled),
+                        hintStyle: TextStyle(color: context.fc.textDisabled),
                       ),
                       onSubmitted: _sendCommand,
                     ),
@@ -278,7 +278,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                     _controller.text = _history.first.$1;
                   }
                 },
-                icon: Icon(Icons.history, color: AppColors.textSecondary),
+                icon: Icon(Icons.history, color: context.fc.textSecondary),
               ),
               SizedBox(width: 8),
               ElevatedButton.icon(
@@ -304,7 +304,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           Text(
             'MACROS RAPIDES',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.fc.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w900,
               letterSpacing: 2.0,
@@ -414,7 +414,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           Text(
             'HISTORIQUE COMMANDES',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.fc.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w900,
               letterSpacing: 2.0,
@@ -430,14 +430,14 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                 margin: EdgeInsets.only(bottom: 4),
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceBright,
+                  color: context.fc.surfaceBright,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.chevron_right,
-                      color: AppColors.textDisabled,
+                      color: context.fc.textDisabled,
                       size: 12,
                     ),
                     SizedBox(width: 6),
@@ -445,7 +445,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                       child: Text(
                         h.$1,
                         style: TextStyle(
-                          color: AppColors.textPrimary,
+                          color: context.fc.textPrimary,
                           fontSize: 11,
                           fontFamily: 'JetBrains Mono',
                         ),
@@ -454,7 +454,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                     Text(
                       h.$2,
                       style: TextStyle(
-                        color: AppColors.textDisabled,
+                        color: context.fc.textDisabled,
                         fontSize: 9,
                         fontFamily: 'JetBrains Mono',
                       ),

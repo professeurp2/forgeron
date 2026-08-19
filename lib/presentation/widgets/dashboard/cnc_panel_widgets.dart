@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/forgeron_colors.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL WIDGETS — Composants réutilisables style pupitre FANUC industriel
@@ -18,12 +18,12 @@ class CncSectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(children: [
-        Container(width: 3, height: 10, color: AppColors.primary.withValues(alpha: 0.5)),
+        Container(width: 3, height: 10, color: context.fc.primary.withValues(alpha: 0.5)),
         SizedBox(width: 6),
         Text(
           text,
           style: TextStyle(
-            color: AppColors.textDisabled,
+            color: context.fc.textDisabled,
             fontSize: 9,
             fontWeight: FontWeight.w900,
             letterSpacing: 2.0,
@@ -90,7 +90,7 @@ class _CncLedIndicatorState extends State<CncLedIndicator>
   @override
   Widget build(BuildContext context) {
     final color =
-        widget.isActive ? widget.color : AppColors.textDisabled.withValues(alpha: 0.3);
+        widget.isActive ? widget.color : context.fc.textDisabled.withValues(alpha: 0.3);
     return AnimatedBuilder(
       animation: _anim,
       // ignore: avoid_types_on_closure_parameters
@@ -162,12 +162,12 @@ class _CncKeyButtonState extends State<CncKeyButton> {
             ]
           : widget.isDanger
               ? [
-                  AppColors.danger.withValues(alpha: 0.3),
-                  AppColors.danger.withValues(alpha: 0.12),
+                  context.fc.danger.withValues(alpha: 0.3),
+                  context.fc.danger.withValues(alpha: 0.12),
                 ]
               : [
-                  AppColors.surfaceBright,
-                  AppColors.keyBezel,
+                  context.fc.surfaceBright,
+                  context.fc.keyBezel,
                 ],
     );
 
@@ -176,12 +176,12 @@ class _CncKeyButtonState extends State<CncKeyButton> {
       end: Alignment.bottomCenter,
       colors: widget.isDanger
           ? [
-              AppColors.danger.withValues(alpha: 0.05),
-              AppColors.danger.withValues(alpha: 0.18),
+              context.fc.danger.withValues(alpha: 0.05),
+              context.fc.danger.withValues(alpha: 0.18),
             ]
           : [
-              AppColors.keyActive,
-              AppColors.surface,
+              context.fc.keyActive,
+              context.fc.surface,
             ],
     );
 
@@ -189,7 +189,7 @@ class _CncKeyButtonState extends State<CncKeyButton> {
         ? widget.color.withValues(alpha: 0.8)
         : _pressed
             ? widget.color.withValues(alpha: 0.5)
-            : AppColors.keyBorder;
+            : context.fc.keyBorder;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -270,10 +270,10 @@ class CncLcdScreen extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.lcdBorder, width: 2),
+        border: Border.all(color: context.fc.lcdBorder, width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.lcdText.withValues(alpha: 0.08),
+            color: context.fc.lcdText.withValues(alpha: 0.08),
             blurRadius: 24,
             spreadRadius: 1,
           ),
@@ -299,7 +299,7 @@ class CncLcdScreen extends StatelessWidget {
                     colors: [
                       // Point chaud légèrement plus vert-lumineux au centre
                       Color(0xFF0D250A),
-                      AppColors.lcdBackground,
+                      context.fc.lcdBackground,
                     ],
                   ),
                 ),
@@ -324,12 +324,12 @@ class CncLcdScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.lcdBorder,
+                        color: context.fc.lcdBorder,
                       ),
                       child: Text(
                         title!,
                         style: TextStyle(
-                          color: AppColors.lcdTextDim,
+                          color: context.fc.lcdTextDim,
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 2.0,
@@ -414,13 +414,13 @@ class CncLcdAxisRow extends StatelessWidget {
               displayValue,
               textAlign: TextAlign.right,
               style: TextStyle(
-                color: AppColors.lcdText,
+                color: context.fc.lcdText,
                 fontSize: fontSize,
                 fontWeight: FontWeight.w900,
                 fontFamily: 'JetBrains Mono',
                 shadows: [
                   Shadow(
-                    color: AppColors.lcdText.withValues(alpha: 0.4),
+                    color: context.fc.lcdText.withValues(alpha: 0.4),
                     blurRadius: 8,
                   ),
                 ],
@@ -431,7 +431,7 @@ class CncLcdAxisRow extends StatelessWidget {
           Text(
             unit,
             style: TextStyle(
-              color: AppColors.lcdTextDim,
+              color: context.fc.lcdTextDim,
               fontSize: 10,
               fontFamily: 'JetBrains Mono',
             ),
@@ -466,21 +466,21 @@ class CncJogCrossXY extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _dirBtn('Y+', AppColors.axisY, onYPlus),
+        _dirBtn('Y+', context.fc.axisY, onYPlus),
         SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _dirBtn('X−', AppColors.axisX, onXMinus),
+            _dirBtn('X−', context.fc.axisX, onXMinus),
             SizedBox(width: 5),
             _CncRoundStopButton(onTap: onStop),
             SizedBox(width: 5),
-            _dirBtn('X+', AppColors.axisX, onXPlus),
+            _dirBtn('X+', context.fc.axisX, onXPlus),
           ],
         ),
         SizedBox(height: 5),
-        _dirBtn('Y−', AppColors.axisY, onYMinus),
+        _dirBtn('Y−', context.fc.axisY, onYMinus),
       ],
     );
   }
@@ -525,11 +525,11 @@ class _CncRoundStopButtonState extends State<_CncRoundStopButton> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: _pressed
-                ? [AppColors.keyActive, AppColors.surface]
-                : [AppColors.surfaceBright, AppColors.keyBezel],
+                ? [context.fc.keyActive, context.fc.surface]
+                : [context.fc.surfaceBright, context.fc.keyBezel],
           ),
           border: Border.all(
-            color: _pressed ? AppColors.ledRed.withValues(alpha: 0.6) : AppColors.keyBorder,
+            color: _pressed ? context.fc.danger.withValues(alpha: 0.6) : context.fc.keyBorder,
             width: 1.5,
           ),
           boxShadow: _pressed
@@ -556,10 +556,10 @@ class _CncRoundStopButtonState extends State<_CncRoundStopButton> {
         child: Center(
           child: Icon(
             Icons.stop_rounded,
-            color: AppColors.ledRed,
+            color: context.fc.danger,
             size: 20,
             shadows: [
-              Shadow(color: AppColors.ledRed, blurRadius: 4),
+              Shadow(color: context.fc.danger, blurRadius: 4),
             ],
           ),
         ),
@@ -620,8 +620,8 @@ class _HoldButtonState extends State<_HoldButton> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        AppColors.surfaceBright,
-        AppColors.keyBezel,
+        context.fc.surfaceBright,
+        context.fc.keyBezel,
       ],
     );
 
@@ -629,8 +629,8 @@ class _HoldButtonState extends State<_HoldButton> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        AppColors.keyActive,
-        AppColors.surface,
+        context.fc.keyActive,
+        context.fc.surface,
       ],
     );
 
@@ -651,7 +651,7 @@ class _HoldButtonState extends State<_HoldButton> {
           border: Border.all(
             color: _pressed
                 ? widget.color.withValues(alpha: 0.6)
-                : AppColors.keyBorder,
+                : context.fc.keyBorder,
             width: 1.5,
           ),
           boxShadow: _pressed
@@ -679,7 +679,7 @@ class _HoldButtonState extends State<_HoldButton> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: _pressed ? widget.color : AppColors.textSecondary,
+              color: _pressed ? widget.color : context.fc.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w900,
               fontFamily: 'JetBrains Mono',
@@ -743,7 +743,7 @@ class _CncJogDialState extends State<CncJogDial> {
         SizedBox(height: 2),
         Text(
           widget.label,
-          style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
+          style: TextStyle(color: context.fc.textDisabled, fontSize: 8, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
 
@@ -796,8 +796,8 @@ class _CncJogDialState extends State<CncJogDial> {
                 height: widget.size + 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.panelBody,
-                  border: Border.all(color: AppColors.keyBorder, width: 1.5),
+                  color: context.fc.panelBody,
+                  border: Border.all(color: context.fc.keyBorder, width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.4),
@@ -807,7 +807,7 @@ class _CncJogDialState extends State<CncJogDial> {
                   ],
                 ),
                 child: CustomPaint(
-                  painter: _DialTicksPainter(color: AppColors.keyBorder),
+                  painter: _DialTicksPainter(color: context.fc.keyBorder),
                 ),
               ),
 
@@ -823,8 +823,8 @@ class _CncJogDialState extends State<CncJogDial> {
                       center: Alignment.center,
                       radius: 0.95,
                       colors: [
-                        AppColors.surfaceBright,
-                        AppColors.keyBezel,
+                        context.fc.surfaceBright,
+                        context.fc.keyBezel,
                         Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
@@ -989,15 +989,15 @@ class CncPanelSectionContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.panelSection,
+        color: context.fc.panelSection,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.keyBorder, width: 1.2),
+        border: Border.all(color: context.fc.keyBorder, width: 1.2),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.panelSection,
-            AppColors.panelSection.withValues(alpha: 0.85),
+            context.fc.panelSection,
+            context.fc.panelSection.withValues(alpha: 0.85),
           ],
         ),
         boxShadow: [

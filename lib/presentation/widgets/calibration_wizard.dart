@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/widgets/glass_panel.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/di_providers.dart';
 
@@ -69,7 +68,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       children: [
         for (int i = 0; i < 4; i++) ...[
           _stepIndicator(i),
-          if (i < 3) Expanded(child: Container(height: 2, color: _currentStep > i ? AppColors.primary : AppColors.surfaceBorder)),
+          if (i < 3) Expanded(child: Container(height: 2, color: _currentStep > i ? context.fc.primary : context.fc.surfaceBorder)),
         ],
       ],
     );
@@ -82,13 +81,13 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       width: 28, height: 28,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: done ? AppColors.primary : (active ? AppColors.primary.withValues(alpha: 0.2) : AppColors.surface),
-        border: Border.all(color: active || done ? AppColors.primary : AppColors.surfaceBorder, width: 2),
+        color: done ? context.fc.primary : (active ? context.fc.primary.withValues(alpha: 0.2) : context.fc.surface),
+        border: Border.all(color: active || done ? context.fc.primary : context.fc.surfaceBorder, width: 2),
       ),
       child: Center(
         child: done 
           ? Icon(Icons.check, size: 16, color: Colors.white)
-          : Text('${i + 1}', style: TextStyle(color: active ? AppColors.primary : AppColors.textDisabled, fontWeight: FontWeight.bold, fontSize: 12)),
+          : Text('${i + 1}', style: TextStyle(color: active ? context.fc.primary : context.fc.textDisabled, fontWeight: FontWeight.bold, fontSize: 12)),
       ),
     );
   }
@@ -133,21 +132,21 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(color: context.fc.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
         SizedBox(height: 12),
-        Text(desc, style: TextStyle(color: AppColors.textDisabled, fontSize: 12, height: 1.5)),
+        Text(desc, style: TextStyle(color: context.fc.textDisabled, fontSize: 12, height: 1.5)),
         SizedBox(height: 32),
-        Center(child: Icon(icon, size: 64, color: AppColors.primary.withValues(alpha: 0.3))),
+        Center(child: Icon(icon, size: 64, color: context.fc.primary.withValues(alpha: 0.3))),
         const Spacer(),
         if (result != null) 
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.success.withValues(alpha: 0.3))),
+            decoration: BoxDecoration(color: context.fc.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: context.fc.success.withValues(alpha: 0.3))),
             child: Row(children: [
-              Icon(Icons.check_circle, color: AppColors.success, size: 16),
+              Icon(Icons.check_circle, color: context.fc.success, size: 16),
               SizedBox(width: 12),
-              Text('Mesure enregistrée : ${result.toStringAsFixed(3)} mm', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
+              Text('Mesure enregistrée : ${result.toStringAsFixed(3)} mm', style: TextStyle(color: context.fc.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
             ]),
           ),
         SizedBox(
@@ -180,12 +179,12 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Calcul des Offsets Terminé', style: TextStyle(color: AppColors.success, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text('Calcul des Offsets Terminé', style: TextStyle(color: context.fc.success, fontSize: 16, fontWeight: FontWeight.bold)),
         SizedBox(height: 16),
         _resultRow('Pivot Z (Machine)', pivotZ),
         _resultRow('Table Offset (Z0)', tableOffset),
         SizedBox(height: 24),
-        Text('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.', style: TextStyle(color: AppColors.textDisabled, fontSize: 11, height: 1.5)),
+        Text('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.', style: TextStyle(color: context.fc.textDisabled, fontSize: 11, height: 1.5)),
         const Spacer(),
         SizedBox(
           width: double.infinity, height: 52,
@@ -195,7 +194,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Offsets enregistrés avec succès !')));
               _reset();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            style: ElevatedButton.styleFrom(backgroundColor: context.fc.success),
             child: Text('ENREGISTRER DANS LA MACHINE'),
           ),
         ),
@@ -212,9 +211,9 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
-        Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: context.fc.textDisabled, fontSize: 11, fontWeight: FontWeight.bold)),
         const Spacer(),
-        Text('${val.toStringAsFixed(3)} mm', style: TextStyle(color: AppColors.primary, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+        Text('${val.toStringAsFixed(3)} mm', style: TextStyle(color: context.fc.primary, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
       ]),
     );
   }
