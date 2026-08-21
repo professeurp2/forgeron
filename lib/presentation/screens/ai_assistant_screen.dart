@@ -810,7 +810,12 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   Widget _messageBubble(ForgeronColorPalette fc, AiChatMessage m) {
     if (m.role == 'tool') {
-      return _ToolResultTile(fc: fc, raw: m.text, time: _fmtTime(m.timestamp));
+      return _ToolResultTile(
+        fc: fc,
+        raw: m.text,
+        time: _fmtTime(m.timestamp),
+        imageBytes: m.imageBytes,
+      );
     }
 
     final isUser = m.role == 'user';
@@ -1684,8 +1689,17 @@ class _ToolResultTile extends StatefulWidget {
   final ForgeronColorPalette fc;
   final String raw;
   final String time;
+
+  /// Image produite par l'outil (capture caméra). Affichée sans avoir à
+  /// déplier : c'est le contenu utile de l'appel, et l'opérateur doit voir
+  /// exactement ce que l'agent a reçu pour juger de son analyse.
+  final Uint8List? imageBytes;
+
   const _ToolResultTile(
-      {required this.fc, required this.raw, required this.time});
+      {required this.fc,
+      required this.raw,
+      required this.time,
+      this.imageBytes});
 
   @override
   State<_ToolResultTile> createState() => _ToolResultTileState();
@@ -1754,6 +1768,20 @@ class _ToolResultTileState extends State<_ToolResultTile> {
               ),
             ),
           ),
+          if (widget.imageBytes != null)
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: accent.withValues(alpha: 0.25)),
+              ),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxHeight: 220, maxWidth: 300),
+                child: Image.memory(widget.imageBytes!, fit: BoxFit.cover),
+              ),
+            ),
           if (_expanded && detail.isNotEmpty)
             Container(
               width: double.infinity,

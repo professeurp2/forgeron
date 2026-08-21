@@ -5,6 +5,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/camera_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../tutorial/tutorial_overlay.dart';
@@ -94,7 +95,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       
       // 1. Charge la dernière adresse IP connue
       await loadNetworkPreferences(ref);
-      
+      await loadCameraPreferences(ref);
+
       // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
       ref.read(discoveryProvider.notifier).scan(autoConnect: true);
     });

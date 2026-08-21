@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/camera_provider.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../../application/services/auto_discovery_service.dart';
 import '../../core/net/esp_wifi_service.dart';
@@ -31,11 +32,17 @@ class _ConnectionSettingsScreenState
   late AnimationController _pulseController;
 
   // Connexion assistée à l'AP WiFi de l'ESP32.
-  final _ssidCtrl = TextEditingController(text: 'FluidNC');
+  // SSID du point d'accès porté par l'ESP32 FluidNC de la machine.
+  final _ssidCtrl = TextEditingController(text: 'FORGERON');
   final _pwdCtrl = TextEditingController(text: '00000001');
   bool _wifiConnecting = false;
   String? _wifiMsg;
   bool _wifiOk = false;
+
+  // Caméra de surveillance (ESP32-CAM), second client de l'AP de la machine.
+  // Aucun état local de test : la détection est automatique et son état vit
+  // dans `cameraDetectionProvider`.
+  late TextEditingController _camIpCtrl;
 
   @override
   void initState() {
@@ -43,6 +50,7 @@ class _ConnectionSettingsScreenState
     _ipCtrl = TextEditingController(text: ref.read(espIpProvider));
     _wsPortCtrl =
         TextEditingController(text: ref.read(wsPortProvider).toString());
+    _camIpCtrl = TextEditingController(text: ref.read(cameraIpProvider));
     _loadWifiPrefs();
     _pulseController = AnimationController(
       vsync: this,
@@ -61,6 +69,7 @@ class _ConnectionSettingsScreenState
     _wsPortCtrl.dispose();
     _ssidCtrl.dispose();
     _pwdCtrl.dispose();
+    _camIpCtrl.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -295,6 +304,8 @@ class _ConnectionSettingsScreenState
                           SizedBox(height: 24),
                           _buildManualConfigCard(),
                           SizedBox(height: 24),
+                          _buildCameraCard(),
+                          SizedBox(height: 24),
                           _buildMachineInfoCard(),
                         ],
                       );
@@ -319,6 +330,8 @@ class _ConnectionSettingsScreenState
                           child: Column(
                             children: [
                               _buildManualConfigCard(),
+                              SizedBox(height: 24),
+                              _buildCameraCard(),
                               SizedBox(height: 24),
                               _buildMachineInfoCard(),
                             ],
@@ -897,6 +910,175 @@ class _ConnectionSettingsScreenState
           ),
         ),
       ],
+    );
+  }
+
+  // ── Caméra de surveillance ────────────────────────────────────────────────
+
+  /// Relance la recherche. Bouton de dépannage uniquement : en fonctionnement
+  /// normal la détection est automatique et l'opérateur n'ouvre jamais cette
+  /// carte.
+  Future<void> _searchCamera() async {
+    await saveCameraIp(ref, _camIpCtrl.text);
+  }
+
+  Widget _buildCameraCard() {
+    final detection = ref.watch(cameraDetectionProvider);
+
+    final (Color tone, IconData glyph, String label) = switch (detection.status) {
+      CameraStatus.found => (
+          context.fc.success,
+          Icons.videocam,
+          'CAMÉRA DÉTECTÉE'
+        ),
+      CameraStatus.searching => (
+          context.fc.info,
+          Icons.search,
+          'RECHERCHE EN COURS…'
+        ),
+      CameraStatus.absent => (
+          context.fc.textDisabled,
+          Icons.videocam_off_outlined,
+          'AUCUNE CAMÉRA'
+        ),
+    };
+
+    return GlassPanel(
+      title: 'CAMÉRA DE SURVEILLANCE',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: tone.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (detection.status == CameraStatus.searching)
+                  SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: tone),
+                  )
+                else
+                  Icon(glyph, color: tone, size: 16),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                              color: tone,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2)),
+                      if (detection.status == CameraStatus.found) ...[
+                        SizedBox(height: 3),
+                        Text(
+                          '${ref.watch(cameraIpProvider)} — le panneau du '
+                          'visualiseur affiche la vue réelle.',
+                          style: TextStyle(
+                              color: context.fc.textSecondary, fontSize: 11),
+                        ),
+                      ] else if (detection.reason != null) ...[
+                        SizedBox(height: 3),
+                        Text(detection.reason!,
+                            style: TextStyle(
+                                color: context.fc.textSecondary, fontSize: 11)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.fc.info.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.fc.info.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: context.fc.info, size: 15),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rien à configurer : connectez le téléphone au WiFi de la '
+                    'machine, la caméra est trouvée toute seule. Elle partage '
+                    'ce réseau avec le contrôleur, la cadence des images est '
+                    'donc réduite pendant un usinage pour laisser passer le '
+                    'G-code.',
+                    style: TextStyle(
+                        color: context.fc.textSecondary,
+                        fontSize: 11,
+                        height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Repli manuel : utile seulement si la caméra a été reprogrammée sur
+          // une autre adresse que son IP statique d'usine.
+          SizedBox(height: 20),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            title: Text('ADRESSE MANUELLE',
+                style: TextStyle(
+                    color: context.fc.textDisabled,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5)),
+            children: [
+              _buildModernField(
+                label: 'ADRESSE IP DE LA CAMÉRA',
+                controller: _camIpCtrl,
+                icon: Icons.photo_camera_outlined,
+                hint: 'ex: $kDefaultCameraIp',
+              ),
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: detection.status == CameraStatus.searching
+                      ? null
+                      : _searchCamera,
+                  icon: Icon(Icons.refresh, size: 18),
+                  label: Text('RELANCER LA RECHERCHE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.fc.surfaceBright,
+                    foregroundColor: context.fc.primary,
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                          color: context.fc.primary.withValues(alpha: 0.3)),
+                    ),
+                    textStyle: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

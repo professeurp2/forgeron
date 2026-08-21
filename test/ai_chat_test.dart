@@ -286,4 +286,114 @@ void main() {
       expect(safeCutIndex(contents, 0), 2);
     });
   });
+
+  group('dropStaleImages', () {
+    /// Le tour que produit `get_camera_snapshot` : la functionResponse et
+    /// l'image partent ensemble dans le MÊME tour utilisateur, Gemini ne
+    /// sachant pas transporter de binaire dans une functionResponse.
+    Map<String, dynamic> cameraTurn(String data) => {
+          'role': 'user',
+          'parts': [
+            {
+              'functionResponse': {
+                'name': 'get_camera_snapshot',
+                'response': {'result': '{"captured":true}'},
+              },
+            },
+            {
+              'inlineData': {'mimeType': 'image/jpeg', 'data': data},
+            },
+          ],
+        };
+
+    List<Object?> partsOf(Map<String, dynamic> entry) =>
+        (entry['parts'] as List).cast<Object?>();
+
+    bool hasImage(Map<String, dynamic> entry) =>
+        partsOf(entry).any((p) => p is Map && p.containsKey('inlineData'));
+
+    test('une seule image → conservée', () {
+      final contents = [cameraTurn('AAAA')];
+      dropStaleImages(contents);
+      expect(hasImage(contents[0]), isTrue);
+    });
+
+    test('plusieurs images → seule la plus récente survit', () {
+      final contents = [
+        cameraTurn('VIEILLE'),
+        {
+          'role': 'model',
+          'parts': [
+            {'text': 'ok'},
+          ],
+        },
+        cameraTurn('RECENTE'),
+      ];
+
+      dropStaleImages(contents);
+
+      expect(hasImage(contents[0]), isFalse,
+          reason: 'la vue périmée doit partir');
+      expect(hasImage(contents[2]), isTrue,
+          reason: 'la vue courante doit rester');
+
+      final kept = partsOf(contents[2])
+          .whereType<Map>()
+          .firstWhere((p) => p.containsKey('inlineData'));
+      expect((kept['inlineData'] as Map)['data'], 'RECENTE');
+    });
+
+    test('l\'image retirée laisse une note, pas un trou', () {
+      final contents = [cameraTurn('VIEILLE'), cameraTurn('RECENTE')];
+      dropStaleImages(contents);
+
+      final texts = partsOf(contents[0])
+          .whereType<Map>()
+          .where((p) => p.containsKey('text'))
+          .map((p) => p['text'] as String);
+      expect(texts, contains(kDroppedImageNote));
+    });
+
+    /// Le point critique : retirer une image ne doit pas emporter la
+    /// functionResponse qui l'accompagne, sinon le functionCall du modèle
+    /// reste orphelin et Gemini rejette tout le fil (HTTP 400).
+    test('la functionResponse du même tour est préservée', () {
+      final contents = [cameraTurn('VIEILLE'), cameraTurn('RECENTE')];
+      dropStaleImages(contents);
+
+      for (final entry in contents) {
+        final responses = partsOf(entry)
+            .whereType<Map>()
+            .where((p) => p.containsKey('functionResponse'));
+        expect(responses, hasLength(1),
+            reason: 'chaque tour caméra garde sa functionResponse');
+      }
+    });
+
+    test('compactGeminiContents purge les images même sous le budget', () {
+      // Deux petites images : le fil tient largement dans le budget, la purge
+      // doit tout de même avoir lieu.
+      final contents = [cameraTurn('VIEILLE'), cameraTurn('RECENTE')];
+      expect(contextChars(contents), lessThan(kMaxContextChars));
+
+      compactGeminiContents(contents);
+
+      expect(hasImage(contents[0]), isFalse);
+      expect(hasImage(contents[1]), isTrue);
+    });
+
+    test('un fil sans image est laissé strictement intact', () {
+      final contents = <Map<String, dynamic>>[
+        {
+          'role': 'user',
+          'parts': [
+            {'text': 'bonjour'},
+          ],
+        },
+      ];
+      final before = jsonEncode(contents);
+      dropStaleImages(contents);
+      expect(jsonEncode(contents), before);
+    });
+  });
 }

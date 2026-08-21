@@ -1058,7 +1058,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return;
     }
 
-    _collectedResults.add(await _executeTool(tool, toolName, input));
+    _collectedResults.addAll(await _executeTool(tool, toolName, input));
     await _processNextToolCall(service, epoch);
   }
 
@@ -1077,7 +1077,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         _functionResponse(pending.toolName, error: 'Outil inconnu "${pending.toolName}"'),
       );
     } else {
-      _collectedResults.add(await _executeTool(tool, pending.toolName, pending.input));
+      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input));
     }
     await _processNextToolCall(service, epoch);
   }
@@ -1101,19 +1101,51 @@ class AiAgentController extends StateNotifier<AiChatState> {
     await _processNextToolCall(service, _epoch);
   }
 
-  Future<Map<String, dynamic>> _executeTool(
+  /// Exécute un outil et retourne les parts à joindre au tour.
+  ///
+  /// Une liste et non une part unique : un outil visuel produit une
+  /// `functionResponse` **et** une part `inlineData` portant l'image, les deux
+  /// devant partir ensemble dans le même tour.
+  Future<List<Map<String, dynamic>>> _executeTool(
     AiTool tool,
     String toolName,
     Map<String, dynamic> input,
   ) async {
     try {
       final result = await tool.execute(input, _ref);
+
+      // On vide systématiquement la boîte aux lettres, même si l'outil n'a
+      // finalement rien déposé : une image oubliée là serait rattachée au
+      // prochain appel visuel, qui montrerait alors une scène périmée.
+      final image = tool.producesImage ? _readAndClearToolImage() : null;
+
+      // L'image apparaît dans le fil de discussion : l'opérateur doit pouvoir
+      // voir exactement ce que l'agent a vu, sinon il n'a aucun moyen de juger
+      // si son analyse repose sur une image exploitable.
       _addMessage(AiChatMessage(
         role: 'tool',
         text: '${tool.name} → $result',
         timestamp: DateTime.now(),
+        imageBytes: image?.bytes,
       ));
-      return _functionResponse(toolName, result: result);
+
+      final parts = <Map<String, dynamic>>[
+        _functionResponse(toolName, result: result),
+      ];
+
+      if (image != null) {
+        parts.add({
+          'inlineData': {
+            'mimeType': image.mimeType,
+            'data': base64Encode(image.bytes),
+          },
+        });
+        // Une image consomme des jetons comme n'importe quelle entrée : elle
+        // doit être comptée au même titre que celles jointes à la main.
+        _ref.read(aiUsageProvider.notifier).recordImage();
+      }
+
+      return parts;
     } catch (e) {
       final message = 'Erreur: $e';
       _addMessage(AiChatMessage(
@@ -1121,8 +1153,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
         text: '${tool.name} → $message',
         timestamp: DateTime.now(),
       ));
-      return _functionResponse(toolName, error: message);
+      if (tool.producesImage) _readAndClearToolImage();
+      return [_functionResponse(toolName, error: message)];
     }
+  }
+
+  AiToolImage? _readAndClearToolImage() {
+    final image = _ref.read(aiToolImageProvider);
+    if (image != null) _ref.read(aiToolImageProvider.notifier).state = null;
+    return image;
   }
 
   Map<String, dynamic> _functionResponse(String name, {String? result, String? error}) {

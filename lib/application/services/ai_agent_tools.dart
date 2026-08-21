@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/fluidnc/grbl_parser.dart';
 import '../providers/ai_agent_settings_provider.dart';
+import '../providers/camera_provider.dart';
 import '../providers/di_providers.dart';
 import '../providers/gcode_provider.dart';
 import '../providers/streaming_provider.dart';
@@ -32,12 +34,25 @@ class AiTool {
   final AiActionCategory? category;
   final Future<String> Function(Map<String, dynamic> input, Ref ref) execute;
 
+  /// Vrai si l'outil peut produire une image en plus de son texte.
+  ///
+  /// Gemini ne transporte pas de binaire dans une `functionResponse` — celle-ci
+  /// ne contient que du JSON. Une image doit voyager dans une part
+  /// `inlineData` séparée, jointe au même tour de conversation. Les outils
+  /// concernés déposent donc leurs octets dans [aiToolImageProvider], que la
+  /// boucle d'outils vide immédiatement après l'exécution.
+  ///
+  /// Ce drapeau limite ce ramassage aux seuls outils qui le déclarent : aucune
+  /// image ne peut fuir d'un appel où elle n'a rien à faire.
+  final bool producesImage;
+
   const AiTool({
     required this.name,
     required this.description,
     required this.inputSchema,
     required this.category,
     required this.execute,
+    this.producesImage = false,
   });
 
   /// Déclaration au format attendu par l'API Gemini (`FunctionDeclaration`) :
@@ -76,6 +91,21 @@ Map<String, dynamic> _toGeminiSchema(Map<String, dynamic> schema) {
   }
   return out;
 }
+
+/// Image produite par un outil, en route vers Gemini.
+class AiToolImage {
+  const AiToolImage({required this.bytes, this.mimeType = 'image/jpeg'});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
+/// Boîte aux lettres à un seul message pour les images d'outils.
+///
+/// Portée volontairement minuscule : une image y est déposée par [AiTool.execute]
+/// puis retirée dans la foulée par la boucle d'outils. Rien n'y survit d'un
+/// tour à l'autre — c'est un passe-plat, pas un cache.
+final aiToolImageProvider = StateProvider<AiToolImage?>((ref) => null);
 
 class AiToolCatalog {
   static const _axisEnum = ['X', 'Y', 'Z', 'A', 'C'];
@@ -859,6 +889,43 @@ class AiToolCatalog {
               'est disponible via get_config.';
         }
         return jsonEncode({'settings': lines});
+      },
+    ),
+    AiTool(
+      name: 'get_camera_snapshot',
+      description:
+          'Capture une image de la zone de coupe avec la caméra de surveillance et te la montre. '
+          'Sert à vérifier de tes yeux ce que les capteurs ne disent pas : bridage de la pièce, '
+          'accumulation de copeaux, état de l\'outil, présence de l\'opérateur dans la zone, '
+          'aspect réel d\'une passe en cours. L\'image est accompagnée de la position et de l\'état '
+          'machine au moment de la prise. Échoue si aucune caméra n\'est configurée.',
+      inputSchema: const {'type': 'object', 'properties': {}},
+      // Lecture seule : prendre une photo ne touche pas la machine, l'outil
+      // reste donc utilisable sans confirmation, comme get_machine_state.
+      category: null,
+      producesImage: true,
+      execute: (input, ref) async {
+        if (!ref.read(cameraEnabledProvider)) {
+          return 'Erreur: aucune caméra n\'est configurée sur cette machine.';
+        }
+
+        final bytes = await ref.read(cameraRepositoryProvider).snapshot();
+        ref.read(aiToolImageProvider.notifier).state =
+            AiToolImage(bytes: bytes);
+
+        // La photo seule ne vaut pas grand-chose : sans savoir où était l'outil
+        // au moment du déclenchement, l'agent ne peut pas relier ce qu'il voit
+        // à ce que fait la machine.
+        final s = ref.read(machineRepositoryProvider).currentState;
+        return jsonEncode({
+          'captured': true,
+          'sizeBytes': bytes.length,
+          'status': s.status.name,
+          'wPos': s.wPos,
+          'spindleSpeed': s.spindleSpeed,
+          'feedrate': s.feedrate,
+          'note': 'Image jointe à ce tour.',
+        });
       },
     ),
     AiTool(

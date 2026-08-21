@@ -34,6 +34,10 @@ void compactGeminiContents(
   int keepIntact = kKeepIntact,
   int toolResultMax = kOldToolResultMax,
 }) {
+  // Toujours, budget dépassé ou non : une image périmée n'a aucune valeur et
+  // coûte plus cher que tout le reste du fil réuni.
+  dropStaleImages(contents);
+
   if (contextChars(contents) <= maxChars) return;
 
   final cut = contents.length - keepIntact;
@@ -52,6 +56,48 @@ void compactGeminiContents(
     contents.removeRange(0, index);
   }
 }
+
+/// Texte laissé à la place d'une image retirée du contexte.
+const String kDroppedImageNote =
+    '[image retirée du contexte : périmée. Rappelle get_camera_snapshot pour '
+    'une vue à jour.]';
+
+/// Ne conserve que la **dernière** image du fil, et remplace les précédentes
+/// par une note textuelle.
+///
+/// Une capture VGA encodée en base64 pèse à elle seule plus que
+/// [kMaxContextChars] — l'API refacturant tout `contents` à chaque tour, deux
+/// ou trois vues conservées suffiraient à épuiser le quota gratuit. Et elles
+/// n'apporteraient rien : seule la vue la plus récente décrit l'état actuel de
+/// la machine, une image d'il y a cinq tours induirait même l'agent en erreur.
+///
+/// Ce nettoyage est indépendant de `keepIntact` : une image ancienne part même
+/// si son tour, lui, doit rester intact.
+void dropStaleImages(List<Map<String, dynamic>> contents) {
+  var seenMostRecent = false;
+
+  for (var i = contents.length - 1; i >= 0; i--) {
+    final parts = contents[i]['parts'];
+    if (parts is! List) continue;
+    if (!parts.any(_isImagePart)) continue;
+
+    if (!seenMostRecent) {
+      // La plus récente est conservée telle quelle.
+      seenMostRecent = true;
+      continue;
+    }
+
+    contents[i] = {
+      ...contents[i],
+      'parts': parts
+          .map((p) => _isImagePart(p) ? {'text': kDroppedImageNote} : p)
+          .toList(),
+    };
+  }
+}
+
+bool _isImagePart(Object? part) =>
+    part is Map && (part.containsKey('inlineData') || part.containsKey('inline_data'));
 
 /// Abrège un `functionResponse` volumineux ; laisse tout le reste intact.
 Object? shrinkPart(Object? part, [int maxLen = kOldToolResultMax]) {
