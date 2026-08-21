@@ -95,17 +95,23 @@ class Esp32CamRepository implements CameraRepository {
       _control('framesize', resolution.value);
 
   @override
+  Future<bool> setQuality(int quality) =>
+      _control('quality', quality.clamp(10, 63));
+
+  @override
   Future<void> setFlash(bool on) => _control('led_intensity', on ? 255 : 0);
 
   /// Un réglage raté n'est jamais bloquant : on veut au pire une image moche,
-  /// pas une exception qui remonte dans l'UI pendant un usinage.
-  Future<void> _control(String variable, int value) async {
+  /// pas une exception qui remonte dans l'UI pendant un usinage. L'échec est
+  /// donc *retourné*, jamais levé — à l'appelant de décider s'il réessaie.
+  Future<bool> _control(String variable, int value) async {
     try {
-      await _client
+      final response = await _client
           .get(Uri.parse('$_base/control?var=$variable&val=$value'))
           .timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
     } catch (_) {
-      // volontairement ignoré
+      return false;
     }
   }
 

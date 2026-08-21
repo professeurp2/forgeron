@@ -29,6 +29,9 @@ class MockCameraRepository implements CameraRepository {
   Future<void> setResolution(CameraResolution resolution) async {}
 
   @override
+  Future<bool> setQuality(int quality) async => false;
+
+  @override
   Future<void> setFlash(bool on) async {}
 
   @override

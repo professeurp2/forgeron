@@ -43,6 +43,17 @@ abstract class CameraRepository {
   /// Change la résolution du capteur. Sans effet si la caméra ne répond pas.
   Future<void> setResolution(CameraResolution resolution);
 
+  /// Règle la compression JPEG (10 = meilleure qualité, 63 = plus comprimé).
+  ///
+  /// C'est le levier de cadence : sur l'AP de la machine, ce qui limite le
+  /// nombre d'images par seconde n'est pas le débit mais le **temps d'antenne**
+  /// occupé par chaque trame. Comprimer davantage pendant un usinage rend
+  /// l'image plus fluide *et* moins gênante pour le contrôleur.
+  ///
+  /// Retourne `false` si le réglage n'a pas pu être posé, pour que l'appelant
+  /// puisse réessayer plutôt que de croire la caméra alignée.
+  Future<bool> setQuality(int quality);
+
   /// Allume/éteint la LED blanche (GPIO4). Tous les firmwares ne l'exposent
   /// pas : l'échec est silencieux.
   Future<void> setFlash(bool on);

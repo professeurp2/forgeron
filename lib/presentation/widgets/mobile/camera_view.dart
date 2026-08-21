@@ -71,15 +71,17 @@ class _CameraViewState extends ConsumerState<CameraView> {
           gaplessPlayback: true,
         ),
 
-        // Bandeau d'explication quand la cadence est volontairement réduite.
+        // Pendant la coupe, les images sont plus comprimées pour libérer du
+        // temps d'antenne au contrôleur. On le dit, sinon la baisse de netteté
+        // passerait pour un défaut de la caméra.
         if (!liveAllowed)
           Positioned(
             left: 8,
             top: 8,
             child: _Badge(
               color: fc.warning,
-              icon: Icons.speed,
-              label: 'CADENCE RÉDUITE — USINAGE EN COURS',
+              icon: Icons.compress,
+              label: 'IMAGE ALLÉGÉE — USINAGE EN COURS',
             ),
           ),
 
