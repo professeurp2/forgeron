@@ -29,8 +29,56 @@ void main() {
 
     test('convertit le changement d\'outil M6 en pause M0', () {
       final r = GcodeAdapter.adaptForFluidNC('M6 T2');
-      expect(r.gcode.startsWith('M0'), true);
+      final lines = r.gcode.trim().split('\n');
+
+      // SÉCURITÉ : la broche doit être arrêtée AVANT la pause. `M0` seul ne
+      // l'arrête pas sur GRBL/FluidNC, et l'opérateur vient démonter la fraise
+      // à la main pendant cet arrêt.
+      expect(lines.first.startsWith('M5'), true,
+          reason: 'M5 doit précéder la pause');
+      expect(lines.any((l) => l.startsWith('M0')), true);
       expect(r.gcode.contains('T2'), true);
+    });
+
+    test('relance la broche après le changement, à l\'identique', () {
+      final r = GcodeAdapter.adaptForFluidNC('M3 S12000\nG1 X10 F300\nM6 T2');
+      final lines = r.gcode.trim().split('\n');
+
+      final stop = lines.indexWhere((l) => l.startsWith('M5'));
+      final pause = lines.indexWhere((l) => l.startsWith('M0'));
+
+      // Chercher APRÈS la pause : le programme commence lui-même par un
+      // M3 S12000, qu'il ne faut pas confondre avec la relance.
+      final restart =
+          lines.indexWhere((l) => l.startsWith('M3 S12000'), pause + 1);
+      final dwell = lines.indexWhere((l) => l.startsWith('G4 P'), pause + 1);
+
+      expect(stop, greaterThanOrEqualTo(0));
+      expect(pause, greaterThan(stop), reason: 'arrêt broche avant la pause');
+      expect(restart, greaterThan(pause),
+          reason: 'relance à la même vitesse après la pause');
+      expect(dwell, greaterThan(restart),
+          reason: 'montée en régime avant de reprendre la coupe');
+    });
+
+    test('ne relance pas si le post-processeur a déjà coupé la broche', () {
+      // Beaucoup de post-processeurs émettent leur propre M5 avant le M6, et
+      // leur M3 après. Ajouter une relance ferait tourner la broche deux fois.
+      final r = GcodeAdapter.adaptForFluidNC('M3 S9000\nM5\nM6 T3');
+      final lines = r.gcode.trim().split('\n');
+
+      final pause = lines.indexWhere((l) => l.startsWith('M0'));
+      final after = lines.sublist(pause + 1);
+      expect(after.any((l) => l.startsWith('M3')), false,
+          reason: 'aucune relance ajoutée si la broche était déjà arrêtée');
+    });
+
+    test('M30 (fin de programme) n\'est pas pris pour un démarrage broche', () {
+      final r = GcodeAdapter.adaptForFluidNC('M30\nM6 T1');
+      final lines = r.gcode.trim().split('\n');
+      final pause = lines.indexWhere((l) => l.startsWith('M0'));
+
+      expect(lines.sublist(pause + 1).any((l) => l.startsWith('M3')), false);
     });
 
     test('développe le cycle de pointage G82 (avec tempo P ms → s)', () {

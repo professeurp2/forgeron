@@ -58,6 +58,16 @@ class GcodeAdapter {
   static final RegExp _toolLenComp = RegExp(r'G4[34](?![.\d])|G49(?![0-9])|H\d+');
   static final RegExp _toolChange = RegExp(r'M0?6(?![0-9])');
   static final RegExp _toolWord = RegExp(r'T\d+');
+  // Suivi de l'état broche pour encadrer les changements d'outil.
+  // `M0?[34](?![0-9])` accepte M3/M03/M4/M04 mais pas M30 (fin de programme).
+  static final RegExp _spindleOn = RegExp(r'M0?[34](?![0-9])');
+  static final RegExp _spindleOff = RegExp(r'M0?5(?![0-9])');
+  static final RegExp _spindleSpeed = RegExp(r'S(\d+(?:\.\d+)?)');
+
+  /// Temporisation de montée en régime après relance de la broche, en
+  /// secondes. La passe suivante ne doit pas mordre dans la matière avant que
+  /// l'outil ait sa vitesse.
+  static const int kSpinUpSeconds = 3;
   static final RegExp _inch = RegExp(r'G20(?![0-9])');
   // Retour à la référence machine (G28/G30). DANGEREUX sur cette machine : le
   // zéro machine est à la position des capteurs (Z en bas), donc G28 Z0 ENVOIE
@@ -69,6 +79,11 @@ class GcodeAdapter {
     var hasRtcp = false, hasInch = false, hasCutterComp = false;
     var hasOrientTransform = false;
     var strippedProg = 0, strippedComp = 0, convertedM6 = 0, strippedRef = 0;
+
+    // État broche courant, suivi au fil des lignes pour pouvoir la relancer
+    // à l'identique après un changement d'outil : sens (M3/M4) et vitesse (S).
+    String? spindleMode;
+    String? spindleSpeed;
 
     // ── Passe 1 : nettoyage ligne par ligne ────────────────────────────────
     final cleaned = <String>[];
@@ -91,6 +106,19 @@ class GcodeAdapter {
       }
 
       final upper0 = code.toUpperCase();
+
+      // Suivi de la broche AVANT le traitement du changement d'outil : si le
+      // post-processeur a mis son propre M5 sur la même ligne que le M6, on
+      // doit le voir et ne pas relancer à sa place.
+      final s = _spindleSpeed.firstMatch(upper0);
+      if (s != null) spindleSpeed = s.group(1);
+      if (_spindleOff.hasMatch(upper0)) {
+        spindleMode = null;
+      } else {
+        final on = _spindleOn.firstMatch(upper0);
+        if (on != null) spindleMode = on.group(0)!.replaceFirst('M0', 'M');
+      }
+
       if (_rtcp.hasMatch(upper0)) hasRtcp = true;
       if (_orientTransform.hasMatch(upper0)) hasOrientTransform = true;
       if (_inch.hasMatch(upper0)) hasInch = true;
@@ -98,18 +126,39 @@ class GcodeAdapter {
 
       code = code.replaceFirst(_sequence, '');
 
+      // ── Changement d'outil ─────────────────────────────────────────────
+      //
+      // M6 devient une pause manuelle. Le point critique, et la raison d'être
+      // de tout ce bloc : **`M0` n'arrête PAS la broche** sur GRBL/FluidNC.
+      // Elle continue de tourner pendant toute la pause, et l'opérateur vient
+      // démonter la fraise à côté d'un outil en rotation.
+      //
+      // On encadre donc la pause : `M5` avant, relance après. La relance n'est
+      // pas un confort — sans elle le programme reprendrait sa passe suivante
+      // broche à l'arrêt, ce qui casse l'outil dans la matière.
       if (_toolChange.hasMatch(code.toUpperCase())) {
         final t = _toolWord.firstMatch(code.toUpperCase())?.group(0);
-        code = code
-            .toUpperCase()
-            .replaceAll(_toolChange, 'M0')
-            .replaceAll(_toolWord, '')
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
-        if (code.isEmpty) code = 'M0';
-        code = '$code (CHANGEMENT OUTIL${t != null ? ' $t' : ''} - reprendre)';
+
+        cleaned.add('M5 (ARRET BROCHE - CHANGEMENT OUTIL)');
+
+        final pause = 'M0 (CHANGEMENT OUTIL${t != null ? ' $t' : ''}'
+            ' - MONTER OUTIL PUIS REPRENDRE)';
+        cleaned.add(comment.isNotEmpty ? '$pause $comment' : pause);
+
+        // Relance seulement si la broche tournait avant la pause. Si le
+        // post-processeur a déjà émis son propre M5 avant le M6, on ne
+        // rajoute rien : il émettra aussi son M3 après.
+        if (spindleMode != null) {
+          final speed = spindleSpeed != null ? ' S$spindleSpeed' : '';
+          cleaned.add('$spindleMode$speed (RELANCE BROCHE)');
+          cleaned.add('G4 P$kSpinUpSeconds (MONTEE EN REGIME)');
+        }
+
         convertedM6++;
-      } else {
+        continue;
+      }
+
+      {
         final before =
             code.toUpperCase().replaceAll(RegExp(r'\s+'), ' ').trim();
         code = code
@@ -141,8 +190,9 @@ class GcodeAdapter {
           'Z / le WCS.');
     }
     if (convertedM6 > 0) {
-      warnings.add('$convertedM6 changement(s) d\'outil M6 → pause M0 '
-          '(changement manuel, puis reprise).');
+      warnings.add('$convertedM6 changement(s) d\'outil M6 → arrêt broche (M5) '
+          '+ pause M0, puis relance de la broche et $kSpinUpSeconds s de '
+          'montée en régime à la reprise.');
     }
     if (hasInch) {
       warnings.add('Code en POUCES (G20) détecté — la machine travaille en mm '

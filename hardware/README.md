@@ -19,6 +19,34 @@ Fichiers associés : [`netlist.csv`](netlist.csv) (connexions), [`bom.csv`](bom.
 
 ---
 
+## ⚠️ Tant que la Rev 2.0 n'est pas câblée
+
+Constaté en atelier (2026-08-21) : **quand l'ESP32 se bloque, la broche continue de
+tourner et le coup-de-poing ne l'arrête plus** — il faut couper l'alimentation générale.
+
+Ce n'est pas une surprise, c'est le **défaut n° 5 de la Rev 1.0** décrit au §1 : l'E-STOP
+n'existe aujourd'hui que par le logiciel (bouton → GPIO15 → FluidNC). ESP32 planté, GPIO21
+reste figé dans son dernier état, le relais reste collé, et le bouton ne parle plus à
+personne. Le §5 (« les trois niveaux ») décrit la solution ; elle n'est pas encore montée.
+
+**À faire avant la prochaine mise en route — aucun composant de la Rev 2.0 requis :**
+
+1. **Mettre un contact NF du coup-de-poing en série avec l'alimentation de la broche.**
+   C'est une coupure purement mécanique, dans le circuit de puissance, qui ne dépend
+   d'aucun logiciel ni d'aucun GPIO. C'est le niveau 1 du §5 réalisé au fil, et c'est ce
+   qui manque aujourd'hui. Un arrêt d'urgence qui transite par un microcontrôleur n'est
+   pas un arrêt d'urgence.
+2. **Ajouter une résistance de rappel (10 kΩ) sur l'entrée de commande du relais**, du côté
+   qui laisse la broche **à l'arrêt**. Au reset et pendant le boot, les GPIO de l'ESP32
+   sont en haute impédance : sans rappel, l'entrée flotte et le relais peut coller tout
+   seul. Vérifier la polarité du module — beaucoup sont actifs à l'état **bas**.
+3. **Ne pas laisser la machine tourner sans surveillance** dans cet état.
+
+Le point 1 est la seule mesure qui traite la cause. Les deux autres réduisent la
+probabilité, elles ne la suppriment pas.
+
+---
+
 ## 1. Ce que corrige la Rev 2.0
 
 | # | Défaut de la Rev 1.0 | Correction |
