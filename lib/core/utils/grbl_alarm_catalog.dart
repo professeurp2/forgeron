@@ -4,11 +4,16 @@
 /// l'opérateur à aller chercher ailleurs ce que la machine vient de lui dire,
 /// au moment précis où elle est verrouillée.
 ///
-/// Ne sont catalogués que les codes **1 à 10**, ceux de GRBL 1.1 que FluidNC
-/// reprend à l'identique. Au-delà, FluidNC ajoute des codes qui varient selon
-/// la version du firmware : plutôt que d'en deviner le sens, un code inconnu
-/// est affiché comme tel. Une cause d'alarme inventée enverrait l'opérateur
-/// dans la mauvaise direction sur une machine déjà en défaut.
+/// Codes tirés de l'énumération `ExecAlarm` de FluidNC (`FluidNC/src/Alarm.h`),
+/// qui porte des valeurs numériques explicites — 0 à 18.
+///
+/// ⚠️ FluidNC **diverge de GRBL 1.1 à partir du code 10** : là où GRBL met
+/// « échec d'équerrage sur axe double », FluidNC met `SpindleControl`. Se fier
+/// aux tables GRBL qui circulent en ligne donne donc une cause fausse sur cette
+/// machine — exactement le genre d'erreur qui envoie chercher au mauvais
+/// endroit une machine déjà en défaut.
+///
+/// Un code hors énumération est affiché comme non répertorié plutôt que deviné.
 library;
 
 class AlarmInfo {
@@ -131,12 +136,82 @@ class GrblAlarmCatalog {
           'donne exactement ce défaut.',
       positionLost: true,
     ),
+    // ── À partir d'ici, la numérotation est propre à FluidNC ─────────────
     10: AlarmInfo(
       code: 10,
-      title: 'Prise d\'origine — second capteur introuvable',
-      cause: 'Sur un axe à double moteur, le second capteur n\'a pas été '
-          'trouvé pour l\'équerrage.',
-      action: 'Vérifie le câblage du second capteur de cet axe.',
+      title: 'Broche — défaut de commande',
+      cause: 'Le contrôleur n\'a pas pu confirmer l\'état demandé de la broche.',
+      action: 'Vérifie l\'alimentation et le câblage de la broche. Sur une '
+          'commande par relais, vérifie que le module commute réellement — une '
+          'alimentation trop faible donne ce défaut.',
+      unlockable: true,
+    ),
+    11: AlarmInfo(
+      code: 11,
+      title: 'Entrée déjà active au démarrage',
+      cause: 'Un capteur (fin de course, porte, arrêt) était déjà actif à la '
+          'mise sous tension.',
+      action: 'Dégage l\'axe posé sur son capteur avant de démarrer. Si aucun '
+          'capteur n\'est touché, c\'est le câblage : un contact NF mal raccordé '
+          'donne ce défaut en permanence.',
+      unlockable: true,
+    ),
+    12: AlarmInfo(
+      code: 12,
+      title: 'Capteur ambigu pendant la prise d\'origine',
+      cause: 'Plusieurs axes partagent un capteur et le contrôleur ne peut pas '
+          'déterminer lequel est concerné.',
+      action: 'Dégage les axes concernés, puis relance la prise d\'origine axe '
+          'par axe.',
+      positionLost: true,
+    ),
+    13: AlarmInfo(
+      code: 13,
+      title: 'Arrêt brutal',
+      cause: 'Le mouvement a été interrompu net, sans décélération.',
+      action: 'Refais une prise d\'origine avant tout usinage.',
+      positionLost: true,
+    ),
+    14: AlarmInfo(
+      code: 14,
+      title: 'Origine machine non prise',
+      cause: 'Un mouvement exigeant une position machine connue a été demandé '
+          'avant toute prise d\'origine.',
+      action: 'Lance la prise d\'origine.',
+      positionLost: true,
+    ),
+    15: AlarmInfo(
+      code: 15,
+      title: 'Démarrage — prise d\'origine requise',
+      cause: 'La machine démarre en alarme parce que la configuration exige une '
+          'prise d\'origine. C\'est le comportement normal à la mise sous '
+          'tension, pas un défaut.',
+      action: 'Lance la prise d\'origine.',
+      positionLost: true,
+    ),
+    16: AlarmInfo(
+      code: 16,
+      title: 'Expandeur d\'E/S réinitialisé',
+      cause: 'Un circuit d\'extension d\'entrées/sorties a redémarré : l\'état de '
+          'ses broches n\'est plus fiable.',
+      action: 'Coupe et remets l\'alimentation. Si cela se répète, cherche un '
+          'problème d\'alimentation ou des parasites sur le bus.',
+    ),
+    17: AlarmInfo(
+      code: 17,
+      title: 'Erreur G-code bloquante',
+      cause: 'Une erreur dans le programme a mis la machine en alarme.',
+      action: 'Lis la console : le contrôleur y a écrit l\'erreur exacte et la '
+          'ligne fautive.',
+      unlockable: true,
+    ),
+    18: AlarmInfo(
+      code: 18,
+      title: 'Fin de course pendant le palpage',
+      cause: 'Un capteur de fin de course a été touché pendant un cycle de '
+          'palpage.',
+      action: 'Dégage l\'axe, puis refais une prise d\'origine avant de reprendre '
+          'le palpage.',
       positionLost: true,
     ),
   };

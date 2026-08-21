@@ -6,8 +6,8 @@ void main() {
     expect(GrblAlarmCatalog.lookup(null), isNull);
   });
 
-  test('les codes GRBL 1.1 sont tous couverts', () {
-    for (var code = 1; code <= 10; code++) {
+  test('toute l\'enumeration FluidNC est couverte', () {
+    for (var code = 1; code <= 18; code++) {
       expect(GrblAlarmCatalog.isKnown(code), isTrue,
           reason: 'code $code absent du catalogue');
       final info = GrblAlarmCatalog.lookup(code)!;
@@ -33,7 +33,8 @@ void main() {
     });
 
     test('tous les echecs de prise d\'origine perdent la position', () {
-      for (final code in [6, 7, 8, 9, 10]) {
+      // 10 n'en fait PAS partie chez FluidNC : c'est un défaut de broche.
+      for (final code in [6, 7, 8, 9, 12]) {
         expect(GrblAlarmCatalog.lookup(code)!.positionLost, isTrue,
             reason: 'code $code');
       }
@@ -45,6 +46,22 @@ void main() {
             reason: 'code $code');
       }
     });
+  });
+
+  test('le code 10 est un defaut de broche, pas un echec d\'equerrage', () {
+    // Piege : GRBL 1.1 met « echec d'equerrage axe double » sur le 10.
+    // FluidNC y met SpindleControl. Reprendre la table GRBL donnerait une
+    // cause fausse sur cette machine.
+    final info = GrblAlarmCatalog.lookup(10)!;
+    expect(info.title.toLowerCase(), contains('broche'));
+    expect(info.positionLost, isFalse);
+  });
+
+  test('le demarrage en alarme est explique comme normal', () {
+    // FluidNC demarre en alarme quand la config exige une prise d'origine :
+    // l'operateur doit lire que ce n'est pas une panne.
+    final info = GrblAlarmCatalog.lookup(15)!;
+    expect(info.cause.toLowerCase(), contains('normal'));
   });
 
   group('code inconnu', () {
