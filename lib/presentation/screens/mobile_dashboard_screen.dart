@@ -501,6 +501,24 @@ class _GCodeListViewState extends State<_GCodeListView> {
   static const double _extent = 32.0;
 
   @override
+  void initState() {
+    super.initState();
+    // À l'ouverture de l'écran, se placer d'emblée sur la ligne en cours.
+    //
+    // Sans ça la liste s'ouvrait en tête : sur un programme de plusieurs
+    // milliers de lignes, l'opérateur devait chercher lui-même où en était la
+    // machine. Et le suivi de `didUpdateWidget` ne le sauvait pas — il ne se
+    // déclenche qu'au CHANGEMENT de ligne, donc jamais pendant une pause de
+    // changement d'outil, précisément le moment où l'on vient regarder.
+    //
+    // Après le premier frame : le ScrollController n'a pas encore de client
+    // tant que la liste n'est pas montée.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrent(animate: false);
+    });
+  }
+
+  @override
   void didUpdateWidget(covariant _GCodeListView old) {
     super.didUpdateWidget(old);
     if (widget.running && widget.current != old.current) {
@@ -508,13 +526,21 @@ class _GCodeListViewState extends State<_GCodeListView> {
     }
   }
 
-  void _scrollToCurrent() {
+  /// [animate] à `false` pour le positionnement d'ouverture : dérouler quatre
+  /// mille lignes sous les yeux de l'opérateur n'apporte rien et retarde
+  /// l'affichage de ce qu'il est venu voir.
+  void _scrollToCurrent({bool animate = true}) {
     if (!_ctrl.hasClients) return;
     final vp = _ctrl.position.viewportDimension;
     final target = (widget.current * _extent) - vp / 2 + _extent / 2;
-    final max = _ctrl.position.maxScrollExtent;
+    final clamped = target.clamp(0.0, _ctrl.position.maxScrollExtent);
+
+    if (!animate) {
+      _ctrl.jumpTo(clamped);
+      return;
+    }
     _ctrl.animateTo(
-      target.clamp(0.0, max),
+      clamped,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
