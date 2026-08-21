@@ -16,6 +16,7 @@ import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/mobile/mobile_visualizer_panel.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
 import '../widgets/mobile/tool_change_banner.dart';
+import '../widgets/mobile/override_panel.dart';
 import '../tutorial/tutorial_keys.dart';
 
 /// Dashboard Mobile "Forge Pro" — Version Épurée
@@ -201,6 +202,12 @@ class _MasterTab extends ConsumerWidget {
               ),
             ),
           ),
+
+          const SizedBox(height: 24),
+          // ── CORRECTIONS ──
+          // Juste au-dessus des actions de cycle : c'est le levier qu'on
+          // cherche quand la passe est déjà lancée et qu'elle va trop vite.
+          const OverridePanel(),
 
           const SizedBox(height: 24),
           // ── ACTIONS DE CYCLE (Accessibles immédiatement) ──
