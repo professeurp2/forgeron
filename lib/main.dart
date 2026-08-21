@@ -27,18 +27,27 @@ class ForgeronApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    final palette = themeMode == ThemeMode.dark ? forgeronDarkColors : forgeronLightColors;
 
-    return ForgeronTheme(
-      colors: palette,
-      child: MaterialApp(
-        title: 'Forgeron — CNC 5 Axes',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeMode,
-        home: const MainScaffold(),
+    return MaterialApp(
+      title: 'Forgeron — CNC 5 Axes',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
+      // ForgeronTheme est monté SOUS MaterialApp, et non au-dessus. C'est là
+      // que MediaQuery existe, donc que la luminosité du système est lisible :
+      // au-dessus, [isDarkTheme] n'aurait aucun MediaQuery ancêtre à consulter.
+      //
+      // Ce placement garantit aussi que la palette maison et les widgets
+      // Material résolvent `ThemeMode.system` de la même façon — sinon l'un des
+      // deux passe en sombre pendant que l'autre reste en clair.
+      builder: (context, child) => ForgeronTheme(
+        colors: isDarkTheme(context, themeMode)
+            ? forgeronDarkColors
+            : forgeronLightColors,
+        child: child!,
       ),
+      home: const MainScaffold(),
     );
   }
 }

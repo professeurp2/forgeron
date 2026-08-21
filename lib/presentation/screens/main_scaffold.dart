@@ -998,23 +998,20 @@ class _HeaderBar extends ConsumerWidget {
                 turns: Tween<double>(begin: 0.75, end: 1.0).animate(anim),
                 child: ScaleTransition(scale: anim, child: child),
               ),
+              // L'icône montre le mode COURANT, pas la cible : avec trois
+              // états, afficher « ce vers quoi on va » devient illisible.
               child: Icon(
-                ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
+                themeModeIcon(ref.watch(themeModeProvider)),
                 key: ValueKey(ref.watch(themeModeProvider)),
-                color: ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? context.fc.primary
-                    : context.fc.textSecondary,
+                color: ref.watch(themeModeProvider) == ThemeMode.system
+                    ? context.fc.textSecondary
+                    : context.fc.primary,
                 size: 20,
               ),
             ),
-            tooltip: 'Changer le thème',
+            tooltip: 'Thème : ${themeModeLabel(ref.watch(themeModeProvider))}',
             onPressed: () {
-              final notifier = ref.read(themeModeProvider.notifier);
-              notifier.state = notifier.state == ThemeMode.dark
-                  ? ThemeMode.light
-                  : ThemeMode.dark;
+              ref.read(themeModeProvider.notifier).cycle();
               ref.read(audioServiceProvider).play(SoundEffect.click);
               HapticFeedback.lightImpact();
             },

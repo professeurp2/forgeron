@@ -157,7 +157,7 @@ class _MobileTrunnionVisualizerState
       );
     }
 
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+    final isDark = isDarkTheme(context, ref.watch(themeModeProvider));
     if (_isReady) {
       _post({
         'type': 'set_theme',
