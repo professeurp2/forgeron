@@ -4,6 +4,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/streaming_provider.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
+import '../../core/utils/grbl_alarm_catalog.dart';
 import '../screens/limit_recovery_screen.dart';
 
 /// Bannière d'alerte de sécurité, affichée en haut de l'application.
@@ -54,16 +55,29 @@ class SafetyBanner extends ConsumerWidget {
       for (int i = 0; i < 5 && i < state!.limitSwitches.length; i++) {
         if (state.limitSwitches[i]) active.add(axes[i]);
       }
-      final code = state?.alarmCode != null ? ' (code ${state!.alarmCode})' : '';
+      final info = GrblAlarmCatalog.lookup(state!.alarmCode);
       final lim = active.isNotEmpty
           ? ' Fin(s) de course active(s) : ${active.join(', ')}.'
           : '';
+
+      // Le titre porte la CAUSE, pas un numéro : « code 1 » n'apprend rien à
+      // l'opérateur devant sa machine verrouillée.
+      final title = info == null
+          ? 'MACHINE EN ALARME'
+          : 'ALARME ${info.code} — ${info.title.toUpperCase()}';
+
+      final detail = info == null
+          ? 'La machine est verrouillée.$lim '
+              'Lance la récupération guidée pour reprendre en sécurité.'
+          : '${info.cause}$lim ${info.action}'
+              // L'information qui coûte le plus cher à ignorer.
+              '${info.positionLost ? ' ⚠️ Position machine perdue : prise d\'origine obligatoire avant tout usinage.' : ''}';
+
       return _Bar(
         color: context.fc.danger,
         icon: Icons.error_rounded,
-        title: 'MACHINE EN ALARME$code',
-        detail: 'La machine est verrouillée.$lim '
-            'Lance la récupération guidée pour reprendre en sécurité.',
+        title: title,
+        detail: detail,
         actionLabel: 'RÉCUPÉRER',
         onAction: () => Navigator.of(context).push(
           MaterialPageRoute<void>(

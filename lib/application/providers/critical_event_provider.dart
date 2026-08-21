@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/machine_state.dart';
+import '../../core/utils/grbl_alarm_catalog.dart';
 import '../../core/net/cellular_http_client.dart';
 import '../services/ai_agent_service.dart';
 import '../services/notification_service.dart';
@@ -49,10 +50,15 @@ class CriticalEventWatcher {
     // Alarme machine (front montant).
     if (s.status == MachineStatus.alarm &&
         _lastStatus != MachineStatus.alarm) {
+      // La notification porte la CAUSE : elle arrive souvent quand l'opérateur
+      // n'est pas devant l'écran, et « code 1 » ne lui dit pas s'il doit courir.
+      final info = GrblAlarmCatalog.lookup(s.alarmCode);
       _trigger(
-        'ALARME MACHINE',
-        'La machine est passée en ALARME'
-            '${s.alarmCode != null ? ' (code ${s.alarmCode})' : ''}.',
+        info == null ? 'ALARME MACHINE' : 'ALARME ${info.code} — ${info.title}',
+        info == null
+            ? 'La machine est passée en ALARME.'
+            : '${info.cause} ${info.action}'
+                '${info.positionLost ? ' Position machine perdue : prise d\'origine obligatoire.' : ''}',
         s,
       );
     }

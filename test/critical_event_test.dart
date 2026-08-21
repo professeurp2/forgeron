@@ -84,6 +84,28 @@ void main() {
     expect(unread(), greaterThanOrEqualTo(1));
   });
 
+  test('la notification porte la CAUSE, pas seulement le numero', () async {
+    await emit(const MachineState(
+        status: MachineStatus.alarm, alarmCode: 1)); // fin de course materielle
+
+    final summary = container.read(aiInboxProvider).lastSummary!;
+    expect(summary, contains('ALARME 1'));
+    expect(summary, contains('Fin de course'));
+    // La consigne operationnelle doit y etre : c'est ce que l'operateur lit
+    // sur son telephone, loin de la machine.
+    expect(summary, contains('origine'));
+  });
+
+  test('deux alarmes differentes notifient toutes les deux', () async {
+    await emit(const MachineState(status: MachineStatus.alarm, alarmCode: 1));
+    await emit(const MachineState(status: MachineStatus.idle));
+    await emit(const MachineState(status: MachineStatus.alarm, alarmCode: 2));
+
+    // L'anti-rafale est indexe sur le type d'evenement : deux causes
+    // distinctes ne doivent pas s'effacer l'une l'autre.
+    expect(unread(), 2);
+  });
+
   test('offline seul ne notifie rien', () async {
     await emit(const MachineState(status: MachineStatus.idle));
     await emit(const MachineState(status: MachineStatus.offline));
