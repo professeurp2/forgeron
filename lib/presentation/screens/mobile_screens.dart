@@ -17,6 +17,8 @@ import '../tutorial/tutorial_keys.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/di_providers.dart';
+import '../../application/providers/program_tools_provider.dart';
+import '../../core/utils/gcode_tool_extractor.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE 2 — PALPAGE & ORIGINES  (Mobile)
@@ -727,6 +729,12 @@ class _MobileHomingTab extends ConsumerWidget {
 // PAGE 3 — MAGASIN D'OUTILS  (Mobile)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Magasin d'outils — **lu dans le programme chargé**, jamais saisi.
+///
+/// Il n'existe pas de table d'outils dans l'application : afficher un catalogue
+/// d'outils qui ne sont pas ceux du programme induirait l'opérateur en erreur
+/// au pire moment, celui du changement. Tout vient donc de
+/// [programToolsProvider], c'est-à-dire du G-code lui-même.
 class MobileToolTableScreen extends ConsumerStatefulWidget {
   const MobileToolTableScreen({super.key});
   @override
@@ -739,30 +747,13 @@ class _MobileToolTableScreenState
   final _searchCtrl = TextEditingController();
   String _query = '';
 
-  static List<(String, String, double, double, Color, String)> _tools(
-          ForgeronColorPalette c) =>
-      [
-    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, c.success, 'OK'),
-    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, c.success, 'OK'),
-    ('T3', 'FRAISE HÉMISP. Ø6', 65.02, 6.00, c.success, 'OK'),
-    ('T4', 'FORET CENTRE D3', 45.00, 3.00, c.success, 'OK'),
-    ('T5', 'TARAUDEUR M8', 70.00, 8.00, c.warning, 'USURE: 85%'),
-    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, c.success, 'OK'),
-    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, c.success, 'OK'),
-    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, c.success, 'OK'),
-    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, c.error, 'BRIS DÉTECTÉ'),
-    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, c.success, 'OK'),
-    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, c.success, 'OK'),
-    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, c.info, 'CALIBRÉ'),
-  ];
-
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _showDetail(int index, int activeToolNum, String activeWCS) {
+  void _showDetail(ProgramTool tool, int activeToolNum) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -775,10 +766,9 @@ class _MobileToolTableScreenState
         maxChildSize: 0.95,
         minChildSize: 0.4,
         builder: (ctx, ctrl) => _ToolDetailSheet(
-          tool: _tools(context.fc)[index],
+          tool: tool,
           scrollController: ctrl,
           activeToolNum: activeToolNum,
-          ref: ref,
         ),
       ),
     );
@@ -786,469 +776,559 @@ class _MobileToolTableScreenState
 
   @override
   Widget build(BuildContext context) {
-    final machineState = ref.watch(machineStateProvider).valueOrNull;
-    final activeToolNum = machineState?.activeToolNum ?? 0;
-    final activeWCS = machineState?.activeWCS ?? 'G54';
+    final fc = context.fc;
+    final tools = ref.watch(programToolsProvider);
+    final activeToolNum = ref.watch(activeToolNumberProvider);
 
-    final filtered = _tools(context.fc).asMap().entries.where((e) {
+    final filtered = tools.where((t) {
       if (_query.isEmpty) return true;
-      return e.value.$1.toLowerCase().contains(_query.toLowerCase()) ||
-          e.value.$2.toLowerCase().contains(_query.toLowerCase());
+      final q = _query.toLowerCase();
+      return 'T${t.number}'.toLowerCase().contains(q) ||
+          (t.description ?? '').toLowerCase().contains(q) ||
+          (t.operation ?? '').toLowerCase().contains(q);
     }).toList();
 
     return Column(
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          color: context.fc.surface,
-          child: Column(children: [
-            Row(children: [
-              Text('MAGASIN',
-                  style: TextStyle(
-                      color: context.fc.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.0)),
-              const Spacer(),
-              if (activeToolNum > 0)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: context.fc.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                        color: context.fc.success.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.build, color: context.fc.success, size: 10),
-                    SizedBox(width: 4),
-                    Text('ACTIF: T$activeToolNum',
-                        style: TextStyle(
-                            color: context.fc.success,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'JetBrains Mono')),
-                  ]),
-                ),
-              SizedBox(width: 8),
-              Text('${_tools(context.fc).length}/24',
-                  style: TextStyle(
-                      color: context.fc.primary,
-                      fontSize: 13,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.w900)),
-            ]),
-            SizedBox(height: 8),
-            // Barre de recherche
-            TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-              style: TextStyle(color: context.fc.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Rechercher T# ou nom...',
-                hintStyle: TextStyle(
-                    color: context.fc.textDisabled, fontSize: 12),
-                prefixIcon: Icon(Icons.search,
-                    color: context.fc.textDisabled, size: 18),
-                filled: true,
-                fillColor: context.fc.surfaceBright,
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: context.fc.surfaceBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: context.fc.surfaceBorder),
-                ),
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ]),
-        ),
-
-        // Liste
+        _header(fc, tools.length, activeToolNum),
+        if (tools.isNotEmpty) _searchField(fc),
         Expanded(
-          key: TutorialKeys.toolTable,
-          child: ListView.builder(
-            itemCount: filtered.length,
-            itemBuilder: (ctx, i) {
-              final entry = filtered[i];
-              final t = entry.value;
-              final origIdx = entry.key;
-              final toolNum =
-                  int.tryParse(t.$1.replaceAll('T', '')) ?? -1;
-              final isActive = toolNum == activeToolNum && activeToolNum > 0;
-
-              return InkWell(
-                onTap: () {
-                  _showDetail(origIdx, activeToolNum, activeWCS);
-                  HapticFeedback.selectionClick();
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? context.fc.success.withValues(alpha: 0.04)
-                        : Colors.transparent,
-                    border: Border(
-                      bottom: BorderSide(color: context.fc.surfaceBorder),
-                      left: BorderSide(
-                          color: isActive
-                              ? context.fc.success
-                              : Colors.transparent,
-                          width: 3),
-                    ),
-                  ),
-                  child: Row(children: [
-                    // Badge T#
-                    Container(
-                      width: 44, height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? context.fc.success.withValues(alpha: 0.15)
-                            : context.fc.surfaceBright,
-                        borderRadius: BorderRadius.circular(6),
-                        border: isActive
-                            ? Border.all(
-                                color: context.fc.success, width: 1.5)
-                            : null,
-                      ),
-                      child: Text(t.$1,
-                          style: TextStyle(
-                              color: isActive
-                                  ? context.fc.success
-                                  : context.fc.textSecondary,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono')),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t.$2,
-                                style: TextStyle(
-                                    color: context.fc.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis),
-                            SizedBox(height: 2),
-                            Text(
-                                'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                    color: context.fc.textDisabled,
-                                    fontSize: 9,
-                                    fontFamily: 'JetBrains Mono')),
-                          ]),
-                    ),
-                    // État
-                    Column(children: [
-                      Container(
-                          width: 8, height: 8,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: t.$5,
-                              boxShadow: [BoxShadow(color: t.$5, blurRadius: 4)])),
-                      SizedBox(height: 4),
-                      Icon(Icons.chevron_right,
-                          color: context.fc.textDisabled, size: 16),
-                    ]),
-                  ]),
+          child: tools.isEmpty
+              ? _emptyState(fc)
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final t = filtered[i];
+                    return _ToolCard(
+                      tool: t,
+                      isActive: t.number == activeToolNum && activeToolNum > 0,
+                      onTap: () => _showDetail(t, activeToolNum),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
+
+  Widget _header(ForgeronColorPalette fc, int count, int activeToolNum) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('OUTILS DU PROGRAMME',
+                  style: TextStyle(
+                      color: fc.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2)),
+              const SizedBox(height: 2),
+              Text('lus dans le G-code chargé',
+                  style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+            ],
+          ),
+          const Spacer(),
+          if (activeToolNum > 0)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: fc.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: fc.primary.withValues(alpha: 0.5)),
+              ),
+              child: Text('ACTIF : T$activeToolNum',
+                  style: TextStyle(
+                      color: fc.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900)),
+            )
+          else
+            Text('$count outil${count > 1 ? 's' : ''}',
+                style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchField(ForgeronColorPalette fc) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: (v) => setState(() => _query = v),
+        style: TextStyle(color: fc.textPrimary, fontSize: 13),
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: Icon(Icons.search, color: fc.textSecondary, size: 18),
+          hintText: 'Filtrer',
+          hintStyle: TextStyle(color: fc.textDisabled, fontSize: 13),
+          filled: true,
+          fillColor: fc.background.withValues(alpha: 0.4),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.surfaceBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.surfaceBorder),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState(ForgeronColorPalette fc) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.handyman_outlined, color: fc.textDisabled, size: 48),
+            const SizedBox(height: 14),
+            Text('AUCUN PROGRAMME CHARGÉ',
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            Text(
+              'Les outils sont lus dans le G-code. Charge un programme depuis '
+              'l\'onglet PROGRAMME pour voir ceux qu\'il utilise.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ToolDetailSheet extends ConsumerWidget {
-  final (String, String, double, double, Color, String) tool;
-  final ScrollController scrollController;
-  final int activeToolNum;
-  final WidgetRef ref;
+/// Carte d'un outil dans la liste.
+class _ToolCard extends StatelessWidget {
+  const _ToolCard({
+    required this.tool,
+    required this.isActive,
+    required this.onTap,
+  });
 
+  final ProgramTool tool;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isActive ? fc.primary.withValues(alpha: 0.10) : fc.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: isActive ? fc.primary : fc.surfaceBorder,
+              width: isActive ? 1.5 : 1),
+        ),
+        child: Row(
+          children: [
+            _ToolPhoto(shape: tool.shape, size: 52),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Text('T${tool.number}',
+                        style: TextStyle(
+                            color: isActive ? fc.primary : fc.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'JetBrains Mono')),
+                    const SizedBox(width: 8),
+                    if (isActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: fc.primary,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: const Text('MONTÉ',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(
+                    tool.description ?? 'Descriptif absent du programme',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tool.description == null
+                          ? fc.textDisabled
+                          : fc.textSecondary,
+                      fontSize: 11,
+                      fontStyle: tool.description == null
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                  ),
+                  if (!tool.isBare) ...[
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      if (tool.diameterMm != null)
+                        _Chip('Ø${_trim(tool.diameterMm!)}', fc.primary),
+                      if (tool.flutes != null)
+                        _Chip('${tool.flutes} tailles', fc.info),
+                      if (tool.material != null)
+                        _Chip(tool.material!, fc.textSecondary),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: fc.textDisabled, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Photo de l'outil. La forme vient du descriptif du G-code ; quand il est
+/// absent, on n'affiche pas de photo trompeuse mais une silhouette neutre.
+class _ToolPhoto extends StatelessWidget {
+  const _ToolPhoto({required this.shape, required this.size});
+
+  final ToolShape shape;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    final identified = shape != ToolShape.unknown;
+
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: fc.terminalBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fc.surfaceBorder),
+      ),
+      child: identified
+          ? Image.asset(shape.asset, fit: BoxFit.contain)
+          : Icon(Icons.help_outline, color: fc.textDisabled, size: size * 0.45),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.color);
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+String _trim(double v) =>
+    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+/// Fiche détaillée d'un outil.
+class _ToolDetailSheet extends ConsumerWidget {
   const _ToolDetailSheet({
     required this.tool,
     required this.scrollController,
     required this.activeToolNum,
-    required this.ref,
   });
 
+  final ProgramTool tool;
+  final ScrollController scrollController;
+  final int activeToolNum;
+
   @override
-  Widget build(BuildContext context, WidgetRef r) {
-    final toolNum = int.tryParse(tool.$1.replaceAll('T', '')) ?? -1;
-    final isActive = toolNum == activeToolNum && activeToolNum > 0;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    final isActive = tool.number == activeToolNum && activeToolNum > 0;
 
     return SingleChildScrollView(
       controller: scrollController,
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Drag handle
         Center(
           child: Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color: context.fc.textDisabled,
+              color: fc.textDisabled,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
 
-        // Header outil
         Row(children: [
-          Container(
-            width: 56, height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? context.fc.success.withValues(alpha: 0.15)
-                  : context.fc.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: isActive ? Border.all(color: context.fc.success, width: 2) : null,
-            ),
-            child: Text(tool.$1,
-                style: TextStyle(
-                    color: isActive ? context.fc.success : context.fc.primary,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    fontFamily: 'JetBrains Mono')),
-          ),
-          SizedBox(width: 16),
+          _ToolPhoto(shape: tool.shape, size: 88),
+          const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tool.$2,
-                  style: TextStyle(
-                      color: context.fc.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900)),
-              SizedBox(height: 4),
-              Row(children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: tool.$5.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text('● ${tool.$6}',
-                      style: TextStyle(
-                          color: tool.$5, fontSize: 9, fontWeight: FontWeight.w900)),
-                ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('T${tool.number}',
+                    style: TextStyle(
+                        color: fc.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'JetBrains Mono')),
+                Text(tool.shape.label,
+                    style: TextStyle(color: fc.primary, fontSize: 12)),
                 if (isActive) ...[
-                  SizedBox(width: 6),
+                  const SizedBox(height: 6),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: context.fc.success.withValues(alpha: 0.1),
+                      color: fc.primary,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('▶ EN BROCHE',
+                    child: const Text('ACTUELLEMENT MONTÉ',
                         style: TextStyle(
-                            color: context.fc.success,
+                            color: Colors.white,
                             fontSize: 9,
                             fontWeight: FontWeight.w900)),
                   ),
                 ],
-              ]),
+              ],
+            ),
+          ),
+        ]),
+
+        const SizedBox(height: 18),
+
+        // ── Ce que dit le programme ────────────────────────────────────────
+        _sectionTitle(fc, 'CE QUE DIT LE PROGRAMME'),
+        const SizedBox(height: 8),
+        if (tool.description != null)
+          _rawLine(fc, tool.description!)
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: fc.warning.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: fc.warning.withValues(alpha: 0.3)),
+            ),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: fc.warning, size: 15),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Le programme ne décrit pas cet outil : il n\'indique que son '
+                  'numéro. Aucune caractéristique n\'est affichée plutôt que '
+                  'd\'en inventer.',
+                  style: TextStyle(
+                      color: fc.textSecondary, fontSize: 11, height: 1.4),
+                ),
+              ),
             ]),
           ),
-        ]),
 
-        SizedBox(height: 20),
+        if (tool.operation != null) ...[
+          const SizedBox(height: 8),
+          _row(fc, 'Opération', tool.operation!),
+        ],
 
-        // Actions
-        Row(children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: Icon(Icons.build, size: 14),
-              label: Text('APPELER ${tool.$1}  (M6)'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: context.fc.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14)),
-              onPressed: () {
-                Navigator.pop(context);
-                _callTool(context, toolNum);
-              },
+        if (!tool.isBare) ...[
+          const SizedBox(height: 18),
+          _sectionTitle(fc, 'CARACTÉRISTIQUES'),
+          const SizedBox(height: 8),
+          if (tool.diameterMm != null)
+            _row(fc, 'Diamètre', '${_trim(tool.diameterMm!)} mm'),
+          if (tool.flutes != null) _row(fc, 'Tailles', '${tool.flutes}'),
+          if (tool.cuttingLengthMm != null)
+            _row(fc, 'Longueur de coupe',
+                '${_trim(tool.cuttingLengthMm!)} mm'),
+          if (tool.material != null) _row(fc, 'Matière', tool.material!),
+        ],
+
+        const SizedBox(height: 18),
+        _sectionTitle(fc, 'DANS LE PROGRAMME'),
+        const SizedBox(height: 8),
+        _row(fc, 'Appelé', '${tool.changeLines.length} fois'),
+        _row(fc, 'Première ligne', '${tool.firstChangeLine + 1}'),
+
+        if (tool.spindleSpeed != null) ...[
+          const SizedBox(height: 8),
+          // Sans cette mise en garde, l'opérateur croirait que la broche tourne
+          // à la vitesse annoncée. Sur une broche pilotée en tout-ou-rien, le
+          // mot S est reçu puis ignoré par le contrôleur.
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: fc.info.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: fc.info.withValues(alpha: 0.25)),
             ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.speed, color: fc.info, size: 15),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Le programme demande S${tool.spindleSpeed}. Cette valeur '
+                  'n\'est appliquée que si la broche est pilotée en vitesse ; '
+                  'en tout-ou-rien elle est ignorée.',
+                  style: TextStyle(
+                      color: fc.textSecondary, fontSize: 11, height: 1.4),
+                ),
+              ),
+            ]),
           ),
-          SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              icon: Icon(Icons.straighten, size: 14, color: context.fc.secondary),
-              label: Text('G43 H$toolNum',
-                  style: TextStyle(color: context.fc.secondary)),
-              style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: context.fc.secondary),
-                  padding: EdgeInsets.symmetric(vertical: 14)),
-              onPressed: () {
-                ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('✓ G43 H$toolNum appliqué'),
-                  backgroundColor: context.fc.secondary,
-                ));
-              },
-            ),
-          ),
-        ]),
+        ],
 
-        SizedBox(height: 20),
-        const _MLabel('PARAMÈTRES PHYSIQUES'),
-        SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _MParamCard('LONGUEUR (L)', tool.$3.toStringAsFixed(3), 'mm')),
-          SizedBox(width: 10),
-          Expanded(child: _MParamCard('DIAMÈTRE (D)', tool.$4.toStringAsFixed(3), 'mm')),
-        ]),
-        SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _MParamCard('RAYON (R)', (tool.$4 / 2).toStringAsFixed(3), 'mm')),
-          SizedBox(width: 10),
-          Expanded(child: _MParamCard('AVANCE (F)', '1200', 'mm/min')),
-        ]),
-
-        SizedBox(height: 20),
-        const _MLabel('DURÉE DE VIE'),
-        SizedBox(height: 10),
-        Container(
-          padding: EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: context.fc.surfaceBright,
-            borderRadius: BorderRadius.circular(8),
+        const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.build_circle_outlined, size: 18),
+            label: Text('APPELER T${tool.number}  (M6)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: fc.surfaceBright,
+              foregroundColor: fc.primary,
+              padding: const EdgeInsets.all(15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: fc.primary.withValues(alpha: 0.3)),
+              ),
+              textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+            ),
+            onPressed: () => _confirmCall(context, ref),
           ),
-          child: Row(children: [
-            SizedBox(
-              width: 80, height: 80,
-              child: Stack(alignment: Alignment.center, children: [
-                CircularProgressIndicator(
-                    value: 0.68,
-                    strokeWidth: 6,
-                    backgroundColor: context.fc.surface,
-                    color: context.fc.success),
-                Text('68%',
-                    style: TextStyle(
-                        color: context.fc.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'JetBrains Mono')),
-              ]),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.straighten, size: 18),
+            label: Text('G43 H${tool.number}  (décalage longueur)'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: fc.textSecondary,
+              padding: const EdgeInsets.all(15),
+              side: BorderSide(color: fc.surfaceBorder),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
             ),
-            SizedBox(width: 20),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                for (final e in [
-                  ('TEMPS TOTAL', '04h 22min'),
-                  ('PIÈCES USINÉES', '47'),
-                  ('VIE RESTANTE', '~02h 08min'),
-                ])
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Row(children: [
-                      Text(e.$1,
-                          style: TextStyle(
-                              color: context.fc.textDisabled,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900)),
-                      const Spacer(),
-                      Text(e.$2,
-                          style: TextStyle(
-                              color: context.fc.textPrimary,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.bold)),
-                    ]),
-                  ),
-              ]),
-            ),
-          ]),
+            onPressed: () {
+              ref
+                  .read(machineRepositoryProvider)
+                  .sendGCode('G43 H${tool.number}');
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('✓ G43 H${tool.number} appliqué'),
+              ));
+            },
+          ),
         ),
       ]),
     );
   }
 
-  void _callTool(BuildContext context, int toolNum) {
+  void _confirmCall(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dctx) => AlertDialog(
         backgroundColor: context.fc.surface,
-        title: Text('Appel outil T$toolNum',
-            style: TextStyle(color: context.fc.textPrimary)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.build, color: context.fc.primary, size: 48),
-          SizedBox(height: 16),
-          Text('Envoyer T$toolNum M6 ?',
-              style: TextStyle(color: context.fc.textSecondary),
-              textAlign: TextAlign.center),
-          SizedBox(height: 8),
-          Text('⚠ Changement d\'outil en cours.',
-              style: TextStyle(color: context.fc.warning, fontSize: 11),
-              textAlign: TextAlign.center),
-        ]),
+        title: Text('Appel outil T${tool.number}',
+            style: TextStyle(color: context.fc.textPrimary, fontSize: 16)),
+        content: Text(
+          'Envoyer T${tool.number} M6 ?\n\nLa broche s\'arrête et le programme '
+          'se met en pause pour le changement.',
+          style: TextStyle(color: context.fc.textSecondary, fontSize: 13),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('ANNULER')),
+            onPressed: () => Navigator.pop(dctx),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: context.fc.primary),
             onPressed: () {
+              ref
+                  .read(machineRepositoryProvider)
+                  .sendGCode('T${tool.number} M6');
+              Navigator.pop(dctx);
               Navigator.pop(context);
-              ref.read(machineRepositoryProvider).sendGCode('T$toolNum M6');
-              HapticFeedback.heavyImpact();
             },
-            child: Text('APPELER T$toolNum',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            child: const Text('Envoyer'),
           ),
         ],
       ),
     );
   }
-}
 
-class _MParamCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  const _MParamCard(this.label, this.value, this.unit);
+  Widget _sectionTitle(ForgeronColorPalette fc, String label) => Text(
+        label,
+        style: TextStyle(
+            color: fc.textDisabled,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5),
+      );
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.fc.surfaceBright,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 9,
-                fontWeight: FontWeight.w900)),
-        SizedBox(height: 6),
-        FittedBox(
-          child: Text(value,
-              style: TextStyle(
-                  color: context.fc.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono')),
+  Widget _rawLine(ForgeronColorPalette fc, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: fc.terminalBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: fc.surfaceBorder),
         ),
-        Text(unit,
+        child: Text(text,
             style: TextStyle(
-                color: context.fc.textDisabled, fontSize: 9)),
-      ]),
-    );
-  }
+                color: fc.textPrimary,
+                fontSize: 12,
+                fontFamily: 'JetBrains Mono')),
+      );
+
+  Widget _row(ForgeronColorPalette fc, String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+          const Spacer(),
+          Text(value,
+              style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+        ]),
+      );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

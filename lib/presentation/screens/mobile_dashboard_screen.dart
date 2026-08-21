@@ -15,6 +15,7 @@ import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/mobile/mobile_visualizer_panel.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
+import '../widgets/mobile/tool_change_banner.dart';
 import '../tutorial/tutorial_keys.dart';
 
 /// Dashboard Mobile "Forge Pro" — Version Épurée
@@ -309,6 +310,9 @@ class _ProgramTab extends ConsumerWidget {
 
     return Column(
       children: [
+        // Quel outil monter, pendant une pause de changement. Placé avant la
+        // progression : à cet instant c'est la seule information qui compte.
+        const ToolChangeBanner(),
         // Panneau de progression, visible pendant l'exécution.
         if (progress.active) _ExecutionProgressPanel(fc: fc, p: progress),
         // Macros en haut pour accès rapide
