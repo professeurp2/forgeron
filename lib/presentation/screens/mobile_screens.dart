@@ -1182,7 +1182,10 @@ class _ToolDetailSheet extends ConsumerWidget {
         _sectionTitle(fc, 'DANS LE PROGRAMME'),
         const SizedBox(height: 8),
         _row(fc, 'Appelé', '${tool.changeLines.length} fois'),
-        _row(fc, 'Première ligne', '${tool.firstChangeLine + 1}'),
+        // Numérotation du FICHIER SOURCE, pas du programme affiché dans
+        // l'onglet PROGRAMME : celui-ci est la version adaptée, dont les lignes
+        // ont été renumérotées. Le préciser évite un renvoi faux.
+        _row(fc, 'Ligne (fichier d\'origine)', '${tool.firstChangeLine + 1}'),
 
         if (tool.spindleSpeed != null) ...[
           const SizedBox(height: 8),

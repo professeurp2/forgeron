@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart';
 import '../../core/utils/gcode_parser.dart';
 import '../../core/utils/gcode_adapter.dart';
+import '../../core/utils/gcode_tool_extractor.dart';
 import '../../core/utils/kinematics_service.dart';
 import 'machining_mode_provider.dart' show trunnionConfigProvider;
 
@@ -21,6 +22,17 @@ class LargeGCodeState {
   final List<String> adaptWarnings;
   final bool adaptBlocking;
 
+  /// Outils appelés par le programme, extraits du fichier **d'origine**.
+  ///
+  /// Calculés à l'ouverture et conservés, car [allLines] contient le G-code
+  /// ADAPTÉ : l'adaptateur y a converti chaque `T.. M6` en pause `M0`, si bien
+  /// que ni le mot `T` ni le `M6` n'y subsistent. Chercher les outils dans
+  /// [allLines] ne trouve donc jamais rien.
+  ///
+  /// On stocke le résultat plutôt qu'une seconde copie du fichier : la liste
+  /// est minuscule, le fichier peut peser plusieurs mégaoctets.
+  final List<ProgramTool> tools;
+
   LargeGCodeState({
     this.allLines = const [],
     this.toolpath = const [],
@@ -29,6 +41,7 @@ class LargeGCodeState {
     this.isLoading = false,
     this.adaptWarnings = const [],
     this.adaptBlocking = false,
+    this.tools = const [],
   });
 
   /// Retourne une fenêtre de lignes autour de l'index actuel (ex: ±50 lignes)
@@ -64,6 +77,7 @@ class LargeGCodeState {
     bool? isLoading,
     List<String>? adaptWarnings,
     bool? adaptBlocking,
+    List<ProgramTool>? tools,
   }) {
     return LargeGCodeState(
       allLines: allLines ?? this.allLines,
@@ -73,6 +87,7 @@ class LargeGCodeState {
       isLoading: isLoading ?? this.isLoading,
       adaptWarnings: adaptWarnings ?? this.adaptWarnings,
       adaptBlocking: adaptBlocking ?? this.adaptBlocking,
+      tools: tools ?? this.tools,
     );
   }
 }
@@ -90,6 +105,13 @@ class GCodeNotifier extends StateNotifier<LargeGCodeState> {
   Future<void> loadFile(String content) async {
     state = state.copyWith(isLoading: true);
 
+    // AVANT adaptation : c'est le fichier d'origine qui porte les `T.. M6` et
+    // les commentaires descriptifs du post-processeur.
+    // Découpage tolérant au CRLF : les sorties de post sous Windows en sont
+    // pleines, et un `\r` traînant en fin de ligne fausserait les motifs.
+    final tools =
+        GCodeToolExtractor.extract(content.split(RegExp(r'\r?\n')));
+
     final adapt = GcodeAdapter.adaptForFluidNC(content);
 
     // Le parseur travaille sur le G-code ADAPTÉ (celui qui sera exécuté).
@@ -103,6 +125,7 @@ class GCodeNotifier extends StateNotifier<LargeGCodeState> {
       currentLineIndex: 0,
       adaptWarnings: adapt.warnings,
       adaptBlocking: adapt.blocking,
+      tools: tools,
     );
   }
 
