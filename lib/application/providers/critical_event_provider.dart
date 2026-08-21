@@ -25,6 +25,7 @@ class CriticalEventWatcher {
   List<bool> _lastLimits = const [false, false, false, false, false];
   final List<DateTime?> _lastLimitNotify = List<DateTime?>.filled(5, null);
   DateTime? _lastAiCall;
+  final Map<String, DateTime> _lastNotifyByType = {};
 
   static const _axisNames = ['X', 'Y', 'Z', 'A', 'C'];
 
@@ -33,6 +34,9 @@ class CriticalEventWatcher {
   // Anti-répétition par axe : un capteur qui rebondit ou réapparaît dans les
   // rapports de statut ne doit pas re-notifier en rafale.
   static const Duration _limitNotifyCooldown = Duration(seconds: 10);
+  // Anti-rafale par type d'évènement. Assez court pour ne pas masquer une
+  // seconde alarme réellement distincte, assez long pour tuer une boucle.
+  static const Duration _sameTypeCooldown = Duration(seconds: 20);
 
   CriticalEventWatcher(this._ref) {
     _ref.listen<AsyncValue<MachineState>>(machineStateProvider, (prev, next) {
@@ -113,16 +117,40 @@ class CriticalEventWatcher {
     }
     _lastLimits = List<bool>.from(s.limitSwitches);
 
-    _lastStatus = s.status;
-    _lastEstop = s.emergencyTriggered;
+    // `offline` veut dire « liaison perdue », PAS « la machine a changé
+    // d'état ». Une alarme ne disparaît pas parce que le WiFi a coupé.
+    //
+    // Le dépôt force pourtant le statut à `offline` à chaque coupure, si bien
+    // que le moindre cycle de reconnexion produisait la séquence
+    // alarme → offline → alarme, donc un nouveau front montant, donc une
+    // notification — en boucle tant que le lien restait instable, ce qui est
+    // exactement le cas au démarrage de l'application.
+    //
+    // En ne mémorisant pas `offline`, le front d'alarme reste consommé et la
+    // reconnexion ne renotifie plus.
+    if (s.status != MachineStatus.offline) {
+      _lastStatus = s.status;
+      _lastEstop = s.emergencyTriggered;
+    }
   }
 
   Future<void> _trigger(String type, String factual, MachineState s) async {
+    // Filet de sécurité : quoi qu'il arrive en amont, un même type d'évènement
+    // ne peut pas notifier en rafale. Ce n'est PAS le correctif de la boucle
+    // de démarrage — celui-ci est dans `_check`, sur le statut `offline` — mais
+    // une seconde barrière, parce qu'un opérateur noyé sous les notifications
+    // finit par toutes les ignorer, y compris la vraie.
+    final now = DateTime.now();
+    final lastSame = _lastNotifyByType[type];
+    if (lastSame != null && now.difference(lastSame) < _sameTypeCooldown) {
+      return;
+    }
+    _lastNotifyByType[type] = now;
+
     // 1) Notification factuelle IMMÉDIATE (sans attendre l'IA).
     _notify(type, factual, problem: true);
 
     // 2) Appel IA ponctuel (avec cooldown pour éviter toute rafale d'appels).
-    final now = DateTime.now();
     if (_lastAiCall != null && now.difference(_lastAiCall!) < _aiCooldown) {
       return;
     }
