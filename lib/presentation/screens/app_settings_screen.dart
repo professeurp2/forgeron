@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../application/providers/ui_state_provider.dart';
 import 'machine_calibration_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'limit_switch_test_screen.dart';
@@ -166,6 +167,23 @@ class AppSettingsScreen extends ConsumerWidget {
             subtitle: 'Adresse de la carte, mode simulation, reconnexion',
             screen: const ConnectionSettingsScreen(),
           ),
+
+          // Le mode atelier n'est pas une route mais un basculement de tout
+          // l'affichage : on lève le drapeau puis on referme les paramètres
+          // pour laisser voir le tableau de bord qui vient de changer de forme.
+          _actionTile(
+            context,
+            fc,
+            icon: Icons.factory_rounded,
+            color: fc.primary,
+            title: 'Mode atelier',
+            subtitle: 'Affichage plein écran pour le poste de travail',
+            onTap: () {
+              ref.read(isWorkshopModeProvider.notifier).state = true;
+              Navigator.of(context).pop();
+            },
+          ),
+
           const SizedBox(height: 20),
           _sectionLabel(fc, 'ASSISTANT'),
           _navTile(
@@ -202,6 +220,28 @@ class AppSettingsScreen extends ConsumerWidget {
         child: child,
       );
 
+  /// Meme presentation que [_navTile], mais pour une action qui n'ouvre pas
+  /// d'ecran. Deleguer a un rappel evite de faire passer un faux ecran juste
+  /// pour reutiliser la mise en forme.
+  Widget _actionTile(
+    BuildContext context,
+    ForgeronColorPalette fc, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) =>
+      _tile(fc,
+          icon: icon,
+          color: color,
+          title: title,
+          subtitle: subtitle,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          });
+
   Widget _navTile(
     BuildContext context,
     ForgeronColorPalette fc, {
@@ -210,6 +250,25 @@ class AppSettingsScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required Widget screen,
+  }) =>
+      _tile(fc,
+          icon: icon,
+          color: color,
+          title: title,
+          subtitle: subtitle,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            Navigator.of(context)
+                .push(MaterialPageRoute<void>(builder: (_) => screen));
+          });
+
+  Widget _tile(
+    ForgeronColorPalette fc, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -218,11 +277,7 @@ class AppSettingsScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            HapticFeedback.selectionClick();
-            Navigator.of(context)
-                .push(MaterialPageRoute<void>(builder: (_) => screen));
-          },
+          onTap: onTap,
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(

@@ -146,28 +146,11 @@ class _MasterTab extends ConsumerWidget {
             const SizedBox(height: 240, child: MobileVisualizerPanel(expand: true)),
           ],
 
-          const SizedBox(height: 16),
-          // ── DRO en grille : axes linéaires (X Y Z) puis rotatifs (A C) ──
-          Row(
-            children: [
-              Expanded(child: _AxisTile('X', wPos[0], fc.axisX, 'mm')),
-              const SizedBox(width: 10),
-              Expanded(child: _AxisTile('Y', wPos[1], fc.axisY, 'mm')),
-              const SizedBox(width: 10),
-              Expanded(child: _AxisTile('Z', wPos[2], fc.axisZ, 'mm')),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _AxisTile('A', wPos[3], fc.axisA, '°')),
-              const SizedBox(width: 10),
-              Expanded(child: _AxisTile('C', wPos[4], fc.axisC, '°')),
-            ],
-          ),
+          const SizedBox(height: 12),
+          // ── DRO : une seule carte, cinq lignes alignées ──
+          _DroCard(wPos: wPos),
 
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
           // ── CORRECTIONS ──
           // Juste au-dessus des actions de cycle : c'est le levier qu'on
           // cherche quand la passe est déjà lancée et qu'elle va trop vite.
@@ -582,19 +565,35 @@ class _GCodeListViewState extends State<_GCodeListView> {
 /// Tuile DRO d'un axe : pastille + lettre + unité en tête, valeur en gros
 /// dessous. Pensée pour une grille (3 linéaires / 2 rotatifs) : compacte,
 /// alignée, et la valeur se réduit via [FittedBox] plutôt que de déborder.
-class _AxisTile extends StatelessWidget {
-  final String axis;
-  final double value;
-  final Color color;
-  final String unit;
+/// Visualisation de position (DRO) : une carte, cinq lignes alignees.
+///
+/// Remplace cinq pave independants qui occupaient deux rangees pour cinq
+/// nombres. Outre l\'espace perdu, les largeurs etaient incoherentes — X/Y/Z au
+/// tiers de la largeur, A/C a la moitie — et les valeurs ne s\'alignaient donc
+/// pas d\'une ligne a l\'autre.
+///
+/// Une colonne monospace alignee a droite se lit d\'un coup d\'oeil : c\'est ce
+/// qu\'on demande a un DRO, bien plus que de la decoration.
+class _DroCard extends StatelessWidget {
+  const _DroCard({required this.wPos});
 
-  const _AxisTile(this.axis, this.value, this.color, this.unit);
+  final List<double> wPos;
+
+  static const _axes = [
+    ('X', 'mm'),
+    ('Y', 'mm'),
+    ('Z', 'mm'),
+    ('A', '°'),
+    ('C', '°'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
+    final colors = [fc.axisX, fc.axisY, fc.axisZ, fc.axisA, fc.axisC];
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: fc.surface,
         borderRadius: BorderRadius.circular(14),
@@ -607,45 +606,46 @@ class _AxisTile extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-              ),
-              const SizedBox(width: 6),
-              Text(axis,
+          for (var i = 0; i < _axes.length; i++) ...[
+            if (i > 0) Divider(color: fc.surfaceBorderDim, height: 1),
+            SizedBox(
+              height: 34,
+              child: Row(children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle, color: colors[i]),
+                ),
+                const SizedBox(width: 8),
+                Text(_axes[i].$1,
+                    style: TextStyle(
+                        color: colors[i],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900)),
+                const Spacer(),
+                Text(
+                  (i < wPos.length ? wPos[i] : 0.0).toStringAsFixed(3),
                   style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5)),
-              const Spacer(),
-              Text(unit,
-                  style: TextStyle(
-                      color: fc.textDisabled,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value.toStringAsFixed(3),
-              maxLines: 1,
-              style: TextStyle(
-                  color: fc.textPrimary,
-                  fontSize: 25,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'JetBrains Mono',
-                  letterSpacing: -0.5),
+                      color: fc.textPrimary,
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'JetBrains Mono',
+                      letterSpacing: -0.5),
+                ),
+                SizedBox(
+                  width: 26,
+                  child: Text(_axes[i].$2,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                          color: fc.textDisabled,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ]),
             ),
-          ),
+          ],
         ],
       ),
     );
