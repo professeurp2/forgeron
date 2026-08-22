@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/jog_provider.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
@@ -109,6 +110,8 @@ class _MasterTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final wPos = state?.wPos ?? List.filled(5, 0.0);
+    // Position MACHINE : elle seule situe l'axe dans sa course.
+    final mPos = state?.mPos ?? List.filled(5, 0.0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -148,7 +151,7 @@ class _MasterTab extends ConsumerWidget {
 
           const SizedBox(height: 12),
           // ── DRO : une seule carte, cinq lignes alignées ──
-          _DroCard(wPos: wPos),
+          _DroCard(wPos: wPos, mPos: mPos),
 
           const SizedBox(height: 14),
           // ── CORRECTIONS ──
@@ -574,10 +577,24 @@ class _GCodeListViewState extends State<_GCodeListView> {
 ///
 /// Une colonne monospace alignee a droite se lit d\'un coup d\'oeil : c\'est ce
 /// qu\'on demande a un DRO, bien plus que de la decoration.
-class _DroCard extends StatelessWidget {
-  const _DroCard({required this.wPos});
+/// Visualisation de position (DRO) : une carte, cinq lignes alignees, chacune
+/// doublee d\'une jauge de course.
+///
+/// Le NOMBRE affiche est la position PIECE — c\'est elle qui compte pour usiner.
+/// Le REMPLISSAGE, lui, situe l\'axe dans sa course MACHINE : il repond a une
+/// autre question, « combien me reste-t-il avant la butee ? », que la
+/// coordonnee piece ne peut pas donner puisqu\'elle depend de l\'origine posee.
+///
+/// La barre vire a l\'orange dans les 5 % de chaque extremite : approcher une
+/// fin de course pendant un usinage vaut d\'etre vu avant de l\'entendre.
+///
+/// Limite connue : FluidNC ne rapporte pas si la machine a ete referencee.
+/// Avant un homing, la position machine ne veut rien dire et la jauge non plus.
+class _DroCard extends ConsumerWidget {
+  const _DroCard({required this.wPos, required this.mPos});
 
   final List<double> wPos;
+  final List<double> mPos;
 
   static const _axes = [
     ('X', 'mm'),
@@ -587,13 +604,17 @@ class _DroCard extends StatelessWidget {
     ('C', '°'),
   ];
 
+  /// En deca de cette distance relative a une extremite, la jauge alerte.
+  static const _edge = 0.05;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final colors = [fc.axisX, fc.axisY, fc.axisZ, fc.axisA, fc.axisC];
+    final kin = ref.watch(axisKinematicsProvider).valueOrNull;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: fc.surface,
         borderRadius: BorderRadius.circular(14),
@@ -609,43 +630,88 @@ class _DroCard extends StatelessWidget {
         children: [
           for (var i = 0; i < _axes.length; i++) ...[
             if (i > 0) Divider(color: fc.surfaceBorderDim, height: 1),
-            SizedBox(
-              height: 34,
-              child: Row(children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle, color: colors[i]),
-                ),
-                const SizedBox(width: 8),
-                Text(_axes[i].$1,
-                    style: TextStyle(
-                        color: colors[i],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900)),
-                const Spacer(),
-                Text(
-                  (i < wPos.length ? wPos[i] : 0.0).toStringAsFixed(3),
-                  style: TextStyle(
-                      color: fc.textPrimary,
-                      fontSize: 21,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'JetBrains Mono',
-                      letterSpacing: -0.5),
-                ),
-                SizedBox(
-                  width: 26,
-                  child: Text(_axes[i].$2,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                          color: fc.textDisabled,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ]),
-            ),
+            _row(context, i, colors[i],
+                kin != null && i < kin.length ? kin[i] : null),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _row(
+      BuildContext context, int i, Color color, AxisKinematics? kinematics) {
+    final fc = context.fc;
+    final machine = i < mPos.length ? mPos[i] : 0.0;
+    final fraction = kinematics?.travelFraction(machine);
+    final nearEdge =
+        fraction != null && (fraction <= _edge || fraction >= 1 - _edge);
+    final barColor = nearEdge ? fc.warning : color;
+
+    return SizedBox(
+      height: 36,
+      child: Stack(
+        children: [
+          // Jauge de fond. Sans course connue, aucune barre : mieux vaut ne
+          // rien montrer qu\'une proportion inventee.
+          if (fraction != null)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: fraction,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    color: barColor.withValues(alpha: nearEdge ? 0.26 : 0.16),
+                  ),
+                ),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration:
+                    BoxDecoration(shape: BoxShape.circle, color: color),
+              ),
+              const SizedBox(width: 8),
+              Text(_axes[i].$1,
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900)),
+              if (fraction != null) ...[
+                const SizedBox(width: 7),
+                Text('${(fraction * 100).round()}%',
+                    style: TextStyle(
+                        color: nearEdge ? fc.warning : fc.textDisabled,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700)),
+              ],
+              const Spacer(),
+              Text(
+                (i < wPos.length ? wPos[i] : 0.0).toStringAsFixed(3),
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'JetBrains Mono',
+                    letterSpacing: -0.5),
+              ),
+              SizedBox(
+                width: 26,
+                child: Text(_axes[i].$2,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                        color: fc.textDisabled,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
         ],
       ),
     );
