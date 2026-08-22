@@ -226,26 +226,47 @@ class _JogTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Rappel DRO compact pour le JOG
-          _CompactDroStrip(wPos: wPos),
-          const SizedBox(height: 20),
-          JogControlPanel(wPos: wPos),
-          const SizedBox(height: 20),
-          _MasterActionButton(
-            label: 'STOP JOG',
-            icon: Icons.pan_tool_rounded,
-            color: context.fc.danger,
-            onTap: () {
-              ref.read(secureJogProvider.notifier).stopJog();
-              HapticFeedback.heavyImpact();
-            },
+
+    // Trois zones plutot qu'une seule vue defilante.
+    //
+    // Le DRO et l'arret restent a l'ecran en permanence ; seuls les organes de
+    // commande defilent. Auparavant tout defilait ensemble : pour arreter un
+    // mouvement il fallait d'abord faire remonter le bouton, ce qui est
+    // exactement ce qu'on ne veut pas d'une commande d'arret.
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: _CompactDroStrip(wPos: wPos),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: JogControlPanel(wPos: wPos),
           ),
-        ],
-      ),
+        ),
+        // Epingle, et separe visuellement de ce qui defile au-dessus.
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: BoxDecoration(
+            color: context.fc.background,
+            border: Border(
+                top: BorderSide(color: context.fc.surfaceBorderDim)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: _MasterActionButton(
+              label: 'STOP JOG',
+              icon: Icons.pan_tool_rounded,
+              color: context.fc.danger,
+              onTap: () {
+                ref.read(secureJogProvider.notifier).stopJog();
+                HapticFeedback.heavyImpact();
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -571,22 +592,22 @@ class _GCodeListViewState extends State<_GCodeListView> {
 /// Visualisation de position (DRO) : une carte, cinq lignes alignees.
 ///
 /// Remplace cinq pave independants qui occupaient deux rangees pour cinq
-/// nombres. Outre l\'espace perdu, les largeurs etaient incoherentes — X/Y/Z au
-/// tiers de la largeur, A/C a la moitie — et les valeurs ne s\'alignaient donc
-/// pas d\'une ligne a l\'autre.
+/// nombres. Outre l'espace perdu, les largeurs etaient incoherentes — X/Y/Z au
+/// tiers de la largeur, A/C a la moitie — et les valeurs ne s'alignaient donc
+/// pas d'une ligne a l'autre.
 ///
-/// Une colonne monospace alignee a droite se lit d\'un coup d\'oeil : c\'est ce
-/// qu\'on demande a un DRO, bien plus que de la decoration.
+/// Une colonne monospace alignee a droite se lit d'un coup d'oeil : c'est ce
+/// qu'on demande a un DRO, bien plus que de la decoration.
 /// Visualisation de position (DRO) : une carte, cinq lignes alignees, chacune
-/// doublee d\'une jauge de course.
+/// doublee d'une jauge de course.
 ///
-/// Le NOMBRE affiche est la position PIECE — c\'est elle qui compte pour usiner.
-/// Le REMPLISSAGE, lui, situe l\'axe dans sa course MACHINE : il repond a une
+/// Le NOMBRE affiche est la position PIECE — c'est elle qui compte pour usiner.
+/// Le REMPLISSAGE, lui, situe l'axe dans sa course MACHINE : il repond a une
 /// autre question, « combien me reste-t-il avant la butee ? », que la
-/// coordonnee piece ne peut pas donner puisqu\'elle depend de l\'origine posee.
+/// coordonnee piece ne peut pas donner puisqu'elle depend de l'origine posee.
 ///
-/// La barre vire a l\'orange dans les 5 % de chaque extremite : approcher une
-/// fin de course pendant un usinage vaut d\'etre vu avant de l\'entendre.
+/// La barre vire a l'orange dans les 5 % de chaque extremite : approcher une
+/// fin de course pendant un usinage vaut d'etre vu avant de l'entendre.
 ///
 /// Limite connue : FluidNC ne rapporte pas si la machine a ete referencee.
 /// Avant un homing, la position machine ne veut rien dire et la jauge non plus.
@@ -652,7 +673,7 @@ class _DroCard extends ConsumerWidget {
       child: Stack(
         children: [
           // Jauge de fond. Sans course connue, aucune barre : mieux vaut ne
-          // rien montrer qu\'une proportion inventee.
+          // rien montrer qu'une proportion inventee.
           if (fraction != null)
             Positioned.fill(
               child: Align(
@@ -764,6 +785,10 @@ class _MasterActionButton extends StatelessWidget {
   }
 }
 
+/// Rappel de position pendant le jog, epingle en haut de l'onglet.
+///
+/// Deux decimales et non une : le selecteur de pas descend a 0,01 mm, et un
+/// affichage au dixieme rendait ces deplacements simplement invisibles.
 class _CompactDroStrip extends StatelessWidget {
   final List<double> wPos;
   const _CompactDroStrip({required this.wPos});
@@ -771,18 +796,48 @@ class _CompactDroStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
-    final axes = [('X', fc.axisX), ('Y', fc.axisY), ('Z', fc.axisZ), ('A', fc.axisA), ('C', fc.axisC)];
+    final axes = [
+      ('X', fc.axisX),
+      ('Y', fc.axisY),
+      ('Z', fc.axisZ),
+      ('A', fc.axisA),
+      ('C', fc.axisC),
+    ];
+
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fc.surfaceBorder),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           for (int i = 0; i < 5; i++)
-            Column(children: [
-              Text(axes[i].$1, style: TextStyle(color: axes[i].$2, fontWeight: FontWeight.bold, fontSize: 10)),
-              Text(wPos[i].toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
-            ]),
+            Expanded(
+              child: Column(children: [
+                Text(axes[i].$1,
+                    style: TextStyle(
+                        color: axes[i].$2,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10)),
+                const SizedBox(height: 1),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    wPos[i].toStringAsFixed(2),
+                    // La valeur reprend la couleur de l'axe : sur cinq nombres
+                    // serres, c'est ce qui permet de trouver le bon du regard
+                    // sans lire les etiquettes.
+                    style: TextStyle(
+                        color: axes[i].$2,
+                        fontSize: 13,
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ]),
+            ),
         ],
       ),
     );
