@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
-import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/jog_provider.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
@@ -167,41 +166,6 @@ class _MasterTab extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 24),
-          // ── MODE ATELIER ──
-          Material(
-            key: TutorialKeys.mobileNav, // Détourné pour pointer le mode atelier dans le tuto
-            color: fc.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () => ref.read(isWorkshopModeProvider.notifier).state = true,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: fc.primary.withValues(alpha: 0.45), width: 1.5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.factory_rounded, color: fc.primary, size: 20),
-                    const SizedBox(width: 10),
-                    Text('ACTIVER MODE ATELIER',
-                        style: TextStyle(
-                            color: fc.textPrimary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            letterSpacing: 0.8)),
-                    const Spacer(),
-                    Icon(Icons.arrow_forward_ios_rounded,
-                        color: fc.textDisabled, size: 14),
-                  ],
-                ),
-              ),
-            ),
-          ),
 
           const SizedBox(height: 24),
           // ── CORRECTIONS ──
