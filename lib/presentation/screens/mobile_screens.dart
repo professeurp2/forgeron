@@ -12,6 +12,7 @@ import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/firmware_provider.dart';
 import '../../application/providers/network_stats_provider.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
+import '../widgets/mobile/wcs_offset_dialog.dart';
 import '../../application/services/logger_service.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
@@ -186,6 +187,25 @@ class _WCSTab extends ConsumerWidget {
                 if (sel)
                   Icon(Icons.check_circle,
                       color: context.fc.primary, size: 16),
+                // Saisie du décalage au clavier, pour ce WCS précis. Éditer
+                // depuis sa propre ligne lève toute ambiguïté sur la cible.
+                IconButton(
+                  icon: Icon(Icons.edit_outlined,
+                      color: context.fc.textDisabled, size: 17),
+                  tooltip: 'Saisir le décalage de ${d.$1}',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.only(left: 8),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => WcsOffsetDialog(
+                      wcs: d.$1,
+                      current: d.$2,
+                      axisLabels: axisLabels,
+                      axisColors: axisColors,
+                    ),
+                  ),
+                ),
               ]),
             ),
           );
