@@ -388,12 +388,15 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
 // ── Bandeau DRO live + bouton STOP (onglet Jog) ─────────────────────────────
 /// Bandeau compact des 5 axes (X/Y/Z/A/C) avec valeurs en direct, pour garder
 /// la position sous les yeux pendant le jog.
-class _JogDroStrip extends StatelessWidget {
+class _JogDroStrip extends ConsumerWidget {
   final List<double> wPos;
   const _JogDroStrip({required this.wPos});
 
+  /// En deca de cette distance relative a une extremite, la jauge alerte.
+  static const _edge = 0.05;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final axes = [
       ('X', fc.axisX, false),
@@ -402,6 +405,15 @@ class _JogDroStrip extends StatelessWidget {
       ('A', fc.axisA, true),
       ('C', fc.axisC, true),
     ];
+
+    // Position MACHINE et courses : pendant un jog, on conduit l\'axe a la main
+    // vers ses butees. Savoir ce qu\'il reste avant la fin de course est
+    // exactement l\'information qui manque, et la coordonnee piece affichee ne
+    // peut pas la donner puisqu\'elle depend de l\'origine posee.
+    final mPos =
+        ref.watch(machineStateProvider).valueOrNull?.mPos ?? const [0.0, 0.0, 0.0, 0.0, 0.0];
+    final kin = ref.watch(axisKinematicsProvider).valueOrNull;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
@@ -413,32 +425,72 @@ class _JogDroStrip extends StatelessWidget {
         children: [
           for (int i = 0; i < 5; i++)
             Expanded(
-              child: Column(
-                children: [
-                  Text(axes[i].$1,
-                      style: TextStyle(
-                          color: axes[i].$2,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12)),
-                  const SizedBox(height: 3),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      axes[i].$3
-                          ? '${wPos[i].toStringAsFixed(2)}°'
-                          : wPos[i].toStringAsFixed(3),
-                      style: TextStyle(
-                          color: fc.textPrimary,
-                          fontFamily: 'JetBrains Mono',
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13),
-                    ),
-                  ),
-                ],
+              child: _axis(
+                context,
+                axes[i].$1,
+                axes[i].$2,
+                axes[i].$3,
+                i < wPos.length ? wPos[i] : 0.0,
+                (kin != null && i < kin.length)
+                    ? kin[i].travelFraction(i < mPos.length ? mPos[i] : 0.0)
+                    : null,
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _axis(BuildContext context, String label, Color color, bool rotary,
+      double value, double? fraction) {
+    final fc = context.fc;
+    final nearEdge =
+        fraction != null && (fraction <= _edge || fraction >= 1 - _edge);
+
+    return Column(
+      children: [
+        Text(label,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w900, fontSize: 12)),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            rotary ? '${value.toStringAsFixed(2)}°' : value.toStringAsFixed(3),
+            style: TextStyle(
+                color: nearEdge ? fc.warning : fc.textPrimary,
+                fontFamily: 'JetBrains Mono',
+                fontWeight: FontWeight.w900,
+                fontSize: 13),
+          ),
+        ),
+        // Course inconnue = pas de barre, plutot qu\'une proportion inventee.
+        if (fraction != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                height: 3,
+                child: Stack(children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                        color: fc.surfaceBorderDim.withValues(alpha: 0.6)),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: fraction,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      color: nearEdge ? fc.warning : color,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
