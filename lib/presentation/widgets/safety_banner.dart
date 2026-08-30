@@ -6,6 +6,7 @@ import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../../core/utils/grbl_alarm_catalog.dart';
 import '../screens/limit_recovery_screen.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Bannière d'alerte de sécurité, affichée en haut de l'application.
 ///
@@ -27,7 +28,7 @@ class SafetyBanner extends ConsumerWidget {
       return _Bar(
         color: context.fc.danger,
         icon: Icons.gpp_bad_rounded,
-        title: 'ARRÊT D\'URGENCE NON TRANSMIS',
+        title: tr('ARRÊT D\'URGENCE NON TRANSMIS'),
         detail:
             'La liaison est coupée : la commande n\'est jamais partie. '
             'La machine n\'est PAS arrêtée — coupez l\'alimentation physiquement.',
@@ -40,8 +41,8 @@ class SafetyBanner extends ConsumerWidget {
       return _Bar(
         color: context.fc.warning,
         icon: Icons.pause_circle_filled_rounded,
-        title: 'FLUX SUSPENDU',
-        detail: '$stallReason — le programme est interrompu.',
+        title: tr('FLUX SUSPENDU'),
+        detail: tr('{} — le programme est interrompu.', [tr(stallReason)]),
         onDismiss: () =>
             ref.read(streamStallProvider.notifier).state = null,
       );
@@ -57,28 +58,28 @@ class SafetyBanner extends ConsumerWidget {
       }
       final info = GrblAlarmCatalog.lookup(state!.alarmCode);
       final lim = active.isNotEmpty
-          ? ' Fin(s) de course active(s) : ${active.join(', ')}.'
+          ? tr(' Fin(s) de course active(s) : {}.', [active.join(', ')])
           : '';
 
       // Le titre porte la CAUSE, pas un numéro : « code 1 » n'apprend rien à
       // l'opérateur devant sa machine verrouillée.
       final title = info == null
-          ? 'MACHINE EN ALARME'
-          : 'ALARME ${info.code} — ${info.title.toUpperCase()}';
+          ? tr('MACHINE EN ALARME')
+          : tr('ALARME {} — {}', [info.code, tr(info.title).toUpperCase()]);
 
       final detail = info == null
-          ? 'La machine est verrouillée.$lim '
-              'Lance la récupération guidée pour reprendre en sécurité.'
-          : '${info.cause}$lim ${info.action}'
+          ? tr('La machine est verrouillée.{} '
+              'Lance la récupération guidée pour reprendre en sécurité.', [lim])
+          : '${tr(info.cause)}$lim ${tr(info.action)}'
               // L'information qui coûte le plus cher à ignorer.
-              '${info.positionLost ? ' ⚠️ Position machine perdue : prise d\'origine obligatoire avant tout usinage.' : ''}';
+              '${info.positionLost ? ' ${tr("⚠️ Position machine perdue : prise d'origine obligatoire avant tout usinage.")}' : ''}';
 
       return _Bar(
         color: context.fc.danger,
         icon: Icons.error_rounded,
         title: title,
         detail: detail,
-        actionLabel: 'RÉCUPÉRER',
+        actionLabel: tr('RÉCUPÉRER'),
         onAction: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
               builder: (_) => const LimitRecoveryScreen()),
@@ -171,7 +172,7 @@ class _Bar extends StatelessWidget {
             if (onDismiss != null)
               IconButton(
                 icon: Icon(Icons.close_rounded, color: color, size: 18),
-                tooltip: 'Acquitter',
+                tooltip: tr('Acquitter'),
                 onPressed: onDismiss,
               ),
           ],

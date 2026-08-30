@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/i18n/app_language.dart';
+import 'core/i18n/app_localizations.dart';
+import 'core/i18n/fallback_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/forgeron_colors.dart';
 import 'application/providers/theme_provider.dart';
@@ -27,6 +31,7 @@ class ForgeronApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final language = ref.watch(appLanguageProvider);
 
     return MaterialApp(
       title: 'Forgeron — CNC 5 Axes',
@@ -34,6 +39,20 @@ class ForgeronApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      // Langue de l'interface. `null` en automatique : MaterialApp résout
+      // alors la locale du système contre [supportedLocales].
+      locale: language.locale,
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        // Uniquement pour les langues absentes des délégués globaux
+        // (wolof, lingala, kinyarwanda, shona) : sans eux, l'app tombe.
+        FallbackMaterialLocalizationsDelegate(),
+        FallbackCupertinoLocalizationsDelegate(),
+      ],
       // ForgeronTheme est monté SOUS MaterialApp, et non au-dessus. C'est là
       // que MediaQuery existe, donc que la luminosité du système est lisible :
       // au-dessus, [isDarkTheme] n'aurait aucun MediaQuery ancêtre à consulter.

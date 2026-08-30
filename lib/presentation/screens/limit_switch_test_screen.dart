@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Mode « Test des fins de course » : l'opérateur presse chaque switch à la
 /// main et voit en direct quel axe change d'état. Valide le câblage, le bon
@@ -47,13 +49,13 @@ class _LimitSwitchTestScreenState
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('TEST FINS DE COURSE',
+        title: Text(tr('TEST FINS DE COURSE'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         actions: [
           TextButton.icon(
             onPressed: () => setState(() => _seen.clear()),
             icon: Icon(Icons.refresh_rounded, size: 16, color: fc.textSecondary),
-            label: Text('Réinit.',
+            label: Text(tr('Réinit.'),
                 style: TextStyle(color: fc.textSecondary, fontSize: 12)),
           ),
         ],
@@ -62,33 +64,34 @@ class _LimitSwitchTestScreenState
           child: Container(height: 1, color: fc.surfaceBorder),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (!online)
-            _banner(fc, fc.warning, Icons.cloud_off,
-                'Machine hors ligne — connecte l\'ESP32 pour tester.'),
-          Text(
-            'Presse manuellement chaque fin de course. L\'axe correspondant '
-            'doit passer à ACTIF. Vérifie que c\'est le bon axe et le bon sens.',
-            style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.5),
-          ),
-          const SizedBox(height: 16),
-          for (int i = 0; i < 5; i++)
-            _axisRow(fc, _axes[i], colors[i], lim.length > i && lim[i],
-                _seen.contains(i)),
-          const SizedBox(height: 16),
-          _summary(fc),
-          const SizedBox(height: 12),
-          _banner(
-            fc,
-            fc.warning,
-            Icons.warning_amber_rounded,
-            'N\'active les hard limits (Paramètres → Machine → config) qu\'une '
-            'fois TOUS tes switches validés ici — un câblage inversé provoquerait '
-            'des alarmes intempestives.',
-          ),
-        ],
+      body: ReadableWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (!online)
+              _banner(fc, fc.warning, Icons.cloud_off,
+                  'Machine hors ligne — connecte l\'ESP32 pour tester.'),
+            Text(
+              tr('Presse manuellement chaque fin de course. L\'axe correspondant doit passer à ACTIF. Vérifie que c\'est le bon axe et le bon sens.'),
+              style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            for (int i = 0; i < 5; i++)
+              _axisRow(fc, _axes[i], colors[i], lim.length > i && lim[i],
+                  _seen.contains(i)),
+            const SizedBox(height: 16),
+            _summary(fc),
+            const SizedBox(height: 12),
+            _banner(
+              fc,
+              fc.warning,
+              Icons.warning_amber_rounded,
+              'N\'active les hard limits (Paramètres → Machine → config) qu\'une '
+              'fois TOUS tes switches validés ici — un câblage inversé provoquerait '
+              'des alarmes intempestives.',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -137,11 +140,11 @@ class _LimitSwitchTestScreenState
           Row(children: [
             Icon(Icons.check_circle_rounded, color: fc.success, size: 18),
             const SizedBox(width: 4),
-            Text('détecté',
+            Text(tr('détecté'),
                 style: TextStyle(color: fc.success, fontSize: 11)),
           ])
         else
-          Text('jamais vu',
+          Text(tr('jamais vu'),
               style: TextStyle(color: fc.textDisabled, fontSize: 11)),
       ]),
     );
@@ -162,8 +165,10 @@ class _LimitSwitchTestScreenState
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            '$n fin(s) de course détectée(s) : ${_seen.map((i) => _axes[i]).join(', ')}'
-            '${_seen.isEmpty ? '—' : ''}',
+            tr('{} fin(s) de course détectée(s) : {}', [
+              n,
+              _seen.isEmpty ? '—' : _seen.map((i) => _axes[i]).join(', '),
+            ]),
             style: TextStyle(
                 color: color, fontSize: 13, fontWeight: FontWeight.w600),
           ),

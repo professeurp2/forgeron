@@ -13,6 +13,7 @@ import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
+import '../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL SCREEN — Pupitre CNC 5 Axes style FANUC 0i-M
@@ -186,7 +187,7 @@ class _PanelHeader extends ConsumerWidget {
           Image.asset('assets/logo.png', height: 28),
           SizedBox(width: 10),
           Text(
-            'FORGERON',
+            tr('FORGERON'),
             style: TextStyle(
               color: context.fc.primary,
               fontSize: 18,
@@ -197,7 +198,7 @@ class _PanelHeader extends ConsumerWidget {
           ),
           SizedBox(width: 6),
           Text(
-            'CNC-5X',
+            tr('CNC-5X'),
             style: TextStyle(
               color: context.fc.textDisabled,
               fontSize: 11,
@@ -227,7 +228,7 @@ class _PanelHeader extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(color: context.fc.axisZ.withValues(alpha: 0.5)),
               ),
-              child: Text('RTCP G43.4',
+              child: Text(tr('RTCP G43.4'),
                   style: TextStyle(
                       color: context.fc.axisZ,
                       fontSize: 9,
@@ -239,7 +240,7 @@ class _PanelHeader extends ConsumerWidget {
           IconButton(
             icon: Icon(Icons.close_fullscreen,
                 color: context.fc.textDisabled, size: 20),
-            tooltip: 'Quitter le pupitre',
+            tooltip: tr('Quitter le pupitre'),
             onPressed: () =>
                 ref.read(isWorkshopModeProvider.notifier).state = false,
           ),
@@ -309,7 +310,7 @@ class _LcdDisplayColumn extends StatelessWidget {
         Expanded(
           flex: 5,
           child: CncLcdScreen(
-            title: 'COORDONNÉES DE TRAVAIL',
+            title: tr('COORDONNÉES DE TRAVAIL'),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
@@ -428,19 +429,30 @@ class _LcdDisplayColumn extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(children: [
         Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
                 color: context.fc.lcdTextDim,
                 fontSize: 9,
                 fontFamily: 'JetBrains Mono',
                 fontWeight: FontWeight.bold)),
         const Spacer(),
-        Text(
-          unit != null ? '$value $unit' : value,
-          style: TextStyle(
-            color: context.fc.lcdText,
-            fontSize: 11,
-            fontFamily: 'JetBrains Mono',
-            fontWeight: FontWeight.w900,
+        const SizedBox(width: 8),
+        // Flexible + ellipse : « F reel » suivi de « 0 mm/min » ne tenait pas
+        // dans la colonne etroite du pupitre, et la ligne debordait (bandes
+        // jaunes et noires par-dessus l'etat modal).
+        Flexible(
+          child: Text(
+            unit != null ? '$value $unit' : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: context.fc.lcdText,
+              fontSize: 11,
+              fontFamily: 'JetBrains Mono',
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ]),
@@ -521,7 +533,7 @@ class _ModeSelector extends ConsumerWidget {
     final mode = ref.watch(cncPanelModeProvider);
 
     return CncPanelSectionContainer(
-      title: 'MODE OPÉRATOIRE',
+      title: tr('MODE OPÉRATOIRE'),
       child: Row(
         children: CncOperatingMode.values.map((m) {
           final sel = m == mode;
@@ -576,7 +588,7 @@ class _CyclePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return CncPanelSectionContainer(
-      title: 'CONTRÔLE CYCLE',
+      title: tr('CONTRÔLE CYCLE'),
       child: Column(
         children: [
           // Cycle Start — grande touche verte
@@ -598,7 +610,7 @@ class _CyclePanel extends ConsumerWidget {
               SizedBox(width: 10),
               Icon(Icons.play_arrow_rounded, color: context.fc.success, size: 22),
               SizedBox(width: 6),
-              Text('CYCLE START',
+              Text(tr('CYCLE START'),
                   style: TextStyle(
                       color: context.fc.success,
                       fontSize: 12,
@@ -620,7 +632,7 @@ class _CyclePanel extends ConsumerWidget {
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.pause_rounded, color: context.fc.warning, size: 18),
                   SizedBox(height: 2),
-                  Text('FEED HOLD',
+                  Text(tr('FEED HOLD'),
                       style: TextStyle(
                           color: context.fc.warning,
                           fontSize: 9,
@@ -645,7 +657,7 @@ class _CyclePanel extends ConsumerWidget {
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.refresh_rounded, color: context.fc.danger, size: 18),
                   SizedBox(height: 2),
-                  Text('RESET',
+                  Text(tr('RESET'),
                       style: TextStyle(
                           color: context.fc.danger,
                           fontSize: 9,
@@ -661,13 +673,15 @@ class _CyclePanel extends ConsumerWidget {
                 color: context.fc.danger,
                 isDanger: true,
                 onTap: () {
-                  repo.emergencyStop();
+                  // Contrôleur, pas repository : purge du flux + alerte si
+                  // l'arrêt n'est pas parti (voir StreamingController).
+                  ref.read(streamingProvider.notifier).stopStream();
                   HapticFeedback.heavyImpact();
                 },
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.warning_amber_rounded, color: context.fc.danger, size: 18),
                   SizedBox(height: 2),
-                  Text('E-STOP',
+                  Text(tr('E-STOP'),
                       style: TextStyle(
                           color: context.fc.danger,
                           fontSize: 9,
@@ -718,7 +732,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
   @override
   Widget build(BuildContext context) {
     return CncPanelSectionContainer(
-      title: 'CORRECTIONS (OVERRIDES)',
+      title: tr('CORRECTIONS (OVERRIDES)'),
       child: Column(
         children: [
           _overrideRow('AVANCE  F%', _feedOverride, context.fc.primary,
@@ -834,10 +848,10 @@ class _JogPanel5Axis extends ConsumerWidget {
       child: IgnorePointer(
         ignoring: !isJogEnabled,
         child: CncPanelSectionContainer(
-          title: 'JOG MANUEL 5 AXES',
+          title: tr('JOG MANUEL 5 AXES'),
           trailing: !isJogEnabled
               ? Text(
-                  'MODE JOG REQUIS',
+                  tr('MODE JOG REQUIS'),
                   style: TextStyle(
                     color: context.fc.warning,
                     fontSize: 8,
@@ -861,7 +875,7 @@ class _JogPanel5Axis extends ConsumerWidget {
                 child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.stop_rounded, color: context.fc.danger, size: 18),
                   SizedBox(width: 8),
-                  Text('JOG STOP  [0x85]',
+                  Text(tr('JOG STOP  [0x85]'),
                       style: TextStyle(
                           color: context.fc.danger,
                           fontSize: 11,
@@ -904,7 +918,7 @@ class _PanelFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text('FORGERON CNC-5X  v1.0',
+          Text(tr('FORGERON CNC-5X  v1.0'),
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 9,

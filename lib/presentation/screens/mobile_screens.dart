@@ -12,14 +12,17 @@ import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/firmware_provider.dart';
 import '../../application/providers/network_stats_provider.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
-import '../widgets/mobile/wcs_offset_dialog.dart';
+import '../widgets/wcs_offset_dialog.dart';
+import '../widgets/tool_photo.dart';
 import '../../application/services/logger_service.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/program_tools_provider.dart';
+import '../../application/providers/streaming_provider.dart';
 import '../../core/utils/gcode_tool_extractor.dart';
+import '../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE 2 — PALPAGE & ORIGINES  (Mobile)
@@ -134,7 +137,7 @@ class _WCSTab extends ConsumerWidget {
               ref.read(machineRepositoryProvider).sendGCode(d.$1);
               HapticFeedback.selectionClick();
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('WCS actif: ${d.$1}'),
+                content: Text(tr('WCS actif: {}', [d.$1])),
                 backgroundColor: context.fc.primary,
                 duration: const Duration(seconds: 1),
               ));
@@ -192,7 +195,7 @@ class _WCSTab extends ConsumerWidget {
                 IconButton(
                   icon: Icon(Icons.edit_outlined,
                       color: context.fc.textDisabled, size: 17),
-                  tooltip: 'Saisir le décalage de ${d.$1}',
+                  tooltip: tr('Saisir le décalage de {}', [d.$1]),
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.only(left: 8),
@@ -266,7 +269,7 @@ class _WCSTab extends ConsumerWidget {
                   HapticFeedback.mediumImpact();
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(
-                        '${axisLabels[i]} = 0 à la position actuelle ($activeWCS)'),
+                        tr('{} = 0 à la position actuelle ({})', [axisLabels[i], activeWCS])),
                     backgroundColor: axisColors[i],
                     duration: const Duration(seconds: 1),
                   ));
@@ -308,7 +311,7 @@ class _WCSTab extends ConsumerWidget {
                 .sendGCode('G10 L20 P0 X0 Y0 Z0 A0 C0');
             HapticFeedback.mediumImpact();
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Origine pièce définie ici ($activeWCS)'),
+              content: Text(tr('Origine pièce définie ici ({})', [activeWCS])),
               backgroundColor: context.fc.primary,
               duration: const Duration(seconds: 1),
             ));
@@ -522,13 +525,13 @@ class _JogStopButton extends StatelessWidget {
                   spreadRadius: -2),
             ],
           ),
-          child: const Center(
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.stop_rounded, color: Colors.white, size: 24),
                 SizedBox(width: 10),
-                Text('JOG STOP',
+                Text(tr('JOG STOP'),
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -637,7 +640,7 @@ class _MobileProbingTab extends ConsumerWidget {
                   backgroundColor: context.fc.danger,
                   foregroundColor: Colors.white),
               onPressed: () { probingN.cancel(); HapticFeedback.heavyImpact(); },
-              child: Text('ANNULER LE PALPAGE',
+              child: Text(tr('ANNULER LE PALPAGE'),
                   style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
             ),
           ),
@@ -726,7 +729,7 @@ class _ProbingCard extends StatelessWidget {
                       spreadRadius: -2),
                 ],
               ),
-              child: Text('LANCER',
+              child: Text(tr('LANCER'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 9,
@@ -761,7 +764,7 @@ class _MobileHomingTab extends ConsumerWidget {
             Icon(Icons.info_outline, color: context.fc.axisZ, size: 14),
             SizedBox(width: 8),
             Expanded(
-              child: Text('Séquence recommandée : Z → X → Y → A → C',
+              child: Text(tr('Séquence recommandée : Z → X → Y → A → C'),
                   style: TextStyle(color: context.fc.textSecondary, fontSize: 10, height: 1.5)),
             ),
           ]),
@@ -785,7 +788,7 @@ class _MobileHomingTab extends ConsumerWidget {
           width: double.infinity, height: 56,
           child: ElevatedButton.icon(
             icon: Icon(Icons.home_rounded, size: 20),
-            label: Text('HOME ALL (\$H)',
+            label: Text(tr('HOME ALL (\$H)'),
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
             style: ElevatedButton.styleFrom(
                 backgroundColor: context.fc.axisZ, foregroundColor: Colors.white),
@@ -892,14 +895,14 @@ class _MobileToolTableScreenState
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('OUTILS DU PROGRAMME',
+              Text(tr('OUTILS DU PROGRAMME'),
                   style: TextStyle(
                       color: fc.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2)),
               const SizedBox(height: 2),
-              Text('lus dans le G-code chargé',
+              Text(tr('lus dans le G-code chargé'),
                   style: TextStyle(color: fc.textDisabled, fontSize: 10)),
             ],
           ),
@@ -913,14 +916,14 @@ class _MobileToolTableScreenState
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: fc.primary.withValues(alpha: 0.5)),
               ),
-              child: Text('ACTIF : T$activeToolNum',
+              child: Text(tr('ACTIF : T{}', [activeToolNum]),
                   style: TextStyle(
                       color: fc.primary,
                       fontSize: 11,
                       fontWeight: FontWeight.w900)),
             )
           else
-            Text('$count outil${count > 1 ? 's' : ''}',
+            Text(tr(count > 1 ? '{} outils' : '{} outil', [count]),
                 style: TextStyle(color: fc.textDisabled, fontSize: 12)),
         ],
       ),
@@ -937,7 +940,7 @@ class _MobileToolTableScreenState
         decoration: InputDecoration(
           isDense: true,
           prefixIcon: Icon(Icons.search, color: fc.textSecondary, size: 18),
-          hintText: 'Filtrer',
+          hintText: tr('Filtrer'),
           hintStyle: TextStyle(color: fc.textDisabled, fontSize: 13),
           filled: true,
           fillColor: fc.background.withValues(alpha: 0.4),
@@ -963,7 +966,7 @@ class _MobileToolTableScreenState
           children: [
             Icon(Icons.handyman_outlined, color: fc.textDisabled, size: 48),
             const SizedBox(height: 14),
-            Text('AUCUN PROGRAMME CHARGÉ',
+            Text(tr('AUCUN PROGRAMME CHARGÉ'),
                 style: TextStyle(
                     color: fc.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -971,8 +974,7 @@ class _MobileToolTableScreenState
                     letterSpacing: 1)),
             const SizedBox(height: 8),
             Text(
-              'Les outils sont lus dans le G-code. Charge un programme depuis '
-              'l\'onglet PROGRAMME pour voir ceux qu\'il utilise.',
+              tr('Les outils sont lus dans le G-code. Charge un programme depuis l\'onglet PROGRAMME pour voir ceux qu\'il utilise.'),
               textAlign: TextAlign.center,
               style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
             ),
@@ -1012,7 +1014,7 @@ class _ToolCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _ToolPhoto(shape: tool.shape, size: 52),
+            ToolPhoto(shape: tool.shape, size: 52),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1034,7 +1036,7 @@ class _ToolCard extends StatelessWidget {
                           color: fc.primary,
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: const Text('MONTÉ',
+                        child: Text(tr('MONTÉ'),
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 8,
@@ -1074,35 +1076,6 @@ class _ToolCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Photo de l'outil. La forme vient du descriptif du G-code ; quand il est
-/// absent, on n'affiche pas de photo trompeuse mais une silhouette neutre.
-class _ToolPhoto extends StatelessWidget {
-  const _ToolPhoto({required this.shape, required this.size});
-
-  final ToolShape shape;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final fc = context.fc;
-    final identified = shape != ToolShape.unknown;
-
-    return Container(
-      width: size,
-      height: size,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: fc.terminalBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: fc.surfaceBorder),
-      ),
-      child: identified
-          ? Image.asset(shape.asset, fit: BoxFit.contain)
-          : Icon(Icons.help_outline, color: fc.textDisabled, size: size * 0.45),
     );
   }
 }
@@ -1166,7 +1139,7 @@ class _ToolDetailSheet extends ConsumerWidget {
         const SizedBox(height: 16),
 
         Row(children: [
-          _ToolPhoto(shape: tool.shape, size: 88),
+          ToolPhoto(shape: tool.shape, size: 88),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -1189,7 +1162,7 @@ class _ToolDetailSheet extends ConsumerWidget {
                       color: fc.primary,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('ACTUELLEMENT MONTÉ',
+                    child: Text(tr('ACTUELLEMENT MONTÉ'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
@@ -1222,9 +1195,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Le programme ne décrit pas cet outil : il n\'indique que son '
-                  'numéro. Aucune caractéristique n\'est affichée plutôt que '
-                  'd\'en inventer.',
+                  tr('Le programme ne décrit pas cet outil : il n\'indique que son numéro. Aucune caractéristique n\'est affichée plutôt que d\'en inventer.'),
                   style: TextStyle(
                       color: fc.textSecondary, fontSize: 11, height: 1.4),
                 ),
@@ -1276,9 +1247,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Le programme demande S${tool.spindleSpeed}. Cette valeur '
-                  'n\'est appliquée que si la broche est pilotée en vitesse ; '
-                  'en tout-ou-rien elle est ignorée.',
+                  tr('Le programme demande S{}. Cette valeur n\'est appliquée que si la broche est pilotée en vitesse ; en tout-ou-rien elle est ignorée.', [tool.spindleSpeed]),
                   style: TextStyle(
                       color: fc.textSecondary, fontSize: 11, height: 1.4),
                 ),
@@ -1292,7 +1261,7 @@ class _ToolDetailSheet extends ConsumerWidget {
           width: double.infinity,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.build_circle_outlined, size: 18),
-            label: Text('APPELER T${tool.number}  (M6)'),
+            label: Text(tr('APPELER T{}  (M6)', [tool.number])),
             style: ElevatedButton.styleFrom(
               backgroundColor: fc.surfaceBright,
               foregroundColor: fc.primary,
@@ -1312,7 +1281,7 @@ class _ToolDetailSheet extends ConsumerWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             icon: const Icon(Icons.straighten, size: 18),
-            label: Text('G43 H${tool.number}  (décalage longueur)'),
+            label: Text(tr('G43 H{}  (décalage longueur)', [tool.number])),
             style: OutlinedButton.styleFrom(
               foregroundColor: fc.textSecondary,
               padding: const EdgeInsets.all(15),
@@ -1327,7 +1296,7 @@ class _ToolDetailSheet extends ConsumerWidget {
                   .sendGCode('G43 H${tool.number}');
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('✓ G43 H${tool.number} appliqué'),
+                content: Text(tr('✓ G43 H{} appliqué', [tool.number])),
               ));
             },
           ),
@@ -1341,17 +1310,16 @@ class _ToolDetailSheet extends ConsumerWidget {
       context: context,
       builder: (dctx) => AlertDialog(
         backgroundColor: context.fc.surface,
-        title: Text('Appel outil T${tool.number}',
+        title: Text(tr('Appel outil T{}', [tool.number]),
             style: TextStyle(color: context.fc.textPrimary, fontSize: 16)),
         content: Text(
-          'Envoyer T${tool.number} M6 ?\n\nLa broche s\'arrête et le programme '
-          'se met en pause pour le changement.',
+          tr('Envoyer T{} M6 ?\n\nLa broche s\'arrête et le programme se met en pause pour le changement.', [tool.number]),
           style: TextStyle(color: context.fc.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dctx),
-            child: const Text('Annuler'),
+            child: Text(tr('Annuler')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1361,7 +1329,7 @@ class _ToolDetailSheet extends ConsumerWidget {
               Navigator.pop(dctx);
               Navigator.pop(context);
             },
-            child: const Text('Envoyer'),
+            child: Text(tr('Envoyer')),
           ),
         ],
       ),
@@ -1478,17 +1446,30 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
           ForgeronColorPalette c) =>
       [
     (Icons.home, 'ORIGINES', '\$H', c.primary),
-    (Icons.gps_fixed, 'ZÉRO PIÈCE', 'G0 X0 Y0 Z0', c.primary),
+    // Nom rectifié : la macro DÉPLACE les axes vers l'origine pièce, elle ne
+    // la définit pas. Sous l'étiquette « ZÉRO PIÈCE », l'opérateur croyait
+    // poser son origine et lançait un rapide 5 axes vers Z0 — dans la pièce.
+    // Pour définir l'origine : onglet PALPAGE → DÉFINIR L'ORIGINE (G10 L20).
+    (Icons.gps_fixed, 'ALLER AU ZÉRO', 'G0 X0 Y0 Z0 A0 C0', c.primary),
     (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', c.secondary),
-    (Icons.rotate_right, 'BROCHE H', 'M3 S12000', c.success),
+    // S1000 = 100 % de la speed_map FluidNC (broche relais tout-ou-rien sur
+    // gpio.21). S12000 annonçait un régime que cette broche ne connaît pas.
+    (Icons.rotate_right, 'BROCHE H', 'M3 S1000', c.success),
     (Icons.stop_circle, 'ARRÊT B.', 'M5', c.error),
     (Icons.water_drop, 'ARROSAGE', 'M8', c.primary),
     (Icons.water_drop_outlined, 'ARROS. OFF', 'M9', c.textDisabled),
     (Icons.air, 'SOUFFLAGE', 'M7', c.secondary),
     (Icons.vertical_align_top, 'Z SÉCU', 'G0 Z50', c.primary),
-    (Icons.local_parking, 'PARKING', 'G0 X0 Y200 Z50', c.textSecondary),
+    // G28 (position prédéfinie de la carte), comme sur desktop. L'ancien
+    // « G0 X0 Y200 Z50 » demandait Y200 alors que la course Y est de 150 mm,
+    // soft_limits activées : la macro finissait systématiquement en alarme.
+    (Icons.local_parking, 'PARKING', 'G28', c.textSecondary),
     (Icons.play_arrow, 'REPRENDRE', '~', c.success),
     (Icons.pause, 'PAUSE', '!', c.warning),
+    // Manquaient au mobile : de quoi couper un programme en cours et sortir
+    // d'alarme sans passer par la saisie clavier.
+    (Icons.cancel_rounded, 'ANNULER', '', c.error),
+    (Icons.lock_open_rounded, 'DÉBLOQUER', '\$X', c.warning),
   ];
 
 
@@ -1551,13 +1532,13 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                     Icon(Icons.terminal,
                         color: context.fc.textDisabled, size: 14),
                     SizedBox(width: 8),
-                    Text('LOG MACHINE',
+                    Text(tr('LOG MACHINE'),
                         style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
-                    Text('BUFFER: $rxBuf/128',
+                    Text(tr('BUFFER: {}/128', [rxBuf]),
                         style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 9,
@@ -1636,7 +1617,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                             fontFamily: 'JetBrains Mono'),
                         decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Saisir commande G-code...',
+                          hintText: tr('Saisir commande G-code...'),
                           hintStyle: TextStyle(
                               color: context.fc.textDisabled),
                         ),
@@ -1678,6 +1659,10 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                           ref.read(machineRepositoryProvider).pause();
                         } else if (m.$2 == 'REPRENDRE') {
                           ref.read(machineRepositoryProvider).resume();
+                        } else if (m.$2 == 'ANNULER') {
+                          ref.read(streamingProvider.notifier).stopStream();
+                        } else if (m.$2 == 'DÉBLOQUER') {
+                          ref.read(machineRepositoryProvider).sendRaw('\$X\n');
                         } else {
                           ref.read(machineRepositoryProvider).sendGCode(m.$3);
                         }
@@ -1890,7 +1875,7 @@ class _MobileDiagnosticsScreenState
                   child: Column(children: [
                     Center(
                       child: Column(children: [
-                        Text('LATENCE',
+                        Text(tr('LATENCE'),
                             style: TextStyle(
                                 color: context.fc.textDisabled,
                                 fontSize: 9,
@@ -1908,7 +1893,7 @@ class _MobileDiagnosticsScreenState
                     ),
                     SizedBox(height: 12),
                     Row(children: [
-                      Text('QUALITÉ',
+                      Text(tr('QUALITÉ'),
                           style: TextStyle(
                               color: context.fc.textDisabled, fontSize: 9)),
                       SizedBox(width: 8),
@@ -1981,7 +1966,7 @@ class _MobileDiagnosticsScreenState
                                         color: context.fc.textPrimary,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold)),
-                                Text('Gravité : ${r.$3}',
+                                Text(tr('Gravité : {}', [r.$3]),
                                     style: TextStyle(
                                         color: context.fc.textDisabled,
                                         fontSize: 8)),
@@ -2025,7 +2010,7 @@ class _MobileDiagnosticsScreenState
                   Icon(Icons.code, color: context.fc.warning, size: 16),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text('CONFIG.YAML — FluidNC',
+                    child: Text(tr('CONFIG.YAML — FluidNC'),
                         style: TextStyle(
                             color: context.fc.textPrimary,
                             fontSize: 12,
@@ -2104,7 +2089,7 @@ class _MobileDiagnosticsScreenState
                         child: CircularProgressIndicator(
                             color: context.fc.primary)),
                     error: (e, _) => Center(
-                        child: Text('Erreur: $e',
+                        child: Text(tr('Erreur: {}', [e]),
                             style: TextStyle(color: context.fc.error))),
                   ),
                 ),
@@ -2171,15 +2156,15 @@ class _MobileDiagnosticsScreenState
                       final cfg = ref.read(configResultProvider).valueOrNull;
                       final m = ScaffoldMessenger.of(context);
                       if (cfg == null) {
-                        m.showSnackBar(const SnackBar(
-                            content: Text('Config non chargée.')));
+                        m.showSnackBar(SnackBar(
+                            content: Text(tr('Config non chargée.'))));
                         return;
                       }
                       Clipboard.setData(ClipboardData(text: cfg.yaml));
                       HapticFeedback.mediumImpact();
-                      m.showSnackBar(const SnackBar(
+                      m.showSnackBar(SnackBar(
                           content: Text(
-                              'config.yaml copié dans le presse-papiers')));
+                              tr('config.yaml copié dans le presse-papiers'))));
                     }
                   ),
                   (
@@ -2191,7 +2176,7 @@ class _MobileDiagnosticsScreenState
                         context: context,
                         builder: (ctx) => AlertDialog(
                           backgroundColor: context.fc.surface,
-                          title: Text('Redémarrer l\'ESP32 ?',
+                          title: Text(tr('Redémarrer l\'ESP32 ?'),
                               style: TextStyle(
                                   color: context.fc.textPrimary, fontSize: 16)),
                           content: Row(children: [
@@ -2200,9 +2185,7 @@ class _MobileDiagnosticsScreenState
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'La liaison va être coupée : l\'app se '
-                                'déconnectera quelques secondes, le temps du '
-                                'reboot. La reconnexion est automatique.',
+                                tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
                                 style: TextStyle(
                                     color: context.fc.textSecondary,
                                     fontSize: 12,
@@ -2213,7 +2196,7 @@ class _MobileDiagnosticsScreenState
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: Text('Annuler',
+                                child: Text(tr('Annuler'),
                                     style: TextStyle(
                                         color: context.fc.textSecondary))),
                             ElevatedButton(
@@ -2221,7 +2204,7 @@ class _MobileDiagnosticsScreenState
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: context.fc.error,
                                   foregroundColor: Colors.white),
-                              child: const Text('Redémarrer'),
+                              child: Text(tr('Redémarrer')),
                             ),
                           ],
                         ),
@@ -2270,7 +2253,7 @@ class _MobileDiagnosticsScreenState
                   width: double.infinity, height: 52,
                   child: ElevatedButton.icon(
                     icon: Icon(Icons.analytics),
-                    label: Text('DUMP DIAGNOSTIC (JSON)',
+                    label: Text(tr('DUMP DIAGNOSTIC (JSON)'),
                         style: TextStyle(fontWeight: FontWeight.w900)),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: context.fc.primary,
@@ -2278,8 +2261,8 @@ class _MobileDiagnosticsScreenState
                     onPressed: () {
                       final dump = ref.read(loggerServiceProvider.notifier)
                           .generateDiagnosticDump();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Dump généré en console')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(tr('Dump généré en console'))));
                       debugPrint(dump);
                     },
                   ),
@@ -2564,7 +2547,7 @@ class _MaintCard extends StatelessWidget {
         Row(children: [
           Icon(Icons.engineering, color: context.fc.primary, size: 14),
           SizedBox(width: 8),
-          Text('MAINTENANCE PRÉVENTIVE',
+          Text(tr('MAINTENANCE PRÉVENTIVE'),
               style: TextStyle(
                   color: context.fc.primary,
                   fontSize: 10,
@@ -2648,8 +2631,8 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
   void _syncFromBoard() {
     ref.invalidate(configResultProvider);
     setState(() => _overrides.clear());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Lecture des paramètres depuis la carte…')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('Lecture des paramètres depuis la carte…'))));
   }
 
   Color _axisColor(BuildContext c, String axis) => switch (axis) {
@@ -2711,7 +2694,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('COMMANDE FLUIDNC',
+                  Text(tr('COMMANDE FLUIDNC'),
                       style: TextStyle(
                           color: fc.textDisabled,
                           fontSize: 8,
@@ -2739,7 +2722,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                          'Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.',
+                          tr('Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.'),
                           style: TextStyle(color: fc.warning, fontSize: 9)),
                     ),
                   ]),
@@ -2748,7 +2731,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child:
-                      Text('ANNULER', style: TextStyle(color: fc.textDisabled))),
+                      Text(tr('ANNULER'), style: TextStyle(color: fc.textDisabled))),
               ElevatedButton(
                 onPressed: () {
                   final v = double.tryParse(ctrl.text.trim());
@@ -2756,7 +2739,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: fc.primary, foregroundColor: Colors.white),
-                child: const Text('ENVOYER'),
+                child: Text(tr('ENVOYER')),
               ),
             ],
           );
@@ -2772,8 +2755,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
     if (!mounted) return;
     setState(() => _overrides['${k.axis}.${f.name}'] = newVal);
     messenger.showSnackBar(SnackBar(
-        content: Text('Appliqué à chaud (volatil, perdu au reboot). '
-            '« Enregistrer dans la config » pour la mémoire de la carte.'),
+        content: Text(tr('Appliqué à chaud (volatil, perdu au reboot). « Enregistrer dans la config » pour la mémoire de la carte.')),
         backgroundColor: okColor,
         duration: const Duration(seconds: 4)));
   }
@@ -2793,7 +2775,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
           child: Row(children: [
             SizedBox(
                 width: 30,
-                child: Text('AXE',
+                child: Text(tr('AXE'),
                     style: TextStyle(
                         color: fc.textDisabled,
                         fontSize: 9,
@@ -2863,7 +2845,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.sync, size: 13, color: fc.primary),
                 const SizedBox(width: 3),
-                Text('SYNCHRONISER',
+                Text(tr('SYNCHRONISER'),
                     style: TextStyle(
                         color: fc.primary,
                         fontSize: 9,
@@ -2885,7 +2867,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Config indisponible : $e',
+              child: Text(tr('Config indisponible : {}', [e]),
                   style: TextStyle(color: fc.textDisabled, fontSize: 11))),
           data: (axes) {
             final hasAny = axes.any((k) =>
@@ -2899,7 +2881,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                      'Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).',
+                      tr('Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).'),
                       style: TextStyle(color: fc.textDisabled, fontSize: 11)),
                 )
               else
@@ -2927,8 +2909,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
         ),
       ),
       const SizedBox(height: 6),
-      Text('Touchez une valeur : appliquée à chaud (volatile). '
-          '« Enregistrer » l\'écrit dans la mémoire de la carte.',
+      Text(tr('Touchez une valeur : appliquée à chaud (volatile). « Enregistrer » l\'écrit dans la mémoire de la carte.'),
           style: TextStyle(color: fc.textDisabled, fontSize: 9)),
       const SizedBox(height: 12),
       SizedBox(
@@ -2952,8 +2933,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       ),
       const SizedBox(height: 4),
       Text(
-          'Écrit les valeurs actuelles dans config.yaml (permanent) puis '
-          'redémarre FluidNC pour les appliquer.',
+          tr('Écrit les valeurs actuelles dans config.yaml (permanent) puis redémarre FluidNC pour les appliquer.'),
           style: TextStyle(color: fc.textDisabled, fontSize: 9)),
     ]);
   }
@@ -2962,8 +2942,8 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
     final fc = context.fc;
     final kin = ref.read(axisKinematicsProvider).valueOrNull;
     if (kin == null || kin.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Cinématique indisponible (config non chargée).')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Cinématique indisponible (config non chargée).'))));
       return;
     }
 
@@ -2971,16 +2951,14 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Enregistrer dans FluidNC ?',
+        title: Text(tr('Enregistrer dans FluidNC ?'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Les valeurs de cinématique actuelles seront écrites dans '
-              'config.yaml (permanent), puis FluidNC redémarrera pour les '
-              'appliquer.',
+              tr('Les valeurs de cinématique actuelles seront écrites dans config.yaml (permanent), puis FluidNC redémarrera pour les appliquer.'),
               style:
                   TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
             ),
@@ -2997,9 +2975,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Le redémarrage va couper la liaison : l\'app sera '
-                    'déconnectée quelques secondes, le temps que l\'ESP32 '
-                    'reboote. La reconnexion est automatique.',
+                    tr('Le redémarrage va couper la liaison : l\'app sera déconnectée quelques secondes, le temps que l\'ESP32 reboote. La reconnexion est automatique.'),
                     style: TextStyle(
                         color: fc.warning, fontSize: 11, height: 1.35),
                   ),
@@ -3012,12 +2988,12 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child:
-                  Text('Annuler', style: TextStyle(color: fc.textSecondary))),
+                  Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.primary, foregroundColor: Colors.white),
-            child: const Text('Enregistrer & redémarrer'),
+            child: Text(tr('Enregistrer & redémarrer')),
           ),
         ],
       ),
@@ -3055,7 +3031,7 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
         ref.invalidate(configResultProvider);
         ref.read(machineRepositoryProvider).sendRaw('\$Bye\n');
         messenger.showSnackBar(SnackBar(
-            content: const Text('Config enregistrée — redémarrage de FluidNC…'),
+            content: Text(tr('Config enregistrée — redémarrage de FluidNC…')),
             backgroundColor: okColor));
       } catch (_) {
         // Écriture auto impossible (endpoint non supporté) → repli fiable :
@@ -3063,16 +3039,15 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
         await Clipboard.setData(ClipboardData(text: patched));
         if (!mounted) return;
         messenger.showSnackBar(SnackBar(
-          content: const Text(
-              'Écriture auto impossible. Config copiée : colle-la dans la WebUI '
-              'FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.'),
+          content: Text(
+              tr('Écriture auto impossible. Config copiée : colle-la dans la WebUI FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.')),
           backgroundColor: errColor,
           duration: const Duration(seconds: 6),
         ));
       }
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-          content: Text('Échec : $e'),
+          content: Text(tr('Échec : {}', [e])),
           backgroundColor: errColor,
           duration: const Duration(seconds: 5)));
     } finally {

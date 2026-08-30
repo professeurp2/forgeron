@@ -11,6 +11,7 @@ import 'ai_agent_settings_provider.dart';
 import 'ai_inbox_provider.dart';
 import 'ai_usage_provider.dart';
 import 'ai_model_provider.dart';
+import '../../core/i18n/app_language.dart';
 import 'activity_log_provider.dart';
 import 'machine_params_provider.dart';
 
@@ -595,7 +596,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'risquée ou ambiguë, explique-le et demande une précision. '
       'Réponds en texte clair : tu peux utiliser du **gras** et des listes à '
       'puces simples, mais évite le LaTeX et les formules mathématiques (\$...\$) '
-      '— écris les valeurs et unités en clair (ex. « 15 mm », « 14,25 mm »). '
+      '— écris les valeurs et unités en clair (ex. « 15 mm »). '
       'Quand tu donnes du G-code, mets-le TOUJOURS dans un bloc de code '
       'markdown ouvert par ```gcode et fermé par ``` : l\'app y ajoute alors '
       'les boutons « copier » et « enregistrer dans l\'espace de travail ».';
@@ -667,6 +668,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     return '$_systemPrompt\n\n'
         '$_machineSpecs\n\n'
         '${_kinematicsBlock()}\n\n'
+        '${_ref.read(appLanguageProvider).promptDirective}\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity';
   }

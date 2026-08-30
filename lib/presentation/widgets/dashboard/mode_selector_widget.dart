@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/providers/machining_mode_provider.dart';
 import '../../../domain/models/machining_mode.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Panneau **ForceGuard / Mode d'usinage**.
 ///
@@ -61,21 +62,30 @@ class ModeSelectorWidget extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(mode.shortLabel,
-                    style: TextStyle(
-                        color: accent,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        fontFamily: 'JetBrains Mono',
-                        height: 1.0)),
-                Text(mode.label,
-                    style: TextStyle(color: fc.textDisabled, fontSize: 10)),
-              ],
+            // Expanded + ellipse : le libellé prenait sa largeur naturelle,
+            // donc dans la colonne étroite de l'écran Palpage la rangée
+            // débordait — bandes jaunes et noires en bout de carte.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(mode.shortLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: accent,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                          fontFamily: 'JetBrains Mono',
+                          height: 1.0)),
+                  Text(tr(mode.label),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+                ],
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             _ModeToggle(
               is5Ax: is5Ax,
               accent: accent,
@@ -135,7 +145,7 @@ class ModeSelectorWidget extends ConsumerWidget {
             Expanded(
                 child: _ForceStatTile(
                     icon: Icons.compress_rounded,
-                    label: 'R_max',
+                    label: tr('R_max'),
                     value: '${mode.maxResultantForce}',
                     unit: 'N',
                     accent: accent)),
@@ -143,7 +153,7 @@ class ModeSelectorWidget extends ConsumerWidget {
             Expanded(
                 child: _ForceStatTile(
                     icon: Icons.fast_forward_rounded,
-                    label: 'F_max',
+                    label: tr('F_max'),
                     value: '${mode.maxFeedrate.toInt()}',
                     unit: 'mm/min',
                     accent: accent)),
@@ -153,7 +163,7 @@ class ModeSelectorWidget extends ConsumerWidget {
             Expanded(
                 child: _ForceStatTile(
                     icon: Icons.height_rounded,
-                    label: 'ap_max',
+                    label: tr('ap_max'),
                     value: '${mode.maxDepthOfCut}',
                     unit: 'mm',
                     accent: accent)),
@@ -161,7 +171,7 @@ class ModeSelectorWidget extends ConsumerWidget {
             Expanded(
                 child: _ForceStatTile(
                     icon: Icons.width_normal_rounded,
-                    label: 'ae_max',
+                    label: tr('ae_max'),
                     value: '${mode.maxWidthOfCut}',
                     unit: 'mm',
                     accent: accent)),
@@ -263,7 +273,7 @@ class ModeSelectorWidget extends ConsumerWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Passer en ${newMode.shortLabel} ?',
+                      tr('Passer en {} ?', [newMode.shortLabel]),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: fc.textPrimary,
@@ -314,7 +324,7 @@ class ModeSelectorWidget extends ConsumerWidget {
                           ),
                         ),
                         onPressed: () => Navigator.pop(ctx),
-                        child: Text('Annuler',
+                        child: Text(tr('Annuler'),
                             style: TextStyle(
                                 color: fc.textSecondary,
                                 fontWeight: FontWeight.w700)),
@@ -337,7 +347,7 @@ class ModeSelectorWidget extends ConsumerWidget {
                               newMode;
                           Navigator.pop(ctx);
                         },
-                        child: Text('Confirmer',
+                        child: Text(tr('Confirmer'),
                             style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                     ),

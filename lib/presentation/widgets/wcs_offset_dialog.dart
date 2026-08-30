@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../application/providers/di_providers.dart';
-import '../../../core/theme/forgeron_colors.dart';
+import '../../application/providers/di_providers.dart';
+import '../../core/theme/forgeron_colors.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// `G54` -> `P1` ... `G59` -> `P6`.
 ///
@@ -119,7 +120,7 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
       title: Row(children: [
         Icon(Icons.edit_location_alt_outlined, color: fc.primary, size: 20),
         const SizedBox(width: 10),
-        Text('Décalage ${widget.wcs}',
+        Text(tr('Décalage {}', [widget.wcs]),
             style: TextStyle(
                 color: fc.textPrimary,
                 fontSize: 16,
@@ -131,9 +132,7 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Position du zéro pièce, exprimée en coordonnées MACHINE. '
-              'Sur une machine dont le zéro est aux capteurs, ces valeurs sont '
-              'normalement négatives.',
+              tr('Position du zéro pièce, exprimée en coordonnées MACHINE. Sur une machine dont le zéro est aux capteurs, ces valeurs sont normalement négatives.'),
               style:
                   TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
             ),
@@ -211,7 +210,7 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+          child: Text(tr('Annuler')),
         ),
         ElevatedButton(
           onPressed: command == null
@@ -220,11 +219,11 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
                   ref.read(machineRepositoryProvider).sendGCode(command);
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Décalage ${widget.wcs} enregistré'),
+                    content: Text(tr('Décalage {} enregistré', [widget.wcs])),
                     backgroundColor: fc.primary,
                   ));
                 },
-          child: const Text('Appliquer'),
+          child: Text(tr('Appliquer')),
         ),
       ],
     );

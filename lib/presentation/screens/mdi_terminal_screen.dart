@@ -11,6 +11,7 @@ import '../../core/widgets/split_view.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../../application/providers/di_providers.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class MDITerminalScreen extends ConsumerStatefulWidget {
   const MDITerminalScreen({super.key});
@@ -22,9 +23,21 @@ class MDITerminalScreen extends ConsumerStatefulWidget {
 class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
   final _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<(String, String, String, Color)> _logLines = [];
+  /// (heure, type, contenu). Le type suffit : la couleur en est déduite au
+  /// moment de peindre.
+  ///
+  /// Elle y était stockée, ce qui obligeait `initState` à lire le thème avant
+  /// d'être initialisé — Flutter refuse, et TOUTE la page se remplaçait par
+  /// l'écran d'erreur rouge à chaque ouverture du terminal. Au passage, une
+  /// couleur figée à la réception ne suivait pas un changement de thème : les
+  /// anciennes lignes restaient peintes avec l'ancienne palette.
+  final List<(String, String, String)> _logLines = [];
   final List<(String, String)> _history = [];
   StreamSubscription? _trafficSub;
+
+  /// Position dans l'historique pendant un rappel à la flèche. -1 = on est sur
+  /// la ligne en cours de saisie.
+  int _historyCursor = -1;
 
   @override
   void initState() {
@@ -33,7 +46,6 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       _formatTime(DateTime.now()),
       'INFO',
       'Terminal prêt. En attente de trafic...',
-      context.fc.secondary,
     ));
 
     Future.microtask(() {
@@ -48,30 +60,25 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
 
     String type = 'MSG';
     String content = msg;
-    Color color = context.fc.secondary;
 
     if (msg.startsWith('TX: ')) {
       type = '>>>';
       content = msg.substring(4);
-      color = context.fc.primary;
     } else if (msg.startsWith('RX: ')) {
       content = msg.substring(4);
       if (content.startsWith('ok')) {
         type = 'ok';
-        color = context.fc.success;
       } else if (content.startsWith('error') || content.startsWith('ALARM')) {
         type = 'ERR';
-        color = context.fc.error;
       } else if (content.startsWith('<')) {
         return; // Filtrer les trames de statut pour ne pas polluer
       } else {
         type = 'MSG';
-        color = context.fc.warning;
       }
     }
 
     setState(() {
-      _logLines.add((timeStr, type, content, color));
+      _logLines.add((timeStr, type, content));
       if (_logLines.length > 200) _logLines.removeAt(0);
     });
 
@@ -85,6 +92,16 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       }
     });
   }
+
+  /// Couleur d'une ligne de journal, d'apres son type. Même table que le
+  /// terminal mobile.
+  Color _colorFor(String type) => switch (type) {
+        '>>>' => context.fc.primary,
+        'ok' => context.fc.success,
+        'ERR' => context.fc.error,
+        'MSG' => context.fc.warning,
+        _ => context.fc.secondary,
+      };
 
   String _formatTime(DateTime d) {
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}.${(d.millisecond / 10).round().toString().padLeft(2, '0')}';
@@ -104,6 +121,24 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
       _history.insert(0, (cmd, timeStr));
       if (_history.length > 50) _history.removeLast();
       _controller.clear();
+      _historyCursor = -1;
+    });
+  }
+
+  /// Rappelle une commande précédente. [delta] = +1 pour remonter (flèche
+  /// haut), -1 pour redescendre.
+  ///
+  /// C'est le geste d'un terminal : au poste, on renvoie une commande en
+  /// remontant, pas en allant chercher une icône à la souris.
+  void _recallHistory(int delta) {
+    if (_history.isEmpty) return;
+    final next = (_historyCursor + delta).clamp(-1, _history.length - 1);
+    if (next == _historyCursor) return;
+    setState(() {
+      _historyCursor = next;
+      _controller.text = next < 0 ? '' : _history[next].$1;
+      _controller.selection =
+          TextSelection.collapsed(offset: _controller.text.length);
     });
   }
 
@@ -151,7 +186,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               Icon(Icons.terminal, color: context.fc.textDisabled, size: 14),
               SizedBox(width: 8),
               Text(
-                'TERMINAL MDI / LOGS',
+                tr('TERMINAL MDI / LOGS'),
                 style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 10,
@@ -159,8 +194,12 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                 ),
               ),
               Spacer(),
+              // Le compteur « BUFFER: 127/128 » était écrit en dur : il
+              // n'a jamais rien mesuré. À la place, la seule quantité que
+              // cet écran connaisse vraiment — le nombre de lignes gardées.
               Text(
-                'BUFFER: 127/128',
+                tr(_logLines.length > 1 ? '{} LIGNES' : '{} LIGNE',
+                    [_logLines.length]),
                 style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 9,
@@ -181,6 +220,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               itemCount: _logLines.length,
               itemBuilder: (ctx, i) {
                 final l = _logLines[i];
+                final color = _colorFor(l.$2);
                 return Padding(
                   padding: EdgeInsets.symmetric(vertical: 2),
                   child: Row(
@@ -199,7 +239,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                         child: Text(
                           l.$2,
                           style: TextStyle(
-                            color: l.$4,
+                            color: color,
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'JetBrains Mono',
@@ -211,7 +251,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                         child: Text(
                           l.$3,
                           style: TextStyle(
-                            color: l.$2 == '>>>' ? context.fc.primary : l.$4,
+                            color: color,
                             fontSize: 12,
                             fontFamily: 'JetBrains Mono',
                           ),
@@ -254,19 +294,46 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: TextField(
-                      controller: _controller,
-                      style: TextStyle(
-                        color: context.fc.textPrimary,
-                        fontSize: 14,
-                        fontFamily: 'JetBrains Mono',
+                    // Entrée envoie, ↑ / ↓ rappellent l'historique. Sans ça il
+                    // fallait cliquer « ENVOYER » à chaque commande, et passer
+                    // par l'icône d'historique pour en rejouer une.
+                    child: Focus(
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) {
+                          return KeyEventResult.ignored;
+                        }
+                        final key = event.logicalKey;
+                        if (key == LogicalKeyboardKey.enter ||
+                            key == LogicalKeyboardKey.numpadEnter) {
+                          _sendCommand(_controller.text);
+                          return KeyEventResult.handled;
+                        }
+                        if (key == LogicalKeyboardKey.arrowUp) {
+                          _recallHistory(1);
+                          return KeyEventResult.handled;
+                        }
+                        if (key == LogicalKeyboardKey.arrowDown) {
+                          _recallHistory(-1);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        style: TextStyle(
+                          color: context.fc.textPrimary,
+                          fontSize: 14,
+                          fontFamily: 'JetBrains Mono',
+                        ),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: tr('Saisir commande…   ( ↑ rappelle )'),
+                          hintStyle: TextStyle(color: context.fc.textDisabled),
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: _sendCommand,
                       ),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Saisir commande...',
-                        hintStyle: TextStyle(color: context.fc.textDisabled),
-                      ),
-                      onSubmitted: _sendCommand,
                     ),
                   ),
                 ),
@@ -285,7 +352,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                 onPressed: () => _sendCommand(_controller.text),
                 icon: Icon(Icons.send, size: 14),
                 label: Text(
-                  'ENVOYER',
+                  tr('ENVOYER'),
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
                 ),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48)),
@@ -302,7 +369,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'MACROS RAPIDES',
+            tr('MACROS RAPIDES'),
             style: TextStyle(
               color: context.fc.textSecondary,
               fontSize: 10,
@@ -311,15 +378,20 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
             ),
           ),
           SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
+          // Boutons de largeur fixe, disposés en flux : le panneau faisait
+          // 3 colonnes de tuiles carrées, soit des pavés de 200 dp de côté qui
+          // occupaient la moitié de l'écran pour douze raccourcis. Ici la
+          // rangée se remplit selon la largeur disponible et le terminal — la
+          // raison d'être de la page — garde la place.
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: _macros
                 .map<Widget>(
-                  (m) => InkWell(
+                  (m) => SizedBox(
+                    width: 132,
+                    height: 34,
+                    child: InkWell(
                     onTap: () {
                       final label = m.$2;
                       final repo = ref.read(machineRepositoryProvider);
@@ -331,11 +403,14 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                       } else if (label == 'PALPAGE Z') {
                         repo.sendGCode('G38.2 Z-50 F100');
                       } else if (label == 'BROCHE H') {
-                        repo.sendGCode('M3 S5000');
+                        // S1000 = 100 % de la speed_map FluidNC : la broche
+                        // est un relais tout-ou-rien, pas une broche à régime
+                        // variable. S5000 affichait un régime imaginaire.
+                        repo.sendGCode('M3 S1000');
                       } else if (label == 'ARRÊT B.') {
                         repo.sendGCode('M5');
                       } else if (label == 'BROCHE AH') {
-                        repo.sendGCode('M4 S5000');
+                        repo.sendGCode('M4 S1000');
                       } else if (label == 'ARROSAGE ON') {
                         repo.sendGCode('M8');
                       } else if (label == 'ARROSAGE OFF') {
@@ -365,7 +440,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                               messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Erreur Lookahead : ${result.errorMessage} (ligne ${result.errorLine})',
+                                    tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
                                   ),
                                   backgroundColor: Colors.redAccent,
                                 ),
@@ -385,34 +460,39 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                       }
                     },
                     child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
                         color: m.$3.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(5),
                         border: Border.all(color: m.$3.withValues(alpha: 0.25)),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Row(
                         children: [
-                          Icon(m.$1, color: m.$3, size: 22),
-                          SizedBox(height: 6),
-                          Text(
-                            m.$2,
-                            style: TextStyle(
-                              color: m.$3,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
+                          Icon(m.$1, color: m.$3, size: 14),
+                          SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              m.$2,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: m.$3,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
+                  ),
                 )
                 .toList(),
           ),
           SizedBox(height: 24),
           Text(
-            'HISTORIQUE COMMANDES',
+            tr('HISTORIQUE COMMANDES'),
             style: TextStyle(
               color: context.fc.textSecondary,
               fontSize: 10,
@@ -428,7 +508,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               },
               child: Container(
                 margin: EdgeInsets.only(bottom: 4),
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: context.fc.surfaceBright,
                   borderRadius: BorderRadius.circular(4),
@@ -475,13 +555,16 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           Expanded(flex: 2, child: sidePanel),
         ],
       ),
+      // Le terminal est la page ; les macros l'accompagnent. À 50 / 50 elles
+      // lui prenaient autant de place qu'à lui, alors qu'elles n'ont besoin
+      // que de la largeur de deux boutons.
       tablet: ResizableSplitView(
-        initialRatio: 0.5,
+        initialRatio: 0.62,
         left: terminalPanel,
         right: sidePanel,
       ),
       desktop: ResizableSplitView(
-        initialRatio: 0.5,
+        initialRatio: 0.68,
         left: terminalPanel,
         right: sidePanel,
       ),

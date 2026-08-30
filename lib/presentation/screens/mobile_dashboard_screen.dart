@@ -15,9 +15,11 @@ import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/mobile/mobile_visualizer_panel.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
-import '../widgets/mobile/tool_change_banner.dart';
-import '../widgets/mobile/override_panel.dart';
+import '../widgets/tool_change_banner.dart';
+import '../widgets/override_panel.dart';
+import '../widgets/travel_gauge.dart';
 import '../tutorial/tutorial_keys.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Dashboard Mobile "Forge Pro" — Version Épurée
 /// Focus sur la lisibilité maximale, suppression du désordre visuel.
@@ -56,11 +58,15 @@ class _MobileDashboardScreenState extends ConsumerState<MobileDashboardScreen>
       if (identical(prev?.adaptWarnings, next.adaptWarnings)) return;
       final fc = context.fc;
       final blocked = next.adaptBlocking;
+      final message = StringBuffer(blocked ? '⛔ ' : '✓ ')
+        ..write(tr('G-code adapté — {} point(s). {}',
+            [next.adaptWarnings.length, next.adaptWarnings.first]));
+      if (blocked) {
+        message.write(' ${tr("Corrige le post CAM avant d'exécuter.")}');
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          '${blocked ? '⛔ ' : '✓ '}G-code adapté — '
-          '${next.adaptWarnings.length} point(s). ${next.adaptWarnings.first}'
-          '${blocked ? ' Corrige le post CAM avant d\'exécuter.' : ''}',
+          message.toString(),
           style: const TextStyle(fontSize: 12),
         ),
         backgroundColor: blocked ? fc.danger : fc.surfaceBright,
@@ -132,7 +138,7 @@ class _MasterTab extends ConsumerWidget {
               child: Row(children: [
                 Icon(Icons.view_in_ar, size: 18, color: fc.primary),
                 const SizedBox(width: 10),
-                Text('SIMULATEUR 3D',
+                Text(tr('SIMULATEUR 3D'),
                     style: TextStyle(
                         color: fc.textPrimary,
                         fontSize: 12,
@@ -172,7 +178,7 @@ class _MasterTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: _MasterActionButton(
-                  label: 'PAUSE',
+                  label: tr('PAUSE'),
                   icon: Icons.pause_rounded,
                   color: fc.warning,
                   onTap: () => ref.read(machineRepositoryProvider).pause(),
@@ -181,7 +187,7 @@ class _MasterTab extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _MasterActionButton(
-                  label: 'STOP',
+                  label: tr('STOP'),
                   icon: Icons.stop_rounded,
                   color: fc.danger,
                   onTap: () => ref.read(machineRepositoryProvider).reset(),
@@ -207,7 +213,7 @@ class _MasterTab extends ConsumerWidget {
       final result = await ref.read(streamingProvider.notifier).startStream();
       if (!result.isValid) {
         messenger.showSnackBar(SnackBar(
-          content: Text('Erreur: ${result.errorMessage}'),
+          content: Text(tr('Erreur: {}', [result.errorMessage])),
           backgroundColor: errColor,
         ));
       }
@@ -256,7 +262,7 @@ class _JogTab extends ConsumerWidget {
           child: SafeArea(
             top: false,
             child: _MasterActionButton(
-              label: 'STOP JOG',
+              label: tr('STOP JOG'),
               icon: Icons.pan_tool_rounded,
               color: context.fc.danger,
               onTap: () {
@@ -342,7 +348,7 @@ class _ProgramTab extends ConsumerWidget {
         children: [
           Icon(Icons.description_outlined, color: fc.textDisabled, size: 48),
           const SizedBox(height: 12),
-          Text('Aucun programme chargé', style: TextStyle(color: fc.textDisabled, fontWeight: FontWeight.bold)),
+          Text(tr('Aucun programme chargé'), style: TextStyle(color: fc.textDisabled, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -406,7 +412,7 @@ class _ExecutionProgressPanel extends StatelessWidget {
                     Row(children: [
                       Icon(Icons.play_arrow_rounded, size: 14, color: fc.primary),
                       const SizedBox(width: 6),
-                      Text('EXÉCUTION EN COURS',
+                      Text(tr('EXÉCUTION EN COURS'),
                           style: TextStyle(
                               color: fc.primary,
                               fontSize: 11,
@@ -625,9 +631,6 @@ class _DroCard extends ConsumerWidget {
     ('C', '°'),
   ];
 
-  /// En deca de cette distance relative a une extremite, la jauge alerte.
-  static const _edge = 0.05;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
@@ -664,30 +667,16 @@ class _DroCard extends ConsumerWidget {
     final fc = context.fc;
     final machine = i < mPos.length ? mPos[i] : 0.0;
     final fraction = kinematics?.travelFraction(machine);
-    final nearEdge =
-        fraction != null && (fraction <= _edge || fraction >= 1 - _edge);
-    final barColor = nearEdge ? fc.warning : color;
+    final nearEdge = TravelGaugeFill.isNearEdge(fraction);
 
     return SizedBox(
       height: 36,
       child: Stack(
         children: [
-          // Jauge de fond. Sans course connue, aucune barre : mieux vaut ne
-          // rien montrer qu'une proportion inventee.
-          if (fraction != null)
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: fraction,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    color: barColor.withValues(alpha: nearEdge ? 0.26 : 0.16),
-                  ),
-                ),
-              ),
-            ),
+          // Jauge de fond, partagee avec le DRO desktop. Sans course connue,
+          // aucune barre : mieux vaut ne rien montrer qu'une proportion
+          // inventee.
+          TravelGaugeFill(fraction: fraction, color: color),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -903,8 +892,8 @@ class _MobileGCodeInputState extends ConsumerState<_MobileGCodeInput> {
     final offline = ref.read(machineStateProvider).valueOrNull?.status ==
         MachineStatus.offline;
     if (offline) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Machine hors ligne — commande non envoyée'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('Machine hors ligne — commande non envoyée')),
       ));
       return;
     }
@@ -919,7 +908,7 @@ class _MobileGCodeInputState extends ConsumerState<_MobileGCodeInput> {
       controller: _ctrl,
       style: TextStyle(color: context.fc.primary, fontFamily: 'JetBrains Mono'),
       decoration: InputDecoration(
-        hintText: 'Envoyer G-Code...',
+        hintText: tr('Envoyer G-Code...'),
         filled: true,
         fillColor: context.fc.terminalBg,
         suffixIcon: IconButton(onPressed: _send, icon: const Icon(Icons.send_rounded)),

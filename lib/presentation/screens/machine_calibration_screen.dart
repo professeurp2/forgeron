@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/di_providers.dart';
 import 'mobile_screens.dart' show KinematicsTable;
+import '../../core/i18n/app_localizations.dart';
 
 /// Écran de calibration machine, regroupé dans les Paramètres :
 /// cinématique des axes (éditable + enregistrable dans FluidNC), homing
@@ -20,54 +22,54 @@ class MachineCalibrationScreen extends ConsumerWidget {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('CALIBRATION MACHINE',
+        title: Text(tr('CALIBRATION MACHINE'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: fc.surfaceBorder),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _label(fc, 'CINÉMATIQUE DES AXES'),
-            const SizedBox(height: 8),
-            const KinematicsTable(),
-            const SizedBox(height: 24),
-            _label(fc, 'ZÉRO MACHINE'),
-            const SizedBox(height: 8),
-            Text(
-              'Le homing amène la machine sur ses fins de course pour établir '
-              'la référence absolue (zéro machine). À faire au démarrage, avant '
-              'de poser une origine pièce.',
-              style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            _bigButton(
-              fc,
-              color: fc.axisZ,
-              icon: Icons.home_rounded,
-              label: 'LANCER LE HOMING (\$H)',
-              onTap: () {
-                ref.read(machineRepositoryProvider).home();
-                HapticFeedback.mediumImpact();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Homing lancé — la machine référence ses axes…')));
-              },
-            ),
-            const SizedBox(height: 24),
-            _label(fc, 'CONTRÔLEUR'),
-            const SizedBox(height: 8),
-            _bigButton(
-              fc,
-              color: fc.error,
-              icon: Icons.power_settings_new_rounded,
-              label: 'REDÉMARRER L\'ESP32',
-              onTap: () => _confirmReboot(context, ref),
-            ),
-          ],
+      body: ReadableWidth(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _label(fc, 'CINÉMATIQUE DES AXES'),
+              const SizedBox(height: 8),
+              const KinematicsTable(),
+              const SizedBox(height: 24),
+              _label(fc, 'ZÉRO MACHINE'),
+              const SizedBox(height: 8),
+              Text(
+                tr('Le homing amène la machine sur ses fins de course pour établir la référence absolue (zéro machine). À faire au démarrage, avant de poser une origine pièce.'),
+                style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              _bigButton(
+                fc,
+                color: fc.axisZ,
+                icon: Icons.home_rounded,
+                label: tr('LANCER LE HOMING (\$H)'),
+                onTap: () {
+                  ref.read(machineRepositoryProvider).home();
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(tr('Homing lancé — la machine référence ses axes…'))));
+                },
+              ),
+              const SizedBox(height: 24),
+              _label(fc, 'CONTRÔLEUR'),
+              const SizedBox(height: 8),
+              _bigButton(
+                fc,
+                color: fc.error,
+                icon: Icons.power_settings_new_rounded,
+                label: tr('REDÉMARRER L\'ESP32'),
+                onTap: () => _confirmReboot(context, ref),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -119,15 +121,14 @@ class MachineCalibrationScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Redémarrer l\'ESP32 ?',
+        title: Text(tr('Redémarrer l\'ESP32 ?'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Row(children: [
           Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'La liaison va être coupée : l\'app se déconnectera quelques '
-              'secondes, le temps du reboot. La reconnexion est automatique.',
+              tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
               style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
             ),
           ),
@@ -135,12 +136,12 @@ class MachineCalibrationScreen extends ConsumerWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Annuler', style: TextStyle(color: fc.textSecondary))),
+              child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.error, foregroundColor: Colors.white),
-            child: const Text('Redémarrer'),
+            child: Text(tr('Redémarrer')),
           ),
         ],
       ),

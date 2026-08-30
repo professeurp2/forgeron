@@ -6,6 +6,7 @@ import '../../application/providers/di_providers.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Récupération guidée après une alarme (fin de course, hard limit ou arrêt
 /// d'urgence matériel) : réarmer (Ctrl-X + $X) → dégager l'axe → re-homing.
@@ -32,7 +33,7 @@ class LimitRecoveryScreen extends ConsumerWidget {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('RÉCUPÉRATION',
+        title: Text(tr('RÉCUPÉRATION'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -60,13 +61,13 @@ class LimitRecoveryScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Statut : ${status.name.toUpperCase()}',
+                    Text(tr('Statut : {}', [status.name.toUpperCase()]),
                         style: TextStyle(
                             color: inAlarm ? fc.danger : fc.success,
                             fontWeight: FontWeight.w900,
                             fontSize: 14)),
                     if (active.isNotEmpty)
-                      Text('Fins de course actives : ${active.join(', ')}',
+                      Text(tr('Fins de course actives : {}', [active.join(', ')]),
                           style:
                               TextStyle(color: fc.textSecondary, fontSize: 11)),
                   ],
@@ -80,9 +81,7 @@ class LimitRecoveryScreen extends ConsumerWidget {
           _stepLabel(fc, 1, 'Réarmer'),
           const SizedBox(height: 6),
           Text(
-            'La machine est verrouillée en alarme (fin de course OU arrêt '
-            'd\'urgence). Réarme-la — soft-reset puis déverrouillage — pour '
-            'autoriser un mouvement de dégagement.',
+            tr('La machine est verrouillée en alarme (fin de course OU arrêt d\'urgence). Réarme-la — soft-reset puis déverrouillage — pour autoriser un mouvement de dégagement.'),
             style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -105,9 +104,7 @@ class LimitRecoveryScreen extends ConsumerWidget {
           _stepLabel(fc, 2, 'Dégager l\'axe de la butée'),
           const SizedBox(height: 6),
           Text(
-            'Éloigne l\'axe touché de la butée par PETITS pas (choisis ×1), '
-            'dans le sens OPPOSÉ à la fin de course. Le jog est autorisé même '
-            'butée active pour permettre le dégagement.',
+            tr('Éloigne l\'axe touché de la butée par PETITS pas (choisis ×1), dans le sens OPPOSÉ à la fin de course. Le jog est autorisé même butée active pour permettre le dégagement.'),
             style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -126,8 +123,7 @@ class LimitRecoveryScreen extends ConsumerWidget {
           _stepLabel(fc, 3, 'Re-homing'),
           const SizedBox(height: 6),
           Text(
-            'Une fois l\'axe dégagé et toutes les butées relâchées, relance le '
-            'homing pour rétablir le zéro machine.',
+            tr('Une fois l\'axe dégagé et toutes les butées relâchées, relance le homing pour rétablir le zéro machine.'),
             style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -139,7 +135,7 @@ class LimitRecoveryScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           if (active.isNotEmpty)
             Text(
-              '⚠️ Des fins de course sont encore actives — dégage-les avant le homing.',
+              tr('⚠️ Des fins de course sont encore actives — dégage-les avant le homing.'),
               style: TextStyle(color: fc.warning, fontSize: 11),
             ),
         ],

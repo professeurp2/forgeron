@@ -9,6 +9,7 @@ import '../../../application/providers/motor_provider.dart';
 import '../../../application/services/audio_service.dart';
 import '../../../domain/models/machine_state.dart';
 import 'gauge_widgets.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Panneau de contrôle Jog 5-axes unifié (X/Y/Z/A/C).
 ///
@@ -68,7 +69,7 @@ class JogControlPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showHeader) ...[
-              const _JogSectionHeader(title: 'JOG CONTROL'),
+              _JogSectionHeader(title: tr('JOG CONTROL')),
               const SizedBox(height: 6),
             ],
 
@@ -345,17 +346,14 @@ class _MotorDisableButton extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Couper les moteurs ?',
+        title: Text(tr('Couper les moteurs ?'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(Icons.warning_amber_rounded, size: 20, color: fc.danger),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Les 5 axes vont relâcher leur couple et tourner librement. '
-              'ATTENTION : l\'axe Z n\'est plus retenu et peut TOMBER. '
-              'Assure-toi que Z est en position basse ou sécurisée. '
-              'Les moteurs se réactivent au prochain déplacement.',
+              tr('Les 5 axes vont relâcher leur couple et tourner librement. ATTENTION : l\'axe Z n\'est plus retenu et peut TOMBER. Assure-toi que Z est en position basse ou sécurisée. Les moteurs se réactivent au prochain déplacement.'),
               style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
             ),
           ),
@@ -363,13 +361,13 @@ class _MotorDisableButton extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Annuler', style: TextStyle(color: fc.textSecondary)),
+            child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.danger, foregroundColor: Colors.white),
-            child: const Text('Couper'),
+            child: Text(tr('Couper')),
           ),
         ],
       ),
@@ -418,7 +416,7 @@ class _MotorDisableButton extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'COUPER MOTEURS',
+                  tr('COUPER MOTEURS'),
                   style: TextStyle(
                     color: online ? color : fc.textDisabled,
                     fontWeight: FontWeight.w900,

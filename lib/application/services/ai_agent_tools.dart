@@ -505,7 +505,9 @@ class AiToolCatalog {
       inputSchema: const {'type': 'object', 'properties': {}},
       category: null,
       execute: (input, ref) async {
-        final ok = await ref.read(machineRepositoryProvider).emergencyStop();
+        // Par le contrôleur : l'opérateur doit VOIR l'échec sur le bandeau
+        // rouge, pas seulement le lire dans la conversation avec l'agent.
+        final ok = await ref.read(streamingProvider.notifier).stopStream();
         return ok ? 'OK: arrêt transmis' : 'ERREUR: liaison coupée, arrêt NON transmis à la machine';
       },
     ),

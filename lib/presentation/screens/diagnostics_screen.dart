@@ -13,6 +13,7 @@ import '../../core/widgets/split_view.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
 import 'mobile_screens.dart' show KinematicsTable;
+import '../../core/i18n/app_localizations.dart';
 
 class DiagnosticsScreen extends ConsumerWidget {
   const DiagnosticsScreen({super.key});
@@ -63,7 +64,7 @@ class DiagnosticsScreen extends ConsumerWidget {
         SizedBox(height: 12),
         GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
           Center(child: Column(children: [
-            Text('LATENCE', style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
+            Text(tr('LATENCE'), style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
             SizedBox(height: 4),
             Text(net.connected ? '${net.latencyMs}' : '—',
                 style: TextStyle(color: latColor, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
@@ -71,7 +72,7 @@ class DiagnosticsScreen extends ConsumerWidget {
           ])),
           SizedBox(height: 12),
           Row(children: [
-            Text('QUALITÉ', style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+            Text(tr('QUALITÉ'), style: TextStyle(color: fc.textDisabled, fontSize: 9)),
             SizedBox(width: 8),
             Expanded(child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
@@ -121,13 +122,13 @@ class DiagnosticsScreen extends ConsumerWidget {
         child: Row(children: [
           Icon(Icons.code, color: fc.warning, size: 16),
           SizedBox(width: 8),
-          Text('CONFIG.YAML', style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(tr('CONFIG.YAML'), style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
           SizedBox(width: 16),
-          Flexible(child: Text('Configuration Machine FluidNC', style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text(tr('Configuration Machine FluidNC'), style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
           const Spacer(),
           OutlinedButton.icon(
             icon: Icon(Icons.copy_all_rounded, size: 14),
-            label: Text('COPIER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
+            label: Text(tr('COPIER'), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
             style: OutlinedButton.styleFrom(side: BorderSide(color: fc.surfaceBorder), minimumSize: Size(0, 32)),
             onPressed: () => _copyConfig(context, ref),
           ),
@@ -155,7 +156,7 @@ class DiagnosticsScreen extends ConsumerWidget {
           });
         },
         loading: () => Center(child: CircularProgressIndicator(color: fc.primary)),
-        error: (e, st) => Center(child: Text('Erreur de chargement: $e', style: TextStyle(color: fc.error))),
+        error: (e, st) => Center(child: Text(tr('Erreur de chargement: {}', [e]), style: TextStyle(color: fc.error))),
       ))),
     ]);
 
@@ -205,11 +206,11 @@ class DiagnosticsScreen extends ConsumerWidget {
           width: double.infinity, height: 50,
           child: ElevatedButton.icon(
             icon: Icon(Icons.analytics),
-            label: Text('GÉNÉRER DUMP DIAGNOSTIC (JSON)', style: TextStyle(fontWeight: FontWeight.w900)),
+            label: Text(tr('GÉNÉRER DUMP DIAGNOSTIC (JSON)'), style: TextStyle(fontWeight: FontWeight.w900)),
             style: ElevatedButton.styleFrom(backgroundColor: fc.primary, foregroundColor: Colors.white),
             onPressed: () {
               final dump = ref.read(loggerServiceProvider.notifier).generateDiagnosticDump();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dump diagnostic généré en console')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Dump diagnostic généré en console'))));
               debugPrint(dump);
             },
           ),
@@ -248,11 +249,11 @@ class DiagnosticsScreen extends ConsumerWidget {
     final cfg = ref.read(configResultProvider).valueOrNull;
     final m = ScaffoldMessenger.of(context);
     if (cfg == null) {
-      m.showSnackBar(const SnackBar(content: Text('Config non chargée.')));
+      m.showSnackBar(SnackBar(content: Text(tr('Config non chargée.'))));
       return;
     }
     Clipboard.setData(ClipboardData(text: cfg.yaml));
-    m.showSnackBar(const SnackBar(content: Text('config.yaml copié dans le presse-papiers')));
+    m.showSnackBar(SnackBar(content: Text(tr('config.yaml copié dans le presse-papiers'))));
   }
 
   Future<void> _rebootEsp(BuildContext context, WidgetRef ref) async {
@@ -261,25 +262,24 @@ class DiagnosticsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text("Redémarrer l'ESP32 ?", style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        title: Text(tr('Redémarrer l\'ESP32 ?'), style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Row(children: [
           Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              "La liaison va être coupée : l'app se déconnectera quelques "
-              'secondes, le temps du reboot. La reconnexion est automatique.',
+              tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
               style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
             ),
           ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Annuler', style: TextStyle(color: fc.textSecondary))),
+              child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: fc.error, foregroundColor: Colors.white),
-            child: const Text('Redémarrer'),
+            child: Text(tr('Redémarrer')),
           ),
         ],
       ),
@@ -394,7 +394,7 @@ class _AmdecRiskPanel extends StatelessWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(r.$1, style: TextStyle(color: fc.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text('Gravité : ${r.$3}', style: TextStyle(color: fc.textDisabled, fontSize: 8)),
+                  Text(tr('Gravité : {}', [r.$3]), style: TextStyle(color: fc.textDisabled, fontSize: 8)),
                 ]),
               ),
               SizedBox(
@@ -427,7 +427,7 @@ class _MaintenanceForecastCard extends StatelessWidget {
         Row(children: [
           Icon(Icons.engineering, color: fc.primary, size: 14),
           SizedBox(width: 8),
-          Text('PRÉVISION MAINTENANCE', style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900)),
+          Text(tr('PRÉVISION MAINTENANCE'), style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900)),
         ]),
         SizedBox(height: 12),
         _maintRow(context, 'Graissage Vis à Billes', 85, '12j'),

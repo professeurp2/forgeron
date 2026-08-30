@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'trunnion_visualizer_windows.dart';
 import 'trunnion_visualizer_mobile.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Aiguilleur du visualiseur 3D pour les plateformes non-web.
 ///
@@ -56,9 +57,9 @@ class TrunnionVisualizer extends StatelessWidget {
     }
 
     // Linux / macOS : aucun WebView embarqué n'est câblé pour l'instant.
-    return const Center(
+    return Center(
       child: Text(
-        'Simulateur 3D non supporté sur cette plateforme',
+        tr('Simulateur 3D non supporté sur cette plateforme'),
         style: TextStyle(fontSize: 11),
       ),
     );

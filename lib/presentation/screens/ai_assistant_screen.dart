@@ -13,8 +13,11 @@ import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../core/i18n/app_language.dart';
+import '../../core/utils/voice_locale.dart';
 import '../../application/providers/workspace_provider.dart';
 import 'ai_agent_settings_screen.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Écran de chat avec l'agent IA — reprend le pattern visuel du terminal MDI
 /// (log défilant, barre de saisie) et y ajoute des cartes de confirmation
@@ -48,6 +51,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final FlutterTts _tts = FlutterTts();
   bool _listening = false;
 
+  /// Locale de dictée retenue pour la langue courante (null = celle du
+  /// moteur). Résolue à la première écoute, invalidée à chaque
+  /// changement de langue.
+  String? _sttLocaleId;
+
   /// Entrée clavier physique : Entrée envoie, Maj+Entrée passe à la ligne.
   /// Réservé au desktop — sur mobile la touche « retour » du clavier logiciel
   /// doit rester un saut de ligne.
@@ -70,7 +78,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       // toute première discussion au lieu de la dernière.
       _snapToEnd();
     });
-    _tts.setLanguage('fr-FR');
+    _applyVoiceLanguage();
     _tts.setSpeechRate(0.5);
   }
 
@@ -118,19 +126,54 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     if (!ok) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Reconnaissance vocale indisponible sur cet appareil.')),
+          SnackBar(
+              content: Text(tr('Reconnaissance vocale indisponible sur cet appareil.'))),
         );
       }
       return;
     }
     setState(() => _listening = true);
+    // La liste des langues reconnues dépend de l'appareil : on prend la plus
+    // proche de la langue de l'agent, et on laisse le moteur choisir la
+    // sienne si elle est absente plutôt que d'échouer.
+    _sttLocaleId ??= bestVoiceLocale(
+      _wantedVoiceTag,
+      (await _speech.locales()).map((l) => l.localeId),
+      fallbacks: const ['fr-FR', 'en-US'],
+    );
     await _speech.listen(
       onResult: (r) {
         if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
       },
-      listenOptions: SpeechListenOptions(localeId: 'fr_FR'),
+      listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
     );
+  }
+
+  /// Étiquette BCP-47 visée pour le micro et la voix : celle de la langue
+  /// choisie pour l'agent, ou la locale du système en mode automatique.
+  String get _wantedVoiceTag {
+    final language = ref.read(appLanguageProvider);
+    if (!language.isAuto) return language.voiceTag;
+    return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+  }
+
+  /// Aligne la synthèse vocale sur la langue de l'agent. Si l'appareil ne
+  /// connaît aucune voix pour cette langue, on garde celle en place : mieux
+  /// vaut une lecture au mauvais accent qu'un bouton muet, et le chat écrit
+  /// reste de toute façon dans la bonne langue.
+  Future<void> _applyVoiceLanguage() async {
+    _sttLocaleId = null; // re-résolu à la prochaine dictée
+    try {
+      final raw = await _tts.getLanguages;
+      final available =
+          (raw as List).map((e) => e.toString()).toList(growable: false);
+      final match = bestVoiceLocale(_wantedVoiceTag, available,
+          fallbacks: const ['fr-FR', 'en-US']);
+      if (match != null) await _tts.setLanguage(match);
+    } catch (_) {
+      // getLanguages n'est pas implémenté sur toutes les plateformes
+      // (desktop) : on laisse la voix par défaut du système.
+    }
   }
 
   /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
@@ -185,13 +228,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             const SizedBox(height: 8),
             ListTile(
               leading: Icon(Icons.photo_camera_rounded, color: fc.primary),
-              title: Text('Prendre une photo',
+              title: Text(tr('Prendre une photo'),
                   style: TextStyle(color: fc.textPrimary)),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: Icon(Icons.photo_library_rounded, color: fc.primary),
-              title: Text('Choisir dans la galerie',
+              title: Text(tr('Choisir dans la galerie'),
                   style: TextStyle(color: fc.textPrimary)),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
@@ -216,8 +259,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (bytes.length > 4 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Image trop lourde (max 4 Mo sur la 4G).')),
+            SnackBar(
+                content: Text(tr('Image trop lourde (max 4 Mo sur la 4G).'))),
           );
         }
         return;
@@ -269,8 +312,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     if (folder == null || folder.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Choisis d\'abord un dossier dans Espace de travail.')),
+        SnackBar(
+            content: Text(tr('Choisis d\'abord un dossier dans Espace de travail.'))),
       );
       return;
     }
@@ -304,12 +347,12 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       ref.read(workFilesRefreshProvider.notifier).state++;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Enregistré dans l\'espace de travail : $clean')),
+        SnackBar(content: Text(tr('Enregistré dans l\'espace de travail : {}', [clean]))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Écriture impossible : $e')),
+        SnackBar(content: Text(tr('Écriture impossible : {}', [e]))),
       );
     }
   }
@@ -321,14 +364,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Enregistrer le G-code',
+        title: Text(tr('Enregistrer le G-code'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           style: TextStyle(color: fc.textPrimary),
           decoration: InputDecoration(
-            labelText: 'Nom du fichier',
+            labelText: tr('Nom du fichier'),
             labelStyle: TextStyle(color: fc.textSecondary),
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
@@ -336,11 +379,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(tr('Annuler')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text),
-            child: const Text('Enregistrer'),
+            child: Text(tr('Enregistrer')),
           ),
         ],
       ),
@@ -353,23 +396,22 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Remplacer « $name » ?',
+        title: Text(tr('Remplacer « {} » ?', [name]),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Text(
-          'Ce fichier existe déjà dans l\'espace de travail. Son contenu actuel '
-          'sera définitivement perdu.',
+          tr('Ce fichier existe déjà dans l\'espace de travail. Son contenu actuel sera définitivement perdu.'),
           style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(tr('Annuler')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.danger, foregroundColor: Colors.white),
-            child: const Text('Remplacer'),
+            child: Text(tr('Remplacer')),
           ),
         ],
       ),
@@ -398,22 +440,21 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Effacer cette discussion ?',
+        title: Text(tr('Effacer cette discussion ?'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Text(
-          'Tous les messages de la discussion ouverte seront supprimés. Les '
-          'autres discussions ne sont pas touchées.',
+          tr('Tous les messages de la discussion ouverte seront supprimés. Les autres discussions ne sont pas touchées.'),
           style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+              child: Text(tr('Annuler'))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.danger, foregroundColor: Colors.white),
-            child: const Text('Effacer'),
+            child: Text(tr('Effacer')),
           ),
         ],
       ),
@@ -535,6 +576,12 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (next == false) _tts.stop();
     });
 
+    // Changement de langue de l'agent : la voix et le micro doivent suivre,
+    // sinon on lit la réponse d'une langue avec l'accent d'une autre.
+    ref.listen(appLanguageProvider, (prev, next) {
+      if (prev?.id != next.id) _applyVoiceLanguage();
+    });
+
     // Pas de Scaffold/AppBar ici : cet écran est embarqué comme un onglet
     // parmi d'autres (main_scaffold.dart), qui fournit déjà le chrome
     // (barre latérale desktop, ou AppBar + nav du bas sur mobile) — même
@@ -558,7 +605,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'ASSISTANT IA',
+                      tr('ASSISTANT IA'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: fc.textPrimary,
@@ -571,7 +618,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   IconButton(
                     icon: Icon(Icons.settings_outlined,
                         color: fc.textSecondary, size: 20),
-                    tooltip: 'Paramètres de l\'agent',
+                    tooltip: tr('Paramètres de l\'agent'),
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
                           builder: (_) => const AiAgentSettingsScreen()),
@@ -580,7 +627,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   IconButton(
                     icon: Icon(Icons.delete_outline,
                         color: fc.textSecondary, size: 20),
-                    tooltip: 'Effacer la discussion',
+                    tooltip: tr('Effacer la discussion'),
                     onPressed: _confirmClear,
                   ),
                 ],
@@ -672,7 +719,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         children: [
           IconButton(
             onPressed: _openConversations,
-            tooltip: 'Discussions enregistrées',
+            tooltip: tr('Discussions enregistrées'),
             iconSize: 18,
             visualDensity: VisualDensity.compact,
             icon: Icon(Icons.forum_outlined, color: fc.textSecondary),
@@ -697,7 +744,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           IconButton(
             onPressed: () =>
                 ref.read(aiAgentControllerProvider.notifier).newConversation(),
-            tooltip: 'Nouvelle discussion',
+            tooltip: tr('Nouvelle discussion'),
             iconSize: 18,
             visualDensity: VisualDensity.compact,
             icon: Icon(Icons.add_comment_outlined, color: fc.textSecondary),
@@ -850,7 +897,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         children: [
           Icon(Icons.stop_circle_outlined, size: 12, color: fc.warning),
           const SizedBox(width: 5),
-          Text('Réponse interrompue',
+          Text(tr('Réponse interrompue'),
               style: TextStyle(
                   color: fc.warning,
                   fontSize: 10,
@@ -905,7 +952,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                         Icon(Icons.copy_rounded,
                             size: 12, color: fc.textDisabled),
                         const SizedBox(width: 3),
-                        Text('Copier',
+                        Text(tr('Copier'),
                             style: TextStyle(
                                 color: fc.textDisabled, fontSize: 10)),
                       ],
@@ -1016,7 +1063,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Reprise automatique dès le retour du réseau…',
+                          tr('Reprise automatique dès le retour du réseau…'),
                           style: TextStyle(color: fc.warning, fontSize: 11),
                         ),
                       ),
@@ -1037,7 +1084,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                 minimumSize: const Size(0, 32),
               ),
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Réessayer'),
+              label: Text(tr('Réessayer')),
             ),
           ],
         ],
@@ -1086,7 +1133,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                 style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
             const SizedBox(width: 10),
           ],
-          Text('~${_fmtTokens(u.tokens)} tok',
+          Text(tr('~{} tok', [_fmtTokens(u.tokens)]),
               style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
         ],
       ),
@@ -1117,14 +1164,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           const SizedBox(height: 12),
           Text('🤖', style: TextStyle(fontSize: 44, color: fc.primary)),
           const SizedBox(height: 12),
-          Text('Assistant Forgeron',
+          Text(tr('Assistant Forgeron'),
               style: TextStyle(
                   color: fc.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
           Text(
-            'Pose une question ou demande une action sur ta CNC 5 axes.',
+            tr('Pose une question ou demande une action sur ta CNC 5 axes.'),
             textAlign: TextAlign.center,
             style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
           ),
@@ -1168,7 +1215,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'L\'agent souhaite exécuter :',
+                  tr('L\'agent souhaite exécuter :'),
                   style: TextStyle(
                       color: fc.warning, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
@@ -1198,7 +1245,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       ref.read(aiAgentControllerProvider.notifier).rejectPendingAction(),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: fc.danger, side: BorderSide(color: fc.danger)),
-                  child: const Text('REFUSER'),
+                  child: Text(tr('REFUSER')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1209,7 +1256,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       .confirmPendingAction(),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: fc.warning, foregroundColor: Colors.black),
-                  child: const Text('CONFIRMER'),
+                  child: Text(tr('CONFIRMER')),
                 ),
               ),
             ],
@@ -1256,12 +1303,12 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('Image jointe',
+                    child: Text(tr('Image jointe'),
                         style: TextStyle(color: fc.textSecondary, fontSize: 12)),
                   ),
                   IconButton(
                     icon: Icon(Icons.close, color: fc.textDisabled, size: 18),
-                    tooltip: 'Retirer l\'image',
+                    tooltip: tr('Retirer l\'image'),
                     onPressed: () => setState(() {
                       _pendingImage = null;
                       _pendingImageMime = null;
@@ -1275,7 +1322,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             children: [
               IconButton(
                 onPressed: enabled ? _showImageSourceSheet : null,
-                tooltip: 'Photo / image',
+                tooltip: tr('Photo / image'),
                 iconSize: 20,
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
@@ -1344,14 +1391,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               if (busy)
                 IconButton.filled(
                   onPressed: _stop,
-                  tooltip: 'Interrompre',
+                  tooltip: tr('Interrompre'),
                   style: IconButton.styleFrom(backgroundColor: fc.danger),
                   icon: const Icon(Icons.stop_rounded, color: Colors.white),
                 )
               else
                 IconButton.filled(
                   onPressed: enabled ? _send : null,
-                  tooltip: 'Envoyer',
+                  tooltip: tr('Envoyer'),
                   style: IconButton.styleFrom(backgroundColor: fc.primary),
                   icon: const Icon(Icons.send, color: Colors.black),
                 ),
@@ -1422,7 +1469,8 @@ class _CodeBlockState extends State<_CodeBlock> {
               children: [
                 Expanded(
                   child: Text(
-                    '$label · ${lines.length} ligne${lines.length > 1 ? 's' : ''}',
+                    tr(lines.length > 1 ? '{} · {} lignes' : '{} · {} ligne',
+                        [label, lines.length]),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: fc.textDisabled,
@@ -1518,7 +1566,7 @@ class _ConversationSheet extends ConsumerWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('DISCUSSIONS',
+                    child: Text(tr('DISCUSSIONS'),
                         style: TextStyle(
                             color: fc.textPrimary,
                             fontSize: 12,
@@ -1531,7 +1579,7 @@ class _ConversationSheet extends ConsumerWidget {
                       notifier.newConversation();
                     },
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Nouvelle'),
+                    label: Text(tr('Nouvelle')),
                     style: TextButton.styleFrom(foregroundColor: fc.primary),
                   ),
                 ],
@@ -1542,7 +1590,7 @@ class _ConversationSheet extends ConsumerWidget {
               child: chat.conversations.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('Aucune discussion enregistrée.',
+                      child: Text(tr('Aucune discussion enregistrée.'),
                           style: TextStyle(
                               color: fc.textDisabled, fontSize: 12)),
                     )
@@ -1574,8 +1622,11 @@ class _ConversationSheet extends ConsumerWidget {
                             ),
                           ),
                           subtitle: Text(
-                            '${c.messageCount} message${c.messageCount > 1 ? 's' : ''} · '
-                            '${_fmtDate(c.updatedAt)}',
+                            tr(
+                                c.messageCount > 1
+                                    ? '{} messages · {}'
+                                    : '{} message · {}',
+                                [c.messageCount, _fmtDate(c.updatedAt)]),
                             style: TextStyle(
                                 color: fc.textDisabled, fontSize: 10.5),
                           ),
@@ -1598,10 +1649,10 @@ class _ConversationSheet extends ConsumerWidget {
                               }
                             },
                             itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                  value: 'rename', child: Text('Renommer')),
-                              const PopupMenuItem(
-                                  value: 'delete', child: Text('Supprimer')),
+                              PopupMenuItem(
+                                  value: 'rename', child: Text(tr('Renommer'))),
+                              PopupMenuItem(
+                                  value: 'delete', child: Text(tr('Supprimer'))),
                             ],
                           ),
                           onTap: () {
@@ -1635,7 +1686,7 @@ class _ConversationSheet extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Renommer la discussion',
+        title: Text(tr('Renommer la discussion'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: TextField(
           controller: ctrl,
@@ -1646,10 +1697,10 @@ class _ConversationSheet extends ConsumerWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler')),
+              child: Text(tr('Annuler'))),
           ElevatedButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('Renommer')),
+              child: Text(tr('Renommer'))),
         ],
       ),
     );
@@ -1660,21 +1711,21 @@ class _ConversationSheet extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Supprimer « $title » ?',
+        title: Text(tr('Supprimer « {} » ?', [title]),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Text(
-          'Cette discussion et son historique seront définitivement perdus.',
+          tr('Cette discussion et son historique seront définitivement perdus.'),
           style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+              child: Text(tr('Annuler'))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: fc.danger, foregroundColor: Colors.white),
-            child: const Text('Supprimer'),
+            child: Text(tr('Supprimer')),
           ),
         ],
       ),
@@ -1864,7 +1915,7 @@ class _ThinkingBubbleState extends State<_ThinkingBubble>
                   _dot(fc, i),
                 ],
                 const SizedBox(width: 10),
-                Text('réfléchit…',
+                Text(tr('réfléchit…'),
                     style: TextStyle(color: fc.textDisabled, fontSize: 11)),
               ],
             );

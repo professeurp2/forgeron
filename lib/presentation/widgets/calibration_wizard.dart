@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/di_providers.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class CalibrationWizard extends ConsumerStatefulWidget {
   const CalibrationWizard({super.key});
@@ -146,7 +147,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
             child: Row(children: [
               Icon(Icons.check_circle, color: context.fc.success, size: 16),
               SizedBox(width: 12),
-              Text('Mesure enregistrée : ${result.toStringAsFixed(3)} mm', style: TextStyle(color: context.fc.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
+              Text(tr('Mesure enregistrée : {} mm', [result.toStringAsFixed(3)]), style: TextStyle(color: context.fc.success, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'JetBrains Mono')),
             ]),
           ),
         SizedBox(
@@ -160,7 +161,7 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
           SizedBox(height: 12),
           SizedBox(
             width: double.infinity, height: 44,
-            child: OutlinedButton(onPressed: _nextStep, child: Text('ÉTAPE SUIVANTE')),
+            child: OutlinedButton(onPressed: _nextStep, child: Text(tr('ÉTAPE SUIVANTE'))),
           ),
         ],
       ],
@@ -179,29 +180,29 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Calcul des Offsets Terminé', style: TextStyle(color: context.fc.success, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(tr('Calcul des Offsets Terminé'), style: TextStyle(color: context.fc.success, fontSize: 16, fontWeight: FontWeight.bold)),
         SizedBox(height: 16),
         _resultRow('Pivot Z (Machine)', pivotZ),
         _resultRow('Table Offset (Z0)', tableOffset),
         SizedBox(height: 24),
-        Text('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.', style: TextStyle(color: context.fc.textDisabled, fontSize: 11, height: 1.5)),
+        Text(tr('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.'), style: TextStyle(color: context.fc.textDisabled, fontSize: 11, height: 1.5)),
         const Spacer(),
         SizedBox(
           width: double.infinity, height: 52,
           child: ElevatedButton(
             onPressed: () {
               // Simuler l'enregistrement
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Offsets enregistrés avec succès !')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Offsets enregistrés avec succès !'))));
               _reset();
             },
             style: ElevatedButton.styleFrom(backgroundColor: context.fc.success),
-            child: Text('ENREGISTRER DANS LA MACHINE'),
+            child: Text(tr('ENREGISTRER DANS LA MACHINE')),
           ),
         ),
         SizedBox(height: 12),
         SizedBox(
           width: double.infinity, height: 44,
-          child: OutlinedButton(onPressed: _reset, child: Text('RECOMANCER')),
+          child: OutlinedButton(onPressed: _reset, child: Text(tr('RECOMANCER'))),
         ),
       ],
     );

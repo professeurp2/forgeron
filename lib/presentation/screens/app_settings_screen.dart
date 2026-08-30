@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
@@ -10,6 +11,7 @@ import 'limit_switch_test_screen.dart';
 import 'limit_config_screen.dart';
 import 'connection_settings_screen.dart';
 import 'ai_agent_settings_screen.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Écran Paramètres — centralise tous les réglages de l'app, jusqu'ici
 /// éparpillés : apparence, calibration machine, connexion ESP32, agent IA.
@@ -27,14 +29,18 @@ class AppSettingsScreen extends ConsumerWidget {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('PARAMÈTRES',
+        title: Text(tr('PARAMÈTRES'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: fc.surfaceBorder),
         ),
       ),
-      body: ListView(
+      // Les réglages restent dans une colonne de largeur lisible. Étirée sur
+      // 1280 dp, chaque ligne mettait son libellé à un bout et son chevron à
+      // l'autre : une liste de téléphone tirée à la largeur d'un écran.
+      body: ReadableWidth(
+        child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _sectionLabel(fc, 'APPARENCE'),
@@ -48,16 +54,16 @@ class AppSettingsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Thème',
+                      Text(tr('Thème'),
                           style: TextStyle(
                               color: fc.textPrimary,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
                       Text(
                         mode == ThemeMode.system
-                            ? 'Suit le réglage clair/sombre du téléphone.'
+                            ? 'Suit le réglage clair/sombre du système.'
                             : 'Forcé en ${themeModeLabel(mode).toLowerCase()}, '
-                                'quel que soit le téléphone.',
+                                'quel que soit l\'appareil.',
                         style: TextStyle(color: fc.textSecondary, fontSize: 11),
                       ),
                     ],
@@ -127,7 +133,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.auto_fix_high_rounded,
             color: fc.warning,
-            title: 'Assistant de mise en route',
+            title: tr('Assistant de mise en route'),
             subtitle: 'Homing → cinématique → origine pièce, guidé',
             screen: const SetupWizardScreen(),
           ),
@@ -136,7 +142,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.tune_rounded,
             color: fc.primary,
-            title: 'Calibration machine',
+            title: tr('Calibration machine'),
             subtitle: 'Cinématique des axes, homing, redémarrage ESP32',
             screen: const MachineCalibrationScreen(),
           ),
@@ -145,7 +151,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.sensors_rounded,
             color: fc.axisZ,
-            title: 'Test des fins de course',
+            title: tr('Test des fins de course'),
             subtitle: 'Vérifie le câblage : presse chaque switch, vois l\'axe',
             screen: const LimitSwitchTestScreen(),
           ),
@@ -154,7 +160,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.settings_input_component_rounded,
             color: fc.danger,
-            title: 'Fins de course — config',
+            title: tr('Fins de course — config'),
             subtitle: 'Pins, hard limits, soft limits (écrit dans FluidNC)',
             screen: const LimitConfigScreen(),
           ),
@@ -163,7 +169,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.wifi_rounded,
             color: fc.success,
-            title: 'Connexion ESP32',
+            title: tr('Connexion ESP32'),
             subtitle: 'Adresse de la carte, mode simulation, reconnexion',
             screen: const ConnectionSettingsScreen(),
           ),
@@ -176,7 +182,7 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.factory_rounded,
             color: fc.primary,
-            title: 'Mode atelier',
+            title: tr('Mode atelier'),
             subtitle: 'Affichage plein écran pour le poste de travail',
             onTap: () {
               ref.read(isWorkshopModeProvider.notifier).state = true;
@@ -191,11 +197,12 @@ class AppSettingsScreen extends ConsumerWidget {
             fc,
             icon: Icons.smart_toy_outlined,
             color: fc.secondary,
-            title: 'Agent IA',
+            title: tr('Agent IA'),
             subtitle: 'Clé API, modèle, permissions, voix',
             screen: const AiAgentSettingsScreen(),
           ),
         ],
+        ),
       ),
     );
   }

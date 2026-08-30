@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../application/providers/camera_provider.dart';
-import '../../../application/providers/machine_provider.dart';
-import '../../../core/theme/forgeron_colors.dart';
+import '../../application/providers/camera_provider.dart';
+import '../../application/providers/machine_provider.dart';
+import '../../core/theme/forgeron_colors.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Vue caméra temps réel (ESP32-CAM). Prend la place du simulateur 3D dans le
 /// panneau du visualiseur.
@@ -34,7 +35,7 @@ class _CameraViewState extends ConsumerState<CameraView> {
     if (ref.watch(isSimulationModeProvider)) {
       return _Placeholder(
         icon: Icons.videocam_off_outlined,
-        title: 'MODE SIMULATION',
+        title: tr('MODE SIMULATION'),
         detail: 'Aucune caméra à simuler.',
       );
     }
@@ -46,11 +47,11 @@ class _CameraViewState extends ConsumerState<CameraView> {
     if (feed.isLost && !feed.hasFrame) {
       return _Placeholder(
         icon: Icons.videocam_off_outlined,
-        title: 'CAMÉRA INJOIGNABLE',
+        title: tr('CAMÉRA INJOIGNABLE'),
         detail: '${ref.watch(cameraIpProvider)} ne répond pas.',
         action: TextButton(
           onPressed: () => ref.read(cameraFeedProvider.notifier).start(),
-          child: const Text('Réessayer'),
+          child: Text(tr('Réessayer')),
         ),
       );
     }
@@ -81,7 +82,7 @@ class _CameraViewState extends ConsumerState<CameraView> {
             child: _Badge(
               color: fc.warning,
               icon: Icons.compress,
-              label: 'IMAGE ALLÉGÉE — USINAGE EN COURS',
+              label: tr('IMAGE ALLÉGÉE — USINAGE EN COURS'),
             ),
           ),
 
@@ -94,7 +95,7 @@ class _CameraViewState extends ConsumerState<CameraView> {
             child: _Badge(
               color: fc.error,
               icon: Icons.warning_amber_rounded,
-              label: 'IMAGE FIGÉE — CAMÉRA PERDUE',
+              label: tr('IMAGE FIGÉE — CAMÉRA PERDUE'),
             ),
           ),
       ],

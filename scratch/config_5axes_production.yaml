@@ -49,8 +49,14 @@ axes:
     # X recalibré (2026-08-05) : 90 mm physique = 80 mm affiché → 297 trop haut
     # de 12,5 %. 297 × 80/90 = 264. (À vérifier : G91 G0 X50 doit faire 50 mm.)
     steps_per_mm: 264.000
-    max_rate_mm_per_min: 1000.000
-    acceleration_mm_per_sec2: 50.000
+    # Avance PLAFONNÉE (2026-08-20) : 1000 → 500. Vibrations constatées en
+    # usinage bois (poche Carre35x35, CAM sortait F1645). max_rate écrête TOUTE
+    # avance demandée → filet de sécurité même si le post CAM sort trop haut.
+    # ⚠️ Plafonne aussi les RAPIDES (G0) sur cet axe.
+    max_rate_mm_per_min: 500.000
+    # Accél. 50 → 30 : la spirale de poche enchaîne des angles à 90° tous les
+    # 2,4 mm ; c'est le démarrage/arrêt qui secoue, pas la vitesse de pointe.
+    acceleration_mm_per_sec2: 30.000
     # Course physique ~90 mm ; soft limit à 88 (2 mm de marge sous la butée).
     max_travel_mm: 88.000
     soft_limits: true
@@ -89,8 +95,10 @@ axes:
   # ─────────────────────────────────────────────
   y:
     steps_per_mm: 400.000
-    max_rate_mm_per_min: 1000.000
-    acceleration_mm_per_sec2: 50.000
+    # Avance PLAFONNÉE (2026-08-20) : 1000 → 500 (idem X, voir commentaire X).
+    max_rate_mm_per_min: 500.000
+    # Accél. 50 → 30 (idem X).
+    acceleration_mm_per_sec2: 30.000
     # Course réelle mesurée au calibrage (Y)
     max_travel_mm: 150.000
     soft_limits: true
@@ -127,8 +135,11 @@ axes:
   z:
     steps_per_mm: 400.000
     # Z plus lent pour la sécurité
-    max_rate_mm_per_min: 800.000
-    acceleration_mm_per_sec2: 30.000
+    # Avance PLAFONNÉE (2026-08-20) : 800 → 300. Couvre aussi la PLONGÉE (le
+    # CAM sortait F411 en plongée, trop rapide pour le bois sur cette machine).
+    max_rate_mm_per_min: 300.000
+    # Accél. 30 → 20 : Z porte la broche, c'est la masse la plus lourde.
+    acceleration_mm_per_sec2: 20.000
     # Course réelle mesurée au calibrage (Z)
     max_travel_mm: 110.000
     soft_limits: true

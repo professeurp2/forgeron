@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/config_provider.dart';
 import '../../application/providers/limit_config_provider.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Configuration des fins de course (pins + hard/soft limits) dans FluidNC,
 /// depuis l'app. Écriture SÛRE : ne remplace que les clés existantes ; les
@@ -57,66 +59,66 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('FINS DE COURSE — CONFIG',
+        title: Text(tr('FINS DE COURSE — CONFIG'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: fc.surfaceBorder),
         ),
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('Config indisponible : $e',
-                    style: TextStyle(color: fc.textDisabled)))),
-        data: (cfg) {
-          if (!_init) {
-            _init = true;
-            WidgetsBinding.instance
-                .addPostFrameCallback((_) => _load(cfg));
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: fc.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: fc.primary.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  'Format des pins FluidNC : ex. gpio.16:low:pu (broche 16, actif '
-                  'bas, pull-up). NO_PIN pour désactiver. Valide d\'abord ton '
-                  'câblage dans « Test des fins de course ».',
-                  style: TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
-                ),
-              ),
-              const SizedBox(height: 16),
-              for (int i = 0; i < 5; i++) _axisCard(fc, i),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: fc.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+      body: ReadableWidth(
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(tr('Config indisponible : {}', [e]),
+                      style: TextStyle(color: fc.textDisabled)))),
+          data: (cfg) {
+            if (!_init) {
+              _init = true;
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => _load(cfg));
+            }
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: fc.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: fc.primary.withValues(alpha: 0.3)),
                   ),
-                  icon: Icon(
-                      _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
-                      size: 18),
-                  label: Text(_saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS FLUIDNC',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 12)),
+                  child: Text(
+                    tr('Format des pins FluidNC : ex. gpio.16:low:pu (broche 16, actif bas, pull-up). NO_PIN pour désactiver. Valide d\'abord ton câblage dans « Test des fins de course ».'),
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+                const SizedBox(height: 16),
+                for (int i = 0; i < 5; i++) _axisCard(fc, i),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _saving ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: fc.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: Icon(
+                        _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
+                        size: 18),
+                    label: Text(_saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS FLUIDNC',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 12)),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -161,7 +163,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
                     color: color, fontWeight: FontWeight.w900, fontSize: 15)),
           ),
           const SizedBox(width: 10),
-          Text('Axe ${_axes[i]}',
+          Text(tr('Axe {}', [_axes[i]]),
               style: TextStyle(
                   color: fc.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -180,7 +182,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
           value: _hard[i],
           activeThumbColor: fc.danger,
           onChanged: (v) => setState(() => _hard[i] = v),
-          title: Text('hard_limits (arrêt matériel immédiat)',
+          title: Text(tr('hard_limits (arrêt matériel immédiat)'),
               style: TextStyle(color: fc.textPrimary, fontSize: 12)),
         ),
         SwitchListTile.adaptive(
@@ -189,7 +191,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
           value: _soft[i],
           activeThumbColor: fc.primary,
           onChanged: (v) => setState(() => _soft[i] = v),
-          title: Text('soft_limits (bornes logicielles, exige homing)',
+          title: Text(tr('soft_limits (bornes logicielles, exige homing)'),
               style: TextStyle(color: fc.textPrimary, fontSize: 12)),
         ),
       ]),
@@ -202,15 +204,14 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text('Enregistrer & redémarrer ?',
+        title: Text(tr('Enregistrer & redémarrer ?'),
             style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         content: Row(children: [
           Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Écrit dans config.yaml puis redémarre FluidNC. La liaison sera '
-              'coupée quelques secondes (reconnexion auto).',
+              tr('Écrit dans config.yaml puis redémarre FluidNC. La liaison sera coupée quelques secondes (reconnexion auto).'),
               style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
             ),
           ),
@@ -218,12 +219,12 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Annuler', style: TextStyle(color: fc.textSecondary))),
+              child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
           ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: fc.primary, foregroundColor: Colors.white),
-              child: const Text('Enregistrer')),
+              child: Text(tr('Enregistrer'))),
         ],
       ),
     );
@@ -274,16 +275,15 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
         await Clipboard.setData(ClipboardData(text: res.yaml));
         if (!mounted) return;
         messenger.showSnackBar(SnackBar(
-          content: const Text(
-              'Écriture auto impossible. Config copiée : colle-la dans la WebUI '
-              'FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.'),
+          content: Text(
+              tr('Écriture auto impossible. Config copiée : colle-la dans la WebUI FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.')),
           backgroundColor: errColor,
           duration: const Duration(seconds: 6),
         ));
       }
     } catch (e) {
       messenger.showSnackBar(
-          SnackBar(content: Text('Échec : $e'), backgroundColor: errColor));
+          SnackBar(content: Text(tr('Échec : {}', [e])), backgroundColor: errColor));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

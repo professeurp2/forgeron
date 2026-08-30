@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:forgeron/presentation/widgets/mobile/wcs_offset_dialog.dart';
+import 'package:forgeron/presentation/widgets/wcs_offset_dialog.dart';
 
 /// Écrire un décalage d'origine pièce est une opération que la machine accepte
 /// sans discuter : une erreur ne se voit pas, elle se découvre au premier

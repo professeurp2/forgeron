@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
@@ -8,6 +9,7 @@ import '../../application/providers/machine_params_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import 'machine_calibration_screen.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Assistant de mise en route : guide l'opérateur, étape par étape, pour
 /// préparer la machine — zéro machine (homing), vérification cinématique et
@@ -67,7 +69,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: const Text('MISE EN ROUTE',
+        title: Text(tr('MISE EN ROUTE'),
             style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -80,7 +82,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: _stepContent(fc, state),
+              // Le contenu de l'etape reste dans une colonne lisible ; la
+              // barre de progression et le pied, eux, gardent la largeur.
+              child: ReadableWidth(child: _stepContent(fc, state)),
             ),
           ),
           _footer(fc),
@@ -236,7 +240,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => setState(() => _homingDone = true),
-          child: Text('Ma machine n\'a pas de fins de course — ignorer',
+          child: Text(tr('Ma machine n\'a pas de fins de course — ignorer'),
               style: TextStyle(color: fc.textDisabled, fontSize: 12)),
         ),
       ],
@@ -273,8 +277,10 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
                                   fontWeight: FontWeight.w900))),
                       Expanded(
                         child: Text(
-                          'course ${k.maxTravel?.toStringAsFixed(0) ?? '—'} mm · '
-                          '${k.stepsPerMm?.toStringAsFixed(0) ?? '—'} pas/mm',
+                          tr('course {} mm · {} pas/mm', [
+                            k.maxTravel?.toStringAsFixed(0) ?? '—',
+                            k.stepsPerMm?.toStringAsFixed(0) ?? '—',
+                          ]),
                           style: TextStyle(
                               color: fc.textSecondary,
                               fontSize: 11,
@@ -287,7 +293,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           )
         else
-          Text('Cinématique indisponible (machine hors ligne ?).',
+          Text(tr('Cinématique indisponible (machine hors ligne ?).'),
               style: TextStyle(color: fc.textDisabled, fontSize: 12)),
         const SizedBox(height: 16),
         _bigButton(fc, fc.primary, Icons.edit_rounded, 'OUVRIR LA CALIBRATION',
@@ -336,7 +342,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         const SizedBox(height: 16),
         JogControlPanel(wPos: wPos),
         const SizedBox(height: 16),
-        Text('DÉFINIR L\'ORIGINE ($wcs) À LA POSITION ACTUELLE',
+        Text(tr('DÉFINIR L\'ORIGINE ({}) À LA POSITION ACTUELLE', [wcs]),
             style: TextStyle(
                 color: fc.textDisabled,
                 fontSize: 10,
@@ -393,15 +399,14 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         const SizedBox(height: 20),
         Icon(Icons.check_circle_rounded, color: fc.success, size: 72),
         const SizedBox(height: 16),
-        Text('Machine prête',
+        Text(tr('Machine prête'),
             style: TextStyle(
                 color: fc.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w900)),
         const SizedBox(height: 10),
         Text(
-          'Zéro machine établi, cinématique vérifiée et origine pièce posée. '
-          'Tu peux charger un programme et lancer le cycle.',
+          tr('Zéro machine établi, cinématique vérifiée et origine pièce posée. Tu peux charger un programme et lancer le cycle.'),
           textAlign: TextAlign.center,
           style: TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.5),
         ),
@@ -484,7 +489,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
           if (_step > 0)
             TextButton(
               onPressed: _back,
-              child: Text('Précédent',
+              child: Text(tr('Précédent'),
                   style: TextStyle(color: fc.textSecondary)),
             ),
           const Spacer(),

@@ -11,6 +11,7 @@ import '../../application/services/auto_discovery_service.dart';
 import '../../core/net/esp_wifi_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../tutorial/tutorial_keys.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Écran de configuration de la connexion à l'ESP32/FluidNC
 /// avec une interface moderne, "vivante" et hautement visuelle.
@@ -203,7 +204,8 @@ class _ConnectionSettingsScreenState
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
-          '✅ Connecté à ${device.firmwareInfo ?? "ESP32"} @ $ip'),
+          tr('✅ Connecté à {} @ {}',
+              [device.firmwareInfo ?? 'ESP32', ip])),
       backgroundColor: context.fc.success,
       behavior: SnackBarBehavior.floating,
       width: 400,
@@ -239,7 +241,7 @@ class _ConnectionSettingsScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'CONNEXION',
+                    tr('CONNEXION'),
                     style: TextStyle(
                       color: context.fc.textPrimary,
                       fontSize: 14,
@@ -248,7 +250,7 @@ class _ConnectionSettingsScreenState
                     ),
                   ),
                   Text(
-                    'Lien ESP32 / FluidNC',
+                    tr('Lien ESP32 / FluidNC'),
                     style: TextStyle(
                       color: context.fc.textSecondary,
                       fontSize: 9,
@@ -265,7 +267,7 @@ class _ConnectionSettingsScreenState
             child: IconButton(
               onPressed: _save,
               icon: Icon(Icons.check_circle, color: context.fc.primary),
-              tooltip: 'Appliquer',
+              tooltip: tr('Appliquer'),
             ),
           ),
         ],
@@ -369,16 +371,14 @@ class _ConnectionSettingsScreenState
         );
 
     return GlassPanel(
-      title: 'CONNEXION WIFI ESP32',
+      title: tr('CONNEXION WIFI ESP32'),
       borderColor: fc.surfaceBorder,
       backgroundColor: fc.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Rejoins le point d\'accès de l\'ESP32 directement depuis l\'app. '
-            'Android demandera d\'approuver la première fois ; ensuite la '
-            'reconnexion est automatique (même après un reboot).',
+            tr('Rejoins le point d\'accès de l\'ESP32 directement depuis l\'app. Android demandera d\'approuver la première fois ; ensuite la reconnexion est automatique (même après un reboot).'),
             style: TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -547,7 +547,7 @@ class _ConnectionSettingsScreenState
 
   Widget _buildDiscoverySection(DiscoveryState discovery) {
     return GlassPanel(
-      title: 'SCANNER DE RÉSEAU LOCAL',
+      title: tr('SCANNER DE RÉSEAU LOCAL'),
       titleTrailing: discovery.isScanning
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -565,7 +565,7 @@ class _ConnectionSettingsScreenState
                       child: CircularProgressIndicator(strokeWidth: 2, color: context.fc.danger),
                     ),
                     SizedBox(width: 8),
-                    Text('ARRÊTER', style: TextStyle(color: context.fc.danger, fontSize: 10, fontWeight: FontWeight.w900)),
+                    Text(tr('ARRÊTER'), style: TextStyle(color: context.fc.danger, fontSize: 10, fontWeight: FontWeight.w900)),
                   ],
                 ),
               ),
@@ -573,7 +573,7 @@ class _ConnectionSettingsScreenState
           : ElevatedButton.icon(
               onPressed: () => ref.read(discoveryProvider.notifier).scan(),
               icon: Icon(Icons.radar, size: 14),
-              label: Text('RECHERCHER'),
+              label: Text(tr('RECHERCHER')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: context.fc.primary.withValues(alpha: 0.1),
                 foregroundColor: context.fc.primary,
@@ -613,10 +613,10 @@ class _ConnectionSettingsScreenState
                 children: [
                   Icon(Icons.wifi_off_rounded, color: context.fc.textDisabled.withValues(alpha: 0.2), size: 64),
                   SizedBox(height: 16),
-                  Text('Aucun appareil détecté sur le segment réseau.',
+                  Text(tr('Aucun appareil détecté sur le segment réseau.'),
                       style: TextStyle(color: context.fc.textDisabled, fontSize: 12)),
                   SizedBox(height: 8),
-                  Text('Vérifiez que l\'ESP32 est allumé et sur le même WiFi.',
+                  Text(tr('Vérifiez que l\'ESP32 est allumé et sur le même WiFi.'),
                       style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
                 ],
               ),
@@ -691,7 +691,7 @@ class _ConnectionSettingsScreenState
                             color: context.fc.success.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text('FLUIDNC',
+                          child: Text(tr('FLUIDNC'),
                               style: TextStyle(
                                   color: context.fc.success,
                                   fontSize: 8,
@@ -710,7 +710,7 @@ class _ConnectionSettingsScreenState
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
-                      child: const Text('CONNECTER',
+                      child: Text(tr('CONNECTER'),
                           style: TextStyle(
                               fontWeight: FontWeight.w900, fontSize: 11)),
                     ),
@@ -763,7 +763,7 @@ class _ConnectionSettingsScreenState
                                       context.fc.success.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: Text('FLUIDNC',
+                                child: Text(tr('FLUIDNC'),
                                     style: TextStyle(
                                         color: context.fc.success,
                                         fontSize: 9,
@@ -773,7 +773,7 @@ class _ConnectionSettingsScreenState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Réponse: ${device.responseTime.inMilliseconds}ms • Port: ${device.wsPort}',
+                          tr('Réponse: {}ms • Port: {}', [device.responseTime.inMilliseconds, device.wsPort]),
                           style: TextStyle(
                               color: context.fc.textSecondary, fontSize: 11),
                         ),
@@ -793,7 +793,7 @@ class _ConnectionSettingsScreenState
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('CONNECTER',
+                    child: Text(tr('CONNECTER'),
                         style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 11,
@@ -807,19 +807,19 @@ class _ConnectionSettingsScreenState
 
   Widget _buildManualConfigCard() {
     return GlassPanel(
-      title: 'CONFIGURATION MANUELLE',
+      title: tr('CONFIGURATION MANUELLE'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildModernField(
-            label: 'ADRESSE IP DESTINATION',
+            label: tr('ADRESSE IP DESTINATION'),
             controller: _ipCtrl,
             icon: Icons.lan_outlined,
             hint: 'ex: 192.168.1.100',
           ),
           SizedBox(height: 20),
           _buildModernField(
-            label: 'PORT WEBSOCKET',
+            label: tr('PORT WEBSOCKET'),
             controller: _wsPortCtrl,
             icon: Icons.numbers,
             hint: 'Défaut: 81',
@@ -944,7 +944,7 @@ class _ConnectionSettingsScreenState
     };
 
     return GlassPanel(
-      title: 'CAMÉRA DE SURVEILLANCE',
+      title: tr('CAMÉRA DE SURVEILLANCE'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -981,8 +981,7 @@ class _ConnectionSettingsScreenState
                       if (detection.status == CameraStatus.found) ...[
                         SizedBox(height: 3),
                         Text(
-                          '${ref.watch(cameraIpProvider)} — le panneau du '
-                          'visualiseur affiche la vue réelle.',
+                          tr('{} — le panneau du visualiseur affiche la vue réelle.', [ref.watch(cameraIpProvider)]),
                           style: TextStyle(
                               color: context.fc.textSecondary, fontSize: 11),
                         ),
@@ -1014,11 +1013,7 @@ class _ConnectionSettingsScreenState
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Rien à configurer : connectez le téléphone au WiFi de la '
-                    'machine, la caméra est trouvée toute seule. Elle partage '
-                    'ce réseau avec le contrôleur, la cadence des images est '
-                    'donc réduite pendant un usinage pour laisser passer le '
-                    'G-code.',
+                    tr('Rien à configurer : connectez-vous au WiFi de la machine, la caméra est trouvée toute seule. Elle partage ce réseau avec le contrôleur, la cadence des images est donc réduite pendant un usinage pour laisser passer le G-code.'),
                     style: TextStyle(
                         color: context.fc.textSecondary,
                         fontSize: 11,
@@ -1037,7 +1032,7 @@ class _ConnectionSettingsScreenState
             childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
             shape: const Border(),
             collapsedShape: const Border(),
-            title: Text('ADRESSE MANUELLE',
+            title: Text(tr('ADRESSE MANUELLE'),
                 style: TextStyle(
                     color: context.fc.textDisabled,
                     fontSize: 9,
@@ -1045,7 +1040,7 @@ class _ConnectionSettingsScreenState
                     letterSpacing: 1.5)),
             children: [
               _buildModernField(
-                label: 'ADRESSE IP DE LA CAMÉRA',
+                label: tr('ADRESSE IP DE LA CAMÉRA'),
                 controller: _camIpCtrl,
                 icon: Icons.photo_camera_outlined,
                 hint: 'ex: $kDefaultCameraIp',
@@ -1058,7 +1053,7 @@ class _ConnectionSettingsScreenState
                       ? null
                       : _searchCamera,
                   icon: Icon(Icons.refresh, size: 18),
-                  label: Text('RELANCER LA RECHERCHE'),
+                  label: Text(tr('RELANCER LA RECHERCHE')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.fc.surfaceBright,
                     foregroundColor: context.fc.primary,
@@ -1084,7 +1079,7 @@ class _ConnectionSettingsScreenState
 
   Widget _buildMachineInfoCard() {
     return GlassPanel(
-      title: 'ARCHITECTURE MACHINE',
+      title: tr('ARCHITECTURE MACHINE'),
       child: Column(
         children: [
           _buildInfoRow('Type Cinématique', 'Trunnion 5-Axes (XYZAC)', context.fc.primary),
@@ -1099,7 +1094,7 @@ class _ConnectionSettingsScreenState
             children: [
               Icon(Icons.security, color: context.fc.warning, size: 14),
               SizedBox(width: 8),
-              Text('ARRET D\'URGENCE LOGICIEL ACTIF',
+              Text(tr('ARRET D\'URGENCE LOGICIEL ACTIF'),
                   style: TextStyle(color: context.fc.warning, fontSize: 10, fontWeight: FontWeight.bold)),
             ],
           ),

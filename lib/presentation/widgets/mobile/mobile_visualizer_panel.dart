@@ -7,7 +7,9 @@ import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/gcode_provider.dart';
 import '../../../application/providers/ui_state_provider.dart';
 import '../trunnion_visualizer.dart';
-import 'camera_view.dart';
+import '../camera_view.dart';
+import '../visualizer_mode_toggle.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Panneau du visualiseur pour mobile. Il porte deux vues qui occupent le même
 /// emplacement : la **caméra** (ESP32-CAM, vue par défaut dès qu'elle est
@@ -120,9 +122,9 @@ class _Header extends ConsumerWidget {
     return Row(children: [
       // Sans caméra configurée, pas de sélecteur : un simple titre.
       if (cameraEnabled)
-        const _ModeToggle()
+        const VisualizerModeToggle()
       else
-        Text('SIMULATEUR 3D',
+        Text(tr('SIMULATEUR 3D'),
             style: TextStyle(
                 color: fc.textDisabled,
                 fontSize: 10,
@@ -132,7 +134,7 @@ class _Header extends ConsumerWidget {
 
       // Réglage propre à la vue 3D.
       if (mode == VisualizerMode.simulation3d) ...[
-        Text('VECTEURS', style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+        Text(tr('VECTEURS'), style: TextStyle(color: fc.textDisabled, fontSize: 9)),
         SizedBox(
           height: 24,
           child: Switch(
@@ -147,7 +149,7 @@ class _Header extends ConsumerWidget {
 
       IconButton(
         icon: Icon(Icons.fullscreen, color: fc.textSecondary, size: 20),
-        tooltip: 'Plein écran',
+        tooltip: tr('Plein écran'),
         onPressed: () {
           HapticFeedback.selectionClick();
           Navigator.of(context).push(MaterialPageRoute(
@@ -157,57 +159,6 @@ class _Header extends ConsumerWidget {
         },
       ),
     ]);
-  }
-}
-
-/// Sélecteur compact CAM / 3D. Il tient lieu de titre au panneau.
-class _ModeToggle extends ConsumerWidget {
-  const _ModeToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fc = context.fc;
-    final mode = ref.watch(effectiveVisualizerModeProvider);
-
-    Widget segment(VisualizerMode value, IconData icon, String label) {
-      final selected = mode == value;
-      return GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ref.read(visualizerModeProvider.notifier).state = value;
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: selected ? fc.primary.withValues(alpha: 0.18) : null,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 13, color: selected ? fc.primary : fc.textDisabled),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: selected ? fc.primary : fc.textDisabled,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2)),
-          ]),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: fc.surface,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: fc.surfaceBorderDim),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        segment(VisualizerMode.camera, Icons.videocam, 'CAM'),
-        segment(VisualizerMode.simulation3d, Icons.view_in_ar, '3D'),
-      ]),
-    );
   }
 }
 

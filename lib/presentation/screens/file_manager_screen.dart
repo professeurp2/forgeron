@@ -11,6 +11,7 @@ import '../../domain/models/gcode_file.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../../core/widgets/gcode_editor_controller.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class FileManagerScreen extends ConsumerStatefulWidget {
   const FileManagerScreen({super.key});
@@ -52,12 +53,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       await ref.read(fileRepositoryProvider).uploadFile(result.name, Uint8List.fromList(result.bytes));
       ref.invalidate(fileListProvider);
       messenger.showSnackBar(SnackBar(
-        content: Text('✅ Fichier ${result.name} chargé sur la SD'),
+        content: Text(tr('✅ Fichier {} chargé sur la SD', [result.name])),
         backgroundColor: okColor,
       ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text('❌ Erreur upload: $e'),
+        content: Text(tr('❌ Erreur upload: {}', [e])),
         backgroundColor: errColor,
       ));
     }
@@ -78,7 +79,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       _tabCtrl.animateTo(2); // Basculer vers l'éditeur
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-          content: Text('Erreur: $e'), backgroundColor: errorColor));
+          content: Text(tr('Erreur: {}', [e])), backgroundColor: errorColor));
     }
   }
 
@@ -89,7 +90,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     await ref.read(gcodeProvider.notifier).loadFile(content);
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
-      content: Text('✅ Programme mis à jour dans l\'unité de streaming'),
+      content: Text(tr('✅ Programme mis à jour dans l\'unité de streaming')),
       backgroundColor: okColor,
     ));
     setState(() => _isEditing = false);
@@ -104,15 +105,15 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
         final ctrl = TextEditingController(text: 'modified_program.nc');
         return AlertDialog(
           backgroundColor: context.fc.surface,
-          title: Text('SAUVEGARDER SUR LA CARTE SD', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          title: Text(tr('SAUVEGARDER SUR LA CARTE SD'), style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: ctrl,
             style: TextStyle(color: Colors.white),
-            decoration: InputDecoration(labelText: 'Nom du fichier', labelStyle: TextStyle(color: context.fc.textSecondary)),
+            decoration: InputDecoration(labelText: tr('Nom du fichier'), labelStyle: TextStyle(color: context.fc.textSecondary)),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('ANNULER')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text('SAUVEGARDER')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('ANNULER'))),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text(tr('SAUVEGARDER'))),
           ],
         );
       },
@@ -127,9 +128,9 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
         final bytes = Uint8List.fromList(content.codeUnits);
         await ref.read(fileRepositoryProvider).uploadFile(fileName, bytes);
         ref.invalidate(fileListProvider);
-        messenger.showSnackBar(SnackBar(content: Text('✅ Enregistré : $fileName'), backgroundColor: okColor));
+        messenger.showSnackBar(SnackBar(content: Text(tr('✅ Enregistré : {}', [fileName])), backgroundColor: okColor));
       } catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text('❌ Erreur : $e'), backgroundColor: errColor));
+        messenger.showSnackBar(SnackBar(content: Text(tr('❌ Erreur : {}', [e])), backgroundColor: errColor));
       }
     }
   }
@@ -211,7 +212,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     if (!result.isValid) {
       final line = result.errorLine != null ? ' (ligne ${result.errorLine})' : '';
       messenger.showSnackBar(SnackBar(
-        content: Text('Refusé : ${result.errorMessage}$line'),
+        content: Text(tr('Refusé : {}{}', [result.errorMessage, line])),
         backgroundColor: errColor,
       ));
     }
@@ -228,7 +229,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       ref.read(workFilesRefreshProvider.notifier).state++;
     } else {
       messenger.showSnackBar(SnackBar(
-          content: const Text('Aucun dossier sélectionné'),
+          content: Text(tr('Aucun dossier sélectionné')),
           backgroundColor: errColor));
     }
   }
@@ -250,7 +251,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-          content: Text('Lecture impossible : $e'), backgroundColor: errColor));
+          content: Text(tr('Lecture impossible : {}', [e])), backgroundColor: errColor));
     }
   }
 
@@ -267,12 +268,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       ref.read(workFilesRefreshProvider.notifier).state++;
       setState(() => _isEditing = false);
       messenger.showSnackBar(SnackBar(
-          content: Text('✅ Enregistré : $_openWorkFileName'),
+          content: Text(tr('✅ Enregistré : {}', [_openWorkFileName])),
           backgroundColor: okColor));
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-          content: Text('Écriture impossible : $e'), backgroundColor: errColor));
+          content: Text(tr('Écriture impossible : {}', [e])), backgroundColor: errColor));
     }
   }
 
@@ -288,7 +289,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
             Icon(Icons.folder_off_rounded,
                 size: 56, color: context.fc.surfaceBorder),
             const SizedBox(height: 16),
-            Text('AUCUN DOSSIER DE TRAVAIL',
+            Text(tr('AUCUN DOSSIER DE TRAVAIL'),
                 style: TextStyle(
                     color: context.fc.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -296,14 +297,14 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                     letterSpacing: 1)),
             const SizedBox(height: 8),
             Text(
-                'Choisis un dossier du téléphone contenant tes G-code. Tu pourras les ouvrir, les éditer et les enregistrer — même hors ligne.',
+                tr('Choisis un dossier du téléphone contenant tes G-code. Tu pourras les ouvrir, les éditer et les enregistrer — même hors ligne.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 11)),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _pickWorkFolder,
               icon: const Icon(Icons.create_new_folder_rounded, size: 18),
-              label: const Text('CHOISIR LE DOSSIER'),
+              label: Text(tr('CHOISIR LE DOSSIER')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: context.fc.primary,
                   foregroundColor: Colors.white),
@@ -338,14 +339,14 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                 ref.read(workFilesRefreshProvider.notifier).state++,
             icon: Icon(Icons.refresh_rounded,
                 color: context.fc.textSecondary, size: 18),
-            tooltip: 'Rafraîchir',
+            tooltip: tr('Rafraîchir'),
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
             onPressed: _pickWorkFolder,
             icon: Icon(Icons.swap_horiz_rounded,
                 color: context.fc.textSecondary, size: 18),
-            tooltip: 'Changer de dossier',
+            tooltip: tr('Changer de dossier'),
             visualDensity: VisualDensity.compact,
           ),
         ]),
@@ -356,7 +357,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                      'Aucun fichier G-code lisible dans ce dossier.\n\nSur Android 11+, autorise « Accès à tous les fichiers » pour Forgeron dans les réglages, ou choisis un dossier accessible (ex. Téléchargements).',
+                      tr('Aucun fichier G-code lisible dans ce dossier.\n\nSur Android 11+, autorise « Accès à tous les fichiers » pour Forgeron dans les réglages, ou choisis un dossier accessible (ex. Téléchargements).'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           color: context.fc.textDisabled, fontSize: 11)),
@@ -422,12 +423,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
             color: context.fc.background,
             border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
         child: Row(children: [
-          Text('FICHIERS SUR CARTE SD', style: TextStyle(color: context.fc.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+          Text(tr('FICHIERS SUR CARTE SD'), style: TextStyle(color: context.fc.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
           const Spacer(),
           TextButton.icon(
             onPressed: _uploadFile,
             icon: Icon(Icons.add, size: 16),
-            label: Text('AJOUTER'),
+            label: Text(tr('AJOUTER')),
             style: TextButton.styleFrom(foregroundColor: context.fc.primary),
           ),
         ]),
@@ -448,7 +449,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
             ),
           ),
           loading: () => Center(child: CircularProgressIndicator()),
-          error: (e, s) => Center(child: Text('Erreur: $e')),
+          error: (e, s) => Center(child: Text(tr('Erreur: {}', [e]))),
         ),
       ),
     ]);
@@ -464,11 +465,11 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
           children: [
             Icon(Icons.edit_document, size: 64, color: context.fc.surfaceBorder),
             SizedBox(height: 24),
-            Text('AUCUN PROGRAMME CHARGÉ', style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.bold)),
+            Text(tr('AUCUN PROGRAMME CHARGÉ'), style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.bold)),
             SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => _tabCtrl.animateTo(0),
-              child: Text('CHARGER DEPUIS LA SD'),
+              child: Text(tr('CHARGER DEPUIS LA SD')),
             ),
           ],
         ),
@@ -562,7 +563,7 @@ class _FileCard extends StatelessWidget {
             Text('${(file.size / 1024).toStringAsFixed(1)} Ko', style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
           ]),
         ),
-        IconButton(onPressed: onLoad, icon: Icon(Icons.file_open_rounded, color: context.fc.primary), tooltip: 'Charger dans l\'éditeur'),
+        IconButton(onPressed: onLoad, icon: Icon(Icons.file_open_rounded, color: context.fc.primary), tooltip: tr('Charger dans l\'éditeur')),
         IconButton(onPressed: onDelete, icon: Icon(Icons.delete_outline, color: context.fc.danger)),
       ]),
     );
