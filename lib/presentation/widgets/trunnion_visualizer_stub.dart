@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class TrunnionVisualizer extends StatelessWidget {
   final List<double> mPos;
@@ -20,7 +21,7 @@ class TrunnionVisualizer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        '3D Visualizer is only available on Web (Chrome).',
+        tr('3D Visualizer is only available on Web (Chrome).'),
         style: TextStyle(color: Colors.white),
       ),
     );

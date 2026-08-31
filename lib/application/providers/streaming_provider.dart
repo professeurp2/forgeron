@@ -39,6 +39,22 @@ class StreamingController extends StateNotifier<bool> {
       return ValidationResult.error('Aucun programme G-Code chargé', 0);
     }
 
+    // ── Guard : G-code adapté mais BLOQUÉ ─────────────────────────────────
+    // L'adaptateur (au chargement) a détecté des codes CAM que FluidNC ne peut
+    // pas exécuter et qu'on ne peut pas traduire ici (RTCP, compensation de
+    // rayon MACHINE G41/G42, cycle non géré) → à corriger dans le post CAM.
+    if (gcodeState.adaptBlocking) {
+      final why = gcodeState.adaptWarnings
+          .where((w) => w.contains('⚠️'))
+          .join(' ');
+      debugPrint('[StreamingController] ❌ G-code bloqué par l\'adaptateur : $why');
+      return ValidationResult.error(
+        'G-code incompatible FluidNC — à corriger dans le post CAM. '
+        '${why.isEmpty ? '' : why}',
+        0,
+      );
+    }
+
     debugPrint('[StreamingController] 🔍 Validation Lookahead de ${gcodeState.allLines.length} lignes...');
     // 1. Validation Lookahead avant de commencer
     final result = TrajectoryValidator.validate(

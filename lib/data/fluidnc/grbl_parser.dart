@@ -27,8 +27,16 @@ class GrblParser {
     List<double> wco = List.from(currentState.wco);
     double feedrate = currentState.feedrate;
     double spindleSpeed = currentState.spindleSpeed;
+    // L'état accessoire `A:` est MOMENTANÉ (rapporté seulement quand un
+    // accessoire est actif ; absent = tout éteint). On repart donc de « broche
+    // éteinte » à chaque rapport, comme pour les fins de course.
+    bool spindleOn = false;
     List<int> overrides = List.from(currentState.overrides);
-    List<bool> limitSwitches = List.from(currentState.limitSwitches);
+    // Les fins de course sont des états MOMENTANÉS : GRBL/FluidNC les rapporte
+    // via `Pn:`/`Lim:` uniquement quand un pin est actif (absent = inactif).
+    // On repart donc de « tout relâché » à chaque rapport, sinon une fin de
+    // course déclenchée resterait « active » à vie (détection de front cassée).
+    List<bool> limitSwitches = [false, false, false, false, false];
     int plannerBuffer = currentState.plannerBuffer;
     int rxBuffer = currentState.rxBuffer;
     bool probeTriggered = currentState.probeTriggered;
@@ -98,6 +106,11 @@ class GrblParser {
         // Ancienne syntaxe : F:feed uniquement
         final f = double.tryParse(field.substring(2));
         if (f != null) feedrate = f;
+      } else if (field.startsWith('A:')) {
+        // État accessoire : A:SFM → S/C = broche horaire/anti-horaire (ON),
+        // F = flood, M = mist. Pour une broche à relais, M3 ⇒ « A:S ».
+        final a = field.substring(2).toUpperCase();
+        spindleOn = a.contains('S') || a.contains('C');
       } else if (field.startsWith('Ov:')) {
         // Overrides : Ov:feed,rapid,spindle (en %)
         final ov = field.substring(3).split(',').map(int.tryParse).toList();
@@ -137,6 +150,11 @@ class GrblParser {
       }
     }
 
+    // Repli si le champ accessoire `A:` est absent (certaines configs FluidNC,
+    // dont celle du Forgeron, ne l'émettent pas) : une vitesse broche rapportée
+    // > 0 via `FS:feed,spindle` signifie broche active. `M5` ramène FS à 0.
+    if (spindleSpeed > 0) spindleOn = true;
+
     return currentState.copyWith(
       status: status,
       mPos: mPos,
@@ -144,6 +162,7 @@ class GrblParser {
       wco: wco,
       feedrate: feedrate,
       spindleSpeed: spindleSpeed,
+      spindleOn: spindleOn,
       overrides: overrides,
       limitSwitches: limitSwitches,
       probeTriggered: probeTriggered,
@@ -216,6 +235,10 @@ class GrblParser {
       case 'idle':
         return MachineStatus.idle;
       case 'run':
+      // FluidNC/GRBL rapporte 'Jog' pendant un déplacement $J= : c'est un
+      // mouvement actif (machine EN LIGNE). Sans ce cas, il tombait dans le
+      // 'default' → offline, d'où l'affichage « OFFLINE » pendant un jog.
+      case 'jog':
         return MachineStatus.run;
       case 'hold':
         return MachineStatus.hold;

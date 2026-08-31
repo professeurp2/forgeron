@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/di_providers.dart';
@@ -13,6 +13,7 @@ import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
+import '../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL SCREEN — Pupitre CNC 5 Axes style FANUC 0i-M
@@ -65,9 +66,9 @@ class CncPanelScreen extends ConsumerWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.panelBody,
+            context.fc.panelBody,
             Color(0xFF14192F),
-            AppColors.panelBody,
+            context.fc.panelBody,
           ],
           stops: [0.0, 0.5, 1.0],
         ),
@@ -110,7 +111,7 @@ class CncPanelScreen extends ConsumerWidget {
                       margin: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.8),
-                        border: Border.all(color: AppColors.surfaceBorder, width: 1),
+                        border: Border.all(color: context.fc.surfaceBorder, width: 1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: ClipRRect(
@@ -163,22 +164,22 @@ class _PanelHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = state?.status != null && state?.status != MachineStatus.offline;
-    final statusColor = _statusColor(state?.status ?? MachineStatus.offline);
+    final statusColor = _statusColor(context, state?.status ?? MachineStatus.offline);
 
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.panelSection,
+        color: context.fc.panelSection,
         border: Border(
-          bottom: BorderSide(color: AppColors.keyBorder, width: 2),
+          bottom: BorderSide(color: context.fc.keyBorder, width: 2),
         ),
       ),
       child: Row(
         children: [
           // Logo + titre
           CncLedIndicator(
-            color: isOnline ? AppColors.ledGreen : AppColors.ledRed,
+            color: isOnline ? context.fc.success : context.fc.danger,
             isActive: isOnline,
             size: 12,
           ),
@@ -186,9 +187,9 @@ class _PanelHeader extends ConsumerWidget {
           Image.asset('assets/logo.png', height: 28),
           SizedBox(width: 10),
           Text(
-            'FORGERON',
+            tr('FORGERON'),
             style: TextStyle(
-              color: AppColors.primary,
+              color: context.fc.primary,
               fontSize: 18,
               fontWeight: FontWeight.w900,
               fontStyle: FontStyle.italic,
@@ -197,9 +198,9 @@ class _PanelHeader extends ConsumerWidget {
           ),
           SizedBox(width: 6),
           Text(
-            'CNC-5X',
+            tr('CNC-5X'),
             style: TextStyle(
-              color: AppColors.textDisabled,
+              color: context.fc.textDisabled,
               fontSize: 11,
               fontWeight: FontWeight.w300,
               letterSpacing: 1.5,
@@ -210,7 +211,7 @@ class _PanelHeader extends ConsumerWidget {
 
           // Badges status
           _statusBadge(isOnline ? 'EN LIGNE' : 'HORS LIGNE',
-              isOnline ? AppColors.ledGreen : AppColors.ledRed),
+              isOnline ? context.fc.success : context.fc.danger),
           SizedBox(width: 8),
           _statusBadge(
               state?.status.name.toUpperCase() ?? 'OFFLINE', statusColor),
@@ -223,13 +224,13 @@ class _PanelHeader extends ConsumerWidget {
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.axisZ.withValues(alpha: 0.15),
+                color: context.fc.axisZ.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: AppColors.axisZ.withValues(alpha: 0.5)),
+                border: Border.all(color: context.fc.axisZ.withValues(alpha: 0.5)),
               ),
-              child: Text('RTCP G43.4',
+              child: Text(tr('RTCP G43.4'),
                   style: TextStyle(
-                      color: AppColors.axisZ,
+                      color: context.fc.axisZ,
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'JetBrains Mono')),
@@ -238,8 +239,8 @@ class _PanelHeader extends ConsumerWidget {
           // Bouton quitter pupitre
           IconButton(
             icon: Icon(Icons.close_fullscreen,
-                color: AppColors.textDisabled, size: 20),
-            tooltip: 'Quitter le pupitre',
+                color: context.fc.textDisabled, size: 20),
+            tooltip: tr('Quitter le pupitre'),
             onPressed: () =>
                 ref.read(isWorkshopModeProvider.notifier).state = false,
           ),
@@ -277,14 +278,14 @@ class _PanelHeader extends ConsumerWidget {
     );
   }
 
-  Color _statusColor(MachineStatus s) {
+  Color _statusColor(BuildContext context, MachineStatus s) {
     switch (s) {
-      case MachineStatus.idle: return AppColors.ledGreen;
-      case MachineStatus.run: return AppColors.primary;
-      case MachineStatus.hold: return AppColors.ledOrange;
-      case MachineStatus.alarm: return AppColors.ledRed;
-      case MachineStatus.home: return AppColors.axisZ;
-      default: return AppColors.textDisabled;
+      case MachineStatus.idle: return context.fc.success;
+      case MachineStatus.run: return context.fc.primary;
+      case MachineStatus.hold: return context.fc.warning;
+      case MachineStatus.alarm: return context.fc.danger;
+      case MachineStatus.home: return context.fc.axisZ;
+      default: return context.fc.textDisabled;
     }
   }
 }
@@ -309,18 +310,18 @@ class _LcdDisplayColumn extends StatelessWidget {
         Expanded(
           flex: 5,
           child: CncLcdScreen(
-            title: 'COORDONNÉES DE TRAVAIL',
+            title: tr('COORDONNÉES DE TRAVAIL'),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  CncLcdAxisRow(axis: 'X', value: wPos[0], axisColor: AppColors.axisX, fontSize: 36),
-                  CncLcdAxisRow(axis: 'Y', value: wPos[1], axisColor: AppColors.axisY, fontSize: 36),
-                  CncLcdAxisRow(axis: 'Z', value: wPos[2], axisColor: AppColors.axisZ, fontSize: 36),
-                  Divider(color: AppColors.lcdBorder, indent: 12, endIndent: 12, height: 8),
-                  CncLcdAxisRow(axis: 'A', value: wPos[3], axisColor: AppColors.axisA, isRotary: true, fontSize: 26),
-                  CncLcdAxisRow(axis: 'C', value: wPos[4], axisColor: AppColors.axisC, isRotary: true, fontSize: 26),
+                  CncLcdAxisRow(axis: 'X', value: wPos[0], axisColor: context.fc.axisX, fontSize: 36),
+                  CncLcdAxisRow(axis: 'Y', value: wPos[1], axisColor: context.fc.axisY, fontSize: 36),
+                  CncLcdAxisRow(axis: 'Z', value: wPos[2], axisColor: context.fc.axisZ, fontSize: 36),
+                  Divider(color: context.fc.lcdBorder, indent: 12, endIndent: 12, height: 8),
+                  CncLcdAxisRow(axis: 'A', value: wPos[3], axisColor: context.fc.axisA, isRotary: true, fontSize: 26),
+                  CncLcdAxisRow(axis: 'C', value: wPos[4], axisColor: context.fc.axisC, isRotary: true, fontSize: 26),
                 ],
               ),
             ),
@@ -348,11 +349,11 @@ class _LcdDisplayColumn extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              _mPosRow('X', mPos[0], AppColors.axisX),
-                              _mPosRow('Y', mPos[1], AppColors.axisY),
-                              _mPosRow('Z', mPos[2], AppColors.axisZ),
-                              _mPosRow('A', mPos[3], AppColors.axisA, isRotary: true),
-                              _mPosRow('C', mPos[4], AppColors.axisC, isRotary: true),
+                              _mPosRow(context, 'X', mPos[0], context.fc.axisX),
+                              _mPosRow(context, 'Y', mPos[1], context.fc.axisY),
+                              _mPosRow(context, 'Z', mPos[2], context.fc.axisZ),
+                              _mPosRow(context, 'A', mPos[3], context.fc.axisA, isRotary: true),
+                              _mPosRow(context, 'C', mPos[4], context.fc.axisC, isRotary: true),
                             ],
                           ),
                         ),
@@ -379,15 +380,15 @@ class _LcdDisplayColumn extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _modalRow('WCS', state?.activeWCS ?? 'G54'),
-                              _modalRow('OUTIL', 'T${state?.activeToolNum ?? 0}'),
-                              _modalRow('F réel',
+                              _modalRow(context, 'WCS', state?.activeWCS ?? 'G54'),
+                              _modalRow(context, 'OUTIL', 'T${state?.activeToolNum ?? 0}'),
+                              _modalRow(context, 'F réel',
                                   '${state?.feedrate.toInt() ?? 0}', unit: 'mm/min'),
-                              _modalRow('S réel',
+                              _modalRow(context, 'S réel',
                                   '${state?.spindleSpeed.toInt() ?? 0}', unit: 'RPM'),
-                              Divider(color: AppColors.lcdBorder, height: 6),
-                              _overrideRow('F%', state?.overrides != null ? state!.overrides[0] : 100, AppColors.primary),
-                              _overrideRow('S%', state?.overrides != null ? state!.overrides[2] : 100, AppColors.secondary),
+                              Divider(color: context.fc.lcdBorder, height: 6),
+                              _overrideRow(context, 'F%', state?.overrides != null ? state!.overrides[0] : 100, context.fc.primary),
+                              _overrideRow(context, 'S%', state?.overrides != null ? state!.overrides[2] : 100, context.fc.secondary),
                             ],
                           ),
                         ),
@@ -403,7 +404,7 @@ class _LcdDisplayColumn extends StatelessWidget {
     );
   }
 
-  Widget _mPosRow(String axis, double val, Color color, {bool isRotary = false}) {
+  Widget _mPosRow(BuildContext context, String axis, double val, Color color, {bool isRotary = false}) {
     return Row(children: [
       Text(axis,
           style: TextStyle(
@@ -415,7 +416,7 @@ class _LcdDisplayColumn extends StatelessWidget {
       Text(
         isRotary ? '${val.toStringAsFixed(2)}°' : val.toStringAsFixed(3),
         style: TextStyle(
-          color: AppColors.lcdTextDim,
+          color: context.fc.lcdTextDim,
           fontSize: 11,
           fontFamily: 'JetBrains Mono',
         ),
@@ -423,35 +424,46 @@ class _LcdDisplayColumn extends StatelessWidget {
     ]);
   }
 
-  Widget _modalRow(String label, String value, {String? unit}) {
+  Widget _modalRow(BuildContext context, String label, String value, {String? unit}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(children: [
         Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: AppColors.lcdTextDim,
+                color: context.fc.lcdTextDim,
                 fontSize: 9,
                 fontFamily: 'JetBrains Mono',
                 fontWeight: FontWeight.bold)),
         const Spacer(),
-        Text(
-          unit != null ? '$value $unit' : value,
-          style: TextStyle(
-            color: AppColors.lcdText,
-            fontSize: 11,
-            fontFamily: 'JetBrains Mono',
-            fontWeight: FontWeight.w900,
+        const SizedBox(width: 8),
+        // Flexible + ellipse : « F reel » suivi de « 0 mm/min » ne tenait pas
+        // dans la colonne etroite du pupitre, et la ligne debordait (bandes
+        // jaunes et noires par-dessus l'etat modal).
+        Flexible(
+          child: Text(
+            unit != null ? '$value $unit' : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: context.fc.lcdText,
+              fontSize: 11,
+              fontFamily: 'JetBrains Mono',
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ]),
     );
   }
 
-  Widget _overrideRow(String label, int value, Color color) {
+  Widget _overrideRow(BuildContext context, String label, int value, Color color) {
     return Row(children: [
       Text(label,
           style: TextStyle(
-              color: AppColors.lcdTextDim,
+              color: context.fc.lcdTextDim,
               fontSize: 9,
               fontFamily: 'JetBrains Mono')),
       SizedBox(width: 6),
@@ -461,7 +473,7 @@ class _LcdDisplayColumn extends StatelessWidget {
           child: LinearProgressIndicator(
             value: (value / 100).clamp(0.0, 2.0),
             minHeight: 4,
-            backgroundColor: AppColors.lcdBorder,
+            backgroundColor: context.fc.lcdBorder,
             color: color,
           ),
         ),
@@ -521,7 +533,7 @@ class _ModeSelector extends ConsumerWidget {
     final mode = ref.watch(cncPanelModeProvider);
 
     return CncPanelSectionContainer(
-      title: 'MODE OPÉRATOIRE',
+      title: tr('MODE OPÉRATOIRE'),
       child: Row(
         children: CncOperatingMode.values.map((m) {
           final sel = m == mode;
@@ -530,7 +542,7 @@ class _ModeSelector extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: CncKeyButton(
                 height: 44,
-                color: AppColors.primary,
+                color: context.fc.primary,
                 isActive: sel,
                 onTap: () {
                   ref.read(cncPanelModeProvider.notifier).state = m;
@@ -540,7 +552,7 @@ class _ModeSelector extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     CncLedIndicator(
-                      color: AppColors.ledGreen,
+                      color: context.fc.success,
                       isActive: sel,
                       size: 7,
                     ),
@@ -549,8 +561,8 @@ class _ModeSelector extends ConsumerWidget {
                       m.label,
                       style: TextStyle(
                         color: sel
-                            ? AppColors.primary
-                            : AppColors.textDisabled,
+                            ? context.fc.primary
+                            : context.fc.textDisabled,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5,
@@ -576,13 +588,13 @@ class _CyclePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return CncPanelSectionContainer(
-      title: 'CONTRÔLE CYCLE',
+      title: tr('CONTRÔLE CYCLE'),
       child: Column(
         children: [
           // Cycle Start — grande touche verte
           CncKeyButton(
             height: 64,
-            color: AppColors.ledGreen,
+            color: context.fc.success,
             onTap: () {
               ref.read(audioServiceProvider).play(SoundEffect.click);
               final status = ref.read(machineStateProvider).valueOrNull?.status;
@@ -594,13 +606,13 @@ class _CyclePanel extends ConsumerWidget {
               HapticFeedback.mediumImpact();
             },
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              CncLedIndicator(color: AppColors.ledGreen, isActive: true, size: 10),
+              CncLedIndicator(color: context.fc.success, isActive: true, size: 10),
               SizedBox(width: 10),
-              Icon(Icons.play_arrow_rounded, color: AppColors.ledGreen, size: 22),
+              Icon(Icons.play_arrow_rounded, color: context.fc.success, size: 22),
               SizedBox(width: 6),
-              Text('CYCLE START',
+              Text(tr('CYCLE START'),
                   style: TextStyle(
-                      color: AppColors.ledGreen,
+                      color: context.fc.success,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0)),
@@ -612,17 +624,17 @@ class _CyclePanel extends ConsumerWidget {
             Expanded(
               child: CncKeyButton(
                 height: 52,
-                color: AppColors.ledOrange,
+                color: context.fc.warning,
                 onTap: () {
                   repo.pause();
                   HapticFeedback.lightImpact();
                 },
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.pause_rounded, color: AppColors.ledOrange, size: 18),
+                  Icon(Icons.pause_rounded, color: context.fc.warning, size: 18),
                   SizedBox(height: 2),
-                  Text('FEED HOLD',
+                  Text(tr('FEED HOLD'),
                       style: TextStyle(
-                          color: AppColors.ledOrange,
+                          color: context.fc.warning,
                           fontSize: 9,
                           fontWeight: FontWeight.w900)),
                 ]),
@@ -633,7 +645,7 @@ class _CyclePanel extends ConsumerWidget {
             Expanded(
               child: CncKeyButton(
                 height: 52,
-                color: AppColors.ledRed,
+                color: context.fc.danger,
                 isDanger: true,
                 onTap: () {
                   repo.sendRaw('\x18');
@@ -643,11 +655,11 @@ class _CyclePanel extends ConsumerWidget {
                   HapticFeedback.heavyImpact();
                 },
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.refresh_rounded, color: AppColors.ledRed, size: 18),
+                  Icon(Icons.refresh_rounded, color: context.fc.danger, size: 18),
                   SizedBox(height: 2),
-                  Text('RESET',
+                  Text(tr('RESET'),
                       style: TextStyle(
-                          color: AppColors.ledRed,
+                          color: context.fc.danger,
                           fontSize: 9,
                           fontWeight: FontWeight.w900)),
                 ]),
@@ -658,18 +670,20 @@ class _CyclePanel extends ConsumerWidget {
             Expanded(
               child: CncKeyButton(
                 height: 52,
-                color: AppColors.danger,
+                color: context.fc.danger,
                 isDanger: true,
                 onTap: () {
-                  repo.emergencyStop();
+                  // Contrôleur, pas repository : purge du flux + alerte si
+                  // l'arrêt n'est pas parti (voir StreamingController).
+                  ref.read(streamingProvider.notifier).stopStream();
                   HapticFeedback.heavyImpact();
                 },
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 18),
+                  Icon(Icons.warning_amber_rounded, color: context.fc.danger, size: 18),
                   SizedBox(height: 2),
-                  Text('E-STOP',
+                  Text(tr('E-STOP'),
                       style: TextStyle(
-                          color: AppColors.danger,
+                          color: context.fc.danger,
                           fontSize: 9,
                           fontWeight: FontWeight.w900)),
                 ]),
@@ -718,13 +732,13 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
   @override
   Widget build(BuildContext context) {
     return CncPanelSectionContainer(
-      title: 'CORRECTIONS (OVERRIDES)',
+      title: tr('CORRECTIONS (OVERRIDES)'),
       child: Column(
         children: [
-          _overrideRow('AVANCE  F%', _feedOverride, AppColors.primary,
+          _overrideRow('AVANCE  F%', _feedOverride, context.fc.primary,
               () => _adjustFeed(10), () => _adjustFeed(-10), () => _adjustFeed(1), () => _adjustFeed(-1)),
           SizedBox(height: 6),
-          _overrideRow('BROCHE  S%', _spindleOverride, AppColors.secondary,
+          _overrideRow('BROCHE  S%', _spindleOverride, context.fc.secondary,
               () => _adjustSpindle(10), () => _adjustSpindle(-10), () => _adjustSpindle(1), () => _adjustSpindle(-1)),
         ],
       ),
@@ -743,7 +757,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
           children: [
             Text(label,
                 style: TextStyle(
-                    color: AppColors.textDisabled,
+                    color: context.fc.textDisabled,
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0)),
@@ -767,7 +781,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
               child: LinearProgressIndicator(
                 value: (val / 200).clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: AppColors.keyBezel,
+                backgroundColor: context.fc.keyBezel,
                 color: color,
               ),
             ),
@@ -783,7 +797,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
         color: color,
         onTap: onMinusLg,
         child: Center(
-          child: Text('-10', style: TextStyle(color: AppColors.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
+          child: Text('-10', style: TextStyle(color: context.fc.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
         ),
       ),
       SizedBox(width: 3),
@@ -792,7 +806,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
         color: color,
         onTap: onMinusSm,
         child: Center(
-          child: Text('-1', style: TextStyle(color: AppColors.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
+          child: Text('-1', style: TextStyle(color: context.fc.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
         ),
       ),
       SizedBox(width: 3),
@@ -801,7 +815,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
         color: color,
         onTap: onPlusSm,
         child: Center(
-          child: Text('+1', style: TextStyle(color: AppColors.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
+          child: Text('+1', style: TextStyle(color: context.fc.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
         ),
       ),
       SizedBox(width: 3),
@@ -810,7 +824,7 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
         color: color,
         onTap: onPlusLg,
         child: Center(
-          child: Text('+10', style: TextStyle(color: AppColors.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
+          child: Text('+10', style: TextStyle(color: context.fc.textSecondary, fontSize: 8, fontWeight: FontWeight.w900)),
         ),
       ),
     ]);
@@ -834,12 +848,12 @@ class _JogPanel5Axis extends ConsumerWidget {
       child: IgnorePointer(
         ignoring: !isJogEnabled,
         child: CncPanelSectionContainer(
-          title: 'JOG MANUEL 5 AXES',
+          title: tr('JOG MANUEL 5 AXES'),
           trailing: !isJogEnabled
               ? Text(
-                  'MODE JOG REQUIS',
+                  tr('MODE JOG REQUIS'),
                   style: TextStyle(
-                    color: AppColors.ledOrange,
+                    color: context.fc.warning,
                     fontSize: 8,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,
@@ -855,15 +869,15 @@ class _JogPanel5Axis extends ConsumerWidget {
               // JOG STOP global
               CncKeyButton(
                 height: 44,
-                color: AppColors.danger,
+                color: context.fc.danger,
                 isDanger: true,
                 onTap: () { jogN.stopJog(); HapticFeedback.heavyImpact(); },
                 child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.stop_rounded, color: AppColors.danger, size: 18),
+                  Icon(Icons.stop_rounded, color: context.fc.danger, size: 18),
                   SizedBox(width: 8),
-                  Text('JOG STOP  [0x85]',
+                  Text(tr('JOG STOP  [0x85]'),
                       style: TextStyle(
-                          color: AppColors.danger,
+                          color: context.fc.danger,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.8)),
@@ -899,42 +913,42 @@ class _PanelFooter extends StatelessWidget {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.panelSection,
-        border: Border(top: BorderSide(color: AppColors.keyBorder, width: 1)),
+        color: context.fc.panelSection,
+        border: Border(top: BorderSide(color: context.fc.keyBorder, width: 1)),
       ),
       child: Row(
         children: [
-          Text('FORGERON CNC-5X  v1.0',
+          Text(tr('FORGERON CNC-5X  v1.0'),
               style: TextStyle(
-                  color: AppColors.textDisabled,
+                  color: context.fc.textDisabled,
                   fontSize: 9,
                   fontFamily: 'JetBrains Mono')),
           SizedBox(width: 20),
           Text(
             'M: X${mPos[0].toStringAsFixed(2)}  Y${mPos[1].toStringAsFixed(2)}  Z${mPos[2].toStringAsFixed(2)}  A${mPos[3].toStringAsFixed(1)}°  C${mPos[4].toStringAsFixed(1)}°',
             style: TextStyle(
-                color: AppColors.primary,
+                color: context.fc.primary,
                 fontSize: 9,
                 fontFamily: 'JetBrains Mono'),
           ),
           const Spacer(),
-          _footerChip('F: $feed mm/min', AppColors.primary),
+          _footerChip('F: $feed mm/min', context.fc.primary),
           SizedBox(width: 8),
-          _footerChip('S: $spindle RPM', AppColors.secondary),
+          _footerChip('S: $spindle RPM', context.fc.secondary),
           SizedBox(width: 8),
-          _footerChip('T$tool', AppColors.ledOrange),
+          _footerChip('T$tool', context.fc.warning),
           SizedBox(width: 8),
-          _footerChip(wcs, AppColors.axisZ),
+          _footerChip(wcs, context.fc.axisZ),
           SizedBox(width: 8),
           CncLedIndicator(
-            color: isOnline ? AppColors.ledGreen : AppColors.ledRed,
+            color: isOnline ? context.fc.success : context.fc.danger,
             isActive: isOnline,
             size: 8,
           ),
           SizedBox(width: 4),
           Text(isOnline ? 'ESP32' : 'OFFLINE',
               style: TextStyle(
-                  color: isOnline ? AppColors.ledGreen : AppColors.ledRed,
+                  color: isOnline ? context.fc.success : context.fc.danger,
                   fontSize: 9,
                   fontFamily: 'JetBrains Mono',
                   fontWeight: FontWeight.bold)),

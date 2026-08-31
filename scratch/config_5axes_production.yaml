@@ -46,19 +46,45 @@ axes:
   # STEP → GPIO26 (D26) | DIR → GPIO27 (D27)
   # ─────────────────────────────────────────────
   x:
-    # T8 (8mm/tour) + 1/16 micro : 200×16/8=400
-    steps_per_mm: 400.000
-    max_rate_mm_per_min: 1000.000
-    acceleration_mm_per_sec2: 50.000
-    # Adapter à la course réelle de ton axe X
-    max_travel_mm: 200.000
-    soft_limits: false
+    # X recalibré (2026-08-05) : 90 mm physique = 80 mm affiché → 297 trop haut
+    # de 12,5 %. 297 × 80/90 = 264. (À vérifier : G91 G0 X50 doit faire 50 mm.)
+    steps_per_mm: 264.000
+    # Avance PLAFONNÉE (2026-08-20) : 1000 → 500. Vibrations constatées en
+    # usinage bois (poche Carre35x35, CAM sortait F1645). max_rate écrête TOUTE
+    # avance demandée → filet de sécurité même si le post CAM sort trop haut.
+    # ⚠️ Plafonne aussi les RAPIDES (G0) sur cet axe.
+    max_rate_mm_per_min: 500.000
+    # Accél. 50 → 30 : la spirale de poche enchaîne des angles à 90° tous les
+    # 2,4 mm ; c'est le démarrage/arrêt qui secoue, pas la vitesse de pointe.
+    acceleration_mm_per_sec2: 30.000
+    # Course physique ~90 mm ; soft limit à 88 (2 mm de marge sous la butée).
+    max_travel_mm: 88.000
+    soft_limits: true
+    # HOMING — ⚠️ VÉRIFIE positive_direction par un jog AVANT $H (sinon crash).
+    # false = l'axe cherche son switch en direction NÉGATIVE (côté min).
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 500.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Fin de course X — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.4:high:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
+      # Pull-off augmenté (1→5) : le switch X a une course longue et 1 mm ne le
+      # relâchait pas après le 1er contact → ALARM:8. 5 mm le dégage franchement.
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.26
         direction_pin: gpio.27
@@ -69,16 +95,35 @@ axes:
   # ─────────────────────────────────────────────
   y:
     steps_per_mm: 400.000
-    max_rate_mm_per_min: 1000.000
-    acceleration_mm_per_sec2: 50.000
-    max_travel_mm: 200.000
-    soft_limits: false
+    # Avance PLAFONNÉE (2026-08-20) : 1000 → 500 (idem X, voir commentaire X).
+    max_rate_mm_per_min: 500.000
+    # Accél. 50 → 30 (idem X).
+    acceleration_mm_per_sec2: 30.000
+    # Course réelle mesurée au calibrage (Y)
+    max_travel_mm: 150.000
+    soft_limits: true
+    # HOMING — ⚠️ VÉRIFIE positive_direction par un jog AVANT $H (sinon crash).
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 500.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Fin de course Y — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.13:high:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.25
         direction_pin: gpio.33
@@ -90,16 +135,40 @@ axes:
   z:
     steps_per_mm: 400.000
     # Z plus lent pour la sécurité
-    max_rate_mm_per_min: 800.000
-    acceleration_mm_per_sec2: 30.000
-    max_travel_mm: 150.000
-    soft_limits: false
+    # Avance PLAFONNÉE (2026-08-20) : 800 → 300. Couvre aussi la PLONGÉE (le
+    # CAM sortait F411 en plongée, trop rapide pour le bois sur cette machine).
+    max_rate_mm_per_min: 300.000
+    # Accél. 30 → 20 : Z porte la broche, c'est la masse la plus lourde.
+    acceleration_mm_per_sec2: 20.000
+    # Course réelle mesurée au calibrage (Z)
+    max_travel_mm: 110.000
+    soft_limits: true
+    # HOMING — switch Z EN HAUT → direction POSITIVE (positive_direction: true).
+    # Z se home vers le HAUT et se DÉGAGE (retrait outil) — convention standard,
+    # SÛR. Zéro machine Z = en haut ; course utile 0 → -110 mm (vers le bas).
+    homing:
+      cycle: 1
+      positive_direction: true
+      mpos_mm: 0.000
+      feed_mm_per_min: 100.000
+      seek_mm_per_min: 400.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Fin de course Z — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE)
+      limit_all_pin: gpio.14:high:pu
+      # Câblage validé + homing OK → alarme si le switch est touché en usinage.
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
+      # Pull-off Z augmenté (1→5) : comme X et A, 1 mm ne relâchait pas le
+      # capteur au 1er contact du homing → il restait « bloqué » (ALARM:8).
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.32
         direction_pin: gpio.23
@@ -110,18 +179,43 @@ axes:
   # steps_per_mm = en réalité steps_per_DEGREE ici
   # ─────────────────────────────────────────────
   a:
-    # 200 pas × 1/16 micro × rapport réduc 5:1 / 360°
-    steps_per_mm: 44.444
+    # steps_per_DEGRÉ : poulies GT2 16T→60T = 3,75:1, micro 1/8 (TB6600).
+    # 200 × 8 × 3,75 / 360 = 16,667. Cohérent avec la mesure (cmd 35° = 90° réel).
+    steps_per_mm: 16.667
     max_rate_mm_per_min: 3600.000
     acceleration_mm_per_sec2: 50.000
-    max_travel_mm: 720.000
-    soft_limits: false
+    # Switch A recalé à -88° : contact réel mesuré après homing (l'ancien 95° était
+    # faux → A=0 ne tombait pas à l'horizontale). Course -88→+90.
+    max_travel_mm: 178.000
+    soft_limits: true
+    # HOMING A — capteur à l'extrémité NÉGATIVE. Contact réel = -88° de
+    # l'horizontale (mesuré ; l'ancien 95 était faux) → mpos_mm: -88 pour que A=0
+    # tombe pile à l'horizontale ET que le capteur = limite basse (plus de course
+    # "fantôme" au-delà du switch). positive_direction: false.
+    homing:
+      cycle: 3
+      positive_direction: false
+      mpos_mm: -88.000
+      feed_mm_per_min: 200.000
+      seek_mm_per_min: 1000.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
     motor0:
       limit_neg_pin: NO_PIN
       limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 1.000
+      # Capteur de homing A — switch NC vers GND, pull-up (actif HAUT = déclenché ; fil coupé = déclenche = FAIL-SAFE).
+      # GPIO5 = broche de strap : ne pas laisser le berceau sur le switch au boot.
+      limit_all_pin: gpio.5:high:pu
+      # Câblage + homing A validés (A=0 = horizontale) → alarme si switch touché.
+      # hard_limits réactivé. ⚠️ N'est fiable QUE si le bruit est traité (100 nF
+      # capteur→GND + fils capteurs séparés des fils moteurs). Sinon, de faux
+      # « ALARM:1 Hard Limit » se redéclencheront au homing quand les moteurs
+      # tournent (parasitage / latch-up des entrées ESP32).
+      hard_limits: true
+      # Pull-off 5° : 1° ne relâchait pas le switch A après le 1er contact →
+      # ALARM:8 (comme X). En degrés ici (axe rotatif).
+      pulloff_mm: 5.000
       stepstick:
         step_pin: gpio.19
         direction_pin: gpio.18
@@ -131,7 +225,9 @@ axes:
   # STEP → GPIO17 (TX2) | DIR → GPIO16 (RX2)
   # ─────────────────────────────────────────────
   c:
-    steps_per_mm: 44.444
+    # steps_per_DEGRÉ : poulies GT2 16T→60T = 3,75:1, micro 1/8 → 16,667
+    # (identique à A ; la mesure C donnait ~19,8, écart = imprécision).
+    steps_per_mm: 16.667
     max_rate_mm_per_min: 3600.000
     acceleration_mm_per_sec2: 50.000
     max_travel_mm: 720.000
@@ -156,7 +252,18 @@ control:
   macro2_pin: NO_PIN
   macro3_pin: NO_PIN
   fault_pin: NO_PIN
-  estop_pin: NO_PIN
+  # ARRÊT D'URGENCE matériel — bouton coup-de-poing NF (normalement fermé).
+  # Câblage SIMPLIFIÉ : GPIO15 --[bouton NF]-- GND  (AUCUNE résistance externe :
+  # gpio.15 possède un pull-up INTERNE, activé par le suffixe ':pu').
+  # Repos (NF fermé) = LOW = inactif ; appui OU fil coupé = ouvert = HIGH (pull-up
+  # interne) → déclenche = FAIL-SAFE (reset FluidNC immédiat).
+  # ⚠️ gpio.15 est un « strapping pin » : CÂBLER LE BOUTON AVANT DE TÉLÉVERSER.
+  #    Sans bouton connecté, le pull-up lit HIGH → E-STOP actif → ALARM au boot.
+  #    (Au repos LOW, gpio.15 masque seulement le log ROM de boot sur l'UART —
+  #     sans effet sur FluidNC ni sur la liaison WebSocket.)
+  # Après câblage, vérifier au champ Pn: (écran Diagnostics) que c'est INACTIF au
+  # repos et ACTIF quand on appuie.
+  estop_pin: gpio.15:high:pu
 
 coolant:
   flood_pin: NO_PIN
@@ -168,6 +275,32 @@ probe:
   toolsetter_pin: NO_PIN
   check_mode_start: true
   hard_stop: false
+
+# =============================================================================
+# BROCHE — Moteur à courant continu (DC) piloté en TOUT-OU-RIEN via un module
+# relais 5 V (type KY-019 / VMA406, transistor + diode intégrés sur la carte).
+# Câblage : VCC→5V(VIN), GND→GND ESP32, IN→GPIO21 (signal seul). Moteur sur
+# COM + NO, avec sa PROPRE alimentation. ⚠️ Ne jamais piloter une bobine de
+# relais directement par un GPIO : passer par un module (transistor intégré).
+# M3 S1000 = broche ON, M5 = broche OFF.
+# Module simple (transistor, sans opto) = ACTIF HAUT → gpio.21 sans suffixe.
+# ⚠️ Si le relais est collé au repos (module actif bas) : mets « gpio.21:low ».
+# off_on_alarm = la broche coupe si une alarme survient (fin de course, etc.)
+# =============================================================================
+Relay:
+  # Module relais ACTIF HAUT (GPIO21 HIGH => transistor passant => relais collé)
+  output_pin: gpio.21
+  enable_pin: NO_PIN
+  direction_pin: NO_PIN
+  # false = M3 allume le relais quelle que soit la vitesse (tout-ou-rien)
+  disable_with_s0: false
+  s0_with_disable: true
+  spinup_ms: 1000
+  spindown_ms: 1000
+  tool_num: 0
+  # speed_map REQUIS : sans lui la broche relais peut ne jamais passer à ON
+  speed_map: 0=0.000% 1000=100.000%
+  off_on_alarm: true
 
 macros:
   startup_line0:
@@ -181,7 +314,11 @@ macros:
   after_unlock:
 
 start:
-  must_home: false
+  # Exige le homing avant TOUTE exécution/mouvement : FluidNC refuse de lancer un
+  # programme tant que la machine n'est pas homée (position connue + soft-limits
+  # actives). La carte démarre en « Alarm: homing required » → se lève en homant
+  # ($H). Récupération hors-course : $X + jog doux hors du switch, puis $H.
+  must_home: true
   deactivate_parking: false
   check_limits: true
 

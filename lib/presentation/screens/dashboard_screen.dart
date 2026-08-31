@@ -11,12 +11,19 @@ import '../../application/services/audio_service.dart';
 import '../../application/providers/streaming_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
-import '../widgets/dashboard/workshop_layout.dart';
+import '../widgets/travel_gauge.dart';
+import '../widgets/override_panel.dart';
+import '../widgets/camera_view.dart';
+import '../widgets/tool_change_banner.dart';
+import '../tutorial/tutorial_keys.dart';
+import '../widgets/visualizer_mode_toggle.dart';
+import '../../application/providers/camera_provider.dart';
+import '../../application/providers/machine_params_provider.dart';
 import '../widgets/trunnion_visualizer.dart';
-import 'cnc_panel_screen.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/gcode_editor_dialog.dart';
+import '../../core/i18n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -34,12 +41,9 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isWorkshopMode = ref.watch(isWorkshopModeProvider);
+    // Le mode atelier est intercepte plus haut, par le scaffold : le pupitre
+    // remplace toute l'application, barre laterale comprise.
     final isFullScreen = ref.watch(isVisualizerFullScreenProvider);
-
-    if (isWorkshopMode) {
-      return const WorkshopLayout();
-    }
 
     if (isFullScreen) {
       return const Scaffold(
@@ -90,6 +94,12 @@ class _CenterZone extends ConsumerWidget {
     final spindle = state?.spindleSpeed.toStringAsFixed(0) ?? '0';
     final isOnline =
         state?.status != null && state?.status != MachineStatus.offline;
+    // L'ESP32-CAM n'existait que sur mobile : au poste, on ne pouvait pas
+    // regarder la coupe autrement qu'en se penchant sur la machine. Sans
+    // caméra configurée, le mode retombe de lui-même sur le simulateur.
+    final cameraEnabled = ref.watch(cameraEnabledProvider);
+    final isCamera =
+        ref.watch(effectiveVisualizerModeProvider) == VisualizerMode.camera;
 
     return Column(
       children: [
@@ -104,7 +114,7 @@ class _CenterZone extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                'FORGERON',
+                tr('FORGERON'),
                 style: TextStyle(
                   color: context.fc.primary,
                   fontSize: 14,
@@ -155,8 +165,15 @@ class _CenterZone extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              // Sélecteur CAM / 3D. Dans la barre d'outils et non posé sur
+              // l'image : la caméra affiche ses propres badges dans le coin
+              // haut-gauche, les deux se seraient superposés.
+              if (cameraEnabled) ...[
+                const VisualizerModeToggle(),
+                const SizedBox(width: 12),
+              ],
               Text(
-                '$spindle RPM',
+                tr('{} RPM', [spindle]),
                 style: TextStyle(
                   color: context.fc.textPrimary,
                   fontSize: 13,
@@ -170,9 +187,18 @@ class _CenterZone extends ConsumerWidget {
           ),
         ),
 
+        // Quel outil monter, pendant une pause de changement. Le bandeau ne
+        // s'affiche que pendant le maintien programme (M0) ; à cet instant
+        // c'est la seule information qui compte.
+        const ToolChangeBanner(dense: true),
+
         // ── Visualisateur 3D ────────────────────────────────────────────
         Expanded(
           child: Container(
+            // Cible du tutoriel : la clé vivait sur un panneau qui n'était
+            // plus affiché nulle part, l'étape « jumeau numérique » pointait
+            // donc le vide.
+            key: TutorialKeys.trunnionViz,
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: context.fc.background,
@@ -183,32 +209,39 @@ class _CenterZone extends ConsumerWidget {
               borderRadius: BorderRadius.circular(7),
               child: Stack(
                 children: [
-                  TrunnionVisualizer(mPos: mPos),
-                  // Label
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.fc.surface.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: context.fc.surfaceBorder),
-                      ),
-                      child: Text(
-                        'CENTER',
-                        style: TextStyle(
-                          color: context.fc.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1,
+                  if (isCamera)
+                    const CameraView()
+                  else
+                    TrunnionVisualizer(mPos: mPos),
+                  // Sélecteur CAM / 3D quand une caméra est configurée ;
+                  // sinon le simple libellé de la vue.
+                  // Nom de la vue. Masqué en caméra : l'image porte déjà ses
+                  // propres badges au même endroit.
+                  if (!isCamera)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.fc.surface.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: context.fc.surfaceBorder),
+                        ),
+                        child: Text(
+                          tr('SIMULATEUR 3D'),
+                          style: TextStyle(
+                            color: context.fc.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   // Bouton fullscreen
                   Positioned(
                     top: 8,
@@ -227,7 +260,7 @@ class _CenterZone extends ConsumerWidget {
                                     )
                                     .state =
                                 true,
-                        tooltip: 'Plein écran',
+                        tooltip: tr('Plein écran'),
                       ),
                     ),
                   ),
@@ -268,7 +301,7 @@ class _CenterZone extends ConsumerWidget {
 
                     return Expanded(
                       child: _DashCard(
-                        title: 'PROGRAMME',
+                        title: tr('PROGRAMME'),
                         action: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -287,7 +320,7 @@ class _CenterZone extends ConsumerWidget {
                                     builder: (_) => const GCodeEditorDialog(),
                                   );
                                 },
-                                tooltip: 'Éditer le G-Code',
+                                tooltip: tr('Éditer le G-Code'),
                               ),
                             if (gcodeState.allLines.isNotEmpty)
                               const SizedBox(width: 8),
@@ -309,13 +342,13 @@ class _CenterZone extends ConsumerWidget {
                                 }
                               },
                               tooltip:
-                                  'Charger un fichier G-Code (.nc, .gcode)',
+                                  tr('Charger un fichier G-Code (.nc, .gcode)'),
                             ),
                           ],
                         ),
                         child: gcodeState.allLines.isEmpty
                             ? Text(
-                                'Aucun programme chargé',
+                                tr('Aucun programme chargé'),
                                 style: TextStyle(
                                   color: context.fc.textDisabled,
                                   fontSize: 10,
@@ -499,14 +532,15 @@ class _RightPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(machineStateProvider).valueOrNull;
     final wPos = state?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    // Position MACHINE + cinematique : de quoi situer chaque axe dans sa
+    // course. Le DRO desktop n'affichait que la position piece, qui ne dit
+    // rien de la distance restante avant la butee.
+    final mPos = state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
+    final kin = ref.watch(axisKinematicsProvider).valueOrNull;
+    double? travel(int i) => (kin != null && i < kin.length && i < mPos.length)
+        ? kin[i].travelFraction(mPos[i])
+        : null;
     final progress = state?.sdPercent ?? 0.0;
-    final feedOverride = state?.overrides.isNotEmpty == true
-        ? state!.overrides[0]
-        : 100;
-    final spindleOverride = (state?.overrides.length ?? 0) > 2
-        ? state!.overrides[2]
-        : 100;
-
     return Container(
       color: context.fc.surface,
       child: SingleChildScrollView(
@@ -516,41 +550,55 @@ class _RightPanel extends ConsumerWidget {
           children: [
             // ── POSITION DRO ──────────────────────────────────────────
             _PanelSectionHeader(
-              title: 'POSITION DRO',
+              title: tr('POSITION DRO'),
               trailing: Text(
-                'W-value − Target',
+                tr('W-value − Target'),
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
               ),
             ),
             const SizedBox(height: 8),
-            _DroBig(label: 'X', value: wPos[0], color: context.fc.axisX),
-            _DroBig(label: 'Y', value: wPos[1], color: context.fc.axisY),
-            _DroBig(label: 'Z', value: wPos[2], color: context.fc.axisZ),
+            _DroBig(
+                label: 'X',
+                value: wPos[0],
+                color: context.fc.axisX,
+                travelFraction: travel(0)),
+            _DroBig(
+                label: 'Y',
+                value: wPos[1],
+                color: context.fc.axisY,
+                travelFraction: travel(1)),
+            _DroBig(
+                label: 'Z',
+                value: wPos[2],
+                color: context.fc.axisZ,
+                travelFraction: travel(2)),
             _DroBig(
               label: 'A',
               value: wPos[3],
               color: context.fc.axisA,
               isRotary: true,
+              travelFraction: travel(3),
             ),
             _DroBig(
               label: 'C',
               value: wPos[4],
               color: context.fc.axisC,
               isRotary: true,
+              travelFraction: travel(4),
             ),
 
             const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
             const SizedBox(height: 8),
             // Section PROGRESSION & AVANCES
-            const _PanelSectionHeader(title: 'PROGRESSION & AVANCES'),
+            _PanelSectionHeader(title: tr('PROGRESSION & AVANCES')),
             const SizedBox(height: 8),
 
             // Progression (Historique)
             Row(
               children: [
                 Text(
-                  'HISTORIQUE',
+                  tr('HISTORIQUE'),
                   style: TextStyle(
                     color: context.fc.textDisabled,
                     fontSize: 9,
@@ -581,97 +629,20 @@ class _RightPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
 
-            // Avances (Feed & Spindle Override)
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'F-OVERRIDE',
-                            style: TextStyle(
-                              color: context.fc.textDisabled,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$feedOverride%',
-                            style: TextStyle(
-                              color: context.fc.primary,
-                              fontSize: 8,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: (feedOverride / 200.0).clamp(0.0, 1.0),
-                          minHeight: 4,
-                          backgroundColor: context.fc.surfaceBorder,
-                          color: context.fc.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'S-OVERRIDE',
-                            style: TextStyle(
-                              color: context.fc.textDisabled,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$spindleOverride%',
-                            style: TextStyle(
-                              color: context.fc.secondary,
-                              fontSize: 8,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: (spindleOverride / 200.0).clamp(0.0, 1.0),
-                          minHeight: 4,
-                          backgroundColor: context.fc.surfaceBorder,
-                          color: context.fc.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            // Corrections d'avance et de rapides — REGLABLES.
+            // Le panneau n'affichait que deux barres en lecture seule : on
+            // voyait la correction sans pouvoir la toucher, alors que c'est le
+            // seul moyen de ralentir une passe en cours sans arreter le
+            // programme. Densite desktop : plat, compact, sans carte — le rail
+            // porte deja sa surface et son en-tete de section.
+            const OverridePanel(dense: true),
 
             const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
             const SizedBox(height: 8),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
-            const _PanelSectionHeader(title: 'QUICK ACTIONS'),
+            _PanelSectionHeader(title: tr('QUICK ACTIONS')),
             const SizedBox(height: 8),
 
             Consumer(
@@ -681,7 +652,7 @@ class _RightPanel extends ConsumerWidget {
                 return Row(
                   children: [
                     _QAction(
-                      label: 'CYCLE\nSTART',
+                      label: tr('CYCLE\nSTART'),
                       color: context.fc.success,
                       icon: Icons.play_arrow_rounded,
                       onTap: () async {
@@ -702,7 +673,7 @@ class _RightPanel extends ConsumerWidget {
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Erreur Lookahead : ${result.errorMessage} (ligne ${result.errorLine})',
+                                  tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
                                 ),
                                 backgroundColor: errorColor,
                               ),
@@ -718,7 +689,7 @@ class _RightPanel extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     _QAction(
-                      label: 'FEED\nHOLD',
+                      label: tr('FEED\nHOLD'),
                       color: context.fc.warning,
                       icon: Icons.pause_rounded,
                       onTap: () {
@@ -729,7 +700,7 @@ class _RightPanel extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     _QAction(
-                      label: 'E-STOP',
+                      label: tr('E-STOP'),
                       color: context.fc.danger,
                       icon: Icons.bolt_rounded,
                       onTap: () {
@@ -740,7 +711,7 @@ class _RightPanel extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     _QAction(
-                      label: 'JOG\nSTOP',
+                      label: tr('JOG\nSTOP'),
                       color: context.fc.primary,
                       icon: Icons.stop_rounded,
                       onTap: () {
@@ -800,11 +771,17 @@ class _DroBig extends StatelessWidget {
   final double value;
   final Color color;
   final bool isRotary;
+
+  /// Position de l'axe dans sa course machine, de 0 a 1. `null` quand la
+  /// course n'est pas connue : aucune jauge n'est alors dessinee.
+  final double? travelFraction;
+
   const _DroBig({
     required this.label,
     required this.value,
     required this.color,
     this.isRotary = false,
+    this.travelFraction,
   });
 
   @override
@@ -812,15 +789,22 @@ class _DroBig extends StatelessWidget {
     final display = isRotary
         ? '${value.toStringAsFixed(2)}°'
         : value.toStringAsFixed(3);
+    final nearEdge = TravelGaugeFill.isNearEdge(travelFraction);
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: context.fc.background,
         borderRadius: BorderRadius.circular(4),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
-      child: Row(
+      child: Stack(
+        children: [
+          // Jauge de course, identique au DRO mobile.
+          TravelGaugeFill(fraction: travelFraction, color: color),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
         children: [
           Text(
             label,
@@ -831,6 +815,17 @@ class _DroBig extends StatelessWidget {
               fontFamily: 'JetBrains Mono',
             ),
           ),
+          // Meme lecture que sur mobile : la position dans la course, en clair.
+          if (travelFraction != null) ...[
+            const SizedBox(width: 7),
+            Text('${(travelFraction! * 100).round()}%',
+                style: TextStyle(
+                    color: nearEdge
+                        ? context.fc.warning
+                        : context.fc.textDisabled,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700)),
+          ],
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -846,6 +841,9 @@ class _DroBig extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
           ),
         ],
       ),
@@ -908,9 +906,13 @@ class FullScreenVisualizer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mPos = ref.watch(renderMPosProvider);
+    final isCamera =
+        ref.watch(effectiveVisualizerModeProvider) == VisualizerMode.camera;
     return Stack(
       children: [
-        TrunnionVisualizer(mPos: mPos),
+        // Le plein écran suit le mode choisi dans le panneau : passer en
+        // caméra puis agrandir ne doit pas ramener le simulateur.
+        if (isCamera) const CameraView() else TrunnionVisualizer(mPos: mPos),
         Positioned(
           top: 16,
           right: 16,

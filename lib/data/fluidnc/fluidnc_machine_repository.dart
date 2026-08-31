@@ -55,15 +55,42 @@ class FluidNCMachineRepository implements MachineRepository {
   void _handleMessage(String message) {
     if (_stateController.isClosed) return;
 
-    // Détection des acquittements pour le StreamingService (Backpressure)
+    // Détection des acquittements pour le StreamingService (Backpressure).
+    // On ne compte un 'ok'/'error' QUE si un programme est réellement en cours :
+    // sinon un 'ok' hors-bande (réponse à $X, $H, $G, $#… surtout le
+    // déverrouillage d'alarme) serait pris pour l'acquittement d'une ligne →
+    // compteur d'octets désynchronisé + relance de l'envoi dans la butée.
     if (message.trim() == 'ok' || message.startsWith('error:')) {
-      _streamingService.handleAck();
+      if (_streamingService.isStreaming) _streamingService.handleAck();
     }
 
+    final prevStatus = _currentState.status;
     final newState = GrblParser.parse(message, _currentState);
     if (newState != null) {
       _currentState = newState;
       _stateController.add(_currentState);
+
+      // ── Entrée en ALARM (typiquement un dépassement de fin de course) ───────
+      // Purge immédiate du flux : les lignes restantes du programme ne doivent
+      // plus jamais partir. Sinon, au déverrouillage ($X), la machine repartait
+      // dans la butée (→ re-alarme) et il fallait rebooter la carte. Combiné au
+      // garde isStreaming ci-dessus, $X déverrouille désormais proprement.
+      if (newState.status == MachineStatus.alarm &&
+          prevStatus != MachineStatus.alarm) {
+        _streamingService.stop();
+      }
+      // Signal de vie pour le watchdog de streaming : tant que la machine
+      // bouge (Run/Jog→run, Home) OU est en pause volontaire (Hold, ex. M0
+      // pour un changement d'outil), elle RÉPOND — ce n'est pas un blocage.
+      // Sans Hold ici, une pause M0 (changement d'outil) déclenchait un faux
+      // « Flux suspendu » au bout de 3 s. Si la machine meurt vraiment, plus
+      // aucun statut n'arrive → le watchdog se déclenche quand même. SÉCURITÉ
+      // préservée.
+      if (newState.status == MachineStatus.run ||
+          newState.status == MachineStatus.home ||
+          newState.status == MachineStatus.hold) {
+        _streamingService.notifyActivity();
+      }
     }
   }
 
@@ -140,8 +167,10 @@ class FluidNCMachineRepository implements MachineRepository {
     } else {
       for (final axis in axes) {
         final a = axis.toUpperCase();
-        // $HA et $HC crashent FluidNC sans fins de course → zéro G92 à la place
-        if (a == 'A' || a == 'C') {
+        // C n'a pas de fin de course → un $HC crasherait FluidNC : zéro G92 en
+        // place. A a désormais un capteur de homing (gpio.5) → vrai $HA. X/Y/Z
+        // → $H<axe>.
+        if (a == 'C') {
           _connection.sendGCode('G92 ${a}0');
         } else {
           _connection.sendGCode('\$H$a');

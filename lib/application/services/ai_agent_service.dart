@@ -87,11 +87,16 @@ class AiAgentService {
   /// (texte agrégé courant) et retourne la réponse complète agrégée pour la
   /// logique d'outils. Replie automatiquement sur [sendMessages] si le flux
   /// n'est pas disponible.
+  ///
+  /// [shouldCancel] est consulté à chaque fragment reçu : dès qu'il retourne
+  /// `true`, on quitte la boucle — ce qui annule l'abonnement au flux — et on
+  /// retourne ce qui a déjà été reçu (bouton « Stop » de l'écran de chat).
   Future<AiApiResponse> streamMessages({
     required List<Map<String, dynamic>> contents,
     required List<Map<String, dynamic>> functionDeclarations,
     String? systemPrompt,
     void Function(String partialText)? onDelta,
+    bool Function()? shouldCancel,
   }) async {
     final body = _requestBody(
       contents: contents,
@@ -112,9 +117,14 @@ class AiAgentService {
     var finishReason = '';
     var totalTokens = 0;
     var gotAny = false;
+    var cancelled = false;
 
     try {
       await for (final payload in source) {
+        if (shouldCancel?.call() ?? false) {
+          cancelled = true;
+          break; // quitter la boucle annule l'abonnement → requête coupée
+        }
         Map<String, dynamic> chunk;
         try {
           chunk = jsonDecode(payload) as Map<String, dynamic>;
@@ -146,8 +156,9 @@ class AiAgentService {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
-    if (!gotAny) {
-      // Flux vide → repli non-streamé (plus sûr que rendre une réponse vide).
+    // Repli seulement sur un vrai flux vide : après une annulation, relancer un
+    // appel non-streamé referait exactement ce qu'on vient d'interrompre.
+    if (!gotAny && !cancelled) {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
@@ -156,7 +167,10 @@ class AiAgentService {
       ...otherParts,
     ];
     return AiApiResponse(
-        parts: parts, finishReason: finishReason, totalTokens: totalTokens);
+      parts: parts,
+      finishReason: cancelled ? 'CANCELLED' : finishReason,
+      totalTokens: totalTokens,
+    );
   }
 
   Future<AiApiResponse> _fallback(

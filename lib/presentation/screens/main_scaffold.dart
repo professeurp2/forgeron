@@ -5,6 +5,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/camera_provider.dart';
 import '../../domain/models/machine_state.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../tutorial/tutorial_overlay.dart';
@@ -18,6 +19,7 @@ import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'ai_assistant_screen.dart';
 import 'ai_agent_settings_screen.dart';
+import 'app_settings_screen.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import 'connection_settings_screen.dart';
 import 'mobile_dashboard_screen.dart';
@@ -25,14 +27,19 @@ import 'mobile_screens.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../widgets/forgeron_wordmark.dart';
 import '../widgets/safety_banner.dart';
+import '../widgets/mobile/mobile_workshop_screen.dart';
+import '../widgets/dashboard/workshop_layout.dart';
 import '../widgets/nav/cube_page_view.dart';
 import '../widgets/nav/forge_bottom_nav.dart';
 import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/stream_progress_provider.dart';
+import '../../application/providers/activity_log_provider.dart';
+import '../../application/providers/critical_event_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 
 import '../../application/services/audio_service.dart';
-import '../../application/providers/di_providers.dart';
+import '../../core/i18n/app_localizations.dart';
 
 final selectedNavIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -76,6 +83,11 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   void initState() {
     super.initState();
     _pageController.addListener(_onPageScroll);
+    // Démarre le journal d'activité dès l'ouverture (pour que l'IA connaisse
+    // toutes les actions opérateur, même celles faites avant d'ouvrir l'IA).
+    ref.read(activityLogProvider);
+    // Démarre le veilleur d'évènements critiques (alarme, E-STOP, surchauffe).
+    ref.read(criticalEventWatcherProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Le mobile a son propre parcours : les étapes desktop visent une barre
       // latérale et un pied de page qui n'existent pas ici. Même critère que
@@ -85,7 +97,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       
       // 1. Charge la dernière adresse IP connue
       await loadNetworkPreferences(ref);
-      
+      await loadCameraPreferences(ref);
+
       // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
       ref.read(discoveryProvider.notifier).scan(autoConnect: true);
     });
@@ -135,6 +148,21 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   }
 
   Widget _buildDesktopScaffold(AsyncValue<MachineState> machineState, int selectedIndex, bool isExpanded) {
+    // ── Mode atelier : pupitre plein écran, sans barre latérale ni en-tête ──
+    // Le drapeau n'était lu que par le tableau de bord : depuis n'importe
+    // quelle autre page, le réglage se refermait sans rien changer, et quand
+    // il prenait enfin effet le pupitre restait enfermé dans le chrome de
+    // navigation — alors qu'il est annoncé « plein écran ».
+    if (ref.watch(isWorkshopModeProvider)) {
+      return Scaffold(
+        backgroundColor: context.fc.background,
+        body: Column(children: const [
+          SafetyBanner(),
+          Expanded(child: WorkshopLayout()),
+        ]),
+      );
+    }
+
     return Scaffold(
       backgroundColor: context.fc.background,
       bottomNavigationBar: _StatusFooter(
@@ -160,6 +188,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               );
             },
           ),
+          // Progression d'exécution — visible sur toutes les pages, comme sur
+          // mobile. Le desktop ne l'avait nulle part : hors du tableau de
+          // bord, rien ne disait où en était le programme.
+          const _GlobalProgressBar(),
           Expanded(
             child: Row(
               children: [
@@ -204,6 +236,12 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   ];
 
   Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
+    // ── Mode atelier : pupitre plein écran, sans barre de navigation ───────
+    // Le drapeau est levé depuis Paramètres → Mode atelier. Seul le tableau de
+    // bord *desktop* le lisait : sur mobile, le réglage se refermait sans rien
+    // changer. Le pupitre remplace tout le chrome — il porte sa propre sortie.
+    if (ref.watch(isWorkshopModeProvider)) return const MobileWorkshopScreen();
+
     final fc = context.fc;
     final aiInbox = ref.watch(aiInboxProvider);
     final state = machineState.valueOrNull;
@@ -266,28 +304,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
-          // Bascule de thème clair / sombre.
+          // Paramètres de l'app (remplace l'ancienne bascule de thème, qui a
+          // déménagé dans Paramètres → Apparence).
           IconButton(
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: Icon(
-                ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-                key: ValueKey(ref.watch(themeModeProvider)),
-                color: fc.primary,
-                size: 20,
-              ),
-            ),
-            tooltip: 'Changer le thème (clair / sombre)',
+            icon: Icon(Icons.settings_rounded, color: fc.primary, size: 20),
+            tooltip: tr('Paramètres'),
             onPressed: () {
-              final notifier = ref.read(themeModeProvider.notifier);
-              notifier.state = notifier.state == ThemeMode.dark
-                  ? ThemeMode.light
-                  : ThemeMode.dark;
               HapticFeedback.lightImpact();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AppSettingsScreen()),
+              );
             },
           ),
           IconButton(
@@ -296,7 +322,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               color: isOnline ? fc.success : fc.textDisabled,
               size: 20,
             ),
-            tooltip: 'Connexion ESP32',
+            tooltip: tr('Connexion ESP32'),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()),
             ),
@@ -311,7 +337,11 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       floatingActionButton: _EstopFab(
         key: TutorialKeys.mobileEstop,
         onPressed: () {
-          ref.read(machineRepositoryProvider).emergencyStop();
+          // Même chemin que l'E-STOP desktop : le contrôleur purge le flux ET
+          // vérifie que le Ctrl-X est réellement parti. Sans lui, liaison
+          // coupée = arrêt jamais transmis, et l'opérateur croyait la machine
+          // arrêtée : le bandeau d'alerte ne se levait pas sur mobile.
+          ref.read(streamingProvider.notifier).stopStream();
           HapticFeedback.heavyImpact();
         },
       ),
@@ -322,6 +352,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           Column(
             children: [
               const SafetyBanner(),
+              // Progression d'exécution — globale, visible sur toutes les pages.
+              const _GlobalProgressBar(),
               Expanded(
                 child: CubePageView(
                   controller: _pageController,
@@ -439,7 +471,7 @@ class _EstopFabState extends State<_EstopFab>
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const CircleBorder(),
-        tooltip: 'Arrêt d\'urgence',
+        tooltip: tr('Arrêt d\'urgence'),
         child: const Icon(Icons.warning_amber_rounded, size: 26),
       ),
     );
@@ -492,7 +524,7 @@ class _AiAssistantPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AGENT IA',
+                  Text(tr('AGENT IA'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textPrimary,
@@ -500,7 +532,7 @@ class _AiAssistantPage extends ConsumerWidget {
                           letterSpacing: 1.0,
                           fontSize: 15,
                           height: 1.1)),
-                  Text('Assistant CNC · Gemini',
+                  Text(tr('Assistant CNC · Gemini'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textDisabled,
@@ -524,16 +556,48 @@ class _AiAssistantPage extends ConsumerWidget {
           }),
           IconButton(
             icon: Icon(Icons.settings_outlined, color: fc.textSecondary, size: 20),
-            tooltip: 'Paramètres de l\'agent',
+            tooltip: tr('Paramètres de l\'agent'),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AiAgentSettingsScreen()),
             ),
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, color: fc.textSecondary, size: 20),
-            tooltip: 'Effacer la conversation',
-            onPressed: () =>
-                ref.read(aiAgentControllerProvider.notifier).clearConversation(),
+            tooltip: tr('Effacer la discussion'),
+            // Confirmation obligatoire : l'historique est irrécupérable, et le
+            // bouton est juste à côté de « paramètres ».
+            onPressed: () async {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: fc.surface,
+                  title: Text(tr('Effacer cette discussion ?'),
+                      style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+                  content: Text(
+                    tr('Tous les messages de la discussion ouverte seront supprimés. Les autres discussions ne sont pas touchées.'),
+                    style: TextStyle(
+                        color: fc.textSecondary, fontSize: 13, height: 1.4),
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(tr('Annuler'))),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: fc.danger,
+                          foregroundColor: Colors.white),
+                      child: Text(tr('Effacer')),
+                    ),
+                  ],
+                ),
+              );
+              if (ok == true) {
+                ref
+                    .read(aiAgentControllerProvider.notifier)
+                    .clearConversation();
+              }
+            },
           ),
           const SizedBox(width: 4),
         ],
@@ -543,6 +607,67 @@ class _AiAssistantPage extends ConsumerWidget {
         ),
       ),
       body: const SafeArea(child: AiAssistantScreen(embedded: true)),
+    );
+  }
+}
+
+/// Barre de progression d'exécution globale : slim, affichée sur toutes les
+/// pages tant qu'un programme G-code tourne (fini de changer d'onglet pour
+/// suivre l'avancement).
+class _GlobalProgressBar extends ConsumerWidget {
+  const _GlobalProgressBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(streamProgressProvider);
+    if (!p.active) return const SizedBox.shrink();
+    final fc = context.fc;
+    final eta = p.eta;
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.primary.withValues(alpha: 0.10),
+        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 5),
+            child: Row(
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 15, color: fc.primary),
+                const SizedBox(width: 6),
+                Text('${p.percent}%',
+                    style: TextStyle(
+                        color: fc.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12)),
+                const SizedBox(width: 12),
+                Text(tr('Ligne {}/{}', [p.currentLine, p.totalLines]),
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11)),
+                const Spacer(),
+                Icon(Icons.timer_outlined, size: 11, color: fc.textDisabled),
+                const SizedBox(width: 4),
+                Text(
+                  eta != null
+                      ? '${formatDuration(p.elapsed)} · -${formatDuration(eta)}'
+                      : formatDuration(p.elapsed),
+                  style: TextStyle(
+                      color: fc.textSecondary,
+                      fontSize: 11,
+                      fontFamily: 'JetBrains Mono'),
+                ),
+              ],
+            ),
+          ),
+          LinearProgressIndicator(
+            value: p.fraction,
+            minHeight: 3,
+            backgroundColor: fc.surfaceBorder,
+            color: fc.primary,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -903,23 +1028,20 @@ class _HeaderBar extends ConsumerWidget {
                 turns: Tween<double>(begin: 0.75, end: 1.0).animate(anim),
                 child: ScaleTransition(scale: anim, child: child),
               ),
+              // L'icône montre le mode COURANT, pas la cible : avec trois
+              // états, afficher « ce vers quoi on va » devient illisible.
               child: Icon(
-                ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
+                themeModeIcon(ref.watch(themeModeProvider)),
                 key: ValueKey(ref.watch(themeModeProvider)),
-                color: ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? context.fc.primary
-                    : context.fc.textSecondary,
+                color: ref.watch(themeModeProvider) == ThemeMode.system
+                    ? context.fc.textSecondary
+                    : context.fc.primary,
                 size: 20,
               ),
             ),
-            tooltip: 'Changer le thème',
+            tooltip: tr('Thème : {}', [themeModeLabel(ref.watch(themeModeProvider))]),
             onPressed: () {
-              final notifier = ref.read(themeModeProvider.notifier);
-              notifier.state = notifier.state == ThemeMode.dark
-                  ? ThemeMode.light
-                  : ThemeMode.dark;
+              ref.read(themeModeProvider.notifier).cycle();
               ref.read(audioServiceProvider).play(SoundEffect.click);
               HapticFeedback.lightImpact();
             },
@@ -927,14 +1049,26 @@ class _HeaderBar extends ConsumerWidget {
           IconButton(
             icon: Icon(Icons.help_outline,
                 color: context.fc.textSecondary, size: 20),
-            tooltip: 'Tutoriel interactif',
+            tooltip: tr('Tutoriel interactif'),
             onPressed: () => ref.read(tutorialProvider.notifier).start(),
+          ),
+          // Paramètres de l'application. Sans cette entrée, l'assistant de
+          // mise en route, la calibration machine, le test des fins de course
+          // et leur configuration n'étaient joignables QUE depuis le mobile :
+          // l'écran d'où l'on règle la machine était inaccessible au poste.
+          IconButton(
+            icon: Icon(Icons.settings_rounded,
+                color: context.fc.textSecondary, size: 20),
+            tooltip: tr('Paramètres'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AppSettingsScreen()),
+            ),
           ),
           IconButton(
             key: TutorialKeys.settingsBtn,
             icon: Icon(Icons.settings_ethernet,
                 color: context.fc.textSecondary, size: 20),
-            tooltip: 'Configuration de la connexion ESP32',
+            tooltip: tr('Configuration de la connexion ESP32'),
             onPressed: onSettingsPressed,
           ),
           SizedBox(width: 8),
@@ -956,7 +1090,7 @@ class _HeaderBar extends ConsumerWidget {
               ),
               onPressed: onEmergencyStop,
               icon: const Icon(Icons.warning_amber, size: 18),
-              label: const Text('ARRÊT D\'URGENCE',
+              label: Text(tr('ARRÊT D\'URGENCE'),
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0,
@@ -1104,13 +1238,13 @@ class _Sidebar extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('CNC_TRUNNION_5X',
+                            Text(tr('CNC_TRUNNION_5X'),
                                 style: TextStyle(
                                     color: context.fc.primary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900)),
                             const SizedBox(height: 2),
-                            Text('AXES: X Y Z A C',
+                            Text(tr('AXES: X Y Z A C'),
                                 style: TextStyle(
                                     color: context.fc.success,
                                     fontSize: 8,
@@ -1159,12 +1293,12 @@ class _Sidebar extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('OPÉRATEUR L01',
+                        Text(tr('OPÉRATEUR L01'),
                             style: TextStyle(
                                 color: context.fc.textPrimary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10)),
-                        Text('NIV_AUTH: ADMIN',
+                        Text(tr('NIV_AUTH: ADMIN'),
                             style: TextStyle(
                                 color: context.fc.primary,
                                 fontSize: 8,
@@ -1271,7 +1405,7 @@ class _StatusFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text('FORGERON v1.0.0',
+          Text(tr('FORGERON v1.0.0'),
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 10,

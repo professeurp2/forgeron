@@ -10,7 +10,11 @@ final machineRepositoryProvider = Provider<MachineRepository>((ref) {
   final isSim = ref.watch(isSimulationModeProvider);
 
   if (isSim) {
-    return MockMachineRepository();
+    // Le mock arme un timer périodique de 50 ms dès sa construction : sans
+    // onDispose, chaque bascule du mode simulation en laissait un tourner.
+    final mock = MockMachineRepository();
+    ref.onDispose(mock.dispose);
+    return mock;
   }
 
   final ip = ref.watch(espIpProvider);

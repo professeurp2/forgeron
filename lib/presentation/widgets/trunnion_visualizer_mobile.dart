@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Android / iOS** (`webview_flutter`).
 ///
@@ -149,7 +150,7 @@ class _MobileTrunnionVisualizerState
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            'Simulateur 3D indisponible\n$_error',
+            tr('Simulateur 3D indisponible\n{}', [_error]),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11),
           ),
@@ -157,7 +158,7 @@ class _MobileTrunnionVisualizerState
       );
     }
 
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+    final isDark = isDarkTheme(context, ref.watch(themeModeProvider));
     if (_isReady) {
       _post({
         'type': 'set_theme',

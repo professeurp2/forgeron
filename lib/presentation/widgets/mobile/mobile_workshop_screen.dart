@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/ui_state_provider.dart';
-import '../../../application/providers/jog_provider.dart';
 import '../../../application/providers/di_providers.dart';
 import '../../../domain/models/machine_state.dart';
 import '../../../application/providers/streaming_provider.dart';
 import '../dashboard/jog_control_panel.dart';
+import '../safety_banner.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 class MobileWorkshopScreen extends ConsumerWidget {
   const MobileWorkshopScreen({super.key});
@@ -24,6 +25,11 @@ class MobileWorkshopScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            // Alarme, flux suspendu, arrêt d'urgence non transmis : le pupitre
+            // masque le reste de l'application, il doit donc porter lui-même
+            // les alertes de sécurité.
+            const SafetyBanner(),
+
             // ── Header d'Urgence / Sortie ──────────────────────────────────
             Container(
               height: 50,
@@ -33,7 +39,7 @@ class MobileWorkshopScreen extends ConsumerWidget {
                 children: [
                   const Icon(Icons.factory_rounded, color: Colors.amber, size: 20),
                   const SizedBox(width: 12),
-                  const Text('MODE ATELIER', 
+                  Text(tr('MODE ATELIER'), 
                     style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 12)),
                   const Spacer(),
                   IconButton(
@@ -74,7 +80,7 @@ class MobileWorkshopScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _WorkshopBigButton(
-                      label: 'JOG',
+                      label: tr('JOG'),
                       icon: Icons.open_with_rounded,
                       color: fc.primary,
                       onTap: () => _showJogModal(context, wPos),
@@ -92,10 +98,15 @@ class MobileWorkshopScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _WorkshopBigButton(
-                      label: 'STOP',
+                      label: tr('STOP'),
                       icon: Icons.stop_rounded,
                       color: fc.danger,
-                      onTap: () => ref.read(machineRepositoryProvider).reset(),
+                      // reset() envoyait bien le Ctrl-X mais laissait la file
+                      // d'envoi pleine : les lignes suivantes repartaient vers
+                      // une carte qui venait de redémarrer. Le contrôleur, lui,
+                      // purge le flux et alerte si l'arrêt n'est pas passé.
+                      onTap: () =>
+                          ref.read(streamingProvider.notifier).stopStream(),
                     ),
                   ),
                 ],
@@ -134,7 +145,7 @@ class MobileWorkshopScreen extends ConsumerWidget {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            Text('CONTROLE JOG', style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.w900)),
+            Text(tr('CONTROLE JOG'), style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.w900)),
             const SizedBox(height: 20),
             Expanded(child: SingleChildScrollView(child: JogControlPanel(wPos: wPos))),
           ],
@@ -164,15 +175,25 @@ class _GiantAxisRow extends StatelessWidget {
       child: Row(
         children: [
           Text(axis, style: TextStyle(color: color, fontSize: small ? 24 : 32, fontWeight: FontWeight.w900)),
-          const Spacer(),
-          Text(
-            value.toStringAsFixed(small ? 2 : 3),
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: small ? 32 : 52,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'JetBrains Mono',
-              shadows: [Shadow(color: color.withValues(alpha: 0.5), blurRadius: 15)],
+          const SizedBox(width: 12),
+          // A et C partagent la largeur de l'écran : sur un téléphone de
+          // 360 dp, « -123.45 » en corps 32 débordait de sa carte. On garde le
+          // chiffre le plus gros possible en le laissant rétrécir au besoin.
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value.toStringAsFixed(small ? 2 : 3),
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: small ? 32 : 52,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JetBrains Mono',
+                  shadows: [Shadow(color: color.withValues(alpha: 0.5), blurRadius: 15)],
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),

@@ -55,7 +55,8 @@ class TrunnionConfig with _$TrunnionConfig {
 
     // ── Géométrie ──────────────────────────────────────────────────────
     /// Distance Z entre le centre de rotation A et la surface du plateau (mm).
-    @Default(45.0) double pivotToTableOffset,
+    /// Mesuré sur la machine réelle (2026-08-05) : 8 mm.
+    @Default(8.0) double pivotToTableOffset,
 
     /// Zone de singularité autour de A = 0° (degrés).
     @Default(5.0) double singularityZone,

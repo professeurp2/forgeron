@@ -143,7 +143,7 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = isDarkTheme(context, themeMode);
     if (_isReady) {
       _sendTheme(isDark);
     }

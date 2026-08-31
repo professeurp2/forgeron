@@ -177,7 +177,7 @@ class _WindowsTrunnionVisualizerState extends ConsumerState<WindowsTrunnionVisua
     }
 
     final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = isDarkTheme(context, themeMode);
     if (_isReady) {
       _sendTheme(isDark);
     }

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/forgeron_colors.dart';
 import 'tutorial_step.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class TutorialTooltipCard extends StatelessWidget {
   final TutorialStep step;
@@ -162,7 +163,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      'ÉTAPE ${currentIndex + 1} / $totalSteps',
+                                      tr('ÉTAPE {} / {}', [currentIndex + 1, totalSteps]),
                                       style: TextStyle(
                                         color: step.accentColor,
                                         fontSize: 9,
@@ -174,7 +175,7 @@ class TutorialTooltipCard extends StatelessWidget {
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    step.title,
+                                    tr(step.title),
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
@@ -191,7 +192,7 @@ class TutorialTooltipCard extends StatelessWidget {
 
                         // Description
                         Text(
-                          step.description,
+                          tr(step.description),
                           style: TextStyle(
                             color: Color(0xFFB4BACD),
                             fontSize: 12,
@@ -224,7 +225,7 @@ class TutorialTooltipCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                               child: Center(
                                 child: Text(
-                                  step.action!,
+                                  tr(step.action!),
                                   style: TextStyle(
                                     color: step.accentColor,
                                     fontSize: 11,
