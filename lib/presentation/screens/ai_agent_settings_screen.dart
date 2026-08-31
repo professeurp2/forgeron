@@ -5,7 +5,6 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
-import '../../core/i18n/app_language.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de configuration de l'agent IA : activation, clé API Gemini
@@ -69,7 +68,6 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
     final notifier = ref.read(aiAgentSettingsProvider.notifier);
     final modelState = ref.watch(aiModelProvider);
     final modelNotifier = ref.read(aiModelProvider.notifier);
-    final language = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: fc.background,
@@ -306,85 +304,6 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  GlassPanel(
-                    title: tr('LANGUE'),
-                    borderColor: fc.surfaceBorder,
-                    backgroundColor: fc.surface,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('Langue de l\'interface ET des réponses de l\'agent, dictée et lecture vocale comprises. En automatique, l\'interface suit le système et l\'agent répond dans la langue du message reçu. Le G-code, les noms d\'axes et les codes d\'alarme ne sont jamais traduits.'),
-                          style: TextStyle(color: fc.textSecondary, fontSize: 11),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: language.id,
-                          isExpanded: true,
-                          dropdownColor: fc.surface,
-                          style: TextStyle(color: fc.textPrimary, fontSize: 13),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: fc.background.withValues(alpha: 0.4),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: fc.surfaceBorder),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: fc.primary, width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                          ),
-                          items: [
-                            for (final l in kAppLanguages)
-                              DropdownMenuItem(
-                                value: l.id,
-                                // Les noms de langues restent dans leur
-                                // propre langue ; seul « Automatique » se
-                                // traduit.
-                                child: Text(
-                                    l.isAuto ? tr(l.label) : l.label,
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                          ],
-                          onChanged: (id) {
-                            if (id == null) return;
-                            ref
-                                .read(appLanguageProvider.notifier)
-                                .select(appLanguageById(id));
-                          },
-                        ),
-                        if (language.lowResource) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: fc.warning.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: fc.warning.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.translate, color: fc.warning, size: 16),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    tr('Langue peu dotée : contrôle la qualité des réponses avant de t\'y fier en atelier, et préfère Gemini Flash à Flash Lite. La dictée et la voix peuvent être absentes de l\'appareil — le chat écrit, lui, fonctionne toujours.'),
-                                    style: TextStyle(
-                                        color: fc.warning, fontSize: 11),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),

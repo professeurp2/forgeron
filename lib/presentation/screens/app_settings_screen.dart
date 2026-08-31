@@ -12,6 +12,7 @@ import 'limit_config_screen.dart';
 import 'connection_settings_screen.dart';
 import 'ai_agent_settings_screen.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Écran Paramètres — centralise tous les réglages de l'app, jusqu'ici
 /// éparpillés : apparence, calibration machine, connexion ESP32, agent IA.
@@ -22,6 +23,7 @@ class AppSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final mode = ref.watch(themeModeProvider);
+    final language = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: fc.background,
@@ -125,6 +127,104 @@ class AppSettingsScreen extends ConsumerWidget {
                 ],
               ),
             ]),
+          ),
+          const SizedBox(height: 12),
+          // La langue vit ici, à côté du thème : c'est le premier endroit où
+          // on la cherche. Enfouie dans les réglages de l'agent IA, elle
+          // était introuvable — rien ne laissait deviner qu'elle pilotait
+          // aussi toute l'interface.
+          _card(
+            fc,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.translate_rounded, color: fc.secondary, size: 22),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(tr('Langue'),
+                            style: TextStyle(
+                                color: fc.textPrimary,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(tr('Interface, agent IA, dictée et voix'),
+                            style: TextStyle(
+                                color: fc.textSecondary, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: language.id,
+                  isExpanded: true,
+                  dropdownColor: fc.surface,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: fc.background.withValues(alpha: 0.4),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: fc.surfaceBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: fc.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                  items: [
+                    for (final l in kAppLanguages)
+                      DropdownMenuItem(
+                        value: l.id,
+                        child:
+                            Text(l.label, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (id) {
+                    if (id == null) return;
+                    ref
+                        .read(appLanguageProvider.notifier)
+                        .select(appLanguageById(id));
+                    HapticFeedback.lightImpact();
+                  },
+                ),
+                if (language.lowResource) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: fc.warning.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: fc.warning.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.translate, color: fc.warning, size: 16),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            tr('Langue peu dotée : contrôle la qualité des '
+                                'réponses avant de t\'y fier en atelier, et '
+                                'préfère Gemini Flash à Flash Lite. La dictée '
+                                'et la voix peuvent être absentes de '
+                                'l\'appareil — le chat écrit, lui, fonctionne '
+                                'toujours.'),
+                            style:
+                                TextStyle(color: fc.warning, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           _sectionLabel(fc, 'MACHINE'),
