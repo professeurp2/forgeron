@@ -212,7 +212,19 @@ class _CenterZone extends ConsumerWidget {
                   if (isCamera)
                     const CameraView()
                   else
-                    TrunnionVisualizer(mPos: mPos),
+                    // Le desktop ne passait que mPos : `toolpath` restant nul,
+                    // le visualiseur sortait de _sendToolpath() sans rien
+                    // tracer et l'écran n'a jamais montré le parcours, alors
+                    // que mobile / palpage / panneau CNC l'alimentent tous.
+                    TrunnionVisualizer(
+                      mPos: mPos,
+                      targetPos: state?.targetPos,
+                      toolpath: ref.watch(renderToolpathProvider),
+                      activeIndex: gcodeState
+                          .resolveToolpathIndex(state?.activeLineIndex ?? 0),
+                      showVectors: ref.watch(showVectorsProvider),
+                      machineLimits: ref.watch(machineTravelProvider),
+                    ),
                   // Sélecteur CAM / 3D quand une caméra est configurée ;
                   // sinon le simple libellé de la vue.
                   // Nom de la vue. Masqué en caméra : l'image porte déjà ses
@@ -906,13 +918,28 @@ class FullScreenVisualizer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mPos = ref.watch(renderMPosProvider);
+    final state = ref.watch(machineStateProvider).valueOrNull;
+    final gcodeState = ref.watch(gcodeProvider);
     final isCamera =
         ref.watch(effectiveVisualizerModeProvider) == VisualizerMode.camera;
     return Stack(
       children: [
         // Le plein écran suit le mode choisi dans le panneau : passer en
         // caméra puis agrandir ne doit pas ramener le simulateur.
-        if (isCamera) const CameraView() else TrunnionVisualizer(mPos: mPos),
+        if (isCamera)
+          const CameraView()
+        else
+          // Même oubli qu'en vue panneau : sans `toolpath`, agrandir le
+          // simulateur donnait une machine seule, sans son parcours.
+          TrunnionVisualizer(
+            mPos: mPos,
+            targetPos: state?.targetPos,
+            toolpath: ref.watch(renderToolpathProvider),
+            activeIndex:
+                gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
+            showVectors: ref.watch(showVectorsProvider),
+            machineLimits: ref.watch(machineTravelProvider),
+          ),
         Positioned(
           top: 16,
           right: 16,

@@ -20,7 +20,9 @@ class TrunnionVisualizer extends StatelessWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
-  final List<double> machineLimits;
+  /// Courses X/Y/Z reelles (mm). `null` = inconnues : le viewer ne dessine
+  /// alors aucune enveloppe, plutot qu'une boite inventee.
+  final List<double>? machineLimits;
 
   const TrunnionVisualizer({
     super.key,
@@ -29,7 +31,7 @@ class TrunnionVisualizer extends StatelessWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
-    this.machineLimits = const [200.0, 300.0, 150.0],
+    this.machineLimits,
   });
 
   @override

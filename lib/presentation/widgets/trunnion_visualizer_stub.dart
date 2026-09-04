@@ -8,6 +8,11 @@ class TrunnionVisualizer extends StatelessWidget {
   final int activeIndex;
   final bool showVectors;
 
+  /// Presente pour aligner la signature sur les implementations reelles :
+  /// l'export conditionnel resout vers ce stub a l'analyse, et un
+  /// parametre manquant ici casse la compilation chez tous les appelants.
+  final List<double>? machineLimits;
+
   const TrunnionVisualizer({
     super.key,
     required this.mPos,
@@ -15,6 +20,7 @@ class TrunnionVisualizer extends StatelessWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
+    this.machineLimits,
   });
 
   @override

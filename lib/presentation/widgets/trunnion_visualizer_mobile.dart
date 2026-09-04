@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../core/theme/forgeron_colors.dart';
+import 'viewer_theme_payload.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Android / iOS** (`webview_flutter`).
@@ -20,7 +22,8 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
-  final List<double> machineLimits;
+  /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
+  final List<double>? machineLimits;
 
   const MobileTrunnionVisualizer({
     super.key,
@@ -29,7 +32,7 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
-    this.machineLimits = const [200.0, 300.0, 150.0],
+    this.machineLimits,
   });
 
   @override
@@ -134,14 +137,13 @@ class _MobileTrunnionVisualizerState
   void _toggleVectors() =>
       _post({'type': 'toggle_vectors', 'payload': widget.showVectors});
 
-  void _sendLimits() => _post({
-        'type': 'set_limits',
-        'payload': {
-          'x': widget.machineLimits[0],
-          'y': widget.machineLimits[1],
-          'z': widget.machineLimits[2],
-        },
-      });
+  void _sendLimits() {
+    final l = widget.machineLimits;
+    _post({
+      'type': 'set_limits',
+      'payload': l == null ? null : {'x': l[0], 'y': l[1], 'z': l[2]},
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +164,7 @@ class _MobileTrunnionVisualizerState
     if (_isReady) {
       _post({
         'type': 'set_theme',
-        'payload': {'isDark': isDark},
+        'payload': viewerThemePayload(context.fc, isDark),
       });
     }
 

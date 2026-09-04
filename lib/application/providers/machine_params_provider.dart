@@ -209,3 +209,27 @@ final axisKinematicsProvider = Provider<AsyncValue<List<AxisKinematics>>>((ref) 
   final cfg = ref.watch(configResultProvider);
   return cfg.whenData((res) => parseAxisKinematics(res.yaml));
 });
+
+/// Courses X / Y / Z réelles (mm), pour l'enveloppe dessinée par le
+/// visualiseur 3D. `null` tant que la config n'est pas lue.
+///
+/// Le visualiseur portait un défaut inventé `[200, 300, 150]` qu'aucun écran ne
+/// remplaçait jamais : il dessinait donc une enveloppe qui n'était celle
+/// d'aucune machine. Mieux vaut ne rien tracer que tracer faux — un opérateur
+/// qui voit une boîte la croit juste.
+final machineTravelProvider = Provider<List<double>?>((ref) {
+  final axes = ref.watch(axisKinematicsProvider).valueOrNull;
+  if (axes == null) return null;
+
+  double? travelOf(String axis) {
+    for (final a in axes) {
+      if (a.axis == axis) return a.maxTravel;
+    }
+    return null;
+  }
+
+  final x = travelOf('X'), y = travelOf('Y'), z = travelOf('Z');
+  if (x == null || y == null || z == null) return null;
+  if (x <= 0 || y <= 0 || z <= 0) return null;
+  return [x, y, z];
+});

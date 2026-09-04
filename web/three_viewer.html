@@ -102,7 +102,23 @@
 
         // --- SCENE & MATERIALS ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color('#050505');
+
+        // Etat du theme. Declare ici, avant createMesh() et la construction de
+        // la machine : ces valeurs sont lues pendant le montage de la scene, et
+        // un `const` declare plus bas leverait un ReferenceError (zone morte).
+        // Ce sont les valeurs de repli, remplacees des que Dart poste sa
+        // palette via 'set_theme'.
+        const theme = {
+            background: '#050505', surface: '#1b1e24', surfaceBright: '#d9dde1',
+            surfaceBorder: '#8b939c', edge: '#000000', primary: '#ff6b35',
+            success: '#3fb950', error: '#f85149', info: '#0080ff',
+            textSecondary: '#9aa3ab',
+        };
+        const edgeMaterials = [];
+        const cG0 = new THREE.Color(theme.error); // rapide (G0)
+        const cG1 = new THREE.Color(theme.success); // travail (G1)
+
+        scene.background = new THREE.Color(theme.background);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
         camera.position.set(250, -350, 300); camera.up.set(0, 0, 1);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -110,7 +126,7 @@
         document.body.appendChild(renderer.domElement);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true; controls.target.set(0, 0, 50);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambient);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(100, -100, 200); scene.add(dirLight);
 
         const matPlate = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.55, roughness: 0.5 });
@@ -126,7 +142,11 @@
         function createMesh(geo, mat) {
             const m = new THREE.Mesh(geo, mat);
             const e = new THREE.EdgesGeometry(geo);
-            m.add(new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })));
+            // Materiau d'aretes garde en reference : applyTheme() le reteinte,
+            // sinon les aretes restent noires et disparaissent en theme sombre.
+            const em = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+            edgeMaterials.push(em);
+            m.add(new THREE.LineSegments(e, em));
             return m;
         }
 
@@ -216,7 +236,10 @@
         let vectorLines = null;
         let showVectors = false;
 
+        let lastToolpath = null;
+
         function loadToolpath(pointsArray) {
+            lastToolpath = pointsArray;
             let flat = pointsArray;
             if (Array.isArray(pointsArray) && Array.isArray(pointsArray[0])) {
                 flat = new Float32Array(pointsArray.length * 6);
@@ -231,8 +254,8 @@
             const positions = new Float32Array(n * 3);
             const colors = new Float32Array(n * 3);
             const vecPos = [], vecCol = [];
-            const cG0 = new THREE.Color('#f85149'); // rapide (G0)
-            const cG1 = new THREE.Color('#3fb950'); // travail (G1)
+            // cG0 / cG1 sont definis au niveau du module et reteintes par
+            // applyTheme() : le parcours suit desormais la palette de l'app.
 
             for (let i = 0; i < n; i++) {
                 const k = i * 6;
@@ -267,6 +290,53 @@
             }
         }
 
+        // --- ENVELOPPE DE COURSE ------------------------------------------
+        // 'set_limits' etait envoye par Dart depuis toujours mais AUCUN
+        // handler ne le traitait : le message partait dans le vide. Et cote
+        // Dart la valeur etait un defaut invente ([200,300,150]) qu'aucun
+        // ecran ne remplacait. On dessine donc la vraie enveloppe, et
+        // uniquement quand les courses sont connues : `null` => rien, plutot
+        // qu'une boite fausse.
+        let limitsBox = null;
+
+        function setLimits(p) {
+            if (limitsBox) { scene.remove(limitsBox); limitsBox = null; }
+            if (!p || !p.x || !p.y || !p.z) return;
+            const g = new THREE.BoxGeometry(p.x, p.y, p.z);
+            const e = new THREE.EdgesGeometry(g);
+            limitsBox = new THREE.LineSegments(e, new THREE.LineBasicMaterial({
+                color: new THREE.Color(theme.surfaceBorder),
+                transparent: true, opacity: 0.45,
+            }));
+            // Repere : le modele de la machine est centre sur l'origine en X
+            // et Y (l'axe du plateau), et le parcours est trace aux
+            // coordonnees pieces telles quelles. L'enveloppe est donc centree
+            // en X/Y, et descend depuis Z=0 : sur cette machine le zero
+            // machine est en haut et la course utile va de 0 a -Lz.
+            limitsBox.position.set(0, 0, -p.z / 2);
+            scene.add(limitsBox);
+        }
+
+        // --- THEME ---------------------------------------------------------
+        function applyTheme(p) {
+            Object.assign(theme, p);
+            scene.background = new THREE.Color(theme.background);
+            matPlate.color.set(theme.surface);
+            matWorkpiece.color.set(theme.surfaceBright);
+            matTool.color.set(theme.primary);
+            for (const m of edgeMaterials) m.color.set(theme.edge);
+            cG0.set(theme.error);
+            cG1.set(theme.success);
+            if (limitsBox) limitsBox.material.color.set(theme.surfaceBorder);
+            // Une scene claire a besoin de moins de relance lumineuse qu'une
+            // scene sombre, sinon les pieces metalliques y sont delavees.
+            ambient.intensity = p.isDark ? 0.6 : 0.85;
+            dirLight.intensity = p.isDark ? 0.8 : 0.65;
+            // Le parcours porte ses couleurs par sommet : il faut le reconstruire
+            // pour que le changement de theme s'y applique.
+            if (lastToolpath) loadToolpath(lastToolpath);
+        }
+
         window.handleMessage = (data) => {
             if (data.type === 'update_machine') updateMachineStatus(data.payload);
             else if (data.type === 'load_toolpath') loadToolpath(data.payload);
@@ -274,7 +344,8 @@
                 showVectors = data.payload;
                 if (vectorLines) vectorLines.visible = showVectors;
             }
-            else if (data.type === 'set_theme') scene.background = new THREE.Color(data.payload.isDark ? '#050505' : '#f0f0f0');
+            else if (data.type === 'set_limits') setLimits(data.payload);
+            else if (data.type === 'set_theme') applyTheme(data.payload);
         };
 
         window.addEventListener('message', (e) => handleMessage(e.data));

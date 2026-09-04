@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../application/providers/machine_params_provider.dart';
 import '../../../application/providers/camera_provider.dart';
 import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/gcode_provider.dart';
@@ -103,6 +104,7 @@ Widget buildTrunnionView(WidgetRef ref, bool showVectors) {
     toolpath: ref.watch(renderToolpathProvider),
     activeIndex: gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
     showVectors: showVectors,
+    machineLimits: ref.watch(machineTravelProvider),
   );
 }
 
