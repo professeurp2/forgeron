@@ -190,4 +190,44 @@ void main() {
       expect(r.warnings, isEmpty);
     });
   });
+
+  // Un commentaire n'est pas du G-code. Le lire comme tel a bloqué une
+  // machine : l'en-tête « (… - PAS DE M6) » d'un programme se voyait
+  // converti en pause de changement d'outil, FluidNC passait en Hold dès
+  // l'en-tête et le streaming restait sans acquittement.
+  group('GcodeAdapter — le texte des commentaires n\'est jamais interprété',
+      () {
+    test('un M6 cité entre parenthèses ne crée pas de pause', () {
+      final r = GcodeAdapter.adaptForFluidNC(
+          '(OUTIL UNIQUE : FRAISE BOULE D6.000 - PAS DE M6)\nG0 X10');
+      expect(r.gcode.contains('M0'), false);
+      expect(r.warnings, isEmpty);
+      expect(r.gcode.split('\n').first,
+          '(OUTIL UNIQUE : FRAISE BOULE D6.000 - PAS DE M6)');
+    });
+
+    test('un G28 cité entre parenthèses ne fait pas disparaître la ligne', () {
+      final r =
+          GcodeAdapter.adaptForFluidNC('(RETOUR G28 INTERDIT ICI)\nG0 X10');
+      expect(r.gcode.split('\n').length, 2);
+      expect(r.warnings, isEmpty);
+    });
+
+    test('un G43 H1 cité entre parenthèses reste intact', () {
+      final r = GcodeAdapter.adaptForFluidNC('(SANS G43 H1)\nG0 X10');
+      expect(r.gcode.split('\n').first, '(SANS G43 H1)');
+      expect(r.warnings, isEmpty);
+    });
+
+    test('un vrai M6 suivi d\'un commentaire garde le commentaire', () {
+      final r = GcodeAdapter.adaptForFluidNC('M3 S1000\nT1 M6 (FRAISE 6MM)');
+      expect(r.gcode.contains('M0 (CHANGEMENT OUTIL T1'), true);
+      expect(r.gcode.contains('(FRAISE 6MM)'), true);
+    });
+
+    test('un commentaire en fin de ligne de code est conservé en place', () {
+      final r = GcodeAdapter.adaptForFluidNC('G4 P3 (MONTEE EN REGIME)');
+      expect(r.gcode, 'G4 P3 (MONTEE EN REGIME)');
+    });
+  });
 }

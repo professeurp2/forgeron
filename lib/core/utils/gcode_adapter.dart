@@ -58,6 +58,14 @@ class GcodeAdapter {
   static final RegExp _toolLenComp = RegExp(r'G4[34](?![.\d])|G49(?![0-9])|H\d+');
   static final RegExp _toolChange = RegExp(r'M0?6(?![0-9])');
   static final RegExp _toolWord = RegExp(r'T\d+');
+  // Commentaire entre parenthèses. Il est mis de côté AVANT toute détection :
+  // son texte n'est pas du G-code, et le lire comme tel produit des faux
+  // positifs qui cassent le programme. Un en-tête aussi banal que
+  // « (OUTIL : FRAISE D6 - PAS DE M6) » déclenchait le traitement du
+  // changement d'outil et injectait une pause M0 : FluidNC passait en Hold
+  // dès l'en-tête, le streaming saturait son buffer et restait sans
+  // acquittement. Même piège avec G28, G41/G42 ou G43.4 cités en commentaire.
+  static final RegExp _parenComment = RegExp(r'\([^)]*\)');
   // Suivi de l'état broche pour encadrer les changements d'outil.
   // `M0?[34](?![0-9])` accepte M3/M03/M4/M04 mais pas M30 (fin de programme).
   static final RegExp _spindleOn = RegExp(r'M0?[34](?![0-9])');
@@ -90,7 +98,18 @@ class GcodeAdapter {
     for (final rawLine in raw.split('\n')) {
       final semi = rawLine.indexOf(';');
       var code = (semi >= 0 ? rawLine.substring(0, semi) : rawLine).trim();
-      final comment = semi >= 0 ? rawLine.substring(semi) : '';
+      final semiComment = semi >= 0 ? rawLine.substring(semi) : '';
+
+      // Parenthèses retirées du code avant analyse, puis remises telles quelles
+      // à la reconstruction (voir [_parenComment]).
+      final parens = <String>[];
+      code = code.replaceAllMapped(_parenComment, (m) {
+        parens.add(m.group(0)!);
+        return ' ';
+      }).replaceAll(RegExp(r'\s+'), ' ').trim();
+
+      final comment =
+          [...parens, if (semiComment.isNotEmpty) semiComment].join(' ');
 
       if (code == '%') continue;
       if (_programNumber.hasMatch(code)) {
