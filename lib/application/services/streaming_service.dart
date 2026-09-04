@@ -42,12 +42,47 @@ class GCodeStreamingService {
   void Function(String reason)? _onStall;
 
   // Watchdog pour la résilience réseau.
-  // 3 s : marge au-dessus du heartbeat de 2 s (la connexion réclame un statut
-  // '?' toutes les 2 s). Réarmé par [notifyActivity] dès que la machine donne
-  // signe de vie (mouvement en cours), donc un mouvement long — pendant lequel
-  // aucune nouvelle ligne n'est acquittée — ne déclenche PAS de faux blocage.
+  // Réarmé par [notifyActivity] dès que la machine donne signe de vie
+  // (mouvement en cours), donc un mouvement long — pendant lequel aucune
+  // nouvelle ligne n'est acquittée — ne déclenche PAS de faux blocage.
+  //
+  // 5 s et non 3 : le heartbeat réclame un statut toutes les 2 s, ce qui ne
+  // laissait qu'UNE seconde de marge. Sur l'AP de l'ESP32 un rapport en retard
+  // suffisait alors à déclarer un faux blocage, surtout juste après la
+  // connexion quand la liaison n'est pas encore régulière. Le rôle de sécurité
+  // est le même à 5 s : si la carte meurt, plus aucun statut n'arrive.
   Timer? _watchdogTimer;
-  static const Duration _watchdogTimeout = Duration(seconds: 3);
+  static const Duration _watchdogTimeout = Duration(seconds: 5);
+
+  /// Temporisations (`G4 P…`) des lignes envoyées et pas encore acquittées.
+  ///
+  /// Une temporisation est un silence LÉGITIME : la carte n'acquitte rien
+  /// pendant toute sa durée et, le planner étant vide, elle peut se déclarer
+  /// `Idle` — donc [notifyActivity] ne réarme rien. Un `G4 P3` durait
+  /// exactement le timeout du watchdog : le démarrage échouait une fois sur
+  /// deux, au hasard de l'arrivée du rapport d'état. Le watchdog doit donc
+  /// savoir ce qu'il vient d'envoyer et s'accorder ce délai en plus.
+  ///
+  /// Le cas n'a rien d'exotique : l'adaptateur injecte lui-même un `G4` de
+  /// montée en régime après chaque changement d'outil.
+  final Queue<int> _sentDwellMs = Queue<int>();
+  int _dwellMsInFlight = 0;
+
+  /// `G4 P<secondes>` (GRBL/FluidNC). `G4` est exigé devant : sans lui, le
+  /// `S1000` d'un `M3 S1000` passerait pour une temporisation de 1000 s.
+  static final RegExp _dwellRegex =
+      RegExp(r'G0?4(?:\s|\b)[^;(]*?\bP\s*([0-9]*\.?[0-9]+)', caseSensitive: false);
+
+  /// Durée de la temporisation portée par [line], en millisecondes (0 si aucune).
+  @visibleForTesting
+  static int dwellMsOf(String line) {
+    final m = _dwellRegex.firstMatch(line);
+    if (m == null) return 0;
+    final seconds = double.tryParse(m.group(1)!) ?? 0;
+    // Garde-fou : une valeur aberrante ne doit pas désarmer le watchdog pour
+    // de bon. Au-delà d'une minute, on plafonne.
+    return (seconds.clamp(0, 60) * 1000).round();
+  }
 
   GCodeStreamingService(this._connection);
 
@@ -91,6 +126,8 @@ class GCodeStreamingService {
     _sentLineIndices.clear();
     _sentByteCounts.clear();
     _bytesInFlight = 0;
+    _sentDwellMs.clear();
+    _dwellMsInFlight = 0;
     _watchdogTimer?.cancel();
   }
 
@@ -99,6 +136,7 @@ class GCodeStreamingService {
     if (_sentByteCounts.isNotEmpty) {
       final lastSentSize = _sentByteCounts.removeFirst();
       _bytesInFlight -= lastSentSize;
+      if (_sentDwellMs.isNotEmpty) _dwellMsInFlight -= _sentDwellMs.removeFirst();
       if (_sentLineIndices.isNotEmpty) {
         final ackedIndex = _sentLineIndices.removeFirst();
         _onProgress?.call(ackedIndex);
@@ -145,6 +183,9 @@ class GCodeStreamingService {
 
         _bytesInFlight += lineSize;
         _sentByteCounts.add(lineSize);
+        final dwellMs = dwellMsOf(line);
+        _sentDwellMs.add(dwellMs);
+        _dwellMsInFlight += dwellMs;
         _connection.sendRaw(line);
         _startWatchdog();
       } else {
@@ -156,7 +197,13 @@ class GCodeStreamingService {
 
   void _startWatchdog() {
     _watchdogTimer?.cancel();
-    _watchdogTimer = Timer(_watchdogTimeout, _handleStall);
+    // Le silence d'une temporisation en cours est légitime : on lui accorde sa
+    // durée EN PLUS du timeout, sinon un `G4` plus long que celui-ci passe
+    // pour un blocage.
+    final budget = Duration(
+      milliseconds: _watchdogTimeout.inMilliseconds + _dwellMsInFlight,
+    );
+    _watchdogTimer = Timer(budget, _handleStall);
   }
 
   /// Signal « la machine est vivante et bouge » (rapport de statut Run/Jog/Home

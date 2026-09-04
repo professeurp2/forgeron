@@ -150,7 +150,12 @@ void main() {
     ..writeln('M5')
     ..writeln('G0 Z${f3(kZSafe)}')
     ..writeln('M3 S1000')
-    ..writeln('G4 P3 (MONTEE EN REGIME)')
+    // Trois tranches d'une seconde plutôt qu'un `G4 P3` : pendant une
+    // temporisation la carte n'acquitte rien, et un silence aussi long que
+    // le watchdog du streaming passait pour un blocage au démarrage.
+    ..writeln('G4 P1 (MONTEE EN REGIME 1 SUR 3)')
+    ..writeln('G4 P1 (MONTEE EN REGIME 2 SUR 3)')
+    ..writeln('G4 P1 (MONTEE EN REGIME 3 SUR 3)')
     ..write(body)
     ..writeln('(DEGAGEMENT)')
     ..writeln('G0 Z${f3(kZSafe)}')

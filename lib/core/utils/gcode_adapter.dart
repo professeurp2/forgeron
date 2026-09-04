@@ -170,7 +170,15 @@ class GcodeAdapter {
         if (spindleMode != null) {
           final speed = spindleSpeed != null ? ' S$spindleSpeed' : '';
           cleaned.add('$spindleMode$speed (RELANCE BROCHE)');
-          cleaned.add('G4 P$kSpinUpSeconds (MONTEE EN REGIME)');
+          // Fractionné en temporisations d'UNE seconde plutôt qu'un seul
+          // `G4 P3`. Pendant un dwell la carte n'acquitte rien et peut se
+          // déclarer `Idle` : un silence aussi long que le watchdog du
+          // streaming passait pour un blocage. Des tranches d'1 s renvoient
+          // chacune leur `ok`, qui réarme le watchdog — la pause totale est
+          // identique pour la broche.
+          for (var i = 0; i < kSpinUpSeconds; i++) {
+            cleaned.add('G4 P1 (MONTEE EN REGIME ${i + 1}/$kSpinUpSeconds)');
+          }
         }
 
         convertedM6++;
