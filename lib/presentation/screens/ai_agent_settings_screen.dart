@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../../core/widgets/readable_width.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/services/local_ai_agent_service.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de configuration de l'agent IA : activation, clé API Gemini
@@ -20,18 +24,30 @@ class AiAgentSettingsScreen extends ConsumerStatefulWidget {
 
 class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
   final _apiKeyCtrl = TextEditingController();
+  final _localUrlCtrl = TextEditingController();
+  final _localModelCtrl = TextEditingController();
   bool _hasStoredKey = false;
   bool _saving = false;
+
+  /// Résultat du dernier test de connexion au serveur local (null = pas testé).
+  String? _localProbe;
+  bool _localProbeOk = false;
+  bool _probing = false;
 
   @override
   void initState() {
     super.initState();
     _loadKeyStatus();
+    final settings = ref.read(aiAgentSettingsProvider);
+    _localUrlCtrl.text = settings.localBaseUrl;
+    _localModelCtrl.text = settings.localModel;
   }
 
   @override
   void dispose() {
     _apiKeyCtrl.dispose();
+    _localUrlCtrl.dispose();
+    _localModelCtrl.dispose();
     super.dispose();
   }
 
@@ -56,6 +72,75 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
     );
   }
 
+  /// Enregistre l'adresse et le modèle du serveur local. Une adresse vide
+  /// ramène l'agent sur Gemini.
+  void _saveLocalServer() {
+    final notifier = ref.read(aiAgentSettingsProvider.notifier);
+    notifier.setLocalBaseUrl(_localUrlCtrl.text);
+    notifier.setLocalModel(_localModelCtrl.text);
+    final saved = ref.read(aiAgentSettingsProvider).localBaseUrl;
+    _localUrlCtrl.text = saved; // reflète la normalisation
+    setState(() => _localProbe = null);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(saved.isEmpty
+          ? tr('Serveur local effacé — l\'agent repasse sur Gemini.')
+          : tr('Serveur local enregistré.')),
+    ));
+  }
+
+  /// Interroge `/v1/models` pour vérifier que le serveur répond ET que le
+  /// modèle demandé y est bien chargé. Un test qui se contente du ping laisse
+  /// découvrir le nom de modèle erroné à la première question posée.
+  Future<void> _probeLocalServer() async {
+    final url = LocalAiAgentService.normalizeBaseUrl(_localUrlCtrl.text);
+    if (url.isEmpty) return;
+    setState(() {
+      _probing = true;
+      _localProbe = null;
+    });
+    final wanted = _localModelCtrl.text.trim();
+    try {
+      final res = await http
+          .get(Uri.parse('$url/v1/models'))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) {
+        _setProbe(false, 'HTTP ${res.statusCode} — le serveur répond mais '
+            'refuse la requête.');
+        return;
+      }
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final ids = ((data['data'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => m['id']?.toString() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (ids.isEmpty) {
+        _setProbe(false, 'Serveur joignable, mais aucun modèle chargé.');
+      } else if (ids.contains(wanted)) {
+        _setProbe(true, 'Serveur joignable, modèle « $wanted » disponible.');
+      } else {
+        _setProbe(
+            false,
+            'Serveur joignable, mais « $wanted » est absent. '
+            'Disponibles : ${ids.join(', ')}');
+      }
+    } catch (e) {
+      _setProbe(
+          false,
+          'Injoignable. Vérifie qu\'Ollama écoute sur 0.0.0.0 '
+          '(OLLAMA_HOST) et que le port 11434 est ouvert au pare-feu.');
+    }
+  }
+
+  void _setProbe(bool ok, String message) {
+    if (!mounted) return;
+    setState(() {
+      _probing = false;
+      _localProbeOk = ok;
+      _localProbe = message;
+    });
+  }
+
   Future<void> _clearKey() async {
     await ref.read(aiAgentSettingsProvider.notifier).clearApiKey();
     if (mounted) setState(() => _hasStoredKey = false);
@@ -65,6 +150,9 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
   Widget build(BuildContext context) {
     final fc = context.fc;
     final settings = ref.watch(aiAgentSettingsProvider);
+    // Une adresse de serveur local renseignee suffit a basculer le fournisseur :
+    // pas de second interrupteur a tenir coherent avec elle.
+    final usingLocal = settings.localBaseUrl.isNotEmpty;
     final notifier = ref.read(aiAgentSettingsProvider.notifier);
     final modelState = ref.watch(aiModelProvider);
     final modelNotifier = ref.read(aiModelProvider.notifier);
@@ -223,6 +311,135 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                             ],
                           ],
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
+                    title: tr('SERVEUR IA LOCAL'),
+                    borderColor: usingLocal ? fc.success : fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          usingLocal
+                              ? tr('Actif : l\'agent interroge ce serveur. Ni Internet, ni clé API, ni données mobiles.')
+                              : tr('Vide : l\'agent passe par Gemini via la 4G. Renseigne l\'adresse du PC pour que tout reste sur le réseau de la machine.'),
+                          style: TextStyle(
+                              color: usingLocal ? fc.success : fc.textSecondary,
+                              fontSize: 11),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _localUrlCtrl,
+                          style: TextStyle(
+                              color: fc.textPrimary,
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: tr('Adresse du serveur'),
+                            labelStyle: TextStyle(color: fc.textSecondary),
+                            hintText: '192.168.0.42',
+                            hintStyle: TextStyle(color: fc.textDisabled),
+                            filled: true,
+                            fillColor: fc.background.withValues(alpha: 0.4),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: fc.surfaceBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: fc.primary, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _localModelCtrl,
+                          style: TextStyle(
+                              color: fc.textPrimary,
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: tr('Modèle'),
+                            labelStyle: TextStyle(color: fc.textSecondary),
+                            hintText: 'qwen2.5:7b',
+                            hintStyle: TextStyle(color: fc.textDisabled),
+                            filled: true,
+                            fillColor: fc.background.withValues(alpha: 0.4),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: fc.surfaceBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  BorderSide(color: fc.primary, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _saveLocalServer,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: fc.primary,
+                                  foregroundColor: Colors.black,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: Text(tr('ENREGISTRER'),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton(
+                              onPressed: _probing ? null : _probeLocalServer,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: fc.primary,
+                                side: BorderSide(color: fc.primary),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
+                              child:
+                                  Text(_probing ? tr('TEST...') : tr('TESTER')),
+                            ),
+                          ],
+                        ),
+                        if (_localProbe != null) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                _localProbeOk
+                                    ? Icons.check_circle_outline
+                                    : Icons.error_outline,
+                                size: 16,
+                                color: _localProbeOk ? fc.success : fc.danger,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _localProbe!,
+                                  style: TextStyle(
+                                      color:
+                                          _localProbeOk ? fc.success : fc.danger,
+                                      fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

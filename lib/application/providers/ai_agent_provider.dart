@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_agent_service.dart';
+import '../services/local_ai_agent_service.dart';
 import '../services/ai_agent_tools.dart';
 import '../../core/net/cellular_http_client.dart';
 import '../../core/utils/gemini_context.dart';
@@ -194,7 +195,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
   final List<Map<String, dynamic>> _contents = [];
   List<Map<String, dynamic>> _pendingToolQueue = [];
   List<Map<String, dynamic>> _collectedResults = [];
-  AiAgentService? _service;
+  AiBackend? _service;
   int _callCounter = 0;
 
   /// Interruption demandée par l'opérateur : lue par la boucle de streaming
@@ -677,13 +678,31 @@ class AiAgentController extends StateNotifier<AiChatState> {
   // Conversation
   // ---------------------------------------------------------------------
 
-  Future<AiAgentService?> _ensureService() async {
-    final modelId = _ref.read(aiModelProvider).active.id;
-    // Réutilise le service si le modèle actif n'a pas changé.
-    if (_service != null && _service!.model == modelId) return _service;
+  Future<AiBackend?> _ensureService() async {
+    // Une adresse de serveur local renseignée l'emporte : l'agent tourne alors
+    // entièrement sur le réseau de l'atelier, sans Internet ni clé API.
+    final settings = _ref.read(aiAgentSettingsProvider);
+    final localUrl = settings.localBaseUrl;
+    final useLocal = localUrl.isNotEmpty;
+    final modelId =
+        useLocal ? settings.localModel : _ref.read(aiModelProvider).active.id;
+
+    // Réutilise le service si ni le modèle ni le fournisseur n'ont changé.
+    final isLocal = _service is LocalAiAgentService;
+    if (_service != null && _service!.model == modelId && isLocal == useLocal) {
+      return _service;
+    }
     if (_service != null) {
       _service!.dispose();
       _service = null;
+    }
+
+    if (useLocal) {
+      // Client HTTP standard, volontairement : le process est déjà lié au WiFi
+      // de l'ESP32 par bindProcessToNetwork, et c'est sur CE réseau que vit le
+      // serveur. Le forcer sur la 4G comme Gemini n'aboutirait nulle part.
+      _service = LocalAiAgentService(baseUrl: localUrl, model: modelId);
+      return _service;
     }
     final key = await _ref.read(aiAgentSettingsProvider.notifier).readApiKey();
     if (key == null || key.isEmpty) {
@@ -842,7 +861,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
   }
 
-  Future<void> _runTurn(AiAgentService service) async {
+  Future<void> _runTurn(AiBackend service) async {
     final epoch = _epoch;
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
@@ -1013,7 +1032,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     return raw;
   }
 
-  Future<void> _processNextToolCall(AiAgentService service, int epoch) async {
+  Future<void> _processNextToolCall(AiBackend service, int epoch) async {
     // Discussion changée pendant l'exécution d'un outil : la chaîne appartient
     // à un fil qui n'est plus ouvert, on l'abandonne sans toucher à l'état.
     if (_epoch != epoch) return;
