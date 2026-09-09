@@ -51,3 +51,6 @@ package.json
 
 # Environnement Python du pipeline CAO
 pipeline/.venv/
+pipeline/*.stl
+pipeline/*_profil.csv
+pipeline/*.nc
