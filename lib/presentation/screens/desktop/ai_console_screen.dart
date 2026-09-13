@@ -1,18 +1,29 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/material.dart' show Icons, SelectableText;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
 import '../../../application/providers/ai_model_provider.dart';
+import '../../../application/providers/gcode_provider.dart';
+import '../../../application/providers/machine_params_provider.dart';
+import '../../../application/providers/machine_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
+import '../../../core/i18n/app_language.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
+import '../../../core/utils/voice_locale.dart';
+import '../../widgets/trunnion_visualizer.dart';
 
 /// Écran Agent IA, refondu — desktop d'abord (voir PLAN-IA). Toute la
 /// logique reste celle de [aiAgentControllerProvider] : cet écran ne change
@@ -53,11 +64,102 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   Uint8List? _pendingImage;
   String? _pendingImageMime;
 
+  // Voix — même mécanisme que l'écran mobile (dictée + lecture des réponses),
+  // oublié lors de la refonte desktop initiale. Ne pas réinventer un second
+  // système : mêmes packages, même logique de correspondance de locale.
+  final SpeechToText _speech = SpeechToText();
+  final FlutterTts _tts = FlutterTts();
+  bool _listening = false;
+  String? _sttLocaleId;
+
+  @override
+  void initState() {
+    super.initState();
+    _tts.setSpeechRate(0.5);
+    _applyVoiceLanguage();
+  }
+
   @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
+    _speech.stop();
+    _tts.stop();
     super.dispose();
+  }
+
+  /// Dictée vocale : bascule l'écoute du micro et remplit le champ de saisie.
+  Future<void> _toggleListen() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    final ok = _speech.isAvailable ||
+        await _speech.initialize(
+          onStatus: (s) {
+            if ((s == 'notListening' || s == 'done') && mounted) {
+              setState(() => _listening = false);
+            }
+          },
+          onError: (_) {
+            if (mounted) setState(() => _listening = false);
+          },
+        );
+    if (!ok) {
+      if (mounted) {
+        await fluent.displayInfoBar(context, builder: (ctx, close) {
+          return fluent.InfoBar(
+            title: const Text('Reconnaissance vocale indisponible'),
+            content: const Text('Aucun micro détecté sur cet appareil.'),
+            severity: fluent.InfoBarSeverity.warning,
+            onClose: close,
+          );
+        });
+      }
+      return;
+    }
+    setState(() => _listening = true);
+    _sttLocaleId ??= bestVoiceLocale(
+      _wantedVoiceTag,
+      (await _speech.locales()).map((l) => l.localeId),
+      fallbacks: const ['fr-FR', 'en-US'],
+    );
+    await _speech.listen(
+      onResult: (SpeechRecognitionResult r) {
+        if (mounted) setState(() => _input.text = r.recognizedWords);
+      },
+      listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+    );
+  }
+
+  String get _wantedVoiceTag {
+    final language = ref.read(appLanguageProvider);
+    if (!language.isAuto) return language.voiceTag;
+    return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+  }
+
+  Future<void> _applyVoiceLanguage() async {
+    _sttLocaleId = null; // re-résolu à la prochaine dictée
+    try {
+      final raw = await _tts.getLanguages;
+      final available = (raw as List).map((e) => e.toString()).toList(growable: false);
+      final match = bestVoiceLocale(_wantedVoiceTag, available, fallbacks: const ['fr-FR', 'en-US']);
+      if (match != null) await _tts.setLanguage(match);
+    } catch (_) {
+      // getLanguages n'est pas implémenté sur toutes les plateformes.
+    }
+  }
+
+  Future<void> _speak(String text) async {
+    final clean = text
+        .replaceAll(RegExp(r'```[\s\S]*?```'), ' bloc de code ')
+        .replaceAll(RegExp(r'[*_`#>]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (clean.isEmpty) return;
+    await _tts.stop();
+    await _tts.speak(clean);
   }
 
   void _send() {
@@ -161,6 +263,21 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (previous?.messages.length != next.messages.length) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
       }
+      final grew = (previous?.messages.length ?? 0) < next.messages.length;
+      if (grew && next.messages.isNotEmpty) {
+        final last = next.messages.last;
+        if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
+          _speak(last.text);
+        }
+      }
+    });
+
+    ref.listen(aiTtsEnabledProvider, (prev, next) {
+      if (next == false) _tts.stop();
+    });
+
+    ref.listen(appLanguageProvider, (prev, next) {
+      if (prev?.id != next.id) _applyVoiceLanguage();
     });
 
     final items = _groupTimeline(chat.messages);
@@ -209,6 +326,8 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
               _pendingImage = null;
               _pendingImageMime = null;
             }),
+            listening: _listening,
+            onToggleListen: _toggleListen,
           ),
         ],
       ),
@@ -348,6 +467,21 @@ class _Header extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          Builder(builder: (context) {
+            final ttsOn = ref.watch(aiTtsEnabledProvider);
+            return fluent.Tooltip(
+              message: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
+              child: fluent.IconButton(
+                icon: Icon(
+                  ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                  color: ttsOn ? fc.primary : fc.textSecondary,
+                  size: 16,
+                ),
+                onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -424,9 +558,11 @@ class _StreamingBubble extends StatelessWidget {
   }
 }
 
-/// Une procédure — une ou plusieurs exécutions d'outils consécutives — sous
-/// forme de fil de nœuds : ✓ terminé, anneau de progression pour celui en
-/// cours, croix rouge si le résultat commence par « Erreur ».
+/// Une procédure — une ou plusieurs exécutions d'outils consécutives —
+/// affichée comme une pile de lignes repliables (une par étape), plutôt
+/// qu'un fil de nœuds verticaux : la personne qui utilise cet écran n'est
+/// ni développeuse ni machiniste, une ligne « Génération du G-code — ✓
+/// terminé » se lit d'un coup d'œil, un JSON brut non.
 class _ProcedureCard extends StatelessWidget {
   const _ProcedureCard({required this.fc, required this.group, required this.runningTool});
 
@@ -440,6 +576,7 @@ class _ProcedureCard extends StatelessWidget {
       for (final m in group) _splitToolMessage(m.text),
       if (runningTool != null) (name: runningTool!, result: null),
     ];
+    final done = steps.where((s) => s.result != null && !s.result!.startsWith('Erreur')).length;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -465,7 +602,7 @@ class _ProcedureCard extends StatelessWidget {
               children: [
                 Icon(fluent.FluentIcons.timeline, size: 13, color: fc.secondary),
                 const SizedBox(width: 8),
-                Text('PROCÉDURE',
+                Text('ÉTAPES DE L\'AGENT',
                     style: TextStyle(
                         color: fc.textPrimary,
                         fontWeight: FontWeight.w700,
@@ -473,18 +610,17 @@ class _ProcedureCard extends StatelessWidget {
                         letterSpacing: .08 * 11.5)),
                 const Spacer(),
                 Text(
-                  '${group.length}/${steps.length}',
+                  '$done/${steps.length}',
                   style: TextStyle(color: fc.success, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
               children: [
-                for (var i = 0; i < steps.length; i++)
-                  _StepRow(fc: fc, step: steps[i], isLast: i == steps.length - 1),
+                for (final step in steps) _StepRow(fc: fc, step: step),
               ],
             ),
           ),
@@ -502,92 +638,213 @@ _Step _splitToolMessage(String text) {
   return (name: text.substring(0, i), result: text.substring(i + 3));
 }
 
+/// Traduit un nom d'outil technique en une phrase compréhensible sans savoir
+/// coder ni usiner. Les outils absents de cette liste retombent sur une
+/// mise en forme générique (underscores → espaces) — jamais un plantage,
+/// juste un libellé moins soigné en attendant de l'ajouter ici.
+const _toolLabels = <String, String>{
+  'run_step_pipeline': 'Génération du G-code depuis le fichier STEP',
+  'run_gcode_program': 'Chargement du programme dans l\'espace de travail',
+  'analyze_gcode': 'Analyse du programme G-code',
+  'get_machine_state': 'Lecture de l\'état de la machine',
+  'get_diagnostics': 'Vérification de la machine',
+  'home': 'Prise d\'origine (homing)',
+  'probe': 'Palpage de la pièce',
+  'jog_axis': 'Déplacement manuel d\'un axe',
+  'goto_position': 'Déplacement vers une position',
+  'set_work_zero': 'Réglage du zéro pièce',
+  'send_gcode': 'Envoi d\'une commande à la machine',
+  'run_program': 'Lancement de l\'usinage',
+  'stop_program': 'Arrêt de l\'usinage',
+  'pause': 'Mise en pause',
+  'resume': 'Reprise de l\'usinage',
+  'emergency_stop': 'Arrêt d\'urgence',
+  'unlock_alarm': 'Déblocage de l\'alarme',
+  'get_camera_snapshot': 'Photo de la caméra atelier',
+  'list_workspace_files': 'Liste des fichiers de l\'espace de travail',
+  'read_workspace_file': 'Lecture d\'un fichier',
+  'write_workspace_file': 'Écriture d\'un fichier',
+  'show_popup': 'Message de l\'agent',
+  'open_chart_window': 'Ouverture d\'un graphique',
+  'open_gcode_window': 'Ouverture du G-code dans une fenêtre',
+};
+
+String _friendlyToolLabel(String toolName) {
+  return _toolLabels[toolName] ??
+      toolName.replaceAll('_', ' ').replaceFirstMapped(
+          RegExp('^.'), (m) => m.group(0)!.toUpperCase());
+}
+
+/// Résumé court d'un résultat d'outil, pour l'en-tête de la ligne repliée.
+/// `run_step_pipeline` répond en JSON : on en tire une phrase plutôt que
+/// d'afficher les accolades brutes — le détail complet reste disponible en
+/// dépliant la ligne, pour qui veut vérifier.
+String _resultSummary(String toolName, String result) {
+  if (result.startsWith('Erreur')) return result;
+  if (toolName == 'run_step_pipeline') {
+    try {
+      final data = jsonDecode(result) as Map<String, dynamic>;
+      final pipeline = data['pipeline'] == 'freecad_prismatique'
+          ? 'pièce prismatique (FreeCAD)'
+          : 'pièce de révolution';
+      final ops = (data['operations'] as List?)?.length;
+      final lignes = data['lignes_gcode'];
+      final parts = <String>[pipeline];
+      if (ops != null) parts.add('$ops opération(s)');
+      if (lignes != null) parts.add('$lignes lignes de G-code');
+      return parts.join(' · ');
+    } catch (_) {
+      // Pas du JSON (ex: message d'erreur) → on laisse tel quel.
+    }
+  }
+  return result.length > 90 ? '${result.substring(0, 90)}…' : result;
+}
+
+/// Chemin du G-code produit par `run_step_pipeline`, si le résultat est un
+/// succès JSON qui en porte un — `null` sinon (échec, ou un autre outil).
+String? _gcodePathFrom(String toolName, String result) {
+  if (toolName != 'run_step_pipeline' || result.startsWith('Erreur')) return null;
+  try {
+    final data = jsonDecode(result) as Map<String, dynamic>;
+    return data['gcode_path'] as String?;
+  } catch (_) {
+    return null;
+  }
+}
+
 class _StepRow extends StatelessWidget {
-  const _StepRow({required this.fc, required this.step, required this.isLast});
+  const _StepRow({required this.fc, required this.step});
   final ForgeronColorPalette fc;
   final _Step step;
-  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final running = step.result == null;
     final failed = !running && step.result!.startsWith('Erreur');
     final color = running ? fc.primary : (failed ? fc.danger : fc.success);
+    final label = _friendlyToolLabel(step.name);
+    final gcodePath = running ? null : _gcodePathFrom(step.name, step.result!);
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: .12),
-                  border: Border.all(color: color, width: 1.5),
-                ),
-                child: running
-                    ? SizedBox(
-                        width: 11,
-                        height: 11,
-                        child: fluent.ProgressRing(strokeWidth: 1.6, activeColor: color),
-                      )
-                    : Icon(
-                        failed ? fluent.FluentIcons.clear : fluent.FluentIcons.check_mark,
-                        size: 11,
-                        color: color,
-                      ),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    color: fc.surfaceBorder,
-                  ),
-                ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: fluent.Expander(
+        headerBackgroundColor: WidgetStatePropertyAll(fc.surface),
+        contentBackgroundColor: fc.surface,
+        leading: Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: .12),
+            border: Border.all(color: color, width: 1.5),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
+          child: running
+              ? SizedBox(
+                  width: 11,
+                  height: 11,
+                  child: fluent.ProgressRing(strokeWidth: 1.6, activeColor: color),
+                )
+              : Icon(
+                  failed ? fluent.FluentIcons.clear : fluent.FluentIcons.check_mark,
+                  size: 11,
+                  color: color,
+                ),
+        ),
+        header: Text(
+          label,
+          style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w600, fontSize: 12.5),
+        ),
+        trailing: Text(
+          running ? 'en cours…' : _resultSummary(step.name, step.result!),
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: running ? fc.textDisabled : (failed ? fc.danger : fc.textSecondary),
+            fontSize: 11,
+          ),
+        ),
+        initiallyExpanded: gcodePath != null,
+        content: running
+            ? const SizedBox.shrink()
+            : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    step.name,
+                  if (gcodePath != null) ...[
+                    _GcodePreview(fc: fc, path: gcodePath),
+                    const SizedBox(height: 10),
+                  ],
+                  SelectableText(
+                    step.result!,
                     style: TextStyle(
-                      color: fc.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12.5,
-                      fontFamily: 'JetBrainsMono',
-                    ),
+                        color: fc.textSecondary, fontSize: 11.5, fontFamily: 'JetBrainsMono'),
                   ),
-                  if (step.result != null && step.result!.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      step.result!,
-                      style: TextStyle(
-                        color: failed ? fc.danger : fc.lcdText,
-                        fontSize: 11.5,
-                        fontFamily: 'JetBrainsMono',
-                      ),
-                    ),
-                  ],
-                  if (running) ...[
-                    const SizedBox(height: 3),
-                    Text('en cours…',
-                        style: TextStyle(color: fc.textDisabled, fontSize: 11)),
-                  ],
                 ],
               ),
-            ),
-          ),
+      ),
+    );
+  }
+}
+
+/// Aperçu 3D du G-code généré, directement dans le fil de discussion —
+/// réutilise le visualiseur déjà présent dans l'app (TrunnionVisualizer +
+/// gcodeProvider), pas un second moteur de rendu. Charge le fichier une
+/// seule fois au premier affichage.
+class _GcodePreview extends ConsumerStatefulWidget {
+  const _GcodePreview({required this.fc, required this.path});
+  final ForgeronColorPalette fc;
+  final String path;
+
+  @override
+  ConsumerState<_GcodePreview> createState() => _GcodePreviewState();
+}
+
+class _GcodePreviewState extends ConsumerState<_GcodePreview> {
+  Object? _error;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final content = await File(widget.path).readAsString();
+      if (!mounted) return;
+      await ref.read(gcodeProvider.notifier).loadFile(content);
+      if (mounted) setState(() => _loaded = true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = widget.fc;
+    if (_error != null) {
+      return Text('Aperçu indisponible : $_error',
+          style: TextStyle(color: fc.danger, fontSize: 11.5));
+    }
+    if (!_loaded) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 14, height: 14, child: fluent.ProgressRing(strokeWidth: 1.8)),
+          const SizedBox(width: 8),
+          Text('Ouverture du parcours…', style: TextStyle(color: fc.textSecondary, fontSize: 11.5)),
         ],
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 260,
+        child: TrunnionVisualizer(
+          mPos: ref.watch(renderMPosProvider),
+          toolpath: ref.watch(renderToolpathProvider),
+          machineLimits: ref.watch(machineTravelProvider),
+        ),
       ),
     );
   }
@@ -664,6 +921,8 @@ class _Composer extends StatelessWidget {
     required this.onAttachImage,
     required this.pendingImage,
     required this.onRemoveImage,
+    required this.listening,
+    required this.onToggleListen,
   });
 
   final ForgeronColorPalette fc;
@@ -675,6 +934,8 @@ class _Composer extends StatelessWidget {
   final VoidCallback onAttachImage;
   final Uint8List? pendingImage;
   final VoidCallback onRemoveImage;
+  final bool listening;
+  final VoidCallback onToggleListen;
 
   @override
   Widget build(BuildContext context) {
@@ -721,6 +982,17 @@ class _Composer extends StatelessWidget {
                 child: fluent.IconButton(
                   icon: Icon(Icons.photo_camera_rounded, color: fc.textSecondary, size: 16),
                   onPressed: onAttachImage,
+                ),
+              ),
+              fluent.Tooltip(
+                message: listening ? 'Arrêter la dictée' : 'Dicter',
+                child: fluent.IconButton(
+                  icon: Icon(
+                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    color: listening ? fc.danger : fc.textSecondary,
+                    size: 16,
+                  ),
+                  onPressed: onToggleListen,
                 ),
               ),
               const SizedBox(width: 8),
