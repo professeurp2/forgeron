@@ -52,6 +52,7 @@ package.json
 # Environnement Python du pipeline CAO
 pipeline/.venv/
 pipeline/.venv312/
+pipeline/freecad/
 pipeline/*.stl
 pipeline/*_profil.csv
 pipeline/*_rapport.json
