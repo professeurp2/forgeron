@@ -142,6 +142,15 @@ class AiChatState {
   /// Identifiant de la discussion ouverte (`null` avant la restauration).
   final String? activeId;
 
+  /// Nom de l'outil en cours d'exécution, `null` sinon.
+  ///
+  /// `_executeTool` n'ajoute le message `role: 'tool'` qu'une fois l'appel
+  /// terminé : sans ce champ, l'écran n'a aucun moyen de savoir qu'un outil
+  /// tourne encore — juste `isProcessing`, identique pendant la réflexion du
+  /// modèle. Sert à afficher un nœud « en cours » dans la procédure plutôt
+  /// qu'un simple indicateur générique.
+  final String? runningTool;
+
   const AiChatState({
     this.messages = const [],
     this.isProcessing = false,
@@ -152,6 +161,7 @@ class AiChatState {
     this.streamingText,
     this.conversations = const [],
     this.activeId,
+    this.runningTool,
   });
 
   AiChatState copyWith({
@@ -167,6 +177,8 @@ class AiChatState {
     bool clearStreamingText = false,
     List<AiConversationMeta>? conversations,
     String? activeId,
+    String? runningTool,
+    bool clearRunningTool = false,
   }) {
     return AiChatState(
       messages: messages ?? this.messages,
@@ -181,6 +193,8 @@ class AiChatState {
           clearStreamingText ? null : (streamingText ?? this.streamingText),
       conversations: conversations ?? this.conversations,
       activeId: activeId ?? this.activeId,
+      runningTool:
+          clearRunningTool ? null : (runningTool ?? this.runningTool),
     );
   }
 }
@@ -1079,7 +1093,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return;
     }
 
+    state = state.copyWith(runningTool: toolName);
     _collectedResults.addAll(await _executeTool(tool, toolName, input));
+    state = state.copyWith(clearRunningTool: true);
     await _processNextToolCall(service, epoch);
   }
 
@@ -1098,7 +1114,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
         _functionResponse(pending.toolName, error: 'Outil inconnu "${pending.toolName}"'),
       );
     } else {
+      state = state.copyWith(runningTool: pending.toolName);
       _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input));
+      state = state.copyWith(clearRunningTool: true);
     }
     await _processNextToolCall(service, epoch);
   }

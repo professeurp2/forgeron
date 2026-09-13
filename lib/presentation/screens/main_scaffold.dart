@@ -18,6 +18,7 @@ import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'ai_assistant_screen.dart';
+import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
 import 'app_settings_screen.dart';
 import '../../application/providers/ai_agent_provider.dart';
@@ -120,7 +121,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     FileManagerScreen(),
     MDITerminalScreen(),
     DiagnosticsScreen(),
-    AiAssistantScreen(),
+    AiConsoleScreen(),
   ];
 
   static const _navItems = [

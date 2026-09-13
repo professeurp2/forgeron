@@ -1,7 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'core/i18n/app_language.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/fallback_localizations.dart';
@@ -10,9 +13,26 @@ import 'core/theme/forgeron_colors.dart';
 import 'application/providers/theme_provider.dart';
 import 'application/services/notification_service.dart';
 import 'presentation/screens/main_scaffold.dart';
+import 'presentation/desktop/ai_sub_window_app.dart';
 
-void main() {
+bool get _isDesktopPlatform =>
+    !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (_isDesktopPlatform) {
+    // Une fenêtre ouverte par l'agent IA (graphique, G-code détaché, rapport)
+    // relance ce même point d'entrée avec un second moteur Flutter —
+    // desktop_multi_window n'a pas d'autre façon de choisir quoi afficher.
+    // La fenêtre principale, elle, n'a jamais d'arguments : c'est ce qui la
+    // distingue d'une fenêtre secondaire.
+    final windowController = await WindowController.fromCurrentEngine();
+    if (windowController.arguments.isNotEmpty) {
+      runApp(AiSubWindowApp(rawArguments: windowController.arguments));
+      return;
+    }
+  }
 
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('🛑 [CRITICAL ERROR] $error\n$stack');

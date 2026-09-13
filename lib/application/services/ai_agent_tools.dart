@@ -17,6 +17,7 @@ import '../providers/jog_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_adapter.dart';
+import 'ai_window_launcher.dart';
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -106,6 +107,22 @@ class AiToolImage {
 /// puis retirée dans la foulée par la boucle d'outils. Rien n'y survit d'un
 /// tour à l'autre — c'est un passe-plat, pas un cache.
 final aiToolImageProvider = StateProvider<AiToolImage?>((ref) => null);
+
+/// Une popup que l'agent veut montrer — un point à souligner en dehors du
+/// fil de discussion (avertissement, résumé). Même logique de boîte aux
+/// lettres que [aiToolImageProvider] : l'outil dépose la demande, l'écran
+/// (seul détenteur d'un `BuildContext`) l'affiche puis la vide.
+class AiPopupRequest {
+  const AiPopupRequest({required this.title, required this.message, this.severity = 'info'});
+
+  final String title;
+  final String message;
+
+  /// 'info' | 'warning' | 'danger' — détermine l'icône/couleur affichées.
+  final String severity;
+}
+
+final aiPopupRequestProvider = StateProvider<AiPopupRequest?>((ref) => null);
 
 class AiToolCatalog {
   static const _axisEnum = ['X', 'Y', 'Z', 'A', 'C'];
@@ -939,6 +956,82 @@ class AiToolCatalog {
       execute: (input, ref) async {
         ref.read(machineRepositoryProvider).sendRaw('\$X\n');
         return 'OK: déverrouillage envoyé (\$X)';
+      },
+    ),
+
+    // ── Expression de l'agent : popup, graphique, fenêtre détachée ────────
+    // Trois outils « bénins » (aucune action machine, catégorie null =
+    // toujours autorisés) qui donnent à l'agent un moyen de s'exprimer
+    // au-delà du texte, sur desktop. Sur mobile/web, AiWindowLauncher répond
+    // simplement que la fenêtre n'est pas disponible — l'agent le lit et
+    // peut se rabattre sur du texte.
+    AiTool(
+      name: 'show_popup',
+      description:
+          'Affiche un message important dans une popup, en dehors du fil de discussion — pour un avertissement ou un résumé qui mérite d\'être vu, pas juste lu au milieu du texte.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'message': {'type': 'string'},
+          'severity': {'type': 'string', 'enum': ['info', 'warning', 'danger']},
+        },
+        'required': ['title', 'message'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        ref.read(aiPopupRequestProvider.notifier).state = AiPopupRequest(
+          title: input['title'] as String,
+          message: input['message'] as String,
+          severity: input['severity'] as String? ?? 'info',
+        );
+        return 'Popup affichée.';
+      },
+    ),
+    AiTool(
+      name: 'open_chart_window',
+      description:
+          'Ouvre un graphique dans une fenêtre séparée (desktop uniquement) pour montrer l\'évolution d\'une mesure ou comparer des valeurs — plus lisible qu\'une liste de chiffres dans le texte.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'labels': {'type': 'array', 'items': {'type': 'string'}},
+          'values': {'type': 'array', 'items': {'type': 'number'}},
+          'unit': {'type': 'string'},
+        },
+        'required': ['title', 'labels', 'values'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        return AiWindowLauncher.openChart(
+          title: input['title'] as String,
+          labels: ((input['labels'] as List?) ?? const []).map((e) => e.toString()).toList(),
+          values: ((input['values'] as List?) ?? const [])
+              .map((e) => (e as num).toDouble())
+              .toList(),
+          unit: input['unit'] as String? ?? '',
+        );
+      },
+    ),
+    AiTool(
+      name: 'open_gcode_window',
+      description:
+          'Ouvre un programme G-code dans sa propre fenêtre (desktop uniquement), détachée du fil de discussion — utile pour le garder visible à côté du visualiseur pendant que la conversation continue.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'content': {'type': 'string'},
+        },
+        'required': ['title', 'content'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        return AiWindowLauncher.openGcode(
+          title: input['title'] as String,
+          content: input['content'] as String,
+        );
       },
     ),
   ];

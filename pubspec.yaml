@@ -62,6 +62,13 @@ dependencies:
   audioplayers: ^6.6.0
   # Stockage sécurisé de la clé API de l'agent IA (Keychain/Keystore/DPAPI).
   flutter_secure_storage: ^9.2.2
+  # Version figée : 4.14+ utilise des API Flutter absentes du SDK 3.41.9
+  # installé ici (ScrollCacheExtent, Tooltip.ignorePointer...) — échec de
+  # compilation Windows. 4.13.0 est la dernière connue compatible.
+  fluent_ui: 4.13.0
+  desktop_multi_window: ^0.3.1
+  fl_chart: ^1.2.0
+  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:
