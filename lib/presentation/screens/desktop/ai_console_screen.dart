@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Icons, SelectableText;
+import 'package:flutter/material.dart' show Colors, Icons, SelectableText;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -63,6 +63,14 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   // imageMime:). Ne PAS réinventer un second canal d'envoi d'image.
   Uint8List? _pendingImage;
   String? _pendingImageMime;
+
+  // Étape sélectionnée pour le panneau de détail (à droite) — la conversation
+  // ne montre qu'une ligne courte par étape, jamais le JSON brut ; le détail
+  // (sortie complète, aperçu 3D) vit dans ce panneau permanent, pas empilé
+  // dans le fil au clic. `null` = rien sélectionné, panneau vide.
+  _Step? _selectedStep;
+
+  void _selectStep(_Step step) => setState(() => _selectedStep = step);
 
   // Voix — même mécanisme que l'écran mobile (dictée + lecture des réponses),
   // oublié lors de la refonte desktop initiale. Ne pas réinventer un second
@@ -269,6 +277,15 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
           _speak(last.text);
         }
+        // Le panneau de détail suit la dernière étape connue — pas besoin de
+        // cliquer pour voir ce que l'agent vient de faire.
+        if (last.role == 'tool') _selectStep(_splitToolMessage(last.text));
+      }
+      // Un outil se met à tourner : le panneau bascule dessus tout de suite,
+      // avant même que le résultat n'existe — c'est le seul moment où « en
+      // direct » veut dire quelque chose avec l'état actuel du provider.
+      if (previous?.runningTool != next.runningTool && next.runningTool != null) {
+        _selectStep((name: next.runningTool!, result: null));
       }
     });
 
@@ -281,54 +298,68 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     });
 
     final items = _groupTimeline(chat.messages);
+    // Le panneau de détail suit la dernière étape connue si rien n'est
+    // sélectionné à la main — jamais vide dès qu'une procédure a démarré.
+    final detail = _selectedStep ??
+        (chat.runningTool != null ? (name: chat.runningTool!, result: null) : null);
 
     return fluent.ScaffoldPage(
       padding: EdgeInsets.zero,
       header: _Header(fc: fc),
-      content: Column(
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: items.isEmpty && chat.streamingText == null
-                ? _EmptyState(fc: fc, onPickStep: _pickStepFile)
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
-                    itemCount: items.length + (chat.streamingText != null ? 1 : 0),
-                    itemBuilder: (context, i) {
-                      if (i == items.length) {
-                        return _StreamingBubble(fc: fc, text: chat.streamingText!);
-                      }
-                      final item = items[i];
-                      if (item is List<AiChatMessage>) {
-                        return _ProcedureCard(
-                          fc: fc,
-                          group: item,
-                          runningTool: chat.isProcessing ? chat.runningTool : null,
-                        );
-                      }
-                      return _ChatBubble(fc: fc, message: item as AiChatMessage);
-                    },
-                  ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: items.isEmpty && chat.streamingText == null
+                      ? _EmptyState(fc: fc, onPickStep: _pickStepFile)
+                      : ListView.builder(
+                          controller: _scroll,
+                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                          itemCount: items.length + (chat.streamingText != null ? 1 : 0),
+                          itemBuilder: (context, i) {
+                            if (i == items.length) {
+                              return _StreamingBubble(fc: fc, text: chat.streamingText!);
+                            }
+                            final item = items[i];
+                            if (item is List<AiChatMessage>) {
+                              return _ProcedureCard(
+                                fc: fc,
+                                group: item,
+                                runningTool: chat.isProcessing ? chat.runningTool : null,
+                                selected: _selectedStep,
+                                onSelect: _selectStep,
+                              );
+                            }
+                            return _ChatBubble(fc: fc, message: item as AiChatMessage);
+                          },
+                        ),
+                ),
+                if (chat.pendingConfirmation != null)
+                  _ConfirmationBar(fc: fc, pending: chat.pendingConfirmation!),
+                if (chat.error != null) _ErrorBar(fc: fc, message: chat.error!),
+                _Composer(
+                  fc: fc,
+                  controller: _input,
+                  busy: chat.isProcessing,
+                  onSend: _send,
+                  onStop: () => ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
+                  onAttachStep: _pickStepFile,
+                  onAttachImage: _pickImage,
+                  pendingImage: _pendingImage,
+                  onRemoveImage: () => setState(() {
+                    _pendingImage = null;
+                    _pendingImageMime = null;
+                  }),
+                  listening: _listening,
+                  onToggleListen: _toggleListen,
+                ),
+              ],
+            ),
           ),
-          if (chat.pendingConfirmation != null)
-            _ConfirmationBar(fc: fc, pending: chat.pendingConfirmation!),
-          if (chat.error != null) _ErrorBar(fc: fc, message: chat.error!),
-          _Composer(
-            fc: fc,
-            controller: _input,
-            busy: chat.isProcessing,
-            onSend: _send,
-            onStop: () => ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
-            onAttachStep: _pickStepFile,
-            onAttachImage: _pickImage,
-            pendingImage: _pendingImage,
-            onRemoveImage: () => setState(() {
-              _pendingImage = null;
-              _pendingImageMime = null;
-            }),
-            listening: _listening,
-            onToggleListen: _toggleListen,
-          ),
+          _DetailPanel(fc: fc, step: detail),
         ],
       ),
     );
@@ -559,16 +590,25 @@ class _StreamingBubble extends StatelessWidget {
 }
 
 /// Une procédure — une ou plusieurs exécutions d'outils consécutives —
-/// affichée comme une pile de lignes repliables (une par étape), plutôt
-/// qu'un fil de nœuds verticaux : la personne qui utilise cet écran n'est
-/// ni développeuse ni machiniste, une ligne « Génération du G-code — ✓
-/// terminé » se lit d'un coup d'œil, un JSON brut non.
+/// affichée comme une pile de lignes courtes (une par étape) : cliquer une
+/// ligne l'envoie dans le panneau de détail permanent, à droite. Rien ne se
+/// déplie dans le fil lui-même — la personne qui utilise cet écran n'est ni
+/// développeuse ni machiniste, une ligne « Génération du G-code — ✓ terminé »
+/// se lit d'un coup d'œil, un JSON brut non.
 class _ProcedureCard extends StatelessWidget {
-  const _ProcedureCard({required this.fc, required this.group, required this.runningTool});
+  const _ProcedureCard({
+    required this.fc,
+    required this.group,
+    required this.runningTool,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final ForgeronColorPalette fc;
   final List<AiChatMessage> group;
   final String? runningTool;
+  final _Step? selected;
+  final ValueChanged<_Step> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -620,7 +660,15 @@ class _ProcedureCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
               children: [
-                for (final step in steps) _StepRow(fc: fc, step: step),
+                for (final step in steps)
+                  _StepRow(
+                    fc: fc,
+                    step: step,
+                    isSelected: selected != null &&
+                        selected!.name == step.name &&
+                        selected!.result == step.result,
+                    onTap: () => onSelect(step),
+                  ),
               ],
             ),
           ),
@@ -713,9 +761,16 @@ String? _gcodePathFrom(String toolName, String result) {
 }
 
 class _StepRow extends StatelessWidget {
-  const _StepRow({required this.fc, required this.step});
+  const _StepRow({
+    required this.fc,
+    required this.step,
+    required this.isSelected,
+    required this.onTap,
+  });
   final ForgeronColorPalette fc;
   final _Step step;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -723,72 +778,183 @@ class _StepRow extends StatelessWidget {
     final failed = !running && step.result!.startsWith('Erreur');
     final color = running ? fc.primary : (failed ? fc.danger : fc.success);
     final label = _friendlyToolLabel(step.name);
-    final gcodePath = running ? null : _gcodePathFrom(step.name, step.result!);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: fluent.Expander(
-        headerBackgroundColor: WidgetStatePropertyAll(fc.surface),
-        contentBackgroundColor: fc.surface,
-        leading: Container(
-          width: 22,
-          height: 22,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: .12),
-            border: Border.all(color: color, width: 1.5),
-          ),
-          child: running
-              ? SizedBox(
-                  width: 11,
-                  height: 11,
-                  child: fluent.ProgressRing(strokeWidth: 1.6, activeColor: color),
-                )
-              : Icon(
-                  failed ? fluent.FluentIcons.clear : fluent.FluentIcons.check_mark,
-                  size: 11,
-                  color: color,
-                ),
-        ),
-        header: Text(
-          label,
-          style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w600, fontSize: 12.5),
-        ),
-        trailing: Text(
-          running ? 'en cours…' : _resultSummary(step.name, step.result!),
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: running ? fc.textDisabled : (failed ? fc.danger : fc.textSecondary),
-            fontSize: 11,
+      padding: const EdgeInsets.only(bottom: 4),
+      child: fluent.HyperlinkButton(
+        onPressed: onTap,
+        style: fluent.ButtonStyle(
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+          backgroundColor: WidgetStatePropertyAll(
+              isSelected ? fc.primary.withValues(alpha: .1) : Colors.transparent),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: isSelected ? BorderSide(color: fc.primary.withValues(alpha: .4)) : BorderSide.none,
+            ),
           ),
         ),
-        initiallyExpanded: gcodePath != null,
-        content: running
-            ? const SizedBox.shrink()
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (gcodePath != null) ...[
-                    _GcodePreview(fc: fc, path: gcodePath),
-                    const SizedBox(height: 10),
-                  ],
-                  SelectableText(
-                    step.result!,
-                    style: TextStyle(
-                        color: fc.textSecondary, fontSize: 11.5, fontFamily: 'JetBrainsMono'),
-                  ),
-                ],
+        child: Row(
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: .12),
+                border: Border.all(color: color, width: 1.5),
               ),
+              child: running
+                  ? SizedBox(
+                      width: 9,
+                      height: 9,
+                      child: fluent.ProgressRing(strokeWidth: 1.4, activeColor: color),
+                    )
+                  : Icon(
+                      failed ? fluent.FluentIcons.clear : fluent.FluentIcons.check_mark,
+                      size: 9,
+                      color: color,
+                    ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w600, fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                running ? 'en cours…' : _resultSummary(step.name, step.result!),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: running ? fc.textDisabled : (failed ? fc.danger : fc.textSecondary),
+                  fontSize: 10.5,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Aperçu 3D du G-code généré, directement dans le fil de discussion —
-/// réutilise le visualiseur déjà présent dans l'app (TrunnionVisualizer +
-/// gcodeProvider), pas un second moteur de rendu. Charge le fichier une
-/// seule fois au premier affichage.
+/// Panneau permanent, à droite de la conversation : le détail de l'étape
+/// sélectionnée (ou de celle qui tourne, à défaut de sélection). Remplace le
+/// premier essai — un contenu repliable dans le fil — qui nichait le
+/// visualiseur 3D dans un Expander animé au sein d'une liste défilante :
+/// la WebView native n'y recevait jamais son signal « prête », donc ni le
+/// thème ni le parcours ne lui étaient jamais envoyés. Un panneau fixe, non
+/// animé, non découpé au clip, lui donne un terrain stable.
+class _DetailPanel extends StatelessWidget {
+  const _DetailPanel({required this.fc, required this.step});
+  final ForgeronColorPalette fc;
+  final _Step? step;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 400,
+      decoration: BoxDecoration(
+        color: fc.surfaceBright,
+        border: Border(left: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: step == null ? _buildEmpty() : _buildDetail(step!),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(fluent.FluentIcons.preview, size: 28, color: fc.textDisabled),
+            const SizedBox(height: 10),
+            Text(
+              'Le détail de l\'étape en cours s\'affichera ici.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fc.textDisabled, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetail(_Step step) {
+    final running = step.result == null;
+    final failed = !running && step.result!.startsWith('Erreur');
+    final label = _friendlyToolLabel(step.name);
+    final gcodePath = running ? null : _gcodePathFrom(step.name, step.result!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: fc.surfaceBorder))),
+          child: Row(
+            children: [
+              Icon(
+                running
+                    ? fluent.FluentIcons.sync
+                    : (failed ? fluent.FluentIcons.error_badge : fluent.FluentIcons.completed_solid),
+                size: 15,
+                color: running ? fc.primary : (failed ? fc.danger : fc.success),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label,
+                    style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (running)
+                  Row(
+                    children: [
+                      SizedBox(width: 14, height: 14, child: fluent.ProgressRing(strokeWidth: 1.8)),
+                      const SizedBox(width: 8),
+                      Text('En cours…', style: TextStyle(color: fc.textSecondary, fontSize: 12.5)),
+                    ],
+                  ),
+                if (!running && gcodePath != null) ...[
+                  _GcodePreview(fc: fc, path: gcodePath),
+                  const SizedBox(height: 14),
+                ],
+                if (!running)
+                  SelectableText(
+                    step.result!,
+                    style: TextStyle(
+                        color: fc.textSecondary, fontSize: 11.5, fontFamily: 'JetBrainsMono', height: 1.5),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Aperçu 3D du G-code généré — réutilise le visualiseur déjà présent dans
+/// l'app (TrunnionVisualizer + gcodeProvider), pas un second moteur de
+/// rendu. Charge le fichier une seule fois au premier affichage. Vit dans
+/// [_DetailPanel], un conteneur fixe et non animé — voir sa docstring pour
+/// pourquoi ça compte pour un contrôle WebView natif.
 class _GcodePreview extends ConsumerStatefulWidget {
   const _GcodePreview({required this.fc, required this.path});
   final ForgeronColorPalette fc;
@@ -801,6 +967,7 @@ class _GcodePreview extends ConsumerStatefulWidget {
 class _GcodePreviewState extends ConsumerState<_GcodePreview> {
   Object? _error;
   bool _loaded = false;
+  String? _loadedPath;
 
   @override
   void initState() {
@@ -808,12 +975,27 @@ class _GcodePreviewState extends ConsumerState<_GcodePreview> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(_GcodePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) _load();
+  }
+
   Future<void> _load() async {
+    setState(() {
+      _loaded = false;
+      _error = null;
+    });
     try {
       final content = await File(widget.path).readAsString();
       if (!mounted) return;
       await ref.read(gcodeProvider.notifier).loadFile(content);
-      if (mounted) setState(() => _loaded = true);
+      if (mounted) {
+        setState(() {
+          _loaded = true;
+          _loadedPath = widget.path;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -826,7 +1008,7 @@ class _GcodePreviewState extends ConsumerState<_GcodePreview> {
       return Text('Aperçu indisponible : $_error',
           style: TextStyle(color: fc.danger, fontSize: 11.5));
     }
-    if (!_loaded) {
+    if (!_loaded || _loadedPath != widget.path) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -836,15 +1018,16 @@ class _GcodePreviewState extends ConsumerState<_GcodePreview> {
         ],
       );
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        height: 260,
-        child: TrunnionVisualizer(
-          mPos: ref.watch(renderMPosProvider),
-          toolpath: ref.watch(renderToolpathProvider),
-          machineLimits: ref.watch(machineTravelProvider),
-        ),
+    return Container(
+      height: 280,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fc.surfaceBorder),
+      ),
+      child: TrunnionVisualizer(
+        mPos: ref.watch(renderMPosProvider),
+        toolpath: ref.watch(renderToolpathProvider),
+        machineLimits: ref.watch(machineTravelProvider),
       ),
     );
   }
@@ -945,79 +1128,128 @@ class _Composer extends StatelessWidget {
         color: fc.surface,
         border: Border(top: BorderSide(color: fc.surfaceBorder)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (pendingImage != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(pendingImage!, width: 48, height: 48, fit: BoxFit.cover),
-                  ),
-                  const SizedBox(width: 10),
-                  Text('Image jointe', style: TextStyle(color: fc.textSecondary, fontSize: 12)),
-                  const SizedBox(width: 6),
-                  fluent.IconButton(
-                    icon: Icon(Icons.close, color: fc.textDisabled, size: 16),
-                    onPressed: onRemoveImage,
-                  ),
-                ],
-              ),
-            ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              fluent.Tooltip(
-                message: 'Charger un fichier STEP (pièce de révolution)',
-                child: fluent.IconButton(
-                  icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
-                  onPressed: onAttachStep,
-                ),
-              ),
-              fluent.Tooltip(
-                message: 'Joindre une image',
-                child: fluent.IconButton(
-                  icon: Icon(Icons.photo_camera_rounded, color: fc.textSecondary, size: 16),
-                  onPressed: onAttachImage,
-                ),
-              ),
-              fluent.Tooltip(
-                message: listening ? 'Arrêter la dictée' : 'Dicter',
-                child: fluent.IconButton(
-                  icon: Icon(
-                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                    color: listening ? fc.danger : fc.textSecondary,
-                    size: 16,
-                  ),
-                  onPressed: onToggleListen,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: fluent.TextBox(
-                  controller: controller,
-                  placeholder: 'Demander une action ou une analyse à l\'agent…',
-                  minLines: 1,
-                  maxLines: 5,
-                  onSubmitted: (_) => onSend(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              busy
-                  ? fluent.IconButton(
-                      icon: Icon(Icons.stop_circle_outlined, color: fc.danger),
-                      onPressed: onStop,
-                    )
-                  : fluent.FilledButton(
-                      onPressed: onSend,
-                      child: const Icon(fluent.FluentIcons.send, size: 16),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: fc.surfaceBright,
+          border: Border.all(color: fc.surfaceBorder),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (pendingImage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(pendingImage!, width: 48, height: 48, fit: BoxFit.cover),
                     ),
-            ],
-          ),
-        ],
+                    const SizedBox(width: 10),
+                    Text('Image jointe', style: TextStyle(color: fc.textSecondary, fontSize: 12)),
+                    const SizedBox(width: 6),
+                    fluent.IconButton(
+                      icon: Icon(Icons.close, color: fc.textDisabled, size: 16),
+                      onPressed: onRemoveImage,
+                    ),
+                  ],
+                ),
+              ),
+            // Champ de saisie seul en haut, comme la référence donnée —
+            // les commandes vivent dans la rangée du dessous, pas mêlées au
+            // texte.
+            fluent.TextBox(
+              controller: controller,
+              placeholder: 'Demander une action ou une analyse à l\'agent…',
+              minLines: 1,
+              maxLines: 5,
+              decoration: WidgetStatePropertyAll(BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.transparent),
+              )),
+              onSubmitted: (_) => onSend(),
+            ),
+            const SizedBox(height: 6),
+            // Rangée de commandes sous le texte, comme la référence donnée :
+            // pièces jointes + micro à gauche, modèle actif + envoi à droite.
+            Row(
+              children: [
+                fluent.Tooltip(
+                  message: 'Charger un fichier STEP (pièce de révolution)',
+                  child: fluent.IconButton(
+                    icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
+                    onPressed: onAttachStep,
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: 'Joindre une image',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.photo_camera_rounded, color: fc.textSecondary, size: 16),
+                    onPressed: onAttachImage,
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: listening ? 'Arrêter la dictée' : 'Dicter',
+                  child: fluent.IconButton(
+                    icon: Icon(
+                      listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      color: listening ? fc.danger : fc.textSecondary,
+                      size: 16,
+                    ),
+                    onPressed: onToggleListen,
+                  ),
+                ),
+                const Spacer(),
+                const _ModelBadge(),
+                const SizedBox(width: 10),
+                busy
+                    ? fluent.IconButton(
+                        icon: Icon(Icons.stop_circle_outlined, color: fc.danger),
+                        onPressed: onStop,
+                      )
+                    : fluent.FilledButton(
+                        onPressed: onSend,
+                        child: const Icon(fluent.FluentIcons.send, size: 16),
+                      ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Petit badge modèle actif, réutilisé dans la rangée de commandes du
+/// composer — même donnée que le badge de l'en-tête, présentée là où la
+/// référence donnée la montre : à côté du bouton d'envoi, pas seulement en
+/// haut de l'écran.
+class _ModelBadge extends ConsumerWidget {
+  const _ModelBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = ForgeronTheme.of(context);
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final useLocal = settings.localBaseUrl.isNotEmpty;
+    final modelLabel = useLocal ? settings.localModel : ref.watch(aiModelProvider).active.id;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: fc.lcdBackground,
+        border: Border.all(color: fc.lcdBorder),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
+        style: TextStyle(
+          color: fc.lcdText,
+          fontFamily: 'JetBrainsMono',
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
