@@ -18,6 +18,7 @@ import '../providers/workspace_provider.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_adapter.dart';
 import 'ai_window_launcher.dart';
+import 'step_pipeline_service.dart';
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -956,6 +957,39 @@ class AiToolCatalog {
       execute: (input, ref) async {
         ref.read(machineRepositoryProvider).sendRaw('\$X\n');
         return 'OK: déverrouillage envoyé (\$X)';
+      },
+    ),
+
+    // ── Pipeline CAO : STEP -> profil exact -> G-code (phase 5.b) ──────────
+    AiTool(
+      name: 'run_step_pipeline',
+      description:
+          'Lit un fichier STEP d\'une pièce de révolution, détecte son axe, en extrait le profil exact et génère le G-code (ébauche 3 axes + finition 5 axes). Refuse proprement si la pièce n\'est pas une révolution. Retourne un rapport (rayon, hauteur, durée, contre-dépouille éventuelle) et les chemins des fichiers produits.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
+          'toolDiameter': {'type': 'number', 'description': 'Diamètre de la fraise boule, mm (défaut 6)'},
+          'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm (défaut 0.5)'},
+          'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm (défaut 1.0)'},
+          'stepover': {'type': 'number', 'description': 'Pas de finition sur la surface, mm (défaut 0.4)'},
+        },
+        'required': ['stepPath'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        try {
+          final report = await StepPipelineService.run(
+            input['stepPath'] as String,
+            toolDia: (input['toolDiameter'] as num?)?.toDouble() ?? 6.0,
+            ap: (input['ap'] as num?)?.toDouble() ?? 0.5,
+            ae: (input['ae'] as num?)?.toDouble() ?? 1.0,
+            stepover: (input['stepover'] as num?)?.toDouble() ?? 0.4,
+          );
+          return jsonEncode(report);
+        } on StepPipelineException catch (e) {
+          return 'Erreur: $e';
+        }
       },
     ),
 

@@ -54,6 +54,7 @@ pipeline/.venv/
 pipeline/.venv312/
 pipeline/*.stl
 pipeline/*_profil.csv
+pipeline/*_rapport.json
 pipeline/*.nc
 pipeline/*.step
 pipeline/*.stp

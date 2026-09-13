@@ -74,8 +74,21 @@ def main() -> int:
     profile_csv = base + "_profil.csv"
     write_csv(profile, profile_csv)
 
+    # Rapport en fichier à part, plutôt que sur stdout : un appelant (l'agent
+    # IA, via un sous-processus) n'a alors rien à extraire d'une sortie texte
+    # qui peut aussi porter des avertissements — juste ce fichier à lire.
+    report_path = base + "_rapport.json"
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {**report, "gcode_path": out, "profile_csv_path": profile_csv},
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
+
     print(f"{args.step} : {len(profile)} points de profil -> {profile_csv}")
     print(f"{len(gcode.splitlines())} lignes -> {out}")
+    print(f"rapport -> {report_path}")
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 

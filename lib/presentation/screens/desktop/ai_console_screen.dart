@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
@@ -57,6 +58,21 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
+  Future<void> _pickStepFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['step', 'stp'],
+      dialogTitle: 'Charger une pièce (STEP)',
+    );
+    final path = result?.files.single.path;
+    if (path == null) return; // annulé
+
+    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
+          'Charge ce fichier STEP et prépare le G-code de finition.\n\nFichier : $path',
+        );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+  }
+
   void _scrollToEnd() {
     if (!_scroll.hasClients) return;
     _scroll.animateTo(
@@ -91,25 +107,27 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       content: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
-              itemCount: items.length + (chat.streamingText != null ? 1 : 0),
-              itemBuilder: (context, i) {
-                if (i == items.length) {
-                  return _StreamingBubble(fc: fc, text: chat.streamingText!);
-                }
-                final item = items[i];
-                if (item is List<AiChatMessage>) {
-                  return _ProcedureCard(
-                    fc: fc,
-                    group: item,
-                    runningTool: chat.isProcessing ? chat.runningTool : null,
-                  );
-                }
-                return _ChatBubble(fc: fc, message: item as AiChatMessage);
-              },
-            ),
+            child: items.isEmpty && chat.streamingText == null
+                ? _EmptyState(fc: fc, onPickStep: _pickStepFile)
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                    itemCount: items.length + (chat.streamingText != null ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (i == items.length) {
+                        return _StreamingBubble(fc: fc, text: chat.streamingText!);
+                      }
+                      final item = items[i];
+                      if (item is List<AiChatMessage>) {
+                        return _ProcedureCard(
+                          fc: fc,
+                          group: item,
+                          runningTool: chat.isProcessing ? chat.runningTool : null,
+                        );
+                      }
+                      return _ChatBubble(fc: fc, message: item as AiChatMessage);
+                    },
+                  ),
           ),
           if (chat.pendingConfirmation != null)
             _ConfirmationBar(fc: fc, pending: chat.pendingConfirmation!),
@@ -120,6 +138,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
             busy: chat.isProcessing,
             onSend: _send,
             onStop: () => ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
+            onAttachStep: _pickStepFile,
           ),
         ],
       ),
@@ -571,6 +590,7 @@ class _Composer extends StatelessWidget {
     required this.busy,
     required this.onSend,
     required this.onStop,
+    required this.onAttachStep,
   });
 
   final ForgeronColorPalette fc;
@@ -578,6 +598,7 @@ class _Composer extends StatelessWidget {
   final bool busy;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final VoidCallback onAttachStep;
 
   @override
   Widget build(BuildContext context) {
@@ -590,6 +611,14 @@ class _Composer extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          fluent.Tooltip(
+            message: 'Charger un fichier STEP (pièce de révolution)',
+            child: fluent.IconButton(
+              icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
+              onPressed: onAttachStep,
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: fluent.TextBox(
               controller: controller,
@@ -610,6 +639,67 @@ class _Composer extends StatelessWidget {
                   child: const Icon(fluent.FluentIcons.send, size: 16),
                 ),
         ],
+      ),
+    );
+  }
+}
+
+/// Écran vide au premier lancement de la discussion : sans elle, l'agent
+/// IA ressemble à un chat comme un autre — rien ne dit qu'il sait piloter le
+/// pipeline STEP -> G-code. Le bouton fait exactement ce que fait le
+/// trombone du composer, en plus visible.
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.fc, required this.onPickStep});
+  final ForgeronColorPalette fc;
+  final VoidCallback onPickStep;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: fc.primary.withValues(alpha: .12),
+                border: Border.all(color: fc.primary.withValues(alpha: .35)),
+              ),
+              child: Icon(fluent.FluentIcons.processing, color: fc.primary, size: 24),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Pièce de révolution → G-code',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Charge un fichier STEP : l\'agent détecte l\'axe, extrait le profil exact '
+              'et génère le G-code — chaque étape s\'affiche ici en direct.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fc.textSecondary, fontSize: 12.5, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            fluent.FilledButton(
+              onPressed: onPickStep,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Charger un fichier STEP'),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'ou pose directement une question ci-dessous',
+              style: TextStyle(color: fc.textDisabled, fontSize: 11),
+            ),
+          ],
+        ),
       ),
     );
   }
