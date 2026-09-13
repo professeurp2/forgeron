@@ -968,7 +968,7 @@ class AiToolCatalog {
     AiTool(
       name: 'run_step_pipeline',
       description:
-          'Lit un fichier STEP et génère le G-code. Essaie d\'abord le pipeline de révolution (axe détecté, profil exact — ébauche 3 axes + finition 5 axes) ; si la pièce n\'est pas une révolution, retombe automatiquement sur FreeCAD CAM (contour extérieur, perçages détectés automatiquement, poches détectées par une heuristique — pas une reconnaissance de formes générale). Le rapport retourné indique quel pipeline a servi (\'pipeline\': \'revolution\' ou \'freecad_prismatique\'). Refuse proprement si le fichier ne contient ni l\'un ni l\'autre cas géré.',
+          'Lit un fichier STEP et génère le G-code. Essaie d\'abord le pipeline de révolution (axe détecté, profil exact — ébauche 3 axes + finition 5 axes) ; si la pièce n\'est pas une révolution, retombe automatiquement sur FreeCAD CAM (contour extérieur, perçages détectés automatiquement, poches détectées par une heuristique — pas une reconnaissance de formes générale). Le rapport retourné indique quel pipeline a servi (\'pipeline\': \'revolution\' ou \'freecad_prismatique\'). Refuse proprement si le fichier ne contient ni l\'un ni l\'autre cas géré. Le rapport indique aussi \'duree_a_vide_min\' : le temps d\'ébauche passé à tourner dans le vide faute de connaître le barreau. S\'il est non nul, le dire à l\'opérateur et proposer de relancer avec stockRadius.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -977,6 +977,7 @@ class AiToolCatalog {
           'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm — pipeline révolution uniquement (défaut 0.5)'},
           'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm — pipeline révolution uniquement (défaut 1.0)'},
           'stepover': {'type': 'number', 'description': 'Pas de finition sur la surface, mm — pipeline révolution uniquement (défaut 0.4)'},
+          'stockRadius': {'type': 'number', 'description': 'Rayon du barreau brut, mm (la moitié du diamètre annoncé par l\'opérateur). Sans lui, l\'ébauche balaie toute l\'enveloppe de dégagement par sécurité et coupe de l\'air — sur la pièce de référence, un tiers du temps total. À demander systématiquement.'},
         },
         'required': ['stepPath'],
       },
@@ -990,6 +991,7 @@ class AiToolCatalog {
             ap: (input['ap'] as num?)?.toDouble() ?? 0.5,
             ae: (input['ae'] as num?)?.toDouble() ?? 1.0,
             stepover: (input['stepover'] as num?)?.toDouble() ?? 0.4,
+            stockRadius: (input['stockRadius'] as num?)?.toDouble(),
           );
           // L'écran ne devine plus ce qui existe en relisant le texte des
           // résultats : la pièce et le programme sont déclarés ici, et les

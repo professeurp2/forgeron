@@ -63,6 +63,21 @@ class CutParams:
     approach_gap: float = 1.0   # dégagement entre couches (mm)
     spindle: int = 1000         # S de la broche (relais tout-ou-rien)
 
+    # ── Le brut ────────────────────────────────────────────────────────
+    # Rayon du barreau dont la pièce est tirée (mm). `None` = non déclaré.
+    #
+    # Sans cette valeur, l'ébauche balaie toute l'enveloppe de dégagement —
+    # jusqu'à r_max + 2ρ + 2 — parce que le générateur n'a aucun moyen de
+    # savoir où la matière s'arrête. C'est le choix SÛR : couper de l'air
+    # coûte du temps, laisser de la matière la fait rencontrer à la finition,
+    # à 120 mm/min, par le flanc de la bille.
+    #
+    # Mais ce choix sûr est cher. Sur le dôme R20 de référence tiré d'un
+    # barreau Ø42, il représente 83 des 218 minutes du programme — 38 %
+    # passées à tourner dans le vide. Déclarer le barreau les supprime sans
+    # toucher à une seule condition de coupe.
+    stock_radius: float | None = None
+
 
 def f3(v: float) -> str:
     s = f"{v:.3f}"
@@ -219,6 +234,19 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
     clear_r = r_max + 2 * rho + 2.0
     clear_d = height + rho + 2.0
 
+    # Rayon au-delà duquel il n'y a rien à couper. La bille touche le flanc
+    # du barreau quand l'axe de l'outil est à r_brut + ρ : plus loin, les
+    # cercles ne rencontrent rien.
+    rough_r = clear_r if p.stock_radius is None else min(clear_r, p.stock_radius + rho)
+
+    # Sert uniquement à chiffrer, dans le rapport, ce qu'un brut déclaré ferait
+    # gagner — pour que l'opérateur sache que la question vaut d'être posée.
+    # Quand il EST déclaré, il n'y a par construction plus rien à gagner :
+    # l'ébauche s'arrête déjà où la matière s'arrête.
+    tightest_r = (
+        rough_r if p.stock_radius is not None else min(clear_r, r_max + p.stock + rho)
+    )
+
     undercut, z_first, amount = find_undercut(prof)
     if undercut:
         # On n'interrompt pas : le programme reste utile pour la partie
@@ -232,6 +260,8 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
 
     rough: list[str] = []
     rough_min = 0.0
+    air_min = 0.0
+    n_air = 0
     n_layers = int(math.ceil(clear_d / p.ap))
     n_circles = 0
     first = True
@@ -242,12 +272,12 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
         # La bille mord jusqu'à ρ en deçà de la pointe : partir à
         # r_pièce + surépaisseur + ρ garde la matière à conserver hors d'atteinte.
         x_min = radius_at_depth(prof, d) + p.stock + rho
-        if x_min > clear_r:
+        if x_min > rough_r:
             continue
 
         rough.append(
             f"(COUCHE {k}/{n_layers} - Z{f3(-d)}"
-            f" - DE X{f3(x_min)} A X{f3(clear_r)})"
+            f" - DE X{f3(x_min)} A X{f3(rough_r)})"
         )
         if first:
             rough += [
@@ -271,12 +301,17 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
         n_circles += 2
 
         r = x_min
-        while r < clear_r:
-            r = min(r + p.ae, clear_r)
+        while r < rough_r:
+            r = min(r + p.ae, rough_r)
             rough.append(f"G1 X{f3(r)} Y0.000")
             _circle(rough, r)
             rough_min += 2 * math.pi * r / p.feed_rough
             n_circles += 1
+            # Ce même cercle aurait-il été coupé dans le vide, si le barreau
+            # était au plus juste ? On cumule pour le rapport.
+            if r > tightest_r:
+                air_min += 2 * math.pi * r / p.feed_rough
+                n_air += 1
         rough.append(f"G0 Z{f3(-d + p.approach_gap)}")
 
     rough.append(f"G0 Z{f3(p.z_safe)}")
@@ -316,6 +351,13 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
         " - COMPENSATION DE RAYON INCLUSE)",
         f"(EBAUCHE 3 AXES : {n_layers} COUCHES, {n_circles} CONTOURS,"
         f" AP {f3(p.ap)} AE {f3(p.ae)}, SUREPAISSEUR {f3(p.stock)})",
+        (f"(BRUT DECLARE : BARREAU RAYON {f3(p.stock_radius)}"
+         f" - EBAUCHE JUSQU A X{f3(rough_r)})")
+        if p.stock_radius is not None else
+        (f"(BRUT NON DECLARE : EBAUCHE JUSQU A X{f3(rough_r)} PAR SECURITE"
+         f" - {n_air} CONTOURS Y TOURNENT DANS LE VIDE SI LE BARREAU FAIT"
+         f" MOINS DE {f3(tightest_r - rho)} DE RAYON,"
+         f" SOIT {round(air_min)} MIN)"),
         "(ENTREE EN HELICE - AUCUNE PLONGEE VERTICALE DANS LA MATIERE)",
         f"(FINITION 5 AXES : {len(levels)} NIVEAUX,"
         f" PAS SURFACE {f3(p.stepover)}, CRETE {crest:.4f})",
@@ -359,6 +401,12 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
         "profondeur_mm": clear_d,
         "couches_ebauche": n_layers,
         "contours_ebauche": n_circles,
+        "brut_rayon_mm": p.stock_radius,
+        "ebauche_rayon_mm": rough_r,
+        # Ce que coûte le fait de ne pas savoir où s'arrête la matière.
+        # Nul dès qu'un brut au plus juste est déclaré.
+        "contours_a_vide": n_air,
+        "duree_a_vide_min": air_min,
         "niveaux_finition": len(levels),
         "crete_mm": crest,
         "duree_ebauche_min": rough_min,
@@ -385,11 +433,22 @@ def main() -> int:
     ap.add_argument("--ap", type=float, default=0.5)
     ap.add_argument("--ae", type=float, default=1.0)
     ap.add_argument("--stepover", type=float, default=0.4)
+    ap.add_argument(
+        "--brut-rayon",
+        type=float,
+        default=None,
+        help="rayon du barreau (mm) — sans lui l'ébauche balaie toute "
+        "l'enveloppe par sécurité, et coupe de l'air",
+    )
     args = ap.parse_args()
 
     prof = load_profile_csv(args.profil)
     params = CutParams(
-        tool_dia=args.outil, ap=args.ap, ae=args.ae, stepover=args.stepover
+        tool_dia=args.outil,
+        ap=args.ap,
+        ae=args.ae,
+        stepover=args.stepover,
+        stock_radius=args.brut_rayon,
     )
     gcode, report = generate(prof, params)
 
@@ -398,6 +457,14 @@ def main() -> int:
         f.write(gcode)
 
     print(f"{len(gcode.splitlines())} lignes -> {out}")
+    if report["brut_rayon_mm"] is None and report["duree_a_vide_min"] > 1.0:
+        print(
+            f"AVIS : brut non déclaré. {report['contours_a_vide']} contours "
+            f"({round(report['duree_a_vide_min'])} min) tournent dans le vide "
+            f"si le barreau fait moins de "
+            f"{report['ebauche_rayon_mm'] - args.outil / 2:.1f} mm de rayon. "
+            f"Relancer avec --brut-rayon pour les supprimer."
+        )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 

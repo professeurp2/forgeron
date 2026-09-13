@@ -16,12 +16,19 @@ class StepPipelineService {
   /// clés que `gen_revolution.generate`, plus `gcode_path`/`profile_csv_path`)
   /// en cas de succès ; lève [StepPipelineException] sinon — refus motivé
   /// (pièce non reconnue comme une révolution) ou erreur d'environnement.
+  ///
+  /// [stockRadius] est le rayon du barreau dont la pièce est tirée. Le
+  /// transmettre n'est pas un détail de confort : sans lui, l'ébauche ne sait
+  /// pas où s'arrête la matière et balaie toute l'enveloppe de dégagement —
+  /// sur le dôme de référence, 68 des 149 minutes d'ébauche tournent alors
+  /// dans le vide.
   static Future<Map<String, dynamic>> run(
     String stepPath, {
     double toolDia = 6.0,
     double ap = 0.5,
     double ae = 1.0,
     double stepover = 0.4,
+    double? stockRadius,
   }) async {
     final pipelineDir = _findPipelineDir();
     if (pipelineDir == null) {
@@ -50,6 +57,9 @@ class StepPipelineService {
         '--ap', '$ap',
         '--ae', '$ae',
         '--stepover', '$stepover',
+        // Sans rayon de brut, l'ébauche balaie toute l'enveloppe par
+        // sécurité — et coupe de l'air. Le rapport chiffre ce que ça coûte.
+        if (stockRadius != null) ...['--brut-rayon', '$stockRadius'],
       ],
       workingDirectory: pipelineDir.path,
     );

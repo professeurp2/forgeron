@@ -128,6 +128,59 @@ def main() -> int:
                 abs(rapport2["rayon_max_mm"] - R) < 0.05,
                 f"{rapport2['rayon_max_mm']:.3f} mm pour {R:.3f} attendus")
 
+    # ── 6. Le brut borne l'ébauche ────────────────────────────────────────
+    # C'est le poste le plus cher du programme et personne ne le voyait :
+    # faute de savoir où s'arrête la matière, l'ébauche balayait toute
+    # l'enveloppe de dégagement. Sur ce dôme tiré d'un Ø42, cela représente un
+    # tiers du temps total, passé à tourner dans le vide.
+    print("\n6. Le brut borne l'ébauche")
+    libre, rap_libre = generate(prof, CutParams(tool_dia=2 * RHO))
+    serre, rap_serre = generate(prof, CutParams(tool_dia=2 * RHO, stock_radius=21.0))
+
+    ok &= check(
+        "sans brut déclaré, l'ébauche va jusqu'à l'enveloppe",
+        abs(rap_libre["ebauche_rayon_mm"] - rap_libre["enveloppe_r_mm"]) < 1e-9,
+        f"X{rap_libre['ebauche_rayon_mm']:.1f} = enveloppe",
+    )
+    ok &= check(
+        "un brut déclaré arrête l'ébauche à r_brut + rho",
+        abs(rap_serre["ebauche_rayon_mm"] - (21.0 + RHO)) < 1e-9,
+        f"X{rap_serre['ebauche_rayon_mm']:.1f} pour un barreau de rayon 21",
+    )
+    gain = rap_libre["duree_ebauche_min"] - rap_serre["duree_ebauche_min"]
+    ok &= check(
+        "le barreau déclaré raccourcit vraiment le programme",
+        gain > 0.25 * rap_libre["duree_ebauche_min"],
+        f"{gain:.0f} min de moins sur {rap_libre['duree_ebauche_min']:.0f}"
+        f" ({100 * gain / rap_libre['duree_ebauche_min']:.0f} %)",
+    )
+    ok &= check(
+        "sans brut, le rapport chiffre ce que ça coûte",
+        rap_libre["contours_a_vide"] > 0 and rap_libre["duree_a_vide_min"] > 1.0,
+        f"{rap_libre['contours_a_vide']} contours,"
+        f" {rap_libre['duree_a_vide_min']:.0f} min",
+    )
+    ok &= check(
+        "avec brut, il n'y a plus rien à gagner",
+        rap_serre["contours_a_vide"] == 0 and rap_serre["duree_a_vide_min"] == 0.0,
+        "0 contour à vide",
+    )
+    # Un barreau plus large que l'enveloppe ne doit PAS élargir l'ébauche :
+    # au-delà, l'outil ne passe plus.
+    _, rap_large = generate(prof, CutParams(tool_dia=2 * RHO, stock_radius=100.0))
+    ok &= check(
+        "un barreau surdimensionné reste borné par l'enveloppe",
+        abs(rap_large["ebauche_rayon_mm"] - rap_large["enveloppe_r_mm"]) < 1e-9,
+        f"X{rap_large['ebauche_rayon_mm']:.1f}",
+    )
+    # La finition ne dépend pas du brut : elle suit la pièce.
+    ok &= check(
+        "la finition est identique dans les deux cas",
+        rap_libre["niveaux_finition"] == rap_serre["niveaux_finition"]
+        and abs(rap_libre["duree_finition_min"] - rap_serre["duree_finition_min"]) < 1e-9,
+        f"{rap_serre['niveaux_finition']} niveaux de part et d'autre",
+    )
+
     print("\n" + ("TOUT PASSE" if ok else "DES VÉRIFICATIONS ONT ÉCHOUÉ"))
     return 0 if ok else 1
 

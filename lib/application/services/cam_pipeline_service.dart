@@ -16,6 +16,7 @@ class CamPipelineService {
     double ap = 0.5,
     double ae = 1.0,
     double stepover = 0.4,
+    double? stockRadius,
   }) async {
     try {
       final report = await StepPipelineService.run(
@@ -24,6 +25,7 @@ class CamPipelineService {
         ap: ap,
         ae: ae,
         stepover: stepover,
+        stockRadius: stockRadius,
       );
       return {...report, 'pipeline': 'revolution'};
     } on StepPipelineException catch (e) {

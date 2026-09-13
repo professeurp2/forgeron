@@ -54,10 +54,22 @@ def main() -> int:
     ap.add_argument(
         "--stepover", type=float, default=0.4, help="pas de finition sur la surface (mm)"
     )
+    ap.add_argument(
+        "--brut-rayon",
+        type=float,
+        default=None,
+        help="rayon du barreau brut (mm). Sans lui, l'ébauche balaie toute "
+        "l'enveloppe par sécurité — et coupe de l'air : sur le dôme de "
+        "référence, un tiers du programme",
+    )
     args = ap.parse_args()
 
     params = CutParams(
-        tool_dia=args.outil, ap=args.ap, ae=args.ae, stepover=args.stepover
+        tool_dia=args.outil,
+        ap=args.ap,
+        ae=args.ae,
+        stepover=args.stepover,
+        stock_radius=args.brut_rayon,
     )
 
     try:
@@ -88,6 +100,11 @@ def main() -> int:
 
     print(f"{args.step} : {len(profile)} points de profil -> {profile_csv}")
     print(f"{len(gcode.splitlines())} lignes -> {out}")
+    if report.get("brut_rayon_mm") is None and report.get("duree_a_vide_min", 0) > 1.0:
+        print(
+            f"AVIS : brut non déclaré, {round(report['duree_a_vide_min'])} min "
+            f"d'ébauche dans le vide évitables avec --brut-rayon."
+        )
     print(f"rapport -> {report_path}")
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0

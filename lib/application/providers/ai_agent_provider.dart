@@ -756,7 +756,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'son parcours d\'outil avec open_toolpath_window, en passant le STEP '
       'd\'origine pour que la pièce apparaisse sous le parcours. Les deux '
       's\'ouvrent dans des fenêtres séparées que l\'opérateur garde sous les '
-      'yeux pendant que la discussion continue.';
+      'yeux pendant que la discussion continue. '
+      'AVANT de lancer run_step_pipeline sur une pièce de révolution, DEMANDE '
+      'le diamètre du barreau brut et passe-le en stockRadius (la moitié du '
+      'diamètre). C\'est une question à laquelle un opérateur répond en deux '
+      'mots (« du Ø40 »), et elle vaut un tiers du temps d\'usinage : sans '
+      'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
+      'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
+      'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
+      'relancer.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
