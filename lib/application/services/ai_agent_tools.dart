@@ -974,8 +974,8 @@ class AiToolCatalog {
         'properties': {
           'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
           'toolDiameter': {'type': 'number', 'description': 'Diamètre de la fraise boule, mm — pipeline révolution uniquement (défaut 6)'},
-          'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm — pipeline révolution uniquement (défaut 0.5)'},
-          'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm — pipeline révolution uniquement (défaut 1.0)'},
+          'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm — pipeline révolution uniquement (défaut 0.2). Plafond VIBRATOIRE : ne jamais proposer plus sans que l\'opérateur le demande explicitement.'},
+          'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm — pipeline révolution uniquement (défaut 0.5). Plafond VIBRATOIRE : même règle que ap.'},
           'stepover': {'type': 'number', 'description': 'Pas de finition sur la surface, mm — pipeline révolution uniquement (défaut 0.4)'},
           'stockRadius': {'type': 'number', 'description': 'Rayon du barreau brut, mm (la moitié du diamètre annoncé par l\'opérateur). Sans lui, l\'ébauche balaie toute l\'enveloppe de dégagement par sécurité et coupe de l\'air — sur la pièce de référence, un tiers du temps total. À demander systématiquement.'},
         },
@@ -988,8 +988,8 @@ class AiToolCatalog {
           final report = await CamPipelineService.run(
             stepPath,
             toolDiameter: (input['toolDiameter'] as num?)?.toDouble() ?? 6.0,
-            ap: (input['ap'] as num?)?.toDouble() ?? 0.5,
-            ae: (input['ae'] as num?)?.toDouble() ?? 1.0,
+            ap: (input['ap'] as num?)?.toDouble() ?? 0.2,
+            ae: (input['ae'] as num?)?.toDouble() ?? 0.5,
             stepover: (input['stepover'] as num?)?.toDouble() ?? 0.4,
             stockRadius: (input['stockRadius'] as num?)?.toDouble(),
           );

@@ -299,13 +299,27 @@ qui réoriente à chaque point paie cette seconde-tiers des milliers de fois.
 la couvrent entièrement (chaque zone usinable en 3 axes depuis une orientation),
 plutôt qu'une orientation continue.
 
-Le gain est double et il est structurel :
-- les rotations disparaissent du temps de coupe (quelques indexations au lieu de
-  milliers de micro-rotations) ;
-- en 3 axes, le plafond ForceGuard passe de **500 à 2000 mm/min** et la
-  profondeur de passe de 0,3 à 2 mm (`MachiningMode`) — soit un régime de coupe
-  quatre à six fois plus productif, sur une machine dont c'est justement le
-  point faible.
+Le gain tient à une seule chose, mais elle est structurelle : **les rotations
+disparaissent du temps de coupe** — quelques indexations au lieu de milliers de
+micro-rotations à 0,28 s la pièce.
+
+Ce qu'il ne faut PAS y ajouter, contrairement à une première lecture de
+`MachiningMode` : le mode 3 axes n'ouvre aucun régime de coupe plus généreux.
+
+- Son plafond d'avance nominal de 2000 mm/min est hors d'atteinte : les axes
+  X et Y de cette machine sont configurés à **500 mm/min**. Le mode ne lève pas
+  une limite que le matériel impose déjà.
+- Ses `ap`/`ae` ne sont plus distincts de ceux du 5 axes. Le plafond qui mord
+  en premier sur cette machine est **la vibration**, pas l'effort : bâti léger,
+  broche DC en porte-à-faux, pièce tenue d'un seul côté. `ap` est plafonné à
+  0,2 mm et `ae` à 0,5 mm dans les deux modes, et le broutage ne fait pas la
+  différence entre 3 et 5 axes.
+
+Ce plafond vibratoire est cher : sur le dôme R20 de référence, il porte
+l'ébauche de 149 à 657 minutes. Il rend la brique 0 (le brut déclaré) et la
+brique 7 (le découpage en tranches) nettement plus urgentes qu'elles ne le
+paraissaient — un programme de 12 h ne passe pas sur une carte qui redémarre
+vers 25 min.
 
 **Méthode de départ** : grouper les normales de la surface par un k-means sur la
 sphère (k petit, 3 à 6), retenir les orientations atteignables (brique 3) et sans

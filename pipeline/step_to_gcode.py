@@ -49,8 +49,10 @@ def main() -> int:
     ap.add_argument("step", help="fichier .step / .stp à usiner")
     ap.add_argument("-o", "--sortie", help="fichier .nc (défaut : <step>.nc)")
     ap.add_argument("--outil", type=float, default=6.0, help="diamètre fraise boule (mm)")
-    ap.add_argument("--ap", type=float, default=0.5, help="profondeur de passe ébauche (mm)")
-    ap.add_argument("--ae", type=float, default=1.0, help="engagement radial ébauche (mm)")
+    ap.add_argument("--ap", type=float, default=0.2,
+                    help="profondeur de passe ébauche (mm) — plafond vibratoire 0.2")
+    ap.add_argument("--ae", type=float, default=0.5,
+                    help="engagement radial ébauche (mm) — plafond vibratoire 0.5")
     ap.add_argument(
         "--stepover", type=float, default=0.4, help="pas de finition sur la surface (mm)"
     )

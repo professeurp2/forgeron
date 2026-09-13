@@ -46,13 +46,24 @@ import numpy as np
 
 @dataclass(frozen=True)
 class CutParams:
-    """Conditions de coupe. Les valeurs par défaut sont celles qui ont produit
-    le dôme R20 sans vibration, en 3 h 35 — mesurées, pas supposées."""
+    """Conditions de coupe.
+
+    `ap` et `ae` sont plafonnés par la VIBRATION, pas par l'effort de coupe.
+    C'est une contrainte de structure — bâti léger, broche DC en porte-à-faux,
+    barreau tenu d'un seul côté — et elle mord bien avant les 180 N que
+    l'enveloppe d'effort autoriserait. Les valeurs retenues (0,2 et 0,5 mm)
+    sont celles auxquelles la machine coupe sans broutage.
+
+    Le dôme R20 de référence, usiné en 3 h 35, l'avait été à ap 0,5 / ae 1,0 —
+    au-dessus de ce qu'on s'autorise désormais. Ce programme n'est donc plus
+    reproductible tel quel : il servait d'étalon de GÉOMÉTRIE (le profil
+    retrouvé au micron près), pas de conditions de coupe.
+    """
 
     tool_dia: float = 6.0       # fraise boule (mm)
     stock: float = 0.5          # surépaisseur laissée par l'ébauche (mm)
-    ap: float = 0.5             # profondeur de passe (mm)
-    ae: float = 1.0             # engagement radial (mm)
+    ap: float = 0.2             # profondeur de passe (mm) — plafond vibratoire
+    ae: float = 0.5             # engagement radial (mm) — plafond vibratoire
     feed_rough: float = 500.0   # avance d'ébauche (mm/min)
     feed_plunge: float = 100.0  # approche au contact (mm/min)
     feed_link: float = 200.0    # liaisons entre niveaux (mm/min)
@@ -430,8 +441,10 @@ def main() -> int:
     ap.add_argument("profil", help="CSV (rayon_mm, hauteur_mm)")
     ap.add_argument("-o", "--sortie", help="fichier .nc (défaut : <profil>.nc)")
     ap.add_argument("--outil", type=float, default=6.0, help="diamètre fraise boule")
-    ap.add_argument("--ap", type=float, default=0.5)
-    ap.add_argument("--ae", type=float, default=1.0)
+    ap.add_argument("--ap", type=float, default=0.2,
+                    help="profondeur de passe (mm) — plafond vibratoire 0.2")
+    ap.add_argument("--ae", type=float, default=0.5,
+                    help="engagement radial (mm) — plafond vibratoire 0.5")
     ap.add_argument("--stepover", type=float, default=0.4)
     ap.add_argument(
         "--brut-rayon",

@@ -13,8 +13,8 @@ class CamPipelineService {
   static Future<Map<String, dynamic>> run(
     String stepPath, {
     double toolDiameter = 6.0,
-    double ap = 0.5,
-    double ae = 1.0,
+    double ap = 0.2,
+    double ae = 0.5,
     double stepover = 0.4,
     double? stockRadius,
   }) async {
