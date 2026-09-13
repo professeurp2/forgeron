@@ -808,32 +808,6 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     );
   }
 
-  /// Rendu léger du markdown de l'assistant : **gras**, puces, et nettoyage
-  /// LaTeX (`$...$`, `\text{}`) → texte lisible. Sans dépendance externe.
-  static List<InlineSpan> _assistantSpans(String text) {
-    var t = text
-        .replaceAllMapped(RegExp(r'\\text\{([^}]*)\}'), (m) => m[1] ?? '')
-        .replaceAll(r'\times', ' × ')
-        .replaceAll(r'\circ', '°')
-        .replaceAll(r'\,', ' ')
-        .replaceAll(r'$', '');
-    // Puces en début de ligne (« * » ou « - » suivi d'un espace).
-    t = t.replaceAllMapped(
-        RegExp(r'(^|\n)[ \t]*[*-][ \t]+'), (m) => '${m[1]}  • ');
-    // Gras **...**
-    final spans = <InlineSpan>[];
-    final parts = t.split('**');
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].isEmpty) continue;
-      spans.add(TextSpan(
-        text: parts[i],
-        style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
-      ));
-    }
-    if (spans.isEmpty) spans.add(TextSpan(text: t));
-    return spans;
-  }
-
   /// Contenu rendu d'une réponse d'assistant : prose et blocs de code.
   List<Widget> _assistantContent(ForgeronColorPalette fc, String text,
       TextStyle baseStyle) {
@@ -849,7 +823,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         ));
       } else {
         widgets.add(SelectableText.rich(TextSpan(
-            style: baseStyle, children: _assistantSpans(block.text.trim()))));
+            style: baseStyle, children: chatProseSpans(block.text.trim()))));
       }
     }
     return widgets;
@@ -862,6 +836,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         raw: m.text,
         time: _fmtTime(m.timestamp),
         imageBytes: m.imageBytes,
+        running: m.isRunningTool,
       );
     }
 
@@ -1746,11 +1721,17 @@ class _ToolResultTile extends StatefulWidget {
   /// exactement ce que l'agent a reçu pour juger de son analyse.
   final Uint8List? imageBytes;
 
+  /// L'outil tourne encore : l'étape est affichée dès son démarrage, et sa
+  /// puce doit le dire — un ✓ posé sur un appel qui n'a pas rendu sa réponse
+  /// donnerait l'illusion d'une action déjà faite.
+  final bool running;
+
   const _ToolResultTile(
       {required this.fc,
       required this.raw,
       required this.time,
-      this.imageBytes});
+      this.imageBytes,
+      this.running = false});
 
   @override
   State<_ToolResultTile> createState() => _ToolResultTileState();
@@ -1764,11 +1745,13 @@ class _ToolResultTileState extends State<_ToolResultTile> {
     final fc = widget.fc;
     final sep = widget.raw.indexOf(' → ');
     final name = sep >= 0 ? widget.raw.substring(0, sep) : widget.raw;
-    final detail = sep >= 0 ? widget.raw.substring(sep + 3) : '';
-    final isError = detail.toLowerCase().contains('erreur') ||
-        detail.toLowerCase().contains('refusé') ||
-        detail.toLowerCase().contains('interrompu');
-    final accent = isError ? fc.danger : fc.secondary;
+    final running = widget.running;
+    final detail = running || sep < 0 ? '' : widget.raw.substring(sep + 3);
+    final isError = !running &&
+        (detail.toLowerCase().contains('erreur') ||
+            detail.toLowerCase().contains('refusé') ||
+            detail.toLowerCase().contains('interrompu'));
+    final accent = isError ? fc.danger : (running ? fc.primary : fc.secondary);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1790,8 +1773,20 @@ class _ToolResultTileState extends State<_ToolResultTile> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(isError ? Icons.error_outline : Icons.build_circle_outlined,
-                      size: 14, color: accent),
+                  if (running)
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.6, color: accent),
+                    )
+                  else
+                    Icon(
+                        isError
+                            ? Icons.error_outline
+                            : Icons.build_circle_outlined,
+                        size: 14,
+                        color: accent),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
@@ -1805,7 +1800,10 @@ class _ToolResultTileState extends State<_ToolResultTile> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (!isError)
+                  if (running)
+                    Text('en cours…',
+                        style: TextStyle(color: fc.textDisabled, fontSize: 10))
+                  else if (!isError)
                     Icon(Icons.check, size: 13, color: fc.success),
                   if (detail.isNotEmpty) ...[
                     const SizedBox(width: 4),

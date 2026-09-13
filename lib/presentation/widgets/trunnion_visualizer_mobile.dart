@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../application/providers/theme_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
+import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -25,6 +26,13 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
   /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
   final List<double>? machineLimits;
 
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
+  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  final Map<String, dynamic>? partMesh;
+
+  /// Ce que la scène montre — voir [ViewerScene].
+  final ViewerScene scene;
+
   const MobileTrunnionVisualizer({
     super.key,
     required this.mPos,
@@ -33,6 +41,8 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
     this.activeIndex = 0,
     this.showVectors = false,
     this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override
@@ -59,7 +69,13 @@ class _MobileTrunnionVisualizerState
           try {
             final data = jsonDecode(msg.message);
             if (data['type'] == 'viewer_ready') {
-              if (mounted) setState(() => _isReady = true);
+              // La page répète son annonce quelques fois (l'hôte peut
+              // s'abonner après le premier tour) : on ne pousse l'état
+              // complet qu'une seule fois.
+              if (_isReady || !mounted) return;
+              setState(() => _isReady = true);
+              _sendScene();
+              _sendMesh();
               _sendToolpath();
               _updateMachine();
               _toggleVectors();
@@ -107,10 +123,24 @@ class _MobileTrunnionVisualizerState
     super.didUpdateWidget(oldWidget);
     if (!_isReady) return;
 
+    if (oldWidget.scene != widget.scene) _sendScene();
+    if (!identical(oldWidget.partMesh, widget.partMesh)) _sendMesh();
     if (oldWidget.toolpath != widget.toolpath) _sendToolpath();
     if (oldWidget.showVectors != widget.showVectors) _toggleVectors();
     if (oldWidget.machineLimits != widget.machineLimits) _sendLimits();
     _updateMachine();
+  }
+
+  void _sendScene() =>
+      _post({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendMesh() {
+    final mesh = widget.partMesh;
+    if (mesh == null) {
+      _post({'type': 'clear_mesh'});
+      return;
+    }
+    _post({'type': 'load_mesh', 'payload': mesh});
   }
 
   void _sendToolpath() {

@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'trunnion_visualizer_windows.dart';
 import 'trunnion_visualizer_mobile.dart';
+import 'viewer_scene.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Aiguilleur du visualiseur 3D pour les plateformes non-web.
@@ -24,6 +25,13 @@ class TrunnionVisualizer extends StatelessWidget {
   /// alors aucune enveloppe, plutot qu'une boite inventee.
   final List<double>? machineLimits;
 
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
+  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  final Map<String, dynamic>? partMesh;
+
+  /// Ce que la scène montre — voir [ViewerScene].
+  final ViewerScene scene;
+
   const TrunnionVisualizer({
     super.key,
     required this.mPos,
@@ -32,6 +40,8 @@ class TrunnionVisualizer extends StatelessWidget {
     this.activeIndex = 0,
     this.showVectors = false,
     this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override
@@ -44,6 +54,8 @@ class TrunnionVisualizer extends StatelessWidget {
         activeIndex: activeIndex,
         showVectors: showVectors,
         machineLimits: machineLimits,
+        partMesh: partMesh,
+        scene: scene,
       );
     }
 
@@ -55,6 +67,8 @@ class TrunnionVisualizer extends StatelessWidget {
         activeIndex: activeIndex,
         showVectors: showVectors,
         machineLimits: machineLimits,
+        partMesh: partMesh,
+        scene: scene,
       );
     }
 

@@ -317,12 +317,100 @@
             scene.add(limitsBox);
         }
 
+        // --- PIECE (maillage STEP) ----------------------------------------
+        // Le viewer ne savait afficher qu'un parcours : une piece chargee mais
+        // pas encore usinee n'avait donc AUCUNE representation. Le maillage
+        // vient de `pipeline/step_preview.py` (tessellation OpenCASCADE) sous
+        // forme de sommets + indices : three.js recalcule les normales, ce qui
+        // evite de transporter un troisieme tableau pour rien.
+        const partGroup = new THREE.Group();
+        scene.add(partGroup);
+        const matPart = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(theme.surfaceBright),
+            metalness: 0.25, roughness: 0.6, side: THREE.DoubleSide,
+        });
+        let partMesh = null;
+
+        function clearMesh() {
+            if (!partMesh) return;
+            partGroup.remove(partMesh);
+            partMesh.geometry.dispose();
+            partMesh = null;
+        }
+
+        function loadMesh(p) {
+            clearMesh();
+            if (!p || !p.vertices || p.vertices.length < 9) return;
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position',
+                new THREE.BufferAttribute(new Float32Array(p.vertices), 3));
+            if (p.indices && p.indices.length) {
+                // Uint32 systematiquement : au-dela de 65535 sommets un index
+                // 16 bits repliera la piece sur elle-meme, en silence.
+                geo.setIndex(new THREE.Uint32BufferAttribute(new Uint32Array(p.indices), 1));
+            }
+            geo.computeVertexNormals();
+            geo.computeBoundingSphere();
+            partMesh = new THREE.Mesh(geo, matPart);
+            partGroup.add(partMesh);
+            debug('PIECE: ' + Math.round((p.indices ? p.indices.length / 3 : p.vertices.length / 9)) + ' TRIANGLES');
+            fitView(geo.boundingSphere);
+        }
+
+        // Cadre la vue sur une sphere englobante : une piece de 5 mm et une de
+        // 500 mm doivent toutes deux remplir l'ecran, sans reglage manuel.
+        function fitView(sphere) {
+            if (!sphere || !isFinite(sphere.radius)) return;
+            const r = Math.max(sphere.radius, 1);
+            const c = sphere.center;
+            const d = r / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.3;
+            const dir = new THREE.Vector3(0.75, -1, 0.7).normalize();
+            controls.target.copy(c);
+            camera.position.copy(c).addScaledVector(dir, d);
+            camera.near = Math.max(0.1, d - r * 4);
+            camera.far = d + r * 8;
+            camera.updateProjectionMatrix();
+            controls.update();
+        }
+
+        // Cadrage sur ce qui est affiche, a la demande (bouton, ou message
+        // 'fit_view' apres un chargement pilote depuis Dart).
+        function fitToContent() {
+            const box = new THREE.Box3();
+            if (partMesh) box.expandByObject(partMesh);
+            if (pathLines) box.expandByObject(pathLines);
+            if (box.isEmpty()) return;
+            fitView(box.getBoundingSphere(new THREE.Sphere()));
+        }
+
+        // Une fenetre « apercu piece » n'a que faire du portique, et une
+        // fenetre « parcours » n'a que faire du brut voxelise : chaque fenetre
+        // detachee compose sa scene plutot que d'en cacher des morceaux apres
+        // coup.
+        function setScene(p) {
+            if (!p) return;
+            if (p.machine !== undefined) {
+                machineGroup.visible = !!p.machine;
+                // Meme correspondance que le bouton ci-dessus, pour que le
+                // libelle ne change pas de sens selon qui a bascule la vue.
+                document.getElementById('mode-text').innerText = p.machine ? 'Machine' : 'Outil';
+            }
+            if (p.toolpath !== undefined) toolpathGroup.visible = !!p.toolpath;
+            if (p.part !== undefined) partGroup.visible = !!p.part;
+            if (p.workpiece !== undefined) workpiece.mesh.visible = !!p.workpiece;
+            if (p.controls !== undefined) {
+                document.querySelector('.btn-container').style.display =
+                    p.controls ? 'flex' : 'none';
+            }
+        }
+
         // --- THEME ---------------------------------------------------------
         function applyTheme(p) {
             Object.assign(theme, p);
             scene.background = new THREE.Color(theme.background);
             matPlate.color.set(theme.surface);
             matWorkpiece.color.set(theme.surfaceBright);
+            matPart.color.set(theme.surfaceBright);
             matTool.color.set(theme.primary);
             for (const m of edgeMaterials) m.color.set(theme.edge);
             cG0.set(theme.error);
@@ -346,10 +434,46 @@
             }
             else if (data.type === 'set_limits') setLimits(data.payload);
             else if (data.type === 'set_theme') applyTheme(data.payload);
+            else if (data.type === 'load_mesh') loadMesh(data.payload);
+            else if (data.type === 'clear_mesh') clearMesh();
+            else if (data.type === 'set_scene') setScene(data.payload);
+            else if (data.type === 'fit_view') fitToContent();
         };
 
         window.addEventListener('message', (e) => handleMessage(e.data));
-        if (window.ForgeronChannel) window.ForgeronChannel.postMessage(JSON.stringify({ type: 'viewer_ready' }));
+
+        // --- PONT AVEC L'HOTE ---------------------------------------------
+        // Deux hotes, deux protocoles, et c'est ce qui tenait le viewer
+        // Windows muet : la page ne signalait sa disponibilite que par
+        // `window.ForgeronChannel`, le canal JS de `webview_flutter`
+        // (Android/iOS). Sur WebView2 cet objet n'existe pas — le signal
+        // « pret » ne partait donc jamais, et Dart, qui n'envoie theme,
+        // parcours et position qu'APRES ce signal, n'envoyait rien du tout.
+        // WebView2 expose `window.chrome.webview` a la place : on annonce sur
+        // les deux, et on ecoute aussi son evenement 'message', qui n'atteint
+        // pas `window`.
+        function announceReady() {
+            const hello = JSON.stringify({ type: 'viewer_ready' });
+            if (window.ForgeronChannel) window.ForgeronChannel.postMessage(hello);
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(hello);
+            }
+        }
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener('message', (e) => {
+                const d = e.data;
+                handleMessage(typeof d === 'string' ? JSON.parse(d) : d);
+            });
+        }
+        announceReady();
+        // Filet de securite : si l'hote s'abonne apres le premier tour de
+        // boucle (initialisation asynchrone cote Dart), il manquerait
+        // l'annonce. On la repete quelques fois, c'est un message inerte.
+        let readyBeeps = 0;
+        const readyTimer = setInterval(() => {
+            announceReady();
+            if (++readyBeeps >= 5) clearInterval(readyTimer);
+        }, 300);
 
         function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
         animate();

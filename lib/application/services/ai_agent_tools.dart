@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/fluidnc/grbl_parser.dart';
 import '../providers/ai_agent_settings_provider.dart';
+import '../providers/ai_artifacts_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/di_providers.dart';
 import '../providers/gcode_provider.dart';
@@ -21,6 +22,7 @@ import 'ai_window_launcher.dart';
 import 'cam_pipeline_service.dart';
 import 'prismatic_pipeline_service.dart';
 import 'step_pipeline_service.dart';
+import 'step_preview_service.dart';
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -980,14 +982,21 @@ class AiToolCatalog {
       },
       category: null,
       execute: (input, ref) async {
+        final stepPath = input['stepPath'] as String;
         try {
           final report = await CamPipelineService.run(
-            input['stepPath'] as String,
+            stepPath,
             toolDiameter: (input['toolDiameter'] as num?)?.toDouble() ?? 6.0,
             ap: (input['ap'] as num?)?.toDouble() ?? 0.5,
             ae: (input['ae'] as num?)?.toDouble() ?? 1.0,
             stepover: (input['stepover'] as num?)?.toDouble() ?? 0.4,
           );
+          // L'écran ne devine plus ce qui existe en relisant le texte des
+          // résultats : la pièce et le programme sont déclarés ici, et les
+          // boutons d'aperçu 3D s'allument d'eux-mêmes.
+          final artifacts = ref.read(aiArtifactsProvider.notifier);
+          artifacts.setGcodeFromReport(report);
+          unawaited(artifacts.loadStep(stepPath));
           return jsonEncode(report);
         } on StepPipelineException catch (e) {
           return 'Erreur: $e';
@@ -1003,6 +1012,86 @@ class AiToolCatalog {
     // au-delà du texte, sur desktop. Sur mobile/web, AiWindowLauncher répond
     // simplement que la fenêtre n'est pas disponible — l'agent le lit et
     // peut se rabattre sur du texte.
+    AiTool(
+      name: 'preview_step_file',
+      description:
+          'Ouvre l\'aperçu 3D d\'un fichier STEP dans une fenêtre séparée (desktop uniquement) : la pièce est facettisée puis affichée telle quelle, AVANT tout usinage. À utiliser dès qu\'un fichier STEP est mentionné, pour que l\'opérateur voie ce qui a été chargé — et pour vérifier soi-même que le fichier contient bien la pièce attendue. Retourne l\'encombrement, le volume et le nombre de triangles.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
+          'title': {'type': 'string', 'description': 'Titre de la fenêtre (défaut : nom du fichier)'},
+        },
+        'required': ['stepPath'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final path = input['stepPath'] as String;
+        try {
+          final preview = await StepPreviewService.run(path);
+          // L'écran principal garde la pièce sous la main : rouvrir la
+          // fenêtre ensuite ne refacettise rien.
+          unawaited(ref.read(aiArtifactsProvider.notifier).loadStep(path));
+          final name = path.split(RegExp(r'[/\\]')).last;
+          final message = await AiWindowLauncher.openStepPreview(
+            title: input['title'] as String? ?? 'Aperçu — $name',
+            mesh: preview.mesh,
+            info: {
+              'encombrement': preview.sizeLabel,
+              'volume': '${preview.volume.toStringAsFixed(0)} mm³',
+              'triangles': preview.triangles,
+            },
+          );
+          return jsonEncode({
+            'fenetre': message,
+            'encombrement_mm': preview.size,
+            'volume_mm3': preview.volume,
+            'triangles': preview.triangles,
+          });
+        } on StepPreviewException catch (e) {
+          return 'Erreur: $e';
+        }
+      },
+    ),
+    AiTool(
+      name: 'open_toolpath_window',
+      description:
+          'Ouvre le parcours d\'outil d\'un programme G-code en 3D, dans une fenêtre séparée (desktop uniquement) — le tracé réel, rapides en rouge et passes de travail en vert. À utiliser après avoir généré un programme, pour que l\'opérateur voie le parcours plutôt que d\'avoir à lire des lignes de G-code. Si un fichier STEP est fourni, la pièce est dessinée sous le parcours.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'gcodePath': {'type': 'string', 'description': 'Chemin absolu du fichier .nc / .gcode'},
+          'stepPath': {'type': 'string', 'description': 'Pièce à dessiner sous le parcours (facultatif)'},
+          'title': {'type': 'string', 'description': 'Titre de la fenêtre (défaut : nom du fichier)'},
+        },
+        'required': ['gcodePath'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final gcodePath = input['gcodePath'] as String;
+        ref.read(aiArtifactsProvider.notifier).setGcodePath(gcodePath);
+
+        // La pièce est facultative : son absence n'empêche pas d'afficher le
+        // parcours, et une facettisation ratée ne doit pas faire échouer
+        // l'ouverture de la fenêtre.
+        Map<String, dynamic>? mesh;
+        final stepPath = input['stepPath'] as String?;
+        if (stepPath != null && stepPath.isNotEmpty) {
+          try {
+            mesh = (await StepPreviewService.run(stepPath)).mesh;
+          } on StepPreviewException {
+            mesh = null;
+          }
+        }
+
+        final name = gcodePath.split(RegExp(r'[/\\]')).last;
+        return AiWindowLauncher.openToolpath(
+          title: input['title'] as String? ?? 'Parcours — $name',
+          gcodePath: gcodePath,
+          mesh: mesh,
+        );
+      },
+    ),
     AiTool(
       name: 'show_popup',
       description:

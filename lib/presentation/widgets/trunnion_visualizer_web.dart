@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/theme_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
+import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
 
 class TrunnionVisualizer extends ConsumerStatefulWidget {
@@ -17,6 +18,13 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
   /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
   final List<double>? machineLimits;
 
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
+  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  final Map<String, dynamic>? partMesh;
+
+  /// Ce que la scène montre — voir [ViewerScene].
+  final ViewerScene scene;
+
   const TrunnionVisualizer({
     super.key,
     required this.mPos,
@@ -25,6 +33,8 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
     this.activeIndex = 0,
     this.showVectors = false,
     this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override
@@ -55,7 +65,12 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
 
     html.window.onMessage.listen((event) {
       if (event.data['type'] == 'viewer_ready') {
+        // La page répète son annonce quelques fois : on ne pousse l'état
+        // complet qu'une seule fois.
+        if (_isReady || !mounted) return;
         setState(() => _isReady = true);
+        _sendScene();
+        _sendMesh();
         _sendToolpath();
         _updateMachine();
         _toggleVectors();
@@ -69,6 +84,12 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
     super.didUpdateWidget(oldWidget);
     if (!_isReady) return;
 
+    if (oldWidget.scene != widget.scene) {
+      _sendScene();
+    }
+    if (!identical(oldWidget.partMesh, widget.partMesh)) {
+      _sendMesh();
+    }
     if (oldWidget.toolpath != widget.toolpath) {
       _sendToolpath();
     }
@@ -83,6 +104,18 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
 
   void _sendMessage(dynamic data) {
     _iframeElement.contentWindow?.postMessage(data, '*');
+  }
+
+  void _sendScene() =>
+      _sendMessage({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendMesh() {
+    final mesh = widget.partMesh;
+    if (mesh == null) {
+      _sendMessage({'type': 'clear_mesh'});
+      return;
+    }
+    _sendMessage({'type': 'load_mesh', 'payload': mesh});
   }
 
   void _sendToolpath() {

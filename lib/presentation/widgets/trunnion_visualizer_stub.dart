@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/i18n/app_localizations.dart';
+import 'viewer_scene.dart';
 
 class TrunnionVisualizer extends StatelessWidget {
   final List<double> mPos;
@@ -13,6 +14,10 @@ class TrunnionVisualizer extends StatelessWidget {
   /// parametre manquant ici casse la compilation chez tous les appelants.
   final List<double>? machineLimits;
 
+  /// Idem : presents pour aligner la signature, inutilises ici.
+  final Map<String, dynamic>? partMesh;
+  final ViewerScene scene;
+
   const TrunnionVisualizer({
     super.key,
     required this.mPos,
@@ -21,6 +26,8 @@ class TrunnionVisualizer extends StatelessWidget {
     this.activeIndex = 0,
     this.showVectors = false,
     this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override

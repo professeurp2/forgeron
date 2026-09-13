@@ -1,45 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'pipeline_locator.dart';
+
 /// Exécute `pipeline/step_to_gcode.py` en sous-processus — pas de pont gRPC :
 /// l'app desktop et le pipeline Python tournent sur la même machine, un
 /// appel de sous-processus suffit pour ce premier branchement. Le pont
 /// restera nécessaire le jour où pipeline et app tournent sur des postes
 /// différents ; rien ici ne l'empêche.
 class StepPipelineService {
-  /// Cherche `pipeline/step_to_gcode.py` en remontant depuis le répertoire
-  /// courant ET depuis celui de l'exécutable — `flutter run` et l'exe compilé
-  /// (`build/windows/x64/runner/Debug/`) n'ont pas le même répertoire courant,
-  /// et aucun des deux n'est fixe une fois l'app packagée.
-  static Directory? _findPipelineDir() {
-    for (final start in {
-      Directory.current,
-      File(Platform.resolvedExecutable).parent,
-    }) {
-      var dir = start;
-      for (var i = 0; i < 10; i++) {
-        final candidate = Directory('${dir.path}${Platform.pathSeparator}pipeline');
-        if (File('${candidate.path}${Platform.pathSeparator}step_to_gcode.py').existsSync()) {
-          return candidate;
-        }
-        final parent = dir.parent;
-        if (parent.path == dir.path) break;
-        dir = parent;
-      }
-    }
-    return null;
-  }
-
-  static String? _pythonExecutable(Directory pipelineDir) {
-    final candidates = Platform.isWindows
-        ? ['.venv312/Scripts/python.exe', '.venv/Scripts/python.exe']
-        : ['.venv312/bin/python', '.venv/bin/python'];
-    for (final rel in candidates) {
-      final path = '${pipelineDir.path}${Platform.pathSeparator}$rel';
-      if (File(path.replaceAll('/', Platform.pathSeparator)).existsSync()) return path;
-    }
-    return null;
-  }
+  static Directory? _findPipelineDir() =>
+      PipelineLocator.findDir(marker: 'step_to_gcode.py');
 
   /// Lance le pipeline complet sur [stepPath]. Retourne le rapport (mêmes
   /// clés que `gen_revolution.generate`, plus `gcode_path`/`profile_csv_path`)
@@ -59,7 +30,7 @@ class StepPipelineService {
         'Cette machine n\'a pas l\'environnement CAO installé.',
       );
     }
-    final python = _pythonExecutable(pipelineDir);
+    final python = PipelineLocator.python(pipelineDir);
     if (python == null) {
       throw const StepPipelineException(
         'Environnement Python du pipeline STEP introuvable '

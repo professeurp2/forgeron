@@ -14,6 +14,7 @@ import 'ai_usage_provider.dart';
 import 'ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
 import 'activity_log_provider.dart';
+import 'ai_artifacts_provider.dart';
 import 'machine_params_provider.dart';
 
 class AiChatMessage {
@@ -29,28 +30,138 @@ class AiChatMessage {
   /// pas gonfler le stockage). Sert à l'aperçu dans l'historique.
   final Uint8List? imageBytes;
 
+  // ── Étape d'outil (role == 'tool') ─────────────────────────────────────
+  //
+  // Avant, une étape n'existait qu'une fois TERMINÉE, et seulement sous forme
+  // de texte « nom → résultat » que l'écran devait re-découper. Une étape est
+  // désormais publiée DÈS SON DÉMARRAGE, avec ses arguments, puis remplacée
+  // par sa version aboutie : c'est ce qui permet à l'écran de montrer ce que
+  // l'agent est en train de faire au moment où il le fait, plutôt qu'un
+  // indicateur générique le temps que ça tombe.
+
+  /// Nom technique de l'outil (`run_step_pipeline`, `home`…).
+  final String? toolName;
+
+  /// Arguments passés à l'outil, tels que le modèle les a produits.
+  final Map<String, dynamic>? toolArgs;
+
+  /// Résultat brut. `null` tant que l'outil tourne — c'est CE champ qui
+  /// distingue une étape en cours d'une étape terminée, jamais le texte.
+  final String? toolResult;
+
+  /// Temps d'exécution, `null` tant que l'outil tourne.
+  final Duration? toolDuration;
+
   const AiChatMessage({
     required this.role,
     required this.text,
     required this.timestamp,
     this.interrupted = false,
     this.imageBytes,
+    this.toolName,
+    this.toolArgs,
+    this.toolResult,
+    this.toolDuration,
   });
 
-  Map<String, dynamic> toJson() => {
-        'role': role,
-        'text': text,
-        'ts': timestamp.millisecondsSinceEpoch,
-        if (interrupted) 'cut': true,
-      };
-
-  factory AiChatMessage.fromJson(Map<String, dynamic> j) => AiChatMessage(
-        role: j['role'] as String? ?? 'assistant',
-        text: j['text'] as String? ?? '',
-        timestamp: DateTime.fromMillisecondsSinceEpoch(
-            (j['ts'] as num?)?.toInt() ?? 0),
-        interrupted: j['cut'] == true,
+  /// Étape d'outil qui vient de démarrer : pas encore de résultat.
+  factory AiChatMessage.toolStarted(String name, Map<String, dynamic> args) =>
+      AiChatMessage(
+        role: 'tool',
+        text: '\$name → …',
+        timestamp: DateTime.now(),
+        toolName: name,
+        toolArgs: args,
       );
+
+  /// La même étape, aboutie. Reprend l'horodatage de départ pour que l'ordre
+  /// du fil ne bouge pas sous les yeux de l'opérateur.
+  AiChatMessage toolFinished(String result, {Uint8List? image}) =>
+      AiChatMessage(
+        role: 'tool',
+        text: '\${toolName ?? role} → \$result',
+        timestamp: timestamp,
+        imageBytes: image,
+        toolName: toolName,
+        toolArgs: toolArgs,
+        toolResult: result,
+        toolDuration: DateTime.now().difference(timestamp),
+      );
+
+  bool get isTool => role == 'tool';
+
+  /// Étape encore en cours d'exécution.
+  bool get isRunningTool => isTool && toolResult == null;
+
+  /// Étape terminée en échec. Les outils signalent leurs échecs par un
+  /// résultat préfixé `Erreur` (voir `_executeTool`), pas par une exception
+  /// qui remonterait jusqu'ici.
+  bool get toolFailed =>
+      toolResult != null && toolResult!.startsWith('Erreur');
+
+  // Les arguments sont bornés à la persistance : `write_workspace_file` peut
+  // en porter un programme entier, qu'il serait absurde de stocker deux fois
+  // (il est déjà dans le résultat, et sur le disque).
+  static const _kMaxPersistedArgs = 2000;
+
+  Map<String, dynamic> toJson() {
+    final args = toolArgs;
+    String? encodedArgs;
+    if (args != null && args.isNotEmpty) {
+      final raw = jsonEncode(args);
+      if (raw.length <= _kMaxPersistedArgs) encodedArgs = raw;
+    }
+    return {
+      'role': role,
+      'text': text,
+      'ts': timestamp.millisecondsSinceEpoch,
+      if (interrupted) 'cut': true,
+      if (toolName != null) 'tool': toolName,
+      if (encodedArgs != null) 'args': encodedArgs,
+      if (toolDuration != null) 'ms': toolDuration!.inMilliseconds,
+    };
+  }
+
+  factory AiChatMessage.fromJson(Map<String, dynamic> j) {
+    final role = j['role'] as String? ?? 'assistant';
+    final text = j['text'] as String? ?? '';
+
+    String? toolName = j['tool'] as String?;
+    String? toolResult;
+    if (role == 'tool') {
+      // Discussions enregistrées avant que l'étape ne soit structurée : tout
+      // ce qu'on a est le texte « nom → résultat », qu'on redécoupe.
+      final sep = text.indexOf(' → ');
+      if (toolName == null && sep > 0) toolName = text.substring(0, sep);
+      toolResult = sep > 0 ? text.substring(sep + 3) : text;
+      // Une étape relue est forcément terminée : si l'app s'est fermée
+      // pendant son exécution, elle resterait sinon à tourner pour toujours.
+      if (toolResult == '…') toolResult = 'Erreur: interrompu (application fermée)';
+    }
+
+    Map<String, dynamic>? args;
+    final rawArgs = j['args'];
+    if (rawArgs is String) {
+      try {
+        args = (jsonDecode(rawArgs) as Map).cast<String, dynamic>();
+      } catch (_) {
+        // Arguments illisibles : l'étape reste affichable sans eux.
+      }
+    }
+
+    final ms = (j['ms'] as num?)?.toInt();
+    return AiChatMessage(
+      role: role,
+      text: text,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+          (j['ts'] as num?)?.toInt() ?? 0),
+      interrupted: j['cut'] == true,
+      toolName: toolName,
+      toolArgs: args,
+      toolResult: toolResult,
+      toolDuration: ms == null ? null : Duration(milliseconds: ms),
+    );
+  }
 }
 
 /// Fiche d'une discussion sauvegardée (le contenu, lui, est stocké à part
@@ -151,6 +262,16 @@ class AiChatState {
   /// qu'un simple indicateur générique.
   final String? runningTool;
 
+  /// Début du tour en cours — `null` au repos. L'écran s'en sert pour une
+  /// ligne d'état vivante (« 1 min 12 s · 12.4k jetons · exécution des
+  /// outils… ») : sans ça, une génération longue est indiscernable d'une
+  /// application figée.
+  final DateTime? turnStartedAt;
+
+  /// Jetons consommés depuis le début de l'échange en cours (cumul des
+  /// allers-retours, appels d'outils compris).
+  final int turnTokens;
+
   const AiChatState({
     this.messages = const [],
     this.isProcessing = false,
@@ -162,6 +283,8 @@ class AiChatState {
     this.conversations = const [],
     this.activeId,
     this.runningTool,
+    this.turnStartedAt,
+    this.turnTokens = 0,
   });
 
   AiChatState copyWith({
@@ -179,6 +302,9 @@ class AiChatState {
     String? activeId,
     String? runningTool,
     bool clearRunningTool = false,
+    DateTime? turnStartedAt,
+    bool clearTurnStartedAt = false,
+    int? turnTokens,
   }) {
     return AiChatState(
       messages: messages ?? this.messages,
@@ -195,6 +321,9 @@ class AiChatState {
       activeId: activeId ?? this.activeId,
       runningTool:
           clearRunningTool ? null : (runningTool ?? this.runningTool),
+      turnStartedAt:
+          clearTurnStartedAt ? null : (turnStartedAt ?? this.turnStartedAt),
+      turnTokens: turnTokens ?? this.turnTokens,
     );
   }
 }
@@ -444,6 +573,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
   Future<void> newConversation() async {
     stopGeneration();
     await _persist();
+    // Les aperçus 3D appartiennent à la discussion qui les a produits : les
+    // garder ferait proposer d'ouvrir la pièce d'une AUTRE conversation.
+    _ref.read(aiArtifactsProvider.notifier).clear();
 
     final id = _newId();
     final now = DateTime.now();
@@ -477,6 +609,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (id == _activeId) return;
     stopGeneration();
     await _persist();
+    _ref.read(aiArtifactsProvider.notifier).clear();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -614,7 +747,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
       '— écris les valeurs et unités en clair (ex. « 15 mm »). '
       'Quand tu donnes du G-code, mets-le TOUJOURS dans un bloc de code '
       'markdown ouvert par ```gcode et fermé par ``` : l\'app y ajoute alors '
-      'les boutons « copier » et « enregistrer dans l\'espace de travail ».';
+      'les boutons « copier » et « enregistrer dans l\'espace de travail ». '
+      'MONTRE, ne décris pas : l\'opérateur n\'est ni développeur ni '
+      'programmeur CAM, une liste de coordonnées ne lui apprend rien. Dès qu\'un '
+      'fichier STEP est mentionné, ouvre son aperçu 3D avec preview_step_file — '
+      'c\'est aussi ta façon de vérifier que le fichier contient bien la pièce '
+      'attendue (encombrement, volume). Dès qu\'un programme est généré, ouvre '
+      'son parcours d\'outil avec open_toolpath_window, en passant le STEP '
+      'd\'origine pour que la pièce apparaisse sous le parcours. Les deux '
+      's\'ouvrent dans des fenêtres séparées que l\'opérateur garde sous les '
+      'yeux pendant que la discussion continue.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -733,8 +875,27 @@ class AiAgentController extends StateNotifier<AiChatState> {
     return _service;
   }
 
-  void _addMessage(AiChatMessage message) {
+  void _addMessage(AiChatMessage message, {bool persist = true}) {
     state = state.copyWith(messages: [...state.messages, message]);
+    if (persist) unawaited(_persist());
+  }
+
+  /// Remplace un message par sa version aboutie, en place — l'étape ne saute
+  /// pas en bas du fil, elle se met à jour là où elle est.
+  ///
+  /// La recherche se fait par identité et depuis la fin : un même outil peut
+  /// être appelé plusieurs fois avec les mêmes arguments dans un même tour,
+  /// et c'est bien l'exécution EN COURS qu'il faut mettre à jour. Si le
+  /// message a disparu (discussion changée, historique effacé pendant
+  /// l'appel), on n'ajoute rien : ce résultat appartient à un fil qui n'est
+  /// plus ouvert.
+  void _replaceMessage(AiChatMessage previous, AiChatMessage next) {
+    final messages = state.messages;
+    final index = messages.lastIndexWhere((m) => identical(m, previous));
+    if (index < 0) return;
+    final updated = List<AiChatMessage>.of(messages);
+    updated[index] = next;
+    state = state.copyWith(messages: updated);
     unawaited(_persist());
   }
 
@@ -776,6 +937,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       timestamp: DateTime.now(),
       imageBytes: imageBytes,
     ));
+    state = state.copyWith(turnStartedAt: DateTime.now(), turnTokens: 0);
 
     // Pré-vérif réseau : le WiFi de l'ESP32 n'a pas d'Internet, l'IA doit
     // passer par la 4G/5G. Si les données mobiles sont coupées, on prévient
@@ -812,7 +974,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
 
     final partial = state.streamingText;
-    state = state.copyWith(isProcessing: false, clearStreamingText: true);
+    state = state.copyWith(
+        isProcessing: false,
+        clearStreamingText: true,
+        clearTurnStartedAt: true);
     if (partial != null && partial.trim().isNotEmpty) {
       _addMessage(AiChatMessage(
         role: 'assistant',
@@ -832,6 +997,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       error: message,
       retryable: true,
       awaitingNetwork: true,
+      clearTurnStartedAt: true,
     );
     // Alerte « problème » sur le bouton IA si l'écran n'est pas ouvert.
     _ref.read(aiInboxProvider.notifier).pushAlert(message, problem: true);
@@ -885,7 +1051,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
         clearError: true,
         retryable: false,
         awaitingNetwork: false,
-        clearStreamingText: true);
+        clearStreamingText: true,
+        turnStartedAt: state.turnStartedAt ?? DateTime.now());
     try {
       final response = await service.streamMessages(
         contents: _contents,
@@ -917,6 +1084,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _ref
           .read(aiUsageProvider.notifier)
           .recordRequest(service.model, tokens: response.totalTokens);
+      state = state.copyWith(
+          turnTokens: state.turnTokens + response.totalTokens);
 
       if (response.text.isNotEmpty) {
         _addMessage(AiChatMessage(
@@ -933,7 +1102,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         await _processNextToolCall(service, epoch);
       } else {
         _clearRetry();
-        state = state.copyWith(isProcessing: false);
+        state = state.copyWith(isProcessing: false, clearTurnStartedAt: true);
       }
     } catch (e) {
       if (_epoch != epoch) return; // discussion changée → erreur sans objet
@@ -1000,7 +1169,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     state = state.copyWith(
         isProcessing: false,
         clearStreamingText: true,
-        clearPendingConfirmation: true);
+        clearPendingConfirmation: true,
+        clearTurnStartedAt: true);
     unawaited(_persist());
   }
 
@@ -1023,7 +1193,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     state = state.copyWith(
         isProcessing: false,
         clearStreamingText: true,
-        clearPendingConfirmation: true);
+        clearPendingConfirmation: true,
+        clearTurnStartedAt: true);
     unawaited(_persist());
   }
 
@@ -1087,6 +1258,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (needsConfirmation) {
       state = state.copyWith(
         isProcessing: false,
+        clearTurnStartedAt: true,
         pendingConfirmation:
             AiPendingToolCall(id: callId, toolName: toolName, input: input),
       );
@@ -1135,6 +1307,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       role: 'tool',
       text: '${pending.toolName} → refusé par l\'utilisateur',
       timestamp: DateTime.now(),
+      toolName: pending.toolName,
+      toolArgs: pending.input,
+      toolResult: 'refusé par l\'utilisateur',
+      toolDuration: Duration.zero,
     ));
     state = state.copyWith(isProcessing: true, clearPendingConfirmation: true);
     await _processNextToolCall(service, _epoch);
@@ -1150,6 +1326,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     String toolName,
     Map<String, dynamic> input,
   ) async {
+    // L'étape entre dans le fil AVANT l'exécution, avec ses arguments : c'est
+    // ce qui rend la procédure lisible en direct plutôt qu'à retardement. Le
+    // placeholder n'est pas persisté — il ne représente rien d'abouti, et une
+    // fermeture d'application pendant l'appel ne doit pas laisser une étape
+    // qui tourne pour l'éternité au rechargement.
+    final started = AiChatMessage.toolStarted(tool.name, input);
+    _addMessage(started, persist: false);
+
     try {
       final result = await tool.execute(input, _ref);
 
@@ -1161,12 +1345,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // L'image apparaît dans le fil de discussion : l'opérateur doit pouvoir
       // voir exactement ce que l'agent a vu, sinon il n'a aucun moyen de juger
       // si son analyse repose sur une image exploitable.
-      _addMessage(AiChatMessage(
-        role: 'tool',
-        text: '${tool.name} → $result',
-        timestamp: DateTime.now(),
-        imageBytes: image?.bytes,
-      ));
+      _replaceMessage(started, started.toolFinished(result, image: image?.bytes));
 
       final parts = <Map<String, dynamic>>[
         _functionResponse(toolName, result: result),
@@ -1187,11 +1366,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return parts;
     } catch (e) {
       final message = 'Erreur: $e';
-      _addMessage(AiChatMessage(
-        role: 'tool',
-        text: '${tool.name} → $message',
-        timestamp: DateTime.now(),
-      ));
+      _replaceMessage(started, started.toolFinished(message));
       if (tool.producesImage) _readAndClearToolImage();
       return [_functionResponse(toolName, error: message)];
     }
@@ -1216,6 +1391,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// toucher aux autres discussions sauvegardées.
   void clearConversation() {
     stopGeneration();
+    _ref.read(aiArtifactsProvider.notifier).clear();
     _epoch++;
     _contents.clear();
     _pendingToolQueue = [];

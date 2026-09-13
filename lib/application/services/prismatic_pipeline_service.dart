@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'pipeline_locator.dart';
+
 /// Exécute `pipeline/prismatic_to_gcode.py` — le pendant prismatique de
 /// [StepPipelineService], phase 5.c du PLAN-IA (FreeCAD CAM, cas général).
 ///
@@ -10,25 +12,8 @@ import 'dart:io';
 /// FreeCAD/Part/Path sans faire correspondre un venv à une version de
 /// FreeCAD précise (voir pipeline/freecad/ et prismatic_to_gcode.py).
 class PrismaticPipelineService {
-  static Directory? _findPipelineDir() {
-    for (final start in {
-      Directory.current,
-      File(Platform.resolvedExecutable).parent,
-    }) {
-      var dir = start;
-      for (var i = 0; i < 10; i++) {
-        final candidate = Directory('${dir.path}${Platform.pathSeparator}pipeline');
-        if (File('${candidate.path}${Platform.pathSeparator}prismatic_to_gcode.py')
-            .existsSync()) {
-          return candidate;
-        }
-        final parent = dir.parent;
-        if (parent.path == dir.path) break;
-        dir = parent;
-      }
-    }
-    return null;
-  }
+  static Directory? _findPipelineDir() =>
+      PipelineLocator.findDir(marker: 'prismatic_to_gcode.py');
 
   /// `pipeline/freecad/FreeCAD_<version>-Windows-x86_64-py311/bin/freecadcmd.exe`
   /// — le nom du dossier porte la version, donc une recherche plutôt qu'un

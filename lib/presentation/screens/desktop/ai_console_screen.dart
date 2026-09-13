@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Colors, Icons, SelectableText;
+import 'package:flutter/material.dart'
+    show Colors, Icons, MaterialPageRoute, SelectableText;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,25 +15,30 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
+import '../../../application/providers/ai_artifacts_provider.dart';
 import '../../../application/providers/ai_model_provider.dart';
-import '../../../application/providers/gcode_provider.dart';
-import '../../../application/providers/machine_params_provider.dart';
-import '../../../application/providers/machine_provider.dart';
+import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
+import '../../../application/services/ai_window_launcher.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
+import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
-import '../../widgets/trunnion_visualizer.dart';
+import '../ai_agent_settings_screen.dart';
+import 'ai_console_timeline.dart';
 
-/// Écran Agent IA, refondu — desktop d'abord (voir PLAN-IA). Toute la
-/// logique reste celle de [aiAgentControllerProvider] : cet écran ne change
-/// que la présentation, pas l'orchestration (mêmes outils, même agent, même
-/// historique que l'écran mobile).
+/// Console de l'agent IA — desktop.
 ///
-/// La différence visible : une chaîne d'appels d'outils consécutifs se
-/// regroupe en une seule « procédure » — un fil de nœuds done/en cours —
-/// plutôt qu'une suite de messages plats indiscernables du reste du fil.
+/// Trois colonnes, comme les outils de ce genre : les discussions à gauche, le
+/// fil au milieu, ce que l'agent a PRODUIT à droite. Cette troisième colonne
+/// est la raison d'être de la refonte : le pipeline fabrique une pièce et un
+/// parcours d'outil, et l'écran n'en montrait rien — il fallait lire du JSON
+/// pour savoir qu'un G-code existait.
+///
+/// Toute l'orchestration reste celle de [aiAgentControllerProvider] : cet
+/// écran ne change que la présentation — mêmes outils, même agent, même
+/// historique que l'écran mobile.
 class AiConsoleScreen extends StatelessWidget {
   const AiConsoleScreen({super.key});
 
@@ -59,22 +65,20 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   final _picker = ImagePicker();
 
   // Image en attente d'envoi (multimodal) — même mécanisme que l'écran
-  // mobile (ai_assistant_screen.dart) : sendUserMessage(text, imageBytes:,
-  // imageMime:). Ne PAS réinventer un second canal d'envoi d'image.
+  // mobile : sendUserMessage(text, imageBytes:, imageMime:). Ne PAS réinventer
+  // un second canal d'envoi d'image.
   Uint8List? _pendingImage;
   String? _pendingImageMime;
 
-  // Étape sélectionnée pour le panneau de détail (à droite) — la conversation
-  // ne montre qu'une ligne courte par étape, jamais le JSON brut ; le détail
-  // (sortie complète, aperçu 3D) vit dans ce panneau permanent, pas empilé
-  // dans le fil au clic. `null` = rien sélectionné, panneau vide.
-  _Step? _selectedStep;
+  bool _railOpen = true;
 
-  void _selectStep(_Step step) => setState(() => _selectedStep = step);
+  /// Le fil ne se recale en bas QUE si l'opérateur y était déjà. Sinon une
+  /// génération longue le ramènerait de force à chaque mot pendant qu'il
+  /// relit une étape plus haut.
+  bool _atBottom = true;
 
-  // Voix — même mécanisme que l'écran mobile (dictée + lecture des réponses),
-  // oublié lors de la refonte desktop initiale. Ne pas réinventer un second
-  // système : mêmes packages, même logique de correspondance de locale.
+  // Voix — dictée et lecture des réponses, comme sur mobile. Mêmes paquets,
+  // même logique de correspondance de locale : pas un second système.
   final SpeechToText _speech = SpeechToText();
   final FlutterTts _tts = FlutterTts();
   bool _listening = false;
@@ -85,10 +89,12 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     super.initState();
     _tts.setSpeechRate(0.5);
     _applyVoiceLanguage();
+    _scroll.addListener(_watchScroll);
   }
 
   @override
   void dispose() {
+    _scroll.removeListener(_watchScroll);
     _input.dispose();
     _scroll.dispose();
     _speech.stop();
@@ -96,7 +102,15 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     super.dispose();
   }
 
-  /// Dictée vocale : bascule l'écoute du micro et remplit le champ de saisie.
+  void _watchScroll() {
+    if (!_scroll.hasClients) return;
+    final atBottom =
+        _scroll.position.pixels >= _scroll.position.maxScrollExtent - 80;
+    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
+  // ─────────────────────────────── Voix ──────────────────────────────────
+
   Future<void> _toggleListen() async {
     if (_listening) {
       await _speech.stop();
@@ -115,16 +129,8 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
           },
         );
     if (!ok) {
-      if (mounted) {
-        await fluent.displayInfoBar(context, builder: (ctx, close) {
-          return fluent.InfoBar(
-            title: const Text('Reconnaissance vocale indisponible'),
-            content: const Text('Aucun micro détecté sur cet appareil.'),
-            severity: fluent.InfoBarSeverity.warning,
-            onClose: close,
-          );
-        });
-      }
+      await _warn('Reconnaissance vocale indisponible',
+          'Aucun micro détecté sur cet appareil.');
       return;
     }
     setState(() => _listening = true);
@@ -152,7 +158,8 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     try {
       final raw = await _tts.getLanguages;
       final available = (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(_wantedVoiceTag, available, fallbacks: const ['fr-FR', 'en-US']);
+      final match =
+          bestVoiceLocale(_wantedVoiceTag, available, fallbacks: const ['fr-FR', 'en-US']);
       if (match != null) await _tts.setLanguage(match);
     } catch (_) {
       // getLanguages n'est pas implémenté sur toutes les plateformes.
@@ -170,6 +177,8 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     await _tts.speak(clean);
   }
 
+  // ───────────────────────────── Envoi ───────────────────────────────────
+
   void _send() {
     final text = _input.text;
     if (text.trim().isEmpty && _pendingImage == null) return;
@@ -182,15 +191,20 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     setState(() {
       _pendingImage = null;
       _pendingImageMime = null;
+      _atBottom = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
+  void _sendText(String text) {
+    _input.text = text;
+    _send();
+  }
+
   /// Sélection d'image depuis un fichier — pas de caméra ici :
-  /// `image_picker_windows` (voir sa source) lève un `StateError` sur
-  /// `ImageSource.camera` faute de `cameraDelegate` configuré. La capture
-  /// photo reste une action mobile ; le desktop travaille depuis des fichiers
-  /// (export CAO, capture d'écran, photo déjà transférée).
+  /// `image_picker_windows` lève un `StateError` sur `ImageSource.camera`
+  /// faute de `cameraDelegate`. La capture photo reste une action mobile ; le
+  /// desktop travaille depuis des fichiers (export CAO, capture d'écran).
   Future<void> _pickImage() async {
     try {
       final file = await _picker.pickImage(
@@ -201,16 +215,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (file == null) return;
       final bytes = await file.readAsBytes();
       if (bytes.length > 8 * 1024 * 1024) {
-        if (mounted) {
-          await fluent.displayInfoBar(context, builder: (ctx, close) {
-            return fluent.InfoBar(
-              title: const Text('Image trop lourde'),
-              content: const Text('8 Mo maximum.'),
-              severity: fluent.InfoBarSeverity.warning,
-              onClose: close,
-            );
-          });
-        }
+        await _warn('Image trop lourde', '8 Mo maximum.');
         return;
       }
       if (!mounted) return;
@@ -232,6 +237,10 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     return 'image/jpeg';
   }
 
+  /// Charge une pièce : l'aperçu 3D se prépare tout de suite (colonne de
+  /// droite) pendant que l'agent, lui, reçoit la demande d'usinage. L'un
+  /// n'attend pas l'autre — voir la pièce ne devrait jamais dépendre de la
+  /// disponibilité du modèle.
   Future<void> _pickStepFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -241,9 +250,11 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     final path = result?.files.single.path;
     if (path == null) return; // annulé
 
+    ref.read(aiArtifactsProvider.notifier).loadStep(path);
     ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
           'Charge ce fichier STEP et prépare le G-code de finition.\n\nFichier : $path',
         );
+    setState(() => _atBottom = true);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
@@ -255,6 +266,45 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       curve: Curves.easeOut,
     );
   }
+
+  Future<void> _warn(String title, String message) async {
+    if (!mounted) return;
+    await fluent.displayInfoBar(context, builder: (ctx, close) {
+      return fluent.InfoBar(
+        title: Text(title),
+        content: Text(message),
+        severity: fluent.InfoBarSeverity.warning,
+        onClose: close,
+      );
+    });
+  }
+
+  Future<void> _confirmClear() async {
+    final ok = await fluent.showDialog<bool>(
+      context: context,
+      builder: (ctx) => fluent.ContentDialog(
+        title: const Text('Effacer la discussion ?'),
+        content: const Text(
+            'Les messages et les étapes de cette discussion seront perdus. '
+            'Les autres discussions ne sont pas touchées.'),
+        actions: [
+          fluent.Button(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler'),
+          ),
+          fluent.FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      ref.read(aiAgentControllerProvider.notifier).clearConversation();
+    }
+  }
+
+  // ───────────────────────────── Rendu ───────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -268,8 +318,13 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     });
 
     ref.listen(aiAgentControllerProvider, (previous, next) {
-      if (previous?.messages.length != next.messages.length) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+      // Le fil bouge : nouvelle étape, étape terminée, nouveau message. On ne
+      // suit que si l'opérateur était déjà en bas (voir _atBottom).
+      if (previous?.messages.length != next.messages.length ||
+          previous?.streamingText != next.streamingText) {
+        if (_atBottom) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+        }
       }
       final grew = (previous?.messages.length ?? 0) < next.messages.length;
       if (grew && next.messages.isNotEmpty) {
@@ -277,15 +332,6 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
           _speak(last.text);
         }
-        // Le panneau de détail suit la dernière étape connue — pas besoin de
-        // cliquer pour voir ce que l'agent vient de faire.
-        if (last.role == 'tool') _selectStep(_splitToolMessage(last.text));
-      }
-      // Un outil se met à tourner : le panneau bascule dessus tout de suite,
-      // avant même que le résultat n'existe — c'est le seul moment où « en
-      // direct » veut dire quelque chose avec l'état actuel du provider.
-      if (previous?.runningTool != next.runningTool && next.runningTool != null) {
-        _selectStep((name: next.runningTool!, result: null));
       }
     });
 
@@ -297,55 +343,43 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (prev?.id != next.id) _applyVoiceLanguage();
     });
 
-    final items = _groupTimeline(chat.messages);
-    // Le panneau de détail suit la dernière étape connue si rien n'est
-    // sélectionné à la main — jamais vide dès qu'une procédure a démarré.
-    final detail = _selectedStep ??
-        (chat.runningTool != null ? (name: chat.runningTool!, result: null) : null);
-
     return fluent.ScaffoldPage(
       padding: EdgeInsets.zero,
-      header: _Header(fc: fc),
-      content: Row(
+      // Les deux colonnes latérales s'effacent quand la fenêtre est étroite :
+      // en dessous, le fil lui-même devient illisible, et c'est lui qui compte.
+      content: LayoutBuilder(builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1180;
+        final showRail = _railOpen && constraints.maxWidth >= 900;
+        return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (showRail)
+            _ConversationRail(
+              fc: fc,
+              chat: chat,
+              onClose: () => setState(() => _railOpen = false),
+              onClear: _confirmClear,
+            ),
           Expanded(
             child: Column(
               children: [
-                Expanded(
-                  child: items.isEmpty && chat.streamingText == null
-                      ? _EmptyState(fc: fc, onPickStep: _pickStepFile)
-                      : ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
-                          itemCount: items.length + (chat.streamingText != null ? 1 : 0),
-                          itemBuilder: (context, i) {
-                            if (i == items.length) {
-                              return _StreamingBubble(fc: fc, text: chat.streamingText!);
-                            }
-                            final item = items[i];
-                            if (item is List<AiChatMessage>) {
-                              return _ProcedureCard(
-                                fc: fc,
-                                group: item,
-                                runningTool: chat.isProcessing ? chat.runningTool : null,
-                                selected: _selectedStep,
-                                onSelect: _selectStep,
-                              );
-                            }
-                            return _ChatBubble(fc: fc, message: item as AiChatMessage);
-                          },
-                        ),
+                _Header(
+                  fc: fc,
+                  chat: chat,
+                  railOpen: showRail,
+                  onToggleRail: () => setState(() => _railOpen = !_railOpen),
                 ),
+                Expanded(child: _thread(fc, chat)),
                 if (chat.pendingConfirmation != null)
                   _ConfirmationBar(fc: fc, pending: chat.pendingConfirmation!),
-                if (chat.error != null) _ErrorBar(fc: fc, message: chat.error!),
+                if (chat.error != null) _ErrorBar(fc: fc, chat: chat),
                 _Composer(
                   fc: fc,
                   controller: _input,
                   busy: chat.isProcessing,
                   onSend: _send,
-                  onStop: () => ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
+                  onStop: () =>
+                      ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
                   onAttachStep: _pickStepFile,
                   onAttachImage: _pickImage,
                   pendingImage: _pendingImage,
@@ -359,13 +393,108 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
               ],
             ),
           ),
-          _DetailPanel(fc: fc, step: detail),
+          if (wide) _ArtifactsRail(fc: fc, onPickStep: _pickStepFile),
         ],
-      ),
+        );
+      }),
     );
   }
 
-  void _showPopup(BuildContext context, ForgeronColorPalette fc, AiPopupRequest req) {
+  Widget _thread(ForgeronColorPalette fc, AiChatState chat) {
+    final streaming = chat.streamingText != null && chat.streamingText!.isNotEmpty;
+    final thinking = chat.isProcessing && chat.pendingConfirmation == null;
+
+    if (chat.messages.isEmpty && !streaming && !thinking) {
+      return _EmptyState(fc: fc, onPickStep: _pickStepFile, onAsk: _sendText);
+    }
+
+    final items = _withDaySeparators(groupConsoleItems(chat.messages));
+    final extras = (streaming ? 1 : 0) + (thinking ? 1 : 0);
+
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(26, 18, 26, 8),
+          itemCount: items.length + extras,
+          itemBuilder: (context, i) {
+            if (i >= items.length) {
+              final offset = i - items.length;
+              if (streaming && offset == 0) {
+                return StreamingBubble(fc: fc, text: chat.streamingText!);
+              }
+              // Ligne d'état : ce que l'agent fait EN CE MOMENT, avec le
+              // chrono et les jetons de l'échange en cours.
+              return LiveStatusLine(
+                fc: fc,
+                since: chat.turnStartedAt,
+                tokens: chat.turnTokens,
+                activity: chat.runningTool != null
+                    ? friendlyToolLabel(chat.runningTool!)
+                    : (streaming ? 'Rédaction de la réponse…' : 'Réflexion…'),
+              );
+            }
+            final item = items[i];
+            if (item is DateTime) return DaySeparator(fc: fc, day: item);
+            if (item is ToolRun) return ToolRunTile(fc: fc, run: item);
+            return _MessageBubble(fc: fc, message: item as AiChatMessage);
+          },
+        ),
+        if (!_atBottom)
+          Positioned(
+            right: 18,
+            bottom: 12,
+            child: fluent.Tooltip(
+              message: 'Revenir en bas',
+              child: fluent.IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: fc.surfaceHigh,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: fc.surfaceBorder),
+                  ),
+                  child: Icon(Icons.arrow_downward_rounded,
+                      size: 16, color: fc.primary),
+                ),
+                onPressed: () {
+                  setState(() => _atBottom = true);
+                  _scrollToEnd();
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Intercale un séparateur à chaque changement de journée. Le repère se
+  /// prend sur l'horodatage du premier message de chaque élément.
+  static List<Object> _withDaySeparators(List<Object> items) {
+    final out = <Object>[];
+    DateTime? lastDay;
+    for (final item in items) {
+      final ts = switch (item) {
+        AiChatMessage m => m.timestamp,
+        ToolRun r when r.steps.isNotEmpty => r.steps.first.timestamp,
+        _ => null,
+      };
+      if (ts != null) {
+        final day = DateTime(ts.year, ts.month, ts.day);
+        // Un horodatage à zéro vient d'un historique sans date : on ne
+        // fabrique pas un séparateur « 01/01/1970 » pour autant.
+        if (ts.millisecondsSinceEpoch > 0 && day != lastDay) {
+          out.add(day);
+          lastDay = day;
+        }
+      }
+      out.add(item);
+    }
+    return out;
+  }
+
+  void _showPopup(
+      BuildContext context, ForgeronColorPalette fc, AiPopupRequest req) {
     final color = switch (req.severity) {
       'danger' => fc.danger,
       'warning' => fc.warning,
@@ -398,50 +527,249 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   }
 }
 
-/// Regroupe les messages `tool` consécutifs en une seule procédure. Le reste
-/// (user/assistant) reste un élément à part — même ordre que dans le fil.
-List<Object> _groupTimeline(List<AiChatMessage> messages) {
-  final out = <Object>[];
-  List<AiChatMessage>? current;
-  for (final m in messages) {
-    if (m.role == 'tool') {
-      current ??= [];
-      current.add(m);
-    } else {
-      if (current != null) {
-        out.add(current);
-        current = null;
-      }
-      out.add(m);
-    }
+// ══════════════════════════ Rail des discussions ═══════════════════════════
+
+/// Colonne de gauche : les discussions sauvegardées. Elles existaient déjà
+/// dans le contrôleur et n'étaient accessibles que depuis l'écran mobile — la
+/// console desktop n'avait aucun moyen d'en ouvrir une autre, ni même de
+/// savoir laquelle était ouverte.
+class _ConversationRail extends ConsumerWidget {
+  const _ConversationRail({
+    required this.fc,
+    required this.chat,
+    required this.onClose,
+    required this.onClear,
+  });
+
+  final ForgeronColorPalette fc;
+  final AiChatState chat;
+  final VoidCallback onClose;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(aiAgentControllerProvider.notifier);
+    return Container(
+      width: 248,
+      decoration: BoxDecoration(
+        color: fc.sidebar,
+        border: Border(right: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'DISCUSSIONS',
+                    style: TextStyle(
+                      color: fc.textDisabled,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: 'Masquer le panneau',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.chevron_left_rounded,
+                        size: 18, color: fc.textSecondary),
+                    onPressed: onClose,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: fluent.Button(
+              onPressed: controller.newConversation,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(fluent.FluentIcons.add, size: 12),
+                    SizedBox(width: 8),
+                    Text('Nouvelle discussion'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: chat.conversations.length,
+              itemBuilder: (context, i) {
+                final c = chat.conversations[i];
+                final active = c.id == chat.activeId;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: fluent.HyperlinkButton(
+                    onPressed: () => controller.switchConversation(c.id),
+                    style: fluent.ButtonStyle(
+                      padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                      backgroundColor: WidgetStatePropertyAll(
+                          active ? fc.primary.withValues(alpha: .12) : Colors.transparent),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                          side: active
+                              ? BorderSide(color: fc.primary.withValues(alpha: .35))
+                              : BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                c.title,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: active ? fc.textPrimary : fc.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight:
+                                      active ? FontWeight.w700 : FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${c.messageCount} message${c.messageCount > 1 ? 's' : ''}',
+                                style: TextStyle(color: fc.textDisabled, fontSize: 9.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                        fluent.Tooltip(
+                          message: 'Supprimer',
+                          child: fluent.IconButton(
+                            icon: Icon(Icons.close_rounded,
+                                size: 13, color: fc.textDisabled),
+                            onPressed: () => controller.deleteConversation(c.id),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: fc.surfaceBorder)),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _QuotaStrip(fc: fc)),
+                fluent.Tooltip(
+                  message: 'Effacer cette discussion',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.delete_outline_rounded,
+                        size: 16, color: fc.textSecondary),
+                    onPressed: onClear,
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: 'Paramètres de l\'agent',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.settings_outlined,
+                        size: 16, color: fc.textSecondary),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const AiAgentSettingsScreen()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
-  if (current != null) out.add(current);
-  return out;
 }
 
-class _Header extends ConsumerWidget {
-  const _Header({required this.fc});
+/// Consommation du jour, reprise de l'écran mobile : sans elle, un quota
+/// gratuit épuisé n'apparaît qu'au moment où l'agent refuse de répondre.
+class _QuotaStrip extends ConsumerWidget {
+  const _QuotaStrip({required this.fc});
   final ForgeronColorPalette fc;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(aiAgentSettingsProvider);
-    final useLocal = settings.localBaseUrl.isNotEmpty;
-    final modelLabel =
-        useLocal ? settings.localModel : ref.watch(aiModelProvider).active.id;
+    final usage = ref.watch(aiUsageProvider);
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Text(
+        '${usage.requests} requête${usage.requests > 1 ? 's' : ''} · '
+        '${formatTokens(usage.tokens)} jetons aujourd\'hui',
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: usage.quotaHit ? fc.warning : fc.textDisabled,
+          fontSize: 9.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════ En-tête ════════════════════════════════════
+
+class _Header extends ConsumerWidget {
+  const _Header({
+    required this.fc,
+    required this.chat,
+    required this.railOpen,
+    required this.onToggleRail,
+  });
+
+  final ForgeronColorPalette fc;
+  final AiChatState chat;
+  final bool railOpen;
+  final VoidCallback onToggleRail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active =
+        chat.conversations.where((c) => c.id == chat.activeId).toList();
+    final title =
+        active.isEmpty ? AiAgentController.kDefaultTitle : active.first.title;
+    final ttsOn = ref.watch(aiTtsEnabledProvider);
 
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: fc.surfaceBright,
         border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
       ),
       child: Row(
         children: [
+          if (!railOpen)
+            fluent.Tooltip(
+              message: 'Afficher les discussions',
+              child: fluent.IconButton(
+                icon: Icon(Icons.menu_rounded, size: 17, color: fc.textSecondary),
+                onPressed: onToggleRail,
+              ),
+            ),
+          const SizedBox(width: 4),
           Container(
-            width: 34,
-            height: 34,
+            width: 30,
+            height: 30,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -451,597 +779,342 @@ class _Header extends ConsumerWidget {
                 end: Alignment.bottomRight,
               ),
             ),
-            child: const Text('🤖', style: TextStyle(fontSize: 16)),
+            child: Icon(Icons.auto_awesome, size: 15, color: fc.background),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('AGENT IA',
-                    style: TextStyle(
-                        color: fc.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        letterSpacing: .03 * 15)),
-                Text('pipeline CAM · outils machine',
-                    style: TextStyle(color: fc.textDisabled, fontSize: 11)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: fc.lcdBackground,
-              border: Border.all(color: fc.lcdBorder),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(color: fc.lcdText, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 6),
                 Text(
-                  '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
+                  title,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: fc.lcdText,
-                    fontFamily: 'JetBrainsMono',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                      color: fc.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5),
                 ),
+                Text('pipeline CAM · outils machine',
+                    style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Builder(builder: (context) {
-            final ttsOn = ref.watch(aiTtsEnabledProvider);
-            return fluent.Tooltip(
-              message: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
-              child: fluent.IconButton(
-                icon: Icon(
-                  ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                  color: ttsOn ? fc.primary : fc.textSecondary,
-                  size: 16,
-                ),
-                onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
+          const _ModelBadge(),
+          const SizedBox(width: 8),
+          fluent.Tooltip(
+            message: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
+            child: fluent.IconButton(
+              icon: Icon(
+                ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: ttsOn ? fc.primary : fc.textSecondary,
+                size: 16,
               ),
-            );
-          }),
+              onPressed: () =>
+                  ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.fc, required this.message});
+class _ModelBadge extends ConsumerWidget {
+  const _ModelBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = ForgeronTheme.of(context);
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final useLocal = settings.localBaseUrl.isNotEmpty;
+    final modelLabel =
+        useLocal ? settings.localModel : ref.watch(aiModelProvider).active.id;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: fc.lcdBackground,
+        border: Border.all(color: fc.lcdBorder),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
+        style: TextStyle(
+          color: fc.lcdText,
+          fontFamily: 'JetBrainsMono',
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════ Messages du fil ═══════════════════════════════
+
+/// Un message de la conversation. L'opérateur à droite, l'agent à gauche et
+/// sans bulle — sa prose est longue, une bulle la rendrait illisible.
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.fc, required this.message});
+
   final ForgeronColorPalette fc;
   final AiChatMessage message;
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 560),
-        decoration: BoxDecoration(
-          color: isUser ? fc.primary : fc.surface,
-          border: isUser ? null : Border.all(color: fc.surfaceBorder),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(isUser ? 12 : 3),
-            bottomRight: Radius.circular(isUser ? 3 : 12),
+    if (isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(60, 8, 0, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+          constraints: const BoxConstraints(maxWidth: 620),
+          decoration: BoxDecoration(
+            color: fc.surfaceHigh,
+            border: Border.all(color: fc.surfaceBorder),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(14),
+              topRight: Radius.circular(14),
+              bottomLeft: Radius.circular(14),
+              bottomRight: Radius.circular(4),
+            ),
           ),
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: isUser ? fc.background : fc.textPrimary,
-            fontWeight: isUser ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 13.5,
-            height: 1.5,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({required this.fc, required this.text});
-  final ForgeronColorPalette fc;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 560),
-        decoration: BoxDecoration(
-          color: fc.surface,
-          border: Border.all(color: fc.secondary.withValues(alpha: .35)),
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-        ),
-        child: RichText(
-          text: TextSpan(
-            style: TextStyle(color: fc.textPrimary, fontSize: 13.5, height: 1.5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              TextSpan(text: text),
-              TextSpan(text: ' ▍', style: TextStyle(color: fc.secondary)),
+              if (message.imageBytes != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxHeight: 220, maxWidth: 320),
+                      child: Image.memory(message.imageBytes!, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+              if (message.text.isNotEmpty)
+                SelectableText(
+                  message.text,
+                  style: TextStyle(
+                      color: fc.textPrimary, fontSize: 13, height: 1.5),
+                ),
             ],
           ),
         ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 40, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(top: 2, right: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: fc.primary.withValues(alpha: .14),
+            ),
+            child: Icon(Icons.auto_awesome, size: 11, color: fc.primary),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final part in _content()) part,
+                if (message.interrupted)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Réponse interrompue.',
+                      style: TextStyle(color: fc.warning, fontSize: 11),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  /// Prose et blocs de code, séparés : le G-code arrive dans des ``` et doit
+  /// être copiable et enregistrable, pas noyé dans le texte.
+  List<Widget> _content() {
+    final widgets = <Widget>[];
+    final codeStyle = TextStyle(
+      fontFamily: 'JetBrainsMono',
+      fontSize: 12,
+      color: fc.secondary,
+    );
+    for (final block in parseChatBlocks(message.text)) {
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 10));
+      if (block.isCode) {
+        widgets.add(_CodeBlock(fc: fc, block: block));
+      } else {
+        widgets.add(SelectableText.rich(
+          TextSpan(
+            style: TextStyle(color: fc.textPrimary, fontSize: 13.5, height: 1.6),
+            children: chatProseSpans(block.text.trim(), codeStyle: codeStyle),
+          ),
+        ));
+      }
+    }
+    return widgets;
+  }
 }
 
-/// Une procédure — une ou plusieurs exécutions d'outils consécutives —
-/// affichée comme une pile de lignes courtes (une par étape) : cliquer une
-/// ligne l'envoie dans le panneau de détail permanent, à droite. Rien ne se
-/// déplie dans le fil lui-même — la personne qui utilise cet écran n'est ni
-/// développeuse ni machiniste, une ligne « Génération du G-code — ✓ terminé »
-/// se lit d'un coup d'œil, un JSON brut non.
-class _ProcedureCard extends StatelessWidget {
-  const _ProcedureCard({
-    required this.fc,
-    required this.group,
-    required this.runningTool,
-    required this.selected,
-    required this.onSelect,
-  });
+/// Bloc de code d'une réponse : monospace, défilement horizontal (les lignes
+/// de G-code sont longues), et trois actions — copier, enregistrer sur le
+/// disque, ouvrir dans une fenêtre à part. Sans elles il faudrait re-saisir le
+/// programme à la main.
+class _CodeBlock extends StatelessWidget {
+  const _CodeBlock({required this.fc, required this.block});
 
   final ForgeronColorPalette fc;
-  final List<AiChatMessage> group;
-  final String? runningTool;
-  final _Step? selected;
-  final ValueChanged<_Step> onSelect;
+  final ChatBlock block;
 
   @override
   Widget build(BuildContext context) {
-    final steps = [
-      for (final m in group) _splitToolMessage(m.text),
-      if (runningTool != null) (name: runningTool!, result: null),
-    ];
-    final done = steps.where((s) => s.result != null && !s.result!.startsWith('Erreur')).length;
+    final isGcode = looksLikeGcode(block);
+    final lineCount = block.text.trim().isEmpty
+        ? 0
+        : block.text.trimRight().split('\n').length;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: fc.surfaceBright,
+        color: fc.terminalBg,
         border: Border.all(color: fc.surfaceBorder),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
             decoration: BoxDecoration(
-              color: fc.surfaceHigh,
               border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10),
-              ),
             ),
             child: Row(
               children: [
-                Icon(fluent.FluentIcons.timeline, size: 13, color: fc.secondary),
-                const SizedBox(width: 8),
-                Text('ÉTAPES DE L\'AGENT',
-                    style: TextStyle(
-                        color: fc.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11.5,
-                        letterSpacing: .08 * 11.5)),
-                const Spacer(),
                 Text(
-                  '$done/${steps.length}',
-                  style: TextStyle(color: fc.success, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(
-              children: [
-                for (final step in steps)
-                  _StepRow(
-                    fc: fc,
-                    step: step,
-                    isSelected: selected != null &&
-                        selected!.name == step.name &&
-                        selected!.result == step.result,
-                    onTap: () => onSelect(step),
+                  isGcode
+                      ? 'PROGRAMME · $lineCount lignes'
+                      : (block.lang.isEmpty ? 'CODE' : block.lang.toUpperCase()),
+                  style: TextStyle(
+                    color: fc.textDisabled,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .8,
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-typedef _Step = ({String name, String? result});
-
-_Step _splitToolMessage(String text) {
-  final i = text.indexOf(' → ');
-  if (i < 0) return (name: text, result: '');
-  return (name: text.substring(0, i), result: text.substring(i + 3));
-}
-
-/// Traduit un nom d'outil technique en une phrase compréhensible sans savoir
-/// coder ni usiner. Les outils absents de cette liste retombent sur une
-/// mise en forme générique (underscores → espaces) — jamais un plantage,
-/// juste un libellé moins soigné en attendant de l'ajouter ici.
-const _toolLabels = <String, String>{
-  'run_step_pipeline': 'Génération du G-code depuis le fichier STEP',
-  'run_gcode_program': 'Chargement du programme dans l\'espace de travail',
-  'analyze_gcode': 'Analyse du programme G-code',
-  'get_machine_state': 'Lecture de l\'état de la machine',
-  'get_diagnostics': 'Vérification de la machine',
-  'home': 'Prise d\'origine (homing)',
-  'probe': 'Palpage de la pièce',
-  'jog_axis': 'Déplacement manuel d\'un axe',
-  'goto_position': 'Déplacement vers une position',
-  'set_work_zero': 'Réglage du zéro pièce',
-  'send_gcode': 'Envoi d\'une commande à la machine',
-  'run_program': 'Lancement de l\'usinage',
-  'stop_program': 'Arrêt de l\'usinage',
-  'pause': 'Mise en pause',
-  'resume': 'Reprise de l\'usinage',
-  'emergency_stop': 'Arrêt d\'urgence',
-  'unlock_alarm': 'Déblocage de l\'alarme',
-  'get_camera_snapshot': 'Photo de la caméra atelier',
-  'list_workspace_files': 'Liste des fichiers de l\'espace de travail',
-  'read_workspace_file': 'Lecture d\'un fichier',
-  'write_workspace_file': 'Écriture d\'un fichier',
-  'show_popup': 'Message de l\'agent',
-  'open_chart_window': 'Ouverture d\'un graphique',
-  'open_gcode_window': 'Ouverture du G-code dans une fenêtre',
-};
-
-String _friendlyToolLabel(String toolName) {
-  return _toolLabels[toolName] ??
-      toolName.replaceAll('_', ' ').replaceFirstMapped(
-          RegExp('^.'), (m) => m.group(0)!.toUpperCase());
-}
-
-/// Résumé court d'un résultat d'outil, pour l'en-tête de la ligne repliée.
-/// `run_step_pipeline` répond en JSON : on en tire une phrase plutôt que
-/// d'afficher les accolades brutes — le détail complet reste disponible en
-/// dépliant la ligne, pour qui veut vérifier.
-String _resultSummary(String toolName, String result) {
-  if (result.startsWith('Erreur')) return result;
-  if (toolName == 'run_step_pipeline') {
-    try {
-      final data = jsonDecode(result) as Map<String, dynamic>;
-      final pipeline = data['pipeline'] == 'freecad_prismatique'
-          ? 'pièce prismatique (FreeCAD)'
-          : 'pièce de révolution';
-      final ops = (data['operations'] as List?)?.length;
-      final lignes = data['lignes_gcode'];
-      final parts = <String>[pipeline];
-      if (ops != null) parts.add('$ops opération(s)');
-      if (lignes != null) parts.add('$lignes lignes de G-code');
-      return parts.join(' · ');
-    } catch (_) {
-      // Pas du JSON (ex: message d'erreur) → on laisse tel quel.
-    }
-  }
-  return result.length > 90 ? '${result.substring(0, 90)}…' : result;
-}
-
-/// Chemin du G-code produit par `run_step_pipeline`, si le résultat est un
-/// succès JSON qui en porte un — `null` sinon (échec, ou un autre outil).
-String? _gcodePathFrom(String toolName, String result) {
-  if (toolName != 'run_step_pipeline' || result.startsWith('Erreur')) return null;
-  try {
-    final data = jsonDecode(result) as Map<String, dynamic>;
-    return data['gcode_path'] as String?;
-  } catch (_) {
-    return null;
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({
-    required this.fc,
-    required this.step,
-    required this.isSelected,
-    required this.onTap,
-  });
-  final ForgeronColorPalette fc;
-  final _Step step;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final running = step.result == null;
-    final failed = !running && step.result!.startsWith('Erreur');
-    final color = running ? fc.primary : (failed ? fc.danger : fc.success);
-    final label = _friendlyToolLabel(step.name);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: fluent.HyperlinkButton(
-        onPressed: onTap,
-        style: fluent.ButtonStyle(
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-          backgroundColor: WidgetStatePropertyAll(
-              isSelected ? fc.primary.withValues(alpha: .1) : Colors.transparent),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: isSelected ? BorderSide(color: fc.primary.withValues(alpha: .4)) : BorderSide.none,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: .12),
-                border: Border.all(color: color, width: 1.5),
-              ),
-              child: running
-                  ? SizedBox(
-                      width: 9,
-                      height: 9,
-                      child: fluent.ProgressRing(strokeWidth: 1.4, activeColor: color),
-                    )
-                  : Icon(
-                      failed ? fluent.FluentIcons.clear : fluent.FluentIcons.check_mark,
-                      size: 9,
-                      color: color,
+                ),
+                const Spacer(),
+                fluent.Tooltip(
+                  message: 'Copier',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.copy_rounded, size: 14, color: fc.textSecondary),
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: block.text)),
+                  ),
+                ),
+                if (isGcode) ...[
+                  fluent.Tooltip(
+                    message: 'Enregistrer sous…',
+                    child: fluent.IconButton(
+                      icon: Icon(Icons.save_alt_rounded,
+                          size: 14, color: fc.textSecondary),
+                      onPressed: () => _save(context),
                     ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w600, fontSize: 12.5),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                running ? 'en cours…' : _resultSummary(step.name, step.result!),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  color: running ? fc.textDisabled : (failed ? fc.danger : fc.textSecondary),
-                  fontSize: 10.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Panneau permanent, à droite de la conversation : le détail de l'étape
-/// sélectionnée (ou de celle qui tourne, à défaut de sélection). Remplace le
-/// premier essai — un contenu repliable dans le fil — qui nichait le
-/// visualiseur 3D dans un Expander animé au sein d'une liste défilante :
-/// la WebView native n'y recevait jamais son signal « prête », donc ni le
-/// thème ni le parcours ne lui étaient jamais envoyés. Un panneau fixe, non
-/// animé, non découpé au clip, lui donne un terrain stable.
-class _DetailPanel extends StatelessWidget {
-  const _DetailPanel({required this.fc, required this.step});
-  final ForgeronColorPalette fc;
-  final _Step? step;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 400,
-      decoration: BoxDecoration(
-        color: fc.surfaceBright,
-        border: Border(left: BorderSide(color: fc.surfaceBorder)),
-      ),
-      child: step == null ? _buildEmpty() : _buildDetail(step!),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(fluent.FluentIcons.preview, size: 28, color: fc.textDisabled),
-            const SizedBox(height: 10),
-            Text(
-              'Le détail de l\'étape en cours s\'affichera ici.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fc.textDisabled, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetail(_Step step) {
-    final running = step.result == null;
-    final failed = !running && step.result!.startsWith('Erreur');
-    final label = _friendlyToolLabel(step.name);
-    final gcodePath = running ? null : _gcodePathFrom(step.name, step.result!);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: fc.surfaceBorder))),
-          child: Row(
-            children: [
-              Icon(
-                running
-                    ? fluent.FluentIcons.sync
-                    : (failed ? fluent.FluentIcons.error_badge : fluent.FluentIcons.completed_solid),
-                size: 15,
-                color: running ? fc.primary : (failed ? fc.danger : fc.success),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(label,
-                    style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 13)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (running)
-                  Row(
-                    children: [
-                      SizedBox(width: 14, height: 14, child: fluent.ProgressRing(strokeWidth: 1.8)),
-                      const SizedBox(width: 8),
-                      Text('En cours…', style: TextStyle(color: fc.textSecondary, fontSize: 12.5)),
-                    ],
                   ),
-                if (!running && gcodePath != null) ...[
-                  _GcodePreview(fc: fc, path: gcodePath),
-                  const SizedBox(height: 14),
+                  fluent.Tooltip(
+                    message: 'Ouvrir dans une fenêtre',
+                    child: fluent.IconButton(
+                      icon: Icon(Icons.open_in_new_rounded,
+                          size: 14, color: fc.textSecondary),
+                      onPressed: () => AiWindowLauncher.openGcode(
+                        title: 'Programme de l\'agent',
+                        content: block.text,
+                      ),
+                    ),
+                  ),
                 ],
-                if (!running)
-                  SelectableText(
-                    step.result!,
-                    style: TextStyle(
-                        color: fc.textSecondary, fontSize: 11.5, fontFamily: 'JetBrainsMono', height: 1.5),
-                  ),
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Aperçu 3D du G-code généré — réutilise le visualiseur déjà présent dans
-/// l'app (TrunnionVisualizer + gcodeProvider), pas un second moteur de
-/// rendu. Charge le fichier une seule fois au premier affichage. Vit dans
-/// [_DetailPanel], un conteneur fixe et non animé — voir sa docstring pour
-/// pourquoi ça compte pour un contrôle WebView natif.
-class _GcodePreview extends ConsumerStatefulWidget {
-  const _GcodePreview({required this.fc, required this.path});
-  final ForgeronColorPalette fc;
-  final String path;
-
-  @override
-  ConsumerState<_GcodePreview> createState() => _GcodePreviewState();
-}
-
-class _GcodePreviewState extends ConsumerState<_GcodePreview> {
-  Object? _error;
-  bool _loaded = false;
-  String? _loadedPath;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(_GcodePreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.path != widget.path) _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loaded = false;
-      _error = null;
-    });
-    try {
-      final content = await File(widget.path).readAsString();
-      if (!mounted) return;
-      await ref.read(gcodeProvider.notifier).loadFile(content);
-      if (mounted) {
-        setState(() {
-          _loaded = true;
-          _loadedPath = widget.path;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _error = e);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final fc = widget.fc;
-    if (_error != null) {
-      return Text('Aperçu indisponible : $_error',
-          style: TextStyle(color: fc.danger, fontSize: 11.5));
-    }
-    if (!_loaded || _loadedPath != widget.path) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 14, height: 14, child: fluent.ProgressRing(strokeWidth: 1.8)),
-          const SizedBox(width: 8),
-          Text('Ouverture du parcours…', style: TextStyle(color: fc.textSecondary, fontSize: 11.5)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: SingleChildScrollView(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    block.text.trimRight(),
+                    style: TextStyle(
+                      color: fc.textSecondary,
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 11.5,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
-      );
-    }
-    return Container(
-      height: 280,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: fc.surfaceBorder),
-      ),
-      child: TrunnionVisualizer(
-        mPos: ref.watch(renderMPosProvider),
-        toolpath: ref.watch(renderToolpathProvider),
-        machineLimits: ref.watch(machineTravelProvider),
       ),
     );
   }
+
+  Future<void> _save(BuildContext context) async {
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final suggested = 'agent_${now.year}${two(now.month)}${two(now.day)}_'
+        '${two(now.hour)}${two(now.minute)}.nc';
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Enregistrer le programme',
+      fileName: suggested,
+      type: FileType.custom,
+      allowedExtensions: ['nc', 'gcode', 'ngc', 'tap'],
+    );
+    if (path == null) return; // annulé
+    try {
+      await File(path).writeAsString(block.text);
+    } catch (e) {
+      if (!context.mounted) return;
+      await fluent.displayInfoBar(context, builder: (ctx, close) {
+        return fluent.InfoBar(
+          title: const Text('Écriture impossible'),
+          content: Text('$e'),
+          severity: fluent.InfoBarSeverity.error,
+          onClose: close,
+        );
+      });
+    }
+  }
 }
+
+// ═══════════════════════════ Barres d'état ═════════════════════════════════
 
 class _ConfirmationBar extends ConsumerWidget {
   const _ConfirmationBar({required this.fc, required this.pending});
+
   final ForgeronColorPalette fc;
   final AiPendingToolCall pending;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(aiAgentControllerProvider.notifier);
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      margin: const EdgeInsets.fromLTRB(22, 0, 22, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: fc.warning.withValues(alpha: .08),
@@ -1053,19 +1126,40 @@ class _ConfirmationBar extends ConsumerWidget {
           Icon(fluent.FluentIcons.warning, color: fc.warning, size: 18),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Confirmation requise : ${pending.toolName}',
-              style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Confirmation requise : ${friendlyToolLabel(pending.toolName)}',
+                  style: TextStyle(
+                      color: fc.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13),
+                ),
+                if (pending.input.isNotEmpty)
+                  Text(
+                    pending.input.entries
+                        .map((e) => '${e.key} : ${e.value}')
+                        .join('   '),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: fc.textSecondary,
+                        fontSize: 11,
+                        fontFamily: 'JetBrainsMono'),
+                  ),
+              ],
             ),
           ),
+          const SizedBox(width: 10),
           fluent.Button(
+            onPressed: controller.rejectPendingAction,
             child: const Text('Refuser'),
-            onPressed: () => ref.read(aiAgentControllerProvider.notifier).rejectPendingAction(),
           ),
           const SizedBox(width: 8),
           fluent.FilledButton(
+            onPressed: controller.confirmPendingAction,
             child: const Text('Confirmer'),
-            onPressed: () => ref.read(aiAgentControllerProvider.notifier).confirmPendingAction(),
           ),
         ],
       ),
@@ -1073,25 +1167,51 @@ class _ConfirmationBar extends ConsumerWidget {
   }
 }
 
-class _ErrorBar extends StatelessWidget {
-  const _ErrorBar({required this.fc, required this.message});
+/// Erreur, avec le renvoi manuel quand l'action est rejouable — sur mobile ce
+/// bouton existait, ici l'échec était une impasse.
+class _ErrorBar extends ConsumerWidget {
+  const _ErrorBar({required this.fc, required this.chat});
+
   final ForgeronColorPalette fc;
-  final String message;
+  final AiChatState chat;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      margin: const EdgeInsets.fromLTRB(22, 0, 22, 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: fc.danger.withValues(alpha: .1),
         border: Border.all(color: fc.danger.withValues(alpha: .4)),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(message, style: TextStyle(color: fc.danger, fontSize: 12.5)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(chat.error ?? '',
+                style: TextStyle(color: fc.danger, fontSize: 12.5)),
+          ),
+          if (chat.awaitingNetwork)
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Text('reprise automatique armée',
+                  style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
+            ),
+          if (chat.retryable) ...[
+            const SizedBox(width: 10),
+            fluent.Button(
+              onPressed: () =>
+                  ref.read(aiAgentControllerProvider.notifier).retryNow(),
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
+
+// ════════════════════════════ Barre de saisie ══════════════════════════════
 
 class _Composer extends StatelessWidget {
   const _Composer({
@@ -1123,7 +1243,7 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(top: BorderSide(color: fc.surfaceBorder)),
@@ -1132,7 +1252,8 @@ class _Composer extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: fc.surfaceBright,
-          border: Border.all(color: fc.surfaceBorder),
+          border: Border.all(
+              color: listening ? fc.danger.withValues(alpha: .5) : fc.surfaceBorder),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -1145,26 +1266,29 @@ class _Composer extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(pendingImage!, width: 48, height: 48, fit: BoxFit.cover),
+                      child: Image.memory(pendingImage!,
+                          width: 44, height: 44, fit: BoxFit.cover),
                     ),
                     const SizedBox(width: 10),
-                    Text('Image jointe', style: TextStyle(color: fc.textSecondary, fontSize: 12)),
-                    const SizedBox(width: 6),
+                    Text('Image jointe',
+                        style: TextStyle(color: fc.textSecondary, fontSize: 12)),
+                    const SizedBox(width: 4),
                     fluent.IconButton(
-                      icon: Icon(Icons.close, color: fc.textDisabled, size: 16),
+                      icon: Icon(Icons.close, color: fc.textDisabled, size: 15),
                       onPressed: onRemoveImage,
                     ),
                   ],
                 ),
               ),
-            // Champ de saisie seul en haut, comme la référence donnée —
-            // les commandes vivent dans la rangée du dessous, pas mêlées au
-            // texte.
+            // Le champ seul en haut, les commandes dessous : le texte n'est
+            // pas comprimé entre six boutons.
             fluent.TextBox(
               controller: controller,
-              placeholder: 'Demander une action ou une analyse à l\'agent…',
+              placeholder: listening
+                  ? 'Dictée en cours…'
+                  : 'Demander une action ou une analyse à l\'agent…',
               minLines: 1,
-              maxLines: 5,
+              maxLines: 6,
               decoration: WidgetStatePropertyAll(BoxDecoration(
                 color: Colors.transparent,
                 border: Border.all(color: Colors.transparent),
@@ -1172,21 +1296,20 @@ class _Composer extends StatelessWidget {
               onSubmitted: (_) => onSend(),
             ),
             const SizedBox(height: 6),
-            // Rangée de commandes sous le texte, comme la référence donnée :
-            // pièces jointes + micro à gauche, modèle actif + envoi à droite.
             Row(
               children: [
                 fluent.Tooltip(
-                  message: 'Charger un fichier STEP (pièce de révolution)',
+                  message: 'Charger une pièce (fichier STEP)',
                   child: fluent.IconButton(
-                    icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
+                    icon: Icon(fluent.FluentIcons.attach,
+                        color: fc.textSecondary, size: 16),
                     onPressed: onAttachStep,
                   ),
                 ),
                 fluent.Tooltip(
                   message: 'Joindre une image',
                   child: fluent.IconButton(
-                    icon: Icon(Icons.photo_camera_rounded, color: fc.textSecondary, size: 16),
+                    icon: Icon(Icons.image_outlined, color: fc.textSecondary, size: 17),
                     onPressed: onAttachImage,
                   ),
                 ),
@@ -1196,22 +1319,24 @@ class _Composer extends StatelessWidget {
                     icon: Icon(
                       listening ? Icons.mic_rounded : Icons.mic_none_rounded,
                       color: listening ? fc.danger : fc.textSecondary,
-                      size: 16,
+                      size: 17,
                     ),
                     onPressed: onToggleListen,
                   ),
                 ),
                 const Spacer(),
-                const _ModelBadge(),
-                const SizedBox(width: 10),
                 busy
-                    ? fluent.IconButton(
-                        icon: Icon(Icons.stop_circle_outlined, color: fc.danger),
-                        onPressed: onStop,
+                    ? fluent.Tooltip(
+                        message: 'Interrompre',
+                        child: fluent.IconButton(
+                          icon: Icon(Icons.stop_circle_outlined,
+                              color: fc.danger, size: 20),
+                          onPressed: onStop,
+                        ),
                       )
                     : fluent.FilledButton(
                         onPressed: onSend,
-                        child: const Icon(fluent.FluentIcons.send, size: 16),
+                        child: const Icon(fluent.FluentIcons.send, size: 15),
                       ),
               ],
             ),
@@ -1222,94 +1347,352 @@ class _Composer extends StatelessWidget {
   }
 }
 
-/// Petit badge modèle actif, réutilisé dans la rangée de commandes du
-/// composer — même donnée que le badge de l'en-tête, présentée là où la
-/// référence donnée la montre : à côté du bouton d'envoi, pas seulement en
-/// haut de l'écran.
-class _ModelBadge extends ConsumerWidget {
-  const _ModelBadge();
+// ═════════════════════════ Rail des aperçus 3D ═════════════════════════════
+
+/// Colonne de droite : ce que la discussion a produit de visualisable.
+///
+/// C'est la réponse au vrai manque de la version précédente — le pipeline
+/// fabriquait une pièce et un parcours d'outil que rien ne montrait. Chaque
+/// carte ouvre sa propre fenêtre OS : un cadre fixe et plein, le seul endroit
+/// où un contrôle WebView natif tient correctement (voir `ai_viewer_windows.dart`).
+class _ArtifactsRail extends ConsumerWidget {
+  const _ArtifactsRail({required this.fc, required this.onPickStep});
+
+  final ForgeronColorPalette fc;
+  final VoidCallback onPickStep;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fc = ForgeronTheme.of(context);
-    final settings = ref.watch(aiAgentSettingsProvider);
-    final useLocal = settings.localBaseUrl.isNotEmpty;
-    final modelLabel = useLocal ? settings.localModel : ref.watch(aiModelProvider).active.id;
+    final artifacts = ref.watch(aiArtifactsProvider);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      width: 276,
       decoration: BoxDecoration(
-        color: fc.lcdBackground,
-        border: Border.all(color: fc.lcdBorder),
-        borderRadius: BorderRadius.circular(20),
+        color: fc.surfaceBright,
+        border: Border(left: BorderSide(color: fc.surfaceBorder)),
       ),
-      child: Text(
-        '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
-        style: TextStyle(
-          color: fc.lcdText,
-          fontFamily: 'JetBrainsMono',
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.view_in_ar_rounded, size: 15, color: fc.secondary),
+                const SizedBox(width: 8),
+                Text(
+                  'APERÇUS 3D',
+                  style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(14),
+              children: [
+                _StepCard(fc: fc, step: artifacts.step, onPickStep: onPickStep),
+                const SizedBox(height: 12),
+                _ToolpathCard(
+                  fc: fc,
+                  gcode: artifacts.gcode,
+                  mesh: artifacts.step?.preview?.mesh,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Écran vide au premier lancement de la discussion : sans elle, l'agent
-/// IA ressemble à un chat comme un autre — rien ne dit qu'il sait piloter le
-/// pipeline STEP -> G-code. Le bouton fait exactement ce que fait le
-/// trombone du composer, en plus visible.
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.fc, required this.onPickStep});
+/// Coque commune des cartes d'aperçu.
+class _ArtifactCard extends StatelessWidget {
+  const _ArtifactCard({
+    required this.fc,
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
   final ForgeronColorPalette fc;
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border.all(color: fc.surfaceBorder),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: fc.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _StepCard extends StatelessWidget {
+  const _StepCard({required this.fc, required this.step, required this.onPickStep});
+
+  final ForgeronColorPalette fc;
+  final StepArtifact? step;
   final VoidCallback onPickStep;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fc.primary.withValues(alpha: .12),
-                border: Border.all(color: fc.primary.withValues(alpha: .35)),
-              ),
-              child: Icon(fluent.FluentIcons.processing, color: fc.primary, size: 24),
-            ),
-            const SizedBox(height: 16),
+    final s = step;
+    return _ArtifactCard(
+      fc: fc,
+      title: 'Pièce',
+      icon: Icons.category_outlined,
+      children: [
+        if (s == null) ...[
+          Text(
+            'Aucune pièce chargée.',
+            style: TextStyle(color: fc.textDisabled, fontSize: 11.5),
+          ),
+          const SizedBox(height: 10),
+          fluent.Button(
+            onPressed: onPickStep,
+            child: const Text('Charger un STEP'),
+          ),
+        ] else ...[
+          Text(
+            s.fileName,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+          ),
+          const SizedBox(height: 8),
+          if (s.loading)
+            Row(
+              children: [
+                SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: fluent.ProgressRing(strokeWidth: 1.6)),
+                const SizedBox(width: 8),
+                Text('Préparation de l\'aperçu…',
+                    style: TextStyle(color: fc.textDisabled, fontSize: 11)),
+              ],
+            )
+          else if (s.error != null)
             Text(
-              'Pièce de révolution → G-code',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 15),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Charge un fichier STEP : l\'agent détecte l\'axe, extrait le profil exact '
-              'et génère le G-code — chaque étape s\'affiche ici en direct.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fc.textSecondary, fontSize: 12.5, height: 1.5),
-            ),
-            const SizedBox(height: 20),
+              s.error!,
+              style: TextStyle(color: fc.danger, fontSize: 10.5, height: 1.4),
+            )
+          else if (s.preview != null) ...[
+            _kv(fc, 'encombrement', s.preview!.sizeLabel),
+            _kv(fc, 'volume', '${s.preview!.volume.toStringAsFixed(0)} mm³'),
+            _kv(fc, 'triangles', '${s.preview!.triangles}'),
+            const SizedBox(height: 10),
             fluent.FilledButton(
-              onPressed: onPickStep,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('Charger un fichier STEP'),
+              onPressed: () => AiWindowLauncher.openStepPreview(
+                title: 'Aperçu — ${s.fileName}',
+                mesh: s.preview!.mesh,
+                info: {
+                  'encombrement': s.preview!.sizeLabel,
+                  'volume': '${s.preview!.volume.toStringAsFixed(0)} mm³',
+                  'triangles': s.preview!.triangles,
+                },
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'ou pose directement une question ci-dessous',
-              style: TextStyle(color: fc.textDisabled, fontSize: 11),
+              child: const Text('Ouvrir la fenêtre 3D'),
             ),
           ],
+        ],
+      ],
+    );
+  }
+}
+
+class _ToolpathCard extends StatelessWidget {
+  const _ToolpathCard({required this.fc, required this.gcode, required this.mesh});
+
+  final ForgeronColorPalette fc;
+  final GcodeArtifact? gcode;
+  final Map<String, dynamic>? mesh;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = gcode;
+    return _ArtifactCard(
+      fc: fc,
+      title: 'Parcours d\'outil',
+      icon: Icons.timeline_rounded,
+      children: [
+        if (g == null)
+          Text(
+            'Disponible dès que l\'agent aura généré un programme.',
+            style: TextStyle(color: fc.textDisabled, fontSize: 11.5, height: 1.4),
+          )
+        else ...[
+          Text(
+            g.fileName,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+          ),
+          const SizedBox(height: 8),
+          if (g.pipelineLabel.isNotEmpty) _kv(fc, 'pipeline', g.pipelineLabel),
+          if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
+          if (g.operations != null) _kv(fc, 'opérations', '${g.operations}'),
+          const SizedBox(height: 10),
+          fluent.FilledButton(
+            onPressed: () => AiWindowLauncher.openToolpath(
+              title: 'Parcours — ${g.fileName}',
+              gcodePath: g.path,
+              mesh: mesh,
+            ),
+            child: const Text('Ouvrir la fenêtre 3D'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+Widget _kv(ForgeronColorPalette fc, String label, String value) {
+  if (value.isEmpty) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 3),
+    child: Row(
+      children: [
+        Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+              color: fc.lcdText, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
+        ),
+      ],
+    ),
+  );
+}
+
+// ════════════════════════════ Écran d'accueil ══════════════════════════════
+
+/// Premier lancement d'une discussion : sans ça, l'agent IA ressemble à un
+/// chat comme un autre — rien ne dit qu'il sait piloter le pipeline
+/// STEP → G-code, ni ce qu'on peut lui demander.
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.fc,
+    required this.onPickStep,
+    required this.onAsk,
+  });
+
+  final ForgeronColorPalette fc;
+  final VoidCallback onPickStep;
+  final ValueChanged<String> onAsk;
+
+  static const _suggestions = [
+    'Quel est l\'état de la machine ?',
+    'Analyse le programme chargé et signale les risques.',
+    'Fais un diagnostic complet avant usinage.',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: fc.primary.withValues(alpha: .12),
+                  border: Border.all(color: fc.primary.withValues(alpha: .35)),
+                ),
+                child: Icon(Icons.auto_awesome, color: fc.primary, size: 23),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Du fichier STEP au G-code',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Charge une pièce : l\'agent l\'analyse, génère le programme et '
+                'ouvre l\'aperçu 3D. Chaque étape s\'affiche ici pendant qu\'elle '
+                'se fait.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: fc.textSecondary, fontSize: 12.5, height: 1.6),
+              ),
+              const SizedBox(height: 20),
+              fluent.FilledButton(
+                onPressed: onPickStep,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text('Charger un fichier STEP'),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'OU DEMANDE-LUI',
+                style: TextStyle(
+                  color: fc.textDisabled,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              for (final s in _suggestions)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: fluent.Button(
+                      onPressed: () => onAsk(s),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(s, style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
