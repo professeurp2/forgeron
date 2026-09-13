@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
@@ -42,6 +45,13 @@ class _AiConsoleBody extends ConsumerStatefulWidget {
 class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  final _picker = ImagePicker();
+
+  // Image en attente d'envoi (multimodal) — même mécanisme que l'écran
+  // mobile (ai_assistant_screen.dart) : sendUserMessage(text, imageBytes:,
+  // imageMime:). Ne PAS réinventer un second canal d'envoi d'image.
+  Uint8List? _pendingImage;
+  String? _pendingImageMime;
 
   @override
   void dispose() {
@@ -52,10 +62,64 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
 
   void _send() {
     final text = _input.text;
-    if (text.trim().isEmpty) return;
-    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(text);
+    if (text.trim().isEmpty && _pendingImage == null) return;
+    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
+          text,
+          imageBytes: _pendingImage,
+          imageMime: _pendingImageMime,
+        );
     _input.clear();
+    setState(() {
+      _pendingImage = null;
+      _pendingImageMime = null;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+  }
+
+  /// Sélection d'image depuis un fichier — pas de caméra ici :
+  /// `image_picker_windows` (voir sa source) lève un `StateError` sur
+  /// `ImageSource.camera` faute de `cameraDelegate` configuré. La capture
+  /// photo reste une action mobile ; le desktop travaille depuis des fichiers
+  /// (export CAO, capture d'écran, photo déjà transférée).
+  Future<void> _pickImage() async {
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 2000,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 8 * 1024 * 1024) {
+        if (mounted) {
+          await fluent.displayInfoBar(context, builder: (ctx, close) {
+            return fluent.InfoBar(
+              title: const Text('Image trop lourde'),
+              content: const Text('8 Mo maximum.'),
+              severity: fluent.InfoBarSeverity.warning,
+              onClose: close,
+            );
+          });
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _pendingImage = bytes;
+        _pendingImageMime = _mimeFromName(file.name);
+      });
+    } catch (_) {
+      // Sélection annulée → on ignore, comme côté mobile.
+    }
+  }
+
+  static String _mimeFromName(String name) {
+    final n = name.toLowerCase();
+    if (n.endsWith('.png')) return 'image/png';
+    if (n.endsWith('.webp')) return 'image/webp';
+    if (n.endsWith('.gif')) return 'image/gif';
+    if (n.endsWith('.bmp')) return 'image/bmp';
+    return 'image/jpeg';
   }
 
   Future<void> _pickStepFile() async {
@@ -139,6 +203,12 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
             onSend: _send,
             onStop: () => ref.read(aiAgentControllerProvider.notifier).stopGeneration(),
             onAttachStep: _pickStepFile,
+            onAttachImage: _pickImage,
+            pendingImage: _pendingImage,
+            onRemoveImage: () => setState(() {
+              _pendingImage = null;
+              _pendingImageMime = null;
+            }),
           ),
         ],
       ),
@@ -591,6 +661,9 @@ class _Composer extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.onAttachStep,
+    required this.onAttachImage,
+    required this.pendingImage,
+    required this.onRemoveImage,
   });
 
   final ForgeronColorPalette fc;
@@ -599,6 +672,9 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onStop;
   final VoidCallback onAttachStep;
+  final VoidCallback onAttachImage;
+  final Uint8List? pendingImage;
+  final VoidCallback onRemoveImage;
 
   @override
   Widget build(BuildContext context) {
@@ -608,36 +684,67 @@ class _Composer extends StatelessWidget {
         color: fc.surface,
         border: Border(top: BorderSide(color: fc.surfaceBorder)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          fluent.Tooltip(
-            message: 'Charger un fichier STEP (pièce de révolution)',
-            child: fluent.IconButton(
-              icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
-              onPressed: onAttachStep,
+          if (pendingImage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(pendingImage!, width: 48, height: 48, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(width: 10),
+                  Text('Image jointe', style: TextStyle(color: fc.textSecondary, fontSize: 12)),
+                  const SizedBox(width: 6),
+                  fluent.IconButton(
+                    icon: Icon(Icons.close, color: fc.textDisabled, size: 16),
+                    onPressed: onRemoveImage,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: fluent.TextBox(
-              controller: controller,
-              placeholder: 'Demander une action ou une analyse à l\'agent…',
-              minLines: 1,
-              maxLines: 5,
-              onSubmitted: (_) => onSend(),
-            ),
-          ),
-          const SizedBox(width: 10),
-          busy
-              ? fluent.IconButton(
-                  icon: Icon(Icons.stop_circle_outlined, color: fc.danger),
-                  onPressed: onStop,
-                )
-              : fluent.FilledButton(
-                  onPressed: onSend,
-                  child: const Icon(fluent.FluentIcons.send, size: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              fluent.Tooltip(
+                message: 'Charger un fichier STEP (pièce de révolution)',
+                child: fluent.IconButton(
+                  icon: Icon(fluent.FluentIcons.attach, color: fc.textSecondary, size: 16),
+                  onPressed: onAttachStep,
                 ),
+              ),
+              fluent.Tooltip(
+                message: 'Joindre une image',
+                child: fluent.IconButton(
+                  icon: Icon(Icons.photo_camera_rounded, color: fc.textSecondary, size: 16),
+                  onPressed: onAttachImage,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: fluent.TextBox(
+                  controller: controller,
+                  placeholder: 'Demander une action ou une analyse à l\'agent…',
+                  minLines: 1,
+                  maxLines: 5,
+                  onSubmitted: (_) => onSend(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              busy
+                  ? fluent.IconButton(
+                      icon: Icon(Icons.stop_circle_outlined, color: fc.danger),
+                      onPressed: onStop,
+                    )
+                  : fluent.FilledButton(
+                      onPressed: onSend,
+                      child: const Icon(fluent.FluentIcons.send, size: 16),
+                    ),
+            ],
+          ),
         ],
       ),
     );
