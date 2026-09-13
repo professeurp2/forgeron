@@ -70,6 +70,20 @@ dependencies:
   fl_chart: ^1.2.0
   window_manager: ^0.5.2
 
+# webview_windows officiel (0.4.0, dernière version publiée) crée un
+# DispatcherQueueController WinRT par instance de plugin — un par fenêtre,
+# puisque chaque fenêtre desktop_multi_window a son propre moteur Flutter
+# donc sa propre instance du plugin. Windows n'autorise qu'un seul
+# DispatcherQueueController par thread, et toutes les fenêtres tournent sur
+# le même thread (desktop_multi_window n'en crée pas un par fenêtre) : la
+# deuxième visionneuse 3D ouverte échouait toujours avec « The platform is
+# not supported ». Fork local dans third_party/webview_windows qui partage
+# une seule instance entre toutes les fenêtres — voir le commentaire dans
+# windows/webview_windows_plugin.cc pour le détail.
+dependency_overrides:
+  webview_windows:
+    path: third_party/webview_windows
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
