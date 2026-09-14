@@ -51,12 +51,14 @@ def make_test_block() -> object:
     return BRepAlgoAPI_Cut(cut1, hole).Shape()
 
 
-def run_pipeline(step_path: Path, out_path: Path) -> tuple[int, str]:
+def run_pipeline(
+    step_path: Path, out_path: Path, *extra: str
+) -> tuple[int, str]:
     result = subprocess.run(
-        [str(FREECADCMD), str(SCRIPT), str(step_path), str(out_path)],
+        [str(FREECADCMD), str(SCRIPT), str(step_path), str(out_path), *extra],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=180,
     )
     return result.returncode, result.stdout + result.stderr
 
@@ -103,8 +105,71 @@ def main() -> int:
     if "F0.00" in gcode or " F0.000" in gcode:
         print("  ÉCHEC : une avance nulle est présente dans le G-code.")
         ok = False
-    if "G81" not in gcode:
-        print("  ÉCHEC : aucun cycle de perçage (G81) dans le G-code.")
+    # G83 = perçage AVEC débourrage. Le script l'active par défaut : sans lui
+    # le copeau s'accumule et cale une broche déjà sous-alimentée. Un G81 seul
+    # veut donc dire que le réglage n'a pas pris.
+    if "G83" not in gcode:
+        print("  ÉCHEC : perçage sans débourrage (G83 attendu, "
+              f"{'G81 trouvé' if 'G81' in gcode else 'aucun cycle'}).")
+        ok = False
+
+    # ── Les réglages ont-ils tous été acceptés par CETTE version de FreeCAD ?
+    # C'est la vérification la plus importante du fichier : une propriété
+    # renommée d'une version à l'autre ne lève aucune erreur — elle laisse
+    # simplement le parcours aux défauts de FreeCAD, c'est-à-dire faux.
+    non_appliques = report.get("reglages_non_appliques", [])
+    if non_appliques:
+        print(f"  ÉCHEC : {len(non_appliques)} réglage(s) refusé(s) par FreeCAD :")
+        for nom in non_appliques:
+            print(f"      - {nom}")
+        ok = False
+    else:
+        print(f"  OK : {len(report.get('reglages_appliques', {}))} réglages appliqués.")
+
+    # ── L'ordre d'usinage : le contour détache la pièce, il passe en DERNIER
+    ordre = report["operations"]
+    if ordre[-1] != "Profile":
+        print(f"  ÉCHEC : le contour doit être la dernière opération, ordre = {ordre}. "
+              "Détouré en premier, tout ce qui suit s'usine sur une pièce libre.")
+        ok = False
+    if "Pocket" in ordre and ordre.index("Pocket") > ordre.index("Drilling"):
+        print(f"  ÉCHEC : la poche doit précéder le perçage, ordre = {ordre}.")
+        ok = False
+
+    # ── Les conditions de coupe sont-elles celles demandées ? ──────────────
+    if report.get("ap_mm") != 0.2 or report.get("ae_mm") != 0.5:
+        print(f"  ÉCHEC : plafonds vibratoires attendus (0.2 / 0.5), "
+              f"rapport = {report.get('ap_mm')} / {report.get('ae_mm')}.")
+        ok = False
+    if report.get("outil_diametre_mm") != 6.0:
+        print(f"  ÉCHEC : outil Ø6 attendu, rapport = {report.get('outil_diametre_mm')}.")
+        ok = False
+
+    # ── 1 bis. Les options de la ligne de commande sont-elles suivies ? ────
+    # Sans cette vérification, le script pourrait ignorer ses arguments en
+    # silence et produire toujours le même parcours.
+    opt_out = tmp / "bloc_opt.nc"
+    code_opt, _ = run_pipeline(
+        step_path, opt_out, "--outil", "3", "--ap", "0.1", "--ae", "0.25"
+    )
+    if code_opt == 0:
+        opt_report = json.loads(
+            (tmp / "bloc_opt_rapport.json").read_text(encoding="utf-8")
+        )
+        print()
+        print(f"avec --outil 3 --ap 0.1 --ae 0.25 : "
+              f"Ø{opt_report.get('outil_diametre_mm')} "
+              f"ap={opt_report.get('ap_mm')} ae={opt_report.get('ae_mm')}")
+        if (opt_report.get("outil_diametre_mm"), opt_report.get("ap_mm"),
+                opt_report.get("ae_mm")) != (3.0, 0.1, 0.25):
+            print("  ÉCHEC : les options de la ligne de commande sont ignorées.")
+            ok = False
+        # Le G-code doit VRAIMENT changer : mêmes réglages = mêmes passes.
+        if opt_out.read_text(encoding="utf-8") == gcode:
+            print("  ÉCHEC : un ap deux fois plus fin produit le même G-code.")
+            ok = False
+    else:
+        print("  ÉCHEC : le pipeline refuse ses propres options.")
         ok = False
 
     # ── 2. Pavé plein, sans poche ni perçage : Pocket ne doit pas apparaître

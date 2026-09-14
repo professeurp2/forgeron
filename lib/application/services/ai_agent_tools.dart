@@ -1058,12 +1058,11 @@ class AiToolCatalog {
     AiTool(
       name: 'open_toolpath_window',
       description:
-          'Ouvre le parcours d\'outil d\'un programme G-code en 3D, dans une fenêtre séparée (desktop uniquement) — le tracé réel, rapides en rouge et passes de travail en vert. À utiliser après avoir généré un programme, pour que l\'opérateur voie le parcours plutôt que d\'avoir à lire des lignes de G-code. Si un fichier STEP est fourni, la pièce est dessinée sous le parcours.',
+          'Ouvre le parcours d\'outil d\'un programme G-code en 3D, dans une fenêtre séparée (desktop uniquement) — le tracé réel et lui seul, rapides en rouge et passes de travail en vert. À utiliser après avoir généré un programme, pour que l\'opérateur voie le parcours plutôt que d\'avoir à lire des lignes de G-code. La pièce n\'y est pas dessinée : elle masquerait les passes. Pour la voir, c\'est preview_step_file.',
       inputSchema: const {
         'type': 'object',
         'properties': {
           'gcodePath': {'type': 'string', 'description': 'Chemin absolu du fichier .nc / .gcode'},
-          'stepPath': {'type': 'string', 'description': 'Pièce à dessiner sous le parcours (facultatif)'},
           'title': {'type': 'string', 'description': 'Titre de la fenêtre (défaut : nom du fichier)'},
         },
         'required': ['gcodePath'],
@@ -1072,25 +1071,10 @@ class AiToolCatalog {
       execute: (input, ref) async {
         final gcodePath = input['gcodePath'] as String;
         ref.read(aiArtifactsProvider.notifier).setGcodePath(gcodePath);
-
-        // La pièce est facultative : son absence n'empêche pas d'afficher le
-        // parcours, et une facettisation ratée ne doit pas faire échouer
-        // l'ouverture de la fenêtre.
-        Map<String, dynamic>? mesh;
-        final stepPath = input['stepPath'] as String?;
-        if (stepPath != null && stepPath.isNotEmpty) {
-          try {
-            mesh = (await StepPreviewService.run(stepPath)).mesh;
-          } on StepPreviewException {
-            mesh = null;
-          }
-        }
-
         final name = gcodePath.split(RegExp(r'[/\\]')).last;
         return AiWindowLauncher.openToolpath(
           title: input['title'] as String? ?? 'Parcours — $name',
           gcodePath: gcodePath,
-          mesh: mesh,
         );
       },
     ),

@@ -16,6 +16,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
 import '../../../application/providers/ai_artifacts_provider.dart';
+import '../../../application/providers/gcode_provider.dart';
 import '../../../application/providers/ai_model_provider.dart';
 import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
@@ -25,6 +26,8 @@ import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
+import '../../widgets/trunnion_visualizer.dart';
+import '../../widgets/viewer_scene.dart';
 import '../ai_agent_settings_screen.dart';
 import 'ai_console_timeline.dart';
 
@@ -1364,8 +1367,11 @@ class _ArtifactsRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final artifacts = ref.watch(aiArtifactsProvider);
+    final docked = artifacts.docked != AiDockedViewer.none;
     return Container(
-      width: 276,
+      // Le rail s'élargit quand il héberge une vue 3D : 276 px suffisent à des
+      // fiches, pas à une pièce.
+      width: docked ? 430 : 276,
       decoration: BoxDecoration(
         color: fc.surfaceBright,
         border: Border(left: BorderSide(color: fc.surfaceBorder)),
@@ -1394,22 +1400,196 @@ class _ArtifactsRail extends ConsumerWidget {
               ],
             ),
           ),
+          if (docked) _DockedViewer(fc: fc, artifacts: artifacts),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(14),
               children: [
                 _StepCard(fc: fc, step: artifacts.step, onPickStep: onPickStep),
                 const SizedBox(height: 12),
-                _ToolpathCard(
-                  fc: fc,
-                  gcode: artifacts.gcode,
-                  mesh: artifacts.step?.preview?.mesh,
-                ),
+                _ToolpathCard(fc: fc, gcode: artifacts.gcode),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// L'aperçu 3D logé dans la fenêtre principale.
+///
+/// Un cadre FIXE : hauteur constante, hors de toute liste défilante, sans
+/// animation d'ouverture. Ce n'est pas une préférence esthétique — c'est la
+/// condition pour qu'un contrôle WebView natif tienne. Le premier essai le
+/// nichait dans un `Expander` animé au sein du fil : découpé au clip,
+/// redimensionné à chaque image, il n'émettait jamais son signal « prêt ».
+class _DockedViewer extends ConsumerWidget {
+  const _DockedViewer({required this.fc, required this.artifacts});
+
+  final ForgeronColorPalette fc;
+  final AiArtifacts artifacts;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(aiArtifactsProvider.notifier);
+    final isStep = artifacts.docked == AiDockedViewer.step;
+    final title = isStep
+        ? (artifacts.step?.fileName ?? 'Pièce')
+        : (artifacts.gcode?.fileName ?? 'Parcours d\'outil');
+
+    return Container(
+      height: 330,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+            decoration: BoxDecoration(
+              color: fc.surface,
+              border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isStep ? Icons.category_outlined : Icons.timeline_rounded,
+                  size: 13,
+                  color: fc.textSecondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: fc.textPrimary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: 'Détacher dans une fenêtre',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.open_in_new_rounded,
+                        size: 14, color: fc.textSecondary),
+                    onPressed: () {
+                      notifier.undock();
+                      if (isStep) {
+                        final preview = artifacts.step?.preview;
+                        if (preview == null) return;
+                        AiWindowLauncher.openStepPreview(
+                          title: 'Aperçu — ${artifacts.step!.fileName}',
+                          mesh: preview.mesh,
+                          info: {
+                            'encombrement': preview.sizeLabel,
+                            'volume': '${preview.volume.toStringAsFixed(0)} mm³',
+                            'triangles': preview.triangles,
+                          },
+                        );
+                      } else {
+                        final gcode = artifacts.gcode;
+                        if (gcode == null) return;
+                        AiWindowLauncher.openToolpath(
+                          title: 'Parcours — ${gcode.fileName}',
+                          gcodePath: gcode.path,
+                        );
+                      }
+                    },
+                  ),
+                ),
+                fluent.Tooltip(
+                  message: 'Fermer l\'aperçu',
+                  child: fluent.IconButton(
+                    icon: Icon(Icons.close_rounded, size: 14, color: fc.textDisabled),
+                    onPressed: notifier.undock,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              color: fc.background,
+              child: isStep
+                  ? TrunnionVisualizer(
+                      mPos: const [0, 0, 0, 0, 0],
+                      partMesh: artifacts.step?.preview?.mesh,
+                      scene: ViewerScene.partOnly,
+                    )
+                  : _DockedToolpath(fc: fc, path: artifacts.gcode?.path),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Le parcours logé dans la fenêtre principale.
+///
+/// Il charge le programme dans le `gcodeProvider` de CETTE portée — donc celui
+/// de l'écran principal. C'est voulu ici, contrairement à la fenêtre détachée
+/// qui a la sienne : afficher un parcours dans la fenêtre principale, c'est
+/// justement l'ouvrir dans l'espace de travail.
+class _DockedToolpath extends ConsumerStatefulWidget {
+  const _DockedToolpath({required this.fc, required this.path});
+
+  final ForgeronColorPalette fc;
+  final String? path;
+
+  @override
+  ConsumerState<_DockedToolpath> createState() => _DockedToolpathState();
+}
+
+class _DockedToolpathState extends ConsumerState<_DockedToolpath> {
+  String? _error;
+  String? _loaded;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_DockedToolpath oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) _load();
+  }
+
+  Future<void> _load() async {
+    final path = widget.path;
+    if (path == null || path == _loaded) return;
+    try {
+      final content = await File(path).readAsString();
+      await ref.read(gcodeProvider.notifier).loadFile(content);
+      if (mounted) setState(() => _loaded = path);
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Text('Parcours illisible : $_error',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: widget.fc.danger, fontSize: 11.5)),
+        ),
+      );
+    }
+    if (_loaded == null) {
+      return const Center(child: fluent.ProgressRing());
+    }
+    return TrunnionVisualizer(
+      mPos: const [0, 0, 0, 0, 0],
+      toolpath: ref.watch(renderToolpathProvider),
+      scene: ViewerScene.toolpathOnly,
     );
   }
 }
@@ -1462,7 +1642,7 @@ class _ArtifactCard extends StatelessWidget {
   }
 }
 
-class _StepCard extends StatelessWidget {
+class _StepCard extends ConsumerWidget {
   const _StepCard({required this.fc, required this.step, required this.onPickStep});
 
   final ForgeronColorPalette fc;
@@ -1470,7 +1650,7 @@ class _StepCard extends StatelessWidget {
   final VoidCallback onPickStep;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = step;
     return _ArtifactCard(
       fc: fc,
@@ -1517,8 +1697,11 @@ class _StepCard extends StatelessWidget {
             _kv(fc, 'volume', '${s.preview!.volume.toStringAsFixed(0)} mm³'),
             _kv(fc, 'triangles', '${s.preview!.triangles}'),
             const SizedBox(height: 10),
-            fluent.FilledButton(
-              onPressed: () => AiWindowLauncher.openStepPreview(
+            _ViewerActions(
+              fc: fc,
+              onDock: () =>
+                  ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step),
+              onDetach: () => AiWindowLauncher.openStepPreview(
                 title: 'Aperçu — ${s.fileName}',
                 mesh: s.preview!.mesh,
                 info: {
@@ -1527,7 +1710,6 @@ class _StepCard extends StatelessWidget {
                   'triangles': s.preview!.triangles,
                 },
               ),
-              child: const Text('Ouvrir la fenêtre 3D'),
             ),
           ],
         ],
@@ -1536,15 +1718,14 @@ class _StepCard extends StatelessWidget {
   }
 }
 
-class _ToolpathCard extends StatelessWidget {
-  const _ToolpathCard({required this.fc, required this.gcode, required this.mesh});
+class _ToolpathCard extends ConsumerWidget {
+  const _ToolpathCard({required this.fc, required this.gcode});
 
   final ForgeronColorPalette fc;
   final GcodeArtifact? gcode;
-  final Map<String, dynamic>? mesh;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final g = gcode;
     return _ArtifactCard(
       fc: fc,
@@ -1568,15 +1749,60 @@ class _ToolpathCard extends StatelessWidget {
           if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
           if (g.operations != null) _kv(fc, 'opérations', '${g.operations}'),
           const SizedBox(height: 10),
-          fluent.FilledButton(
-            onPressed: () => AiWindowLauncher.openToolpath(
+          _ViewerActions(
+            fc: fc,
+            onDock: () =>
+                ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath),
+            onDetach: () => AiWindowLauncher.openToolpath(
               title: 'Parcours — ${g.fileName}',
               gcodePath: g.path,
-              mesh: mesh,
             ),
-            child: const Text('Ouvrir la fenêtre 3D'),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Les deux façons de regarder un aperçu : ici, ou dans sa propre fenêtre.
+///
+/// Les deux existent parce qu'aucune ne convient toujours : sur un seul écran
+/// une fenêtre détachée recouvre la discussion, sur deux écrans elle est
+/// exactement ce qu'il faut. Le trajet se fait dans les deux sens — la fenêtre
+/// détachée porte le bouton du retour.
+class _ViewerActions extends StatelessWidget {
+  const _ViewerActions({
+    required this.fc,
+    required this.onDock,
+    required this.onDetach,
+  });
+
+  final ForgeronColorPalette fc;
+  final VoidCallback onDock;
+  final VoidCallback onDetach;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: fluent.FilledButton(
+            onPressed: onDock,
+            child: const Text('Afficher ici', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+        const SizedBox(width: 6),
+        fluent.Tooltip(
+          message: 'Ouvrir dans une fenêtre séparée',
+          child: fluent.Button(
+            onPressed: onDetach,
+            style: const fluent.ButtonStyle(
+              padding: WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+            ),
+            child: Icon(Icons.open_in_new_rounded, size: 14, color: fc.textSecondary),
+          ),
+        ),
       ],
     );
   }

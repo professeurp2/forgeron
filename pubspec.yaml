@@ -68,7 +68,14 @@ dependencies:
   fluent_ui: 4.13.0
   desktop_multi_window: ^0.3.1
   fl_chart: ^1.2.0
-  window_manager: ^0.5.2
+  # window_manager retiré : plus aucun appelant, et sa présence seule
+  # posait problème. Il s'attache à UNE fenêtre native — celle qu'il trouve à
+  # son initialisation. Initialisé dans le second moteur Flutter d'une fenêtre
+  # détachée, il se raccrochait à la fenêtre PRINCIPALE et en détournait la
+  # procédure : refermer une fenêtre détachée fermait l'application entière.
+  # Le cadrage des fenêtres passe désormais par `WindowController`
+  # (desktop_multi_window), qui désigne explicitement la fenêtre visée.
+  # Le réintroduire suppose de ne l'initialiser QUE dans la fenêtre principale.
 
 dev_dependencies:
   flutter_test:

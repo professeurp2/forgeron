@@ -38,11 +38,15 @@ class ViewerScene {
     workpiece: false,
   );
 
-  /// Aperçu d'un parcours d'outil : le tracé, et la pièce en fond quand elle
-  /// est connue — sans le portique, qui écraserait l'échelle d'une petite
-  /// pièce.
+  /// Aperçu d'un parcours d'outil : le tracé SEUL.
+  ///
+  /// Ni portique, ni brut, ni pièce. Un parcours se lit à ses trajets et à ses
+  /// niveaux — rapides en rouge, passes de travail en vert ; un solide posé
+  /// dessous les masque exactement là où il faut les voir, puisque le parcours
+  /// épouse la surface. La pièce a sa propre fenêtre pour ça.
   static const ViewerScene toolpathOnly = ViewerScene(
     machine: false,
+    part: false,
     workpiece: false,
   );
 

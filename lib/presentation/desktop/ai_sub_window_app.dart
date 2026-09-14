@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
@@ -21,6 +19,14 @@ import 'ai_viewer_windows.dart';
 /// en Riverpod. Deux portées distinctes, donc deux états — c'est voulu :
 /// charger un parcours dans une fenêtre détachée ne doit pas remplacer le
 /// programme ouvert dans la fenêtre principale.
+///
+/// **Aucun plugin de gestion de fenêtres ici.** Le cadre, le titre et la
+/// position sont posés par la fenêtre principale avant l'affichage (voir
+/// `AiWindowLauncher._open`). C'est ce qui a corrigé le défaut le plus
+/// déroutant de ces fenêtres : refermer une fenêtre détachée fermait
+/// l'application entière. `window_manager` s'attache à UNE fenêtre native,
+/// celle qu'il trouve à son initialisation ; initialisé dans ce second moteur,
+/// il se raccrochait à la fenêtre principale et en détournait la procédure.
 class AiSubWindowApp extends StatefulWidget {
   const AiSubWindowApp({super.key, required this.rawArguments});
 
@@ -58,30 +64,6 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
       // affiche un état d'erreur lisible plutôt que de planter la fenêtre.
     }
     return const {'type': 'unknown'};
-  }
-
-  /// Les fenêtres 3D méritent plus de place qu'un rapport clé/valeur : une
-  /// pièce affichée dans 480 × 360 ne se lit pas.
-  bool get _is3d =>
-      _payload['type'] == 'step_preview' || _payload['type'] == 'toolpath';
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_configureWindow());
-  }
-
-  Future<void> _configureWindow() async {
-    await windowManager.ensureInitialized();
-    final title = _payload['title'] as String? ?? 'Forgeron';
-    await windowManager.setTitle(title);
-    await windowManager.setMinimumSize(
-      _is3d ? const Size(640, 480) : const Size(480, 360),
-    );
-    await windowManager.setSize(_is3d ? const Size(1000, 760) : const Size(760, 580));
-    await windowManager.center();
-    await windowManager.show();
-    await windowManager.focus();
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:io' show Directory, File, Platform;
 import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/painting.dart' show Offset, Size;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
 /// Fenêtres OS séparées que l'agent IA peut ouvrir lui-même — un graphique,
@@ -72,20 +73,29 @@ class AiWindowLauncher {
   /// contenu : la fenêtre le charge elle-même avec le parseur de l'app, donc
   /// avec la même adaptation FluidNC et la même cinématique que l'écran
   /// principal.
+  ///
+  /// Aucun maillage n'accompagne le parcours : cette fenêtre montre le tracé
+  /// SEUL. Une pièce dessinée dessous masquerait les passes exactement là où
+  /// il faut les lire, puisque le parcours épouse la surface.
   static Future<String> openToolpath({
     required String title,
     required String gcodePath,
-    Map<String, dynamic>? mesh,
     Map<String, dynamic> info = const {},
   }) {
     return _open({
       'type': 'toolpath',
       'title': title,
       'gcodePath': gcodePath,
-      if (mesh != null) 'mesh': mesh,
       'info': info,
     });
   }
+
+  /// Les fenêtres 3D méritent plus de place qu'un rapport clé/valeur : une
+  /// pièce affichée dans 760 × 580 ne se lit pas.
+  static const _size3d = Size(1000, 760);
+  static const _sizeDefault = Size(760, 580);
+
+  static bool _is3d(Object? type) => type == 'step_preview' || type == 'toolpath';
 
   static Future<String> _open(Map<String, dynamic> payload) async {
     if (!isSupported) {
@@ -97,6 +107,30 @@ class AiWindowLauncher {
         hiddenAtLaunch: true,
       ),
     );
+
+    // Le cadre, le titre et la position sont posés D'ICI, depuis la fenêtre
+    // principale, avant l'affichage.
+    //
+    // La fenêtre secondaire le faisait elle-même, via `window_manager` — et
+    // c'est ce qui fermait l'application entière dès qu'on refermait une
+    // fenêtre détachée. `window_manager` s'attache à UNE fenêtre native, celle
+    // qu'il trouve à son initialisation ; initialisé dans un second moteur
+    // Flutter, il se raccroche à la fenêtre principale et en détourne la
+    // procédure. La refermer revenait alors à refermer l'application.
+    //
+    // `WindowController` est l'API prévue pour ça : elle désigne explicitement
+    // la fenêtre visée, et le moteur secondaire n'a plus besoin de connaître
+    // le moindre plugin de gestion de fenêtres.
+    final size = _is3d(payload['type']) ? _size3d : _sizeDefault;
+    try {
+      await controller.setFrame(Offset.zero & size);
+      await controller.center();
+      await controller.setTitle(payload['title'] as String? ?? 'Forgeron');
+    } catch (_) {
+      // Mise en forme refusée : la fenêtre s'ouvre quand même, à la taille
+      // que la plateforme lui donne. Mieux vaut une fenêtre mal cadrée que
+      // pas de fenêtre.
+    }
     await controller.show();
     return 'Fenêtre "${payload['title']}" ouverte.';
   }

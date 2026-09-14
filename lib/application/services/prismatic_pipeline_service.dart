@@ -31,8 +31,25 @@ class PrismaticPipelineService {
   }
 
   /// Lance le pipeline prismatique sur [stepPath]. Retourne le rapport
-  /// (opérations, faces de poche détectées, perçages, chemin du G-code).
-  static Future<Map<String, dynamic>> run(String stepPath) async {
+  /// (opérations, faces de poche détectées, perçages, chemin du G-code, et
+  /// le détail des réglages appliqués à FreeCAD).
+  ///
+  /// Les conditions de coupe ne sont PAS facultatives ici. Laissées aux
+  /// défauts de FreeCAD, elles décrivent une fraiseuse ordinaire : profondeur
+  /// de passe au millimètre, recouvrement de poche à 100 % du diamètre, et un
+  /// outil dont le diamètre n'est pas celui monté sur la broche — donc un
+  /// contour décalé sur toute la pièce. Les valeurs par défaut ci-dessous
+  /// sont celles de `gen_revolution.CutParams`, plafonnées par la vibration.
+  static Future<Map<String, dynamic>> run(
+    String stepPath, {
+    double toolDiameter = 6.0,
+    double ap = 0.2,
+    double ae = 0.5,
+    double feed = 500.0,
+    double plunge = 100.0,
+    int spindle = 1000,
+    double peck = 1.0,
+  }) async {
     final pipelineDir = _findPipelineDir();
     if (pipelineDir == null) {
       throw const PrismaticPipelineException(
@@ -58,6 +75,13 @@ class PrismaticPipelineService {
         '${pipelineDir.path}${Platform.pathSeparator}prismatic_to_gcode.py',
         stepPath,
         outPath,
+        '--outil', '$toolDiameter',
+        '--ap', '$ap',
+        '--ae', '$ae',
+        '--avance', '$feed',
+        '--plongee', '$plunge',
+        '--broche', '$spindle',
+        '--debourrage', '$peck',
       ],
     );
 

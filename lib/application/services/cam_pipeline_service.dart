@@ -32,7 +32,15 @@ class CamPipelineService {
       if (!e.toString().contains(_refusRevolution)) rethrow;
     }
 
-    final report = await PrismaticPipelineService.run(stepPath);
+    // Mêmes conditions de coupe que le pipeline de révolution : c'est la même
+    // machine, la même broche et le même plafond vibratoire — seule la
+    // stratégie de parcours change.
+    final report = await PrismaticPipelineService.run(
+      stepPath,
+      toolDiameter: toolDiameter,
+      ap: ap,
+      ae: ae,
+    );
     return {...report, 'pipeline': 'freecad_prismatique'};
   }
 }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'application/providers/ai_artifacts_provider.dart';
+import 'application/services/ai_window_channel.dart';
 import 'core/i18n/app_language.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/fallback_localizations.dart';
@@ -42,7 +44,37 @@ Future<void> main() async {
   // Notifications système de l'agent IA (non bloquant).
   NotificationService.instance.init();
 
-  runApp(const ProviderScope(child: ForgeronApp()));
+  // La portée Riverpod est créée à la main, et non par un `ProviderScope`
+  // implicite : les fenêtres détachées savent rendre la main à cette
+  // fenêtre-ci, et leur message arrive par un canal de plateforme, hors de
+  // tout widget. Il faut donc pouvoir écrire dans les providers depuis là.
+  final container = ProviderContainer();
+  if (_isDesktopPlatform) _listenToSubWindows(container);
+
+  runApp(UncontrolledProviderScope(
+    container: container,
+    child: const ForgeronApp(),
+  ));
+}
+
+/// Écoute les fenêtres détachées.
+///
+/// Un seul message pour l'instant : « remets cet aperçu chez toi ». La réponse
+/// dit si c'est accepté — la fenêtre appelante ne se referme que dans ce cas,
+/// faute de quoi elle serait le dernier endroit où l'aperçu existe encore.
+void _listenToSubWindows(ProviderContainer container) {
+  try {
+    DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
+      if (call.method != AiWindowChannel.dockViewer) return false;
+      final viewer = AiDockedViewer.fromWire(call.arguments as String?);
+      if (viewer == AiDockedViewer.none) return false;
+      return container.read(aiArtifactsProvider.notifier).dock(viewer);
+    });
+  } catch (e) {
+    // Canal indisponible : les fenêtres restent détachables, elles ne savent
+    // simplement pas revenir. L'application, elle, démarre.
+    debugPrint('[Fenêtres] écoute des fenêtres détachées impossible : $e');
+  }
 }
 
 class ForgeronApp extends ConsumerWidget {
