@@ -1745,7 +1745,6 @@ class _ToolpathCard extends ConsumerWidget {
                 color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
           ),
           const SizedBox(height: 8),
-          if (g.pipelineLabel.isNotEmpty) _kv(fc, 'pipeline', g.pipelineLabel),
           if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
           if (g.operations != null) _kv(fc, 'opérations', '${g.operations}'),
           const SizedBox(height: 10),

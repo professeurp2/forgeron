@@ -98,17 +98,17 @@ class GcodeArtifact {
   final String path;
 
   /// `revolution` ou `freecad_prismatique` — ce que le rapport annonce.
+  ///
+  /// Donnée interne : elle sert à l'agent et au journal, PAS à l'écran. Le
+  /// moyen technique employé pour fabriquer le parcours ne regarde pas
+  /// l'opérateur, qui n'a pas à savoir ce qu'est une pièce de révolution ni
+  /// ce qu'est FreeCAD — seul le résultat compte. Même règle que dans le
+  /// résumé d'étape (`resultSummary`) et dans le prompt système.
   final String pipeline;
   final int? lines;
   final int? operations;
 
   String get fileName => path.split(RegExp(r'[/\\]')).last;
-
-  String get pipelineLabel => switch (pipeline) {
-        'revolution' => 'pièce de révolution',
-        'freecad_prismatique' => 'pièce prismatique (FreeCAD)',
-        _ => '',
-      };
 }
 
 class AiArtifactsNotifier extends StateNotifier<AiArtifacts> {
