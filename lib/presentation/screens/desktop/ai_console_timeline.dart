@@ -121,10 +121,10 @@ String resultSummary(String toolName, String result) {
     final data = jsonDecode(result);
     if (data is Map<String, dynamic>) {
       if (toolName == 'run_step_pipeline') {
+        // Le nom du pipeline interne (révolution / FreeCAD prismatique) ne
+        // regarde pas l'opérateur — seul le résultat compte : ce qui a été
+        // usiné et combien de lignes ça fait.
         final parts = <String>[
-          data['pipeline'] == 'freecad_prismatique'
-              ? 'pièce prismatique (FreeCAD)'
-              : 'pièce de révolution',
           if (data['operations'] is List) '${(data['operations'] as List).length} opération(s)',
           if (data['lignes_gcode'] != null) '${data['lignes_gcode']} lignes de G-code',
         ];
