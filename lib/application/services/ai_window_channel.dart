@@ -23,6 +23,21 @@ class AiWindowChannel {
   /// « Remets cet aperçu dans la fenêtre principale. »
   static const String dockViewer = 'dock_viewer';
 
+  /// L'identifiant de CETTE fenêtre, posé une fois au démarrage par
+  /// `main.dart` quand le moteur reconnaît une fenêtre détachée (arguments
+  /// `["multi_window", windowId, ...]`).
+  ///
+  /// desktop_multi_window 0.2.1 n'offre aucun moyen de le redemander après
+  /// coup — pas de `WindowController.fromCurrentEngine()` (cette méthode
+  /// n'existe que dans la réécriture 0.3.x, incompatible, voir
+  /// pubspec.yaml) — donc il faut le conserver depuis les arguments de
+  /// `main()`, qui sont la seule source.
+  static int? _currentWindowId;
+
+  static void bindCurrentWindow(int windowId) {
+    _currentWindowId = windowId;
+  }
+
   static bool get isSupported =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
@@ -57,9 +72,13 @@ class AiWindowChannel {
   /// qu'il a adoptée à son initialisation. C'est cette différence qui fermait
   /// l'application entière quand on refermait une fenêtre détachée.
   static Future<void> closeThisWindow() async {
+    final id = _currentWindowId;
+    if (id == null) {
+      debugPrint('[Fenêtres] fermeture impossible : identifiant de fenêtre inconnu');
+      return;
+    }
     try {
-      final controller = await WindowController.fromCurrentEngine();
-      await controller.close();
+      await WindowController.fromWindowId(id).close();
     } catch (e) {
       debugPrint('[Fenêtres] fermeture impossible : $e');
     }

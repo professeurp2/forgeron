@@ -66,7 +66,13 @@ dependencies:
   # installé ici (ScrollCacheExtent, Tooltip.ignorePointer...) — échec de
   # compilation Windows. 4.13.0 est la dernière connue compatible.
   fluent_ui: 4.13.0
-  desktop_multi_window: ^0.3.1
+  # Figé à 0.2.1 : la 0.3.0 (25/10/2025) est un « BREAK CHANGE » annoncé dans
+  # le changelog qui supprime la classe DesktopMultiWindow et les méthodes
+  # WindowController.close/setFrame/center/setTitle — remplacées par un
+  # simple show()/hide() sans fermeture ni cadrage possibles depuis Dart.
+  # Toute la gestion des fenêtres détachées de l'app (AiWindowChannel,
+  # AiWindowLauncher) s'appuie sur cette API classique.
+  desktop_multi_window: 0.2.1
   fl_chart: ^1.2.0
   # window_manager retiré : plus aucun appelant, et sa présence seule
   # posait problème. Il s'attache à UNE fenêtre native — celle qu'il trouve à

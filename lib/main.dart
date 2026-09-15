@@ -20,18 +20,22 @@ import 'presentation/desktop/ai_sub_window_app.dart';
 bool get _isDesktopPlatform =>
     !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (_isDesktopPlatform) {
+  if (_isDesktopPlatform && args.length >= 3 && args.first == 'multi_window') {
     // Une fenêtre ouverte par l'agent IA (graphique, G-code détaché, rapport)
-    // relance ce même point d'entrée avec un second moteur Flutter —
-    // desktop_multi_window n'a pas d'autre façon de choisir quoi afficher.
-    // La fenêtre principale, elle, n'a jamais d'arguments : c'est ce qui la
+    // relance ce même point d'entrée avec un second moteur Flutter, qui reçoit
+    // ["multi_window", windowId, arguments] — desktop_multi_window 0.2.1 n'a
+    // pas d'autre façon de choisir quoi afficher (pas de
+    // `WindowController.fromCurrentEngine()`, voir `AiWindowChannel`). La
+    // fenêtre principale, elle, démarre sans arguments : c'est ce qui la
     // distingue d'une fenêtre secondaire.
-    final windowController = await WindowController.fromCurrentEngine();
-    if (windowController.arguments.isNotEmpty) {
-      runApp(AiSubWindowApp(rawArguments: windowController.arguments));
+    final windowId = int.tryParse(args[1]);
+    if (windowId != null) AiWindowChannel.bindCurrentWindow(windowId);
+    final rawArguments = args[2];
+    if (rawArguments.isNotEmpty) {
+      runApp(AiSubWindowApp(rawArguments: rawArguments));
       return;
     }
   }

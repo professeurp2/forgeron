@@ -101,11 +101,13 @@ class AiWindowLauncher {
     if (!isSupported) {
       return 'Fenêtres indisponibles sur cette plateforme (desktop uniquement).';
     }
-    final controller = await WindowController.create(
-      WindowConfiguration(
-        arguments: _arguments(payload),
-        hiddenAtLaunch: true,
-      ),
+    // desktop_multi_window 0.2.1 : la fenêtre est créée cachée par défaut,
+    // WindowController.show() doit être appelé explicitement (voir doc de
+    // DesktopMultiWindow.createWindow) — pas de WindowConfiguration ici,
+    // cette classe n'existe que dans la réécriture 0.3.x (incompatible, voir
+    // pubspec.yaml).
+    final controller = await DesktopMultiWindow.createWindow(
+      _arguments(payload),
     );
 
     // Le cadre, le titre et la position sont posés D'ICI, depuis la fenêtre
