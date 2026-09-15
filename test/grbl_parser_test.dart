@@ -61,16 +61,68 @@ void main() {
       expect(s.status, MachineStatus.hold);
     });
 
+    test('état Jog (pendant \$J=) → run (en ligne, pas offline)', () {
+      final s = GrblParser.parse('<Jog|MPos:5,0,0,0,0,0|FS:800,0>', initialState)!;
+      expect(s.status, MachineStatus.run);
+    });
+
     test('parse les fins de course (Lim:XZ)', () {
       final s =
           GrblParser.parse('<Alarm|MPos:0,0,0,0,0,0|Lim:XZ>', initialState)!;
       expect(s.limitSwitches, [true, false, true, false, false]);
     });
 
+    test('fin de course s\'efface quand Pn: disparaît (état momentané)', () {
+      final s1 = GrblParser.parse('<Run|MPos:0,0,0,0,0,0|Pn:X>', initialState)!;
+      expect(s1.limitSwitches[0], true);
+      // Rapport suivant sans Pn: → le pin est relâché, la fin de course efface.
+      final s2 = GrblParser.parse('<Run|MPos:0,0,0,0,0,0>', s1)!;
+      expect(s2.limitSwitches[0], false,
+          reason: 'Pn: absent = pin inactif → ne doit pas rester « actif »');
+    });
+
     test('préserve la valeur courante pour un champ absent', () {
       final withFeed = initialState.copyWith(feedrate: 800);
       final s = GrblParser.parse('<Idle|MPos:1,2,3,0,0,0>', withFeed)!;
       expect(s.feedrate, 800, reason: 'FS absent → on garde la valeur courante');
+    });
+
+    test('broche ON via le champ accessoire A:S (relais M3)', () {
+      final s = GrblParser.parse('<Run|MPos:0,0,0,0,0,0|A:S>', initialState)!;
+      expect(s.spindleOn, true);
+    });
+
+    test('broche ON aussi pour A:C (anti-horaire) et champ mixte A:SFM', () {
+      expect(GrblParser.parse('<Run|MPos:0,0,0,0,0,0|A:C>', initialState)!.spindleOn, true);
+      expect(GrblParser.parse('<Run|MPos:0,0,0,0,0,0|A:SFM>', initialState)!.spindleOn, true);
+    });
+
+    test('broche s\'éteint quand A: disparaît (état momentané, M5)', () {
+      final on = GrblParser.parse('<Run|MPos:0,0,0,0,0,0|A:S>', initialState)!;
+      expect(on.spindleOn, true);
+      // Rapport suivant sans A: → broche coupée, ne doit pas rester « active ».
+      final off = GrblParser.parse('<Idle|MPos:0,0,0,0,0,0>', on)!;
+      expect(off.spindleOn, false,
+          reason: 'A: absent = accessoires éteints → broche OFF');
+    });
+
+    test('A: sans S/C (ex. arrosage seul A:F) → broche OFF', () {
+      final s = GrblParser.parse('<Run|MPos:0,0,0,0,0,0|A:F>', initialState)!;
+      expect(s.spindleOn, false);
+    });
+
+    test('broche ON dérivée de FS quand A: absent (relais M3 S1000)', () {
+      // Cas réel Forgeron : la machine n'émet pas `A:`, seulement FS.
+      final s =
+          GrblParser.parse('<Idle|MPos:0,0,0,0,0,0|FS:0,1000>', initialState)!;
+      expect(s.spindleOn, true, reason: 'FS spindle > 0 → broche active');
+      expect(s.spindleSpeed, 1000);
+    });
+
+    test('broche OFF quand FS spindle = 0 (M5) sans A:', () {
+      final s =
+          GrblParser.parse('<Idle|MPos:0,0,0,0,0,0|FS:0,0>', initialState)!;
+      expect(s.spindleOn, false);
     });
   });
 

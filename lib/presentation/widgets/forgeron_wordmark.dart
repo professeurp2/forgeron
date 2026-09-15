@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Wordmark animé "FORGERON" — un reflet de métal en fusion balaie le texte
 /// toutes les quelques secondes, comme une pièce qui sort de la forge.
 ///
-/// Remplace les `Text('FORGERON', ...)` statiques de la barre d'en-tête pour
+/// Remplace les `Text(tr('FORGERON'), ...)` statiques de la barre d'en-tête pour
 /// donner à la marque un moment de signature visuelle cohérent sur tous les
 /// écrans (desktop, mobile).
 class ForgeronWordmark extends StatefulWidget {
@@ -56,7 +57,7 @@ class _ForgeronWordmarkState extends State<ForgeronWordmark>
             ).createShader(bounds);
           },
           child: Text(
-            'FORGERON',
+            tr('FORGERON'),
             style: TextStyle(
               color: base,
               fontSize: widget.fontSize,

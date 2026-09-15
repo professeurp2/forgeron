@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../theme/forgeron_colors.dart';
 
 class ResizableSplitView extends StatefulWidget {
   final Widget left;
@@ -62,7 +62,7 @@ class _ResizableSplitViewState extends State<ResizableSplitView> {
                       width: 4,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceBorder,
+                        color: context.fc.surfaceBorder,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

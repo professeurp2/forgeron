@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
@@ -97,7 +98,18 @@ List<({String name, String path, int size})> listDirectoryGcode(String dir) {
   return out;
 }
 
-Future<String> readFileText(String path) => File(path).readAsString();
+/// Lit un fichier texte en tolérant l'encodage : UTF-8 d'abord, repli Latin-1.
+/// Les post-processeurs CAM (SolidWorks CAM…) écrivent souvent en Latin-1
+/// (accents dans les commentaires `( Fraisage d'ébauche )`), ce qui faisait
+/// échouer `readAsString()` (UTF-8 strict) sur les `.nc`/`.txt`.
+Future<String> readFileText(String path) async {
+  final bytes = await File(path).readAsBytes();
+  try {
+    return utf8.decode(bytes);
+  } on FormatException {
+    return latin1.decode(bytes); // sans perte : Latin-1 mappe tous les octets
+  }
+}
 
 Future<void> writeFileText(String path, String content) =>
     File(path).writeAsString(content);

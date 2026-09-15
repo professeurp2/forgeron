@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/providers/jog_provider.dart';
-import '../../../application/providers/di_providers.dart';
+import '../../../application/providers/machine_provider.dart';
+import '../../../application/providers/spindle_provider.dart';
+import '../../../application/providers/motor_provider.dart';
 import '../../../application/services/audio_service.dart';
+import '../../../domain/models/machine_state.dart';
 import 'gauge_widgets.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Panneau de contrôle Jog 5-axes unifié (X/Y/Z/A/C).
 ///
@@ -16,7 +20,7 @@ import 'gauge_widgets.dart';
 ///
 /// Se redimensionne en fonction de la largeur disponible (dial/D-pad plus
 /// petits sur un panneau étroit ou un téléphone) via [LayoutBuilder].
-class JogControlPanel extends StatelessWidget {
+class JogControlPanel extends ConsumerWidget {
   /// Position courante des 5 axes [X, Y, Z, A, C] (repère pièce).
   final List<double> wPos;
 
@@ -40,7 +44,20 @@ class JogControlPanel extends StatelessWidget {
   static const double _refRing = 96.0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Alerte de garde jog (hors-course / fin de course) → snackbar.
+    ref.listen(jogGuardMessageProvider, (prev, next) {
+      if (next == null) return;
+      final fc = context.fc;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(next.message),
+        backgroundColor: next.blocked ? fc.danger : fc.warning,
+        duration: const Duration(seconds: 2),
+      ));
+      // Réinitialise pour permettre une nouvelle alerte identique.
+      Future.microtask(
+          () => ref.read(jogGuardMessageProvider.notifier).state = null);
+    });
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
@@ -52,7 +69,7 @@ class JogControlPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showHeader) ...[
-              const _JogSectionHeader(title: 'JOG CONTROL'),
+              _JogSectionHeader(title: tr('JOG CONTROL')),
               const SizedBox(height: 6),
             ],
 
@@ -129,8 +146,6 @@ class JogControlPanel extends StatelessWidget {
                         const SizedBox(height: 6),
                         Consumer(
                           builder: (ctx, r, _) {
-                            final multiplier =
-                                r.watch(cncJogMultiplierProvider);
                             return Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -140,8 +155,8 @@ class JogControlPanel extends StatelessWidget {
                                   axisLabel: 'A',
                                   color: context.fc.axisA,
                                   onTap: () => r
-                                      .read(machineRepositoryProvider)
-                                      .jog('A', -multiplier.toDouble(), 3600),
+                                      .read(secureJogProvider.notifier)
+                                      .jogRotary('A', -1),
                                 ),
                                 const SizedBox(width: 4),
                                 RotaryJogButton(
@@ -149,8 +164,8 @@ class JogControlPanel extends StatelessWidget {
                                   axisLabel: 'A',
                                   color: context.fc.axisA,
                                   onTap: () => r
-                                      .read(machineRepositoryProvider)
-                                      .jog('A', multiplier.toDouble(), 3600),
+                                      .read(secureJogProvider.notifier)
+                                      .jogRotary('A', 1),
                                 ),
                               ],
                             );
@@ -175,8 +190,6 @@ class JogControlPanel extends StatelessWidget {
                         const SizedBox(height: 6),
                         Consumer(
                           builder: (ctx, r, _) {
-                            final multiplier =
-                                r.watch(cncJogMultiplierProvider);
                             return Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -186,8 +199,8 @@ class JogControlPanel extends StatelessWidget {
                                   axisLabel: 'C',
                                   color: context.fc.axisC,
                                   onTap: () => r
-                                      .read(machineRepositoryProvider)
-                                      .jog('C', -multiplier.toDouble(), 3600),
+                                      .read(secureJogProvider.notifier)
+                                      .jogRotary('C', -1),
                                 ),
                                 const SizedBox(width: 4),
                                 RotaryJogButton(
@@ -195,8 +208,8 @@ class JogControlPanel extends StatelessWidget {
                                   axisLabel: 'C',
                                   color: context.fc.axisC,
                                   onTap: () => r
-                                      .read(machineRepositoryProvider)
-                                      .jog('C', multiplier.toDouble(), 3600),
+                                      .read(secureJogProvider.notifier)
+                                      .jogRotary('C', 1),
                                 ),
                               ],
                             );
@@ -208,9 +221,218 @@ class JogControlPanel extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 16),
+
+            // ── BROCHE (Marche / Arrêt — relais tout-ou-rien) ──────────
+            _JogSectionLabel('BROCHE'),
+            const SizedBox(height: 6),
+            _SpindleControl(scale: scale),
+
+            const SizedBox(height: 12),
+
+            // ── MOTEURS (désactivation via le pin ENA commun) ──────────
+            _JogSectionLabel('MOTEURS'),
+            const SizedBox(height: 6),
+            _MotorDisableButton(scale: scale),
           ],
         );
       },
+    );
+  }
+}
+
+/// Bouton Marche/Arrêt de la broche à relais.
+///
+/// Envoie `M3` (marche) / `M5` (arrêt) via [spindleControllerProvider]. L'état
+/// affiché suit [MachineState.spindleOn] (champ accessoire `A:` du rapport
+/// GRBL), donc il reflète l'état réel de la machine, pas une supposition.
+/// Désactivé hors ligne.
+class _SpindleControl extends ConsumerWidget {
+  final double scale;
+  const _SpindleControl({required this.scale});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    final state = ref.watch(machineStateProvider).valueOrNull;
+    final online = state != null && state.status != MachineStatus.offline;
+    final on = state?.spindleOn ?? false;
+    final color = on ? fc.danger : fc.success;
+
+    return GestureDetector(
+      onTap: online
+          ? () async {
+              final res = await ref.read(spindleControllerProvider).toggle();
+              ref.read(audioServiceProvider).play(SoundEffect.click);
+              HapticFeedback.mediumImpact();
+              if (!res.ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(res.message ?? 'Commande broche refusée'),
+                  backgroundColor: fc.danger,
+                  duration: const Duration(seconds: 2),
+                ));
+              }
+            }
+          : null,
+      child: Container(
+        height: 52 * scale.clamp(0.9, 1.1),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: online ? color.withValues(alpha: 0.12) : fc.surfaceBright,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: online ? color : fc.surfaceBorder,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              on
+                  ? Icons.stop_circle_rounded
+                  : Icons.play_circle_fill_rounded,
+              color: online ? color : fc.textDisabled,
+              size: 26,
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  on ? 'ARRÊT BROCHE' : 'MARCHE BROCHE',
+                  style: TextStyle(
+                    color: online ? color : fc.textDisabled,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  !online
+                      ? 'hors ligne'
+                      : (on ? 'active (M3)' : 'arrêtée (M5)'),
+                  style: TextStyle(color: fc.textSecondary, fontSize: 10),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: on ? fc.danger : fc.textDisabled,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton « Couper les moteurs » : désactive les 5 drivers via le pin ENA
+/// commun (`$MD`). Confirmation obligatoire car relâcher le couple peut faire
+/// **tomber l'axe Z** sous son poids. Désactivé hors ligne.
+class _MotorDisableButton extends ConsumerWidget {
+  final double scale;
+  const _MotorDisableButton({required this.scale});
+
+  Future<void> _run(BuildContext context, WidgetRef ref) async {
+    final fc = context.fc;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text(tr('Couper les moteurs ?'),
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.warning_amber_rounded, size: 20, color: fc.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              tr('Les 5 axes vont relâcher leur couple et tourner librement. ATTENTION : l\'axe Z n\'est plus retenu et peut TOMBER. Assure-toi que Z est en position basse ou sécurisée. Les moteurs se réactivent au prochain déplacement.'),
+              style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.danger, foregroundColor: Colors.white),
+            child: Text(tr('Couper')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final res = await ref.read(motorControllerProvider).disableAll();
+    ref.read(audioServiceProvider).play(SoundEffect.click);
+    HapticFeedback.mediumImpact();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(res.ok ? 'Moteurs coupés — axes libres.' : (res.message ?? 'Commande refusée')),
+        backgroundColor: res.ok ? fc.warning : fc.danger,
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    final state = ref.watch(machineStateProvider).valueOrNull;
+    final online = state != null && state.status != MachineStatus.offline;
+    final color = fc.warning;
+
+    return GestureDetector(
+      onTap: online ? () => _run(context, ref) : null,
+      child: Container(
+        height: 52 * scale.clamp(0.9, 1.1),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: online ? color.withValues(alpha: 0.12) : fc.surfaceBright,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: online ? color : fc.surfaceBorder,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.power_settings_new_rounded,
+                color: online ? color : fc.textDisabled, size: 24),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  tr('COUPER MOTEURS'),
+                  style: TextStyle(
+                    color: online ? color : fc.textDisabled,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  online ? 'libère les axes ⚠️ chute Z' : 'hors ligne',
+                  style: TextStyle(color: fc.textSecondary, fontSize: 10),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

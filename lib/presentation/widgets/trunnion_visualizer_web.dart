@@ -5,6 +5,9 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../core/theme/forgeron_colors.dart';
+import 'viewer_scene.dart';
+import 'viewer_theme_payload.dart';
 
 class TrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
@@ -12,7 +15,15 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
-  final List<double> machineLimits;
+  /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
+  final List<double>? machineLimits;
+
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
+  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  final Map<String, dynamic>? partMesh;
+
+  /// Ce que la scène montre — voir [ViewerScene].
+  final ViewerScene scene;
 
   const TrunnionVisualizer({
     super.key,
@@ -21,7 +32,9 @@ class TrunnionVisualizer extends ConsumerStatefulWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
-    this.machineLimits = const [200.0, 300.0, 150.0],
+    this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override
@@ -52,7 +65,12 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
 
     html.window.onMessage.listen((event) {
       if (event.data['type'] == 'viewer_ready') {
+        // La page répète son annonce quelques fois : on ne pousse l'état
+        // complet qu'une seule fois.
+        if (_isReady || !mounted) return;
         setState(() => _isReady = true);
+        _sendScene();
+        _sendMesh();
         _sendToolpath();
         _updateMachine();
         _toggleVectors();
@@ -66,6 +84,12 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
     super.didUpdateWidget(oldWidget);
     if (!_isReady) return;
 
+    if (oldWidget.scene != widget.scene) {
+      _sendScene();
+    }
+    if (!identical(oldWidget.partMesh, widget.partMesh)) {
+      _sendMesh();
+    }
     if (oldWidget.toolpath != widget.toolpath) {
       _sendToolpath();
     }
@@ -80,6 +104,18 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
 
   void _sendMessage(dynamic data) {
     _iframeElement.contentWindow?.postMessage(data, '*');
+  }
+
+  void _sendScene() =>
+      _sendMessage({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendMesh() {
+    final mesh = widget.partMesh;
+    if (mesh == null) {
+      _sendMessage({'type': 'clear_mesh'});
+      return;
+    }
+    _sendMessage({'type': 'load_mesh', 'payload': mesh});
   }
 
   void _sendToolpath() {
@@ -121,31 +157,23 @@ class _TrunnionVisualizerState extends ConsumerState<TrunnionVisualizer> {
   }
 
   void _sendLimits() {
+    final l = widget.machineLimits;
     _sendMessage({
       'type': 'set_limits',
-      'payload': {
-        'x': widget.machineLimits[0],
-        'y': widget.machineLimits[1],
-        'z': widget.machineLimits[2],
-      },
+      'payload': l == null ? null : {'x': l[0], 'y': l[1], 'z': l[2]},
     });
   }
 
-  void _sendTheme(bool isDark) {
-    _sendMessage({
-      'type': 'set_theme',
-      'payload': {
-        'isDark': isDark,
-      },
-    });
+  void _sendTheme(Map<String, dynamic> payload) {
+    _sendMessage({'type': 'set_theme', 'payload': payload});
   }
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = isDarkTheme(context, themeMode);
     if (_isReady) {
-      _sendTheme(isDark);
+      _sendTheme(viewerThemePayload(context.fc, isDark));
     }
     return HtmlElementView(viewType: _viewId);
   }

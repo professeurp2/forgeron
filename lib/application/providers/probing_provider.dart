@@ -5,6 +5,7 @@ import '../../domain/models/machine_state.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../data/fluidnc/grbl_parser.dart';
 import '../../application/providers/di_providers.dart';
+import 'streaming_provider.dart';
 
 /// États de la Machine à États de Palpage
 enum ProbingStep {
@@ -256,7 +257,9 @@ class ProbingNotifier extends StateNotifier<ProbingState> {
   }
 
   void cancel() {
-    _ref.read(machineRepositoryProvider).emergencyStop();
+    // Passe par le contrôleur : il purge la file d'envoi et signale un arrêt
+    // non transmis, au lieu de le laisser passer inaperçu.
+    _ref.read(streamingProvider.notifier).stopStream();
     state = ProbingState(step: ProbingStep.idle, statusMessage: 'Palpage annulé');
   }
 

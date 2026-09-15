@@ -3,18 +3,51 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../core/net/cellular_http_client.dart';
 
+/// Contrat commun aux fournisseurs de l'agent : Gemini distant
+/// ([AiAgentService]) ou modèle local sur le réseau de l'atelier
+/// ([LocalAiAgentService]).
+///
+/// Le **format d'échange reste celui de Gemini** (`contents` / `parts` /
+/// `functionCall` / `functionResponse`) : c'est celui que manipule
+/// `AiAgentNotifier` sur plus de mille lignes, et le refondre pour accueillir
+/// un second fournisseur coûterait bien plus cher que de traduire. Un
+/// fournisseur qui parle un autre protocole traduit donc chez lui, à l'aller
+/// comme au retour — le reste de l'application ignore qui répond.
+abstract class AiBackend {
+  /// Identifiant du modèle actif. Sert au cache de service : le fournisseur
+  /// est recréé quand cette valeur change.
+  String get model;
+
+  Future<AiApiResponse> sendMessages({
+    required List<Map<String, dynamic>> contents,
+    required List<Map<String, dynamic>> functionDeclarations,
+    String? systemPrompt,
+  });
+
+  Future<AiApiResponse> streamMessages({
+    required List<Map<String, dynamic>> contents,
+    required List<Map<String, dynamic>> functionDeclarations,
+    String? systemPrompt,
+    void Function(String partialText)? onDelta,
+    bool Function()? shouldCancel,
+  });
+
+  void dispose();
+}
+
 /// Client HTTP pour l'API Gemini (Google Generative Language API), avec
 /// function calling.
 ///
 /// Suit le même schéma que [FluidNcHttpClient] : client injectable, timeout
 /// explicite, exceptions sur statut HTTP non-200, `dispose()`.
-class AiAgentService {
+class AiAgentService implements AiBackend {
   static const _apiVersion = 'v1beta';
 
   final String apiKey;
 
   /// Alias "roulant" du modèle (ex. `gemini-flash-lite-latest`) : évite de se
   /// refaire piéger quand Google retire un modèle daté aux nouveaux comptes.
+  @override
   final String model;
 
   final http.Client _client;
@@ -58,6 +91,7 @@ class AiAgentService {
   /// Envoie l'historique de conversation (`contents`, format Gemini) + le
   /// catalogue d'outils à Gemini et retourne sa réponse (texte et/ou
   /// demandes d'appel de fonction).
+  @override
   Future<AiApiResponse> sendMessages({
     required List<Map<String, dynamic>> contents,
     required List<Map<String, dynamic>> functionDeclarations,
@@ -87,11 +121,17 @@ class AiAgentService {
   /// (texte agrégé courant) et retourne la réponse complète agrégée pour la
   /// logique d'outils. Replie automatiquement sur [sendMessages] si le flux
   /// n'est pas disponible.
+  ///
+  /// [shouldCancel] est consulté à chaque fragment reçu : dès qu'il retourne
+  /// `true`, on quitte la boucle — ce qui annule l'abonnement au flux — et on
+  /// retourne ce qui a déjà été reçu (bouton « Stop » de l'écran de chat).
+  @override
   Future<AiApiResponse> streamMessages({
     required List<Map<String, dynamic>> contents,
     required List<Map<String, dynamic>> functionDeclarations,
     String? systemPrompt,
     void Function(String partialText)? onDelta,
+    bool Function()? shouldCancel,
   }) async {
     final body = _requestBody(
       contents: contents,
@@ -112,9 +152,14 @@ class AiAgentService {
     var finishReason = '';
     var totalTokens = 0;
     var gotAny = false;
+    var cancelled = false;
 
     try {
       await for (final payload in source) {
+        if (shouldCancel?.call() ?? false) {
+          cancelled = true;
+          break; // quitter la boucle annule l'abonnement → requête coupée
+        }
         Map<String, dynamic> chunk;
         try {
           chunk = jsonDecode(payload) as Map<String, dynamic>;
@@ -146,8 +191,9 @@ class AiAgentService {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
-    if (!gotAny) {
-      // Flux vide → repli non-streamé (plus sûr que rendre une réponse vide).
+    // Repli seulement sur un vrai flux vide : après une annulation, relancer un
+    // appel non-streamé referait exactement ce qu'on vient d'interrompre.
+    if (!gotAny && !cancelled) {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
@@ -156,7 +202,10 @@ class AiAgentService {
       ...otherParts,
     ];
     return AiApiResponse(
-        parts: parts, finishReason: finishReason, totalTokens: totalTokens);
+      parts: parts,
+      finishReason: cancelled ? 'CANCELLED' : finishReason,
+      totalTokens: totalTokens,
+    );
   }
 
   Future<AiApiResponse> _fallback(
@@ -195,6 +244,7 @@ class AiAgentService {
     }
   }
 
+  @override
   void dispose() => _client.close();
 }
 

@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Notifications système de l'agent IA (Android 13+). Demandée à l'exécution. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Connexion assistée à l'AP WiFi de l'ESP32 depuis l'app (WifiNetworkSpecifier). -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
 
     <!-- Dossier de travail : lecture/écriture des fichiers G-code choisis par
          l'utilisateur. Sur Android 11+, l'accès persistant à un dossier

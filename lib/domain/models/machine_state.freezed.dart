@@ -40,6 +40,8 @@ mixin _$MachineState {
   double get spindleSpeed => throw _privateConstructorUsedError; // RPM
   double get spindleLoad =>
       throw _privateConstructorUsedError; // % ou kW (simulé)
+  bool get spindleOn =>
+      throw _privateConstructorUsedError; // Broche active (champ accessoire A: du rapport GRBL)
   double get coreTemp => throw _privateConstructorUsedError; // °C
   bool get isRtcpActive => throw _privateConstructorUsedError; // G43.4 status
   // --- Overrides (%) ---
@@ -100,6 +102,7 @@ abstract class $MachineStateCopyWith<$Res> {
     double feedrate,
     double spindleSpeed,
     double spindleLoad,
+    bool spindleOn,
     double coreTemp,
     bool isRtcpActive,
     List<int> overrides,
@@ -146,6 +149,7 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
     Object? feedrate = null,
     Object? spindleSpeed = null,
     Object? spindleLoad = null,
+    Object? spindleOn = null,
     Object? coreTemp = null,
     Object? isRtcpActive = null,
     Object? overrides = null,
@@ -207,6 +211,10 @@ class _$MachineStateCopyWithImpl<$Res, $Val extends MachineState>
                 ? _value.spindleLoad
                 : spindleLoad // ignore: cast_nullable_to_non_nullable
                       as double,
+            spindleOn: null == spindleOn
+                ? _value.spindleOn
+                : spindleOn // ignore: cast_nullable_to_non_nullable
+                      as bool,
             coreTemp: null == coreTemp
                 ? _value.coreTemp
                 : coreTemp // ignore: cast_nullable_to_non_nullable
@@ -305,6 +313,7 @@ abstract class _$$MachineStateImplCopyWith<$Res>
     double feedrate,
     double spindleSpeed,
     double spindleLoad,
+    bool spindleOn,
     double coreTemp,
     bool isRtcpActive,
     List<int> overrides,
@@ -350,6 +359,7 @@ class __$$MachineStateImplCopyWithImpl<$Res>
     Object? feedrate = null,
     Object? spindleSpeed = null,
     Object? spindleLoad = null,
+    Object? spindleOn = null,
     Object? coreTemp = null,
     Object? isRtcpActive = null,
     Object? overrides = null,
@@ -411,6 +421,10 @@ class __$$MachineStateImplCopyWithImpl<$Res>
             ? _value.spindleLoad
             : spindleLoad // ignore: cast_nullable_to_non_nullable
                   as double,
+        spindleOn: null == spindleOn
+            ? _value.spindleOn
+            : spindleOn // ignore: cast_nullable_to_non_nullable
+                  as bool,
         coreTemp: null == coreTemp
             ? _value.coreTemp
             : coreTemp // ignore: cast_nullable_to_non_nullable
@@ -502,6 +516,7 @@ class _$MachineStateImpl implements _MachineState {
     this.feedrate = 0.0,
     this.spindleSpeed = 0.0,
     this.spindleLoad = 0.0,
+    this.spindleOn = false,
     this.coreTemp = 40.0,
     this.isRtcpActive = false,
     final List<int> overrides = const [100, 100, 100],
@@ -604,6 +619,10 @@ class _$MachineStateImpl implements _MachineState {
   // % ou kW (simulé)
   @override
   @JsonKey()
+  final bool spindleOn;
+  // Broche active (champ accessoire A: du rapport GRBL)
+  @override
+  @JsonKey()
   final double coreTemp;
   // °C
   @override
@@ -702,7 +721,7 @@ class _$MachineStateImpl implements _MachineState {
 
   @override
   String toString() {
-    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, lastMessage: $lastMessage, wcsOffsets: $wcsOffsets, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, probeResult: $probeResult, emergencyTriggered: $emergencyTriggered, machiningMode: $machiningMode, forceGuardActive: $forceGuardActive, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
+    return 'MachineState(status: $status, alarmCode: $alarmCode, mPos: $mPos, wPos: $wPos, wco: $wco, targetPos: $targetPos, singularityRisk: $singularityRisk, feedrate: $feedrate, spindleSpeed: $spindleSpeed, spindleLoad: $spindleLoad, spindleOn: $spindleOn, coreTemp: $coreTemp, isRtcpActive: $isRtcpActive, overrides: $overrides, activeWCS: $activeWCS, activeToolNum: $activeToolNum, lastMessage: $lastMessage, wcsOffsets: $wcsOffsets, limitSwitches: $limitSwitches, probeTriggered: $probeTriggered, probeResult: $probeResult, emergencyTriggered: $emergencyTriggered, machiningMode: $machiningMode, forceGuardActive: $forceGuardActive, sdPercent: $sdPercent, sdFilename: $sdFilename, activeLineIndex: $activeLineIndex, plannerBuffer: $plannerBuffer, rxBuffer: $rxBuffer)';
   }
 
   @override
@@ -728,6 +747,8 @@ class _$MachineStateImpl implements _MachineState {
                 other.spindleSpeed == spindleSpeed) &&
             (identical(other.spindleLoad, spindleLoad) ||
                 other.spindleLoad == spindleLoad) &&
+            (identical(other.spindleOn, spindleOn) ||
+                other.spindleOn == spindleOn) &&
             (identical(other.coreTemp, coreTemp) ||
                 other.coreTemp == coreTemp) &&
             (identical(other.isRtcpActive, isRtcpActive) ||
@@ -788,6 +809,7 @@ class _$MachineStateImpl implements _MachineState {
     feedrate,
     spindleSpeed,
     spindleLoad,
+    spindleOn,
     coreTemp,
     isRtcpActive,
     const DeepCollectionEquality().hash(_overrides),
@@ -834,6 +856,7 @@ abstract class _MachineState implements MachineState {
     final double feedrate,
     final double spindleSpeed,
     final double spindleLoad,
+    final bool spindleOn,
     final double coreTemp,
     final bool isRtcpActive,
     final List<int> overrides,
@@ -880,6 +903,8 @@ abstract class _MachineState implements MachineState {
   double get spindleSpeed; // RPM
   @override
   double get spindleLoad; // % ou kW (simulé)
+  @override
+  bool get spindleOn; // Broche active (champ accessoire A: du rapport GRBL)
   @override
   double get coreTemp; // °C
   @override

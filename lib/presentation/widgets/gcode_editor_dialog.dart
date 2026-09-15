@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/gcode_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class GCodeEditorDialog extends ConsumerStatefulWidget {
   const GCodeEditorDialog({super.key});
@@ -39,7 +40,7 @@ class _GCodeEditorDialogState extends ConsumerState<GCodeEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'ÉDITEUR G-CODE',
+              tr('ÉDITEUR G-CODE'),
               style: TextStyle(
                 color: context.fc.textPrimary,
                 fontSize: 14,
@@ -83,7 +84,7 @@ class _GCodeEditorDialogState extends ConsumerState<GCodeEditorDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'ANNULER',
+                    tr('ANNULER'),
                     style: TextStyle(color: context.fc.textDisabled),
                   ),
                 ),
@@ -98,7 +99,7 @@ class _GCodeEditorDialogState extends ConsumerState<GCodeEditorDialog> {
                     ref.read(gcodeProvider.notifier).loadFile(_controller.text);
                     Navigator.of(context).pop();
                   },
-                  child: const Text('APPLIQUER'),
+                  child: Text(tr('APPLIQUER')),
                 ),
               ],
             ),

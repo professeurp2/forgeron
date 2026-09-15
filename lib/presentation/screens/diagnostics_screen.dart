@@ -1,178 +1,231 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/config_provider.dart';
 import '../../application/providers/machine_provider.dart';
+import '../../application/providers/di_providers.dart';
+import '../../application/providers/firmware_provider.dart';
+import '../../application/providers/network_stats_provider.dart';
 import '../../application/services/logger_service.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
+import 'mobile_screens.dart' show KinematicsTable;
+import '../../core/i18n/app_localizations.dart';
 
 class DiagnosticsScreen extends ConsumerWidget {
   const DiagnosticsScreen({super.key});
 
-  static List<(String, String, bool, Color)> get _endstops => [
-    ('X', 'GPIO 34', false, AppColors.axisX),
-    ('Y', 'GPIO 35', false, AppColors.axisY),
-    ('Z', 'GPIO 32', true, AppColors.axisZ),
-    ('A', 'GPIO 33', false, AppColors.axisA),
-    ('C', 'GPIO 25', false, AppColors.axisC),
-  ];
-
-  static List<(String, Color, String, String, String, String)> get _axisParams => [
-    ('X', AppColors.axisX, '160', '5000', '250', '600'),
-    ('Y', AppColors.axisY, '160', '5000', '250', '800'),
-    ('Z', AppColors.axisZ, '320', '2000', '150', '200'),
-    ('A', AppColors.axisA, '88.8', '3600', '100', '120'),
-    ('C', AppColors.axisC, '88.8', '7200', '150', '360'),
+  static List<(String, String, Color)> _endstops(ForgeronColorPalette c) => [
+    ('X', 'GPIO 34', c.axisX),
+    ('Y', 'GPIO 35', c.axisY),
+    ('Z', 'GPIO 32', c.axisZ),
+    ('A', 'GPIO 33', c.axisA),
+    ('C', 'GPIO 25', c.axisC),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
     final configAsync = ref.watch(configProvider);
-    final limSw = ref.watch(machineStateProvider).valueOrNull?.limitSwitches
-        ?? [false, false, false, false, false];
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final limSw = machineState?.limitSwitches ?? [false, false, false, false, false];
+    final singularityRisk = machineState?.singularityRisk ?? 0.0;
+    final temp = machineState?.coreTemp ?? 40.0;
+    final fw = ref.watch(firmwareInfoProvider);
+    final net = ref.watch(networkStatsProvider);
+
+    // Couleur commune à la latence et à la jauge de qualité : grise tant qu'on
+    // n'est pas connecté, pour ne pas afficher un « 0 ms » vert rassurant.
+    final latColor = !net.connected
+        ? fc.textDisabled
+        : (net.latencyMs < 30
+            ? fc.success
+            : (net.latencyMs < 100 ? fc.warning : fc.error));
 
     final leftPanel = SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('GPIO & CAPTEURS (LIVE)', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'GPIO & CAPTEURS (LIVE)'),
         SizedBox(height: 12),
-        for (int i = 0; i < _endstops.length; i++)
-          _endstopCard(_endstops[i].$1, _endstops[i].$2, limSw[i], _endstops[i].$4),
+        for (final e in _endstops(fc).asMap().entries)
+          _endstopCard(context, e.value.$1, e.value.$2, limSw[e.key], e.value.$3),
         Row(children: [
-          Expanded(child: _sensorMini('PALPEUR', 'GPIO 36', false, AppColors.secondary)),
+          Expanded(child: _sensorMini(context, 'PALPEUR', 'GPIO 36',
+              machineState?.probeTriggered ?? false, fc.secondary)),
           SizedBox(width: 6),
-          Expanded(child: _sensorMini('E-STOP', 'GPIO 27', false, AppColors.danger)),
+          Expanded(child: _sensorMini(context, 'E-STOP', 'GPIO 27',
+              machineState?.emergencyTriggered ?? false, fc.danger)),
         ]),
         SizedBox(height: 24),
-        Text('TÉLÉMÉTRIE RÉSEAU', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'TÉLÉMÉTRIE RÉSEAU'),
         SizedBox(height: 12),
         GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
           Center(child: Column(children: [
-            Text('LATENCE', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
+            Text(tr('LATENCE'), style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
             SizedBox(height: 4),
-            Text('12', style: TextStyle(color: AppColors.success, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-            Text('ms', style: TextStyle(color: AppColors.textDisabled, fontSize: 12)),
+            Text(net.connected ? '${net.latencyMs}' : '—',
+                style: TextStyle(color: latColor, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+            Text('ms', style: TextStyle(color: fc.textDisabled, fontSize: 12)),
           ])),
           SizedBox(height: 12),
           Row(children: [
-            Text('QUALITÉ', style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+            Text(tr('QUALITÉ'), style: TextStyle(color: fc.textDisabled, fontSize: 9)),
             SizedBox(width: 8),
-            Expanded(child: LinearProgressIndicator(value: 0.92, backgroundColor: AppColors.surfaceBright, color: AppColors.success, minHeight: 6, borderRadius: BorderRadius.circular(3))),
+            Expanded(child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(value: net.qualityPct / 100, backgroundColor: fc.surfaceBright, color: latColor, minHeight: 6),
+            )),
             SizedBox(width: 8),
-            Text('92%', style: TextStyle(color: AppColors.success, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
+            Text('${net.qualityPct}%', style: TextStyle(color: latColor, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
           ]),
           SizedBox(height: 12),
-          for (final e in [('PAQUETS TX', '145,892'), ('PAQUETS RX', '145,890'), ('UPTIME CONN.', '14h 22min')])
+          for (final e in [
+            ('PAQUETS TX', '${net.txCount}'),
+            ('PAQUETS RX', '${net.rxCount}'),
+            ('UPTIME CONN.', formatUptime(net.uptime)),
+          ])
             Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [
-              Text(e.$1, style: TextStyle(color: AppColors.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
+              Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
               const Spacer(),
-              Text(e.$2, style: TextStyle(color: AppColors.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono')),
+              Text(e.$2, style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono')),
             ])),
         ])),
         SizedBox(height: 24),
-        Text('SANTÉ SYSTÈME', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'SANTÉ SYSTÈME'),
         SizedBox(height: 12),
         Container(
           key: TutorialKeys.performanceMetrics,
           child: GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.6, children: [
-            _healthCard('TEMP CPU', '58°C', Icons.thermostat, AppColors.warning),
-            _healthCard('USAGE RAM', '42%', Icons.memory, AppColors.success),
-            _healthCard('UPTIME', '14h 22m', Icons.schedule, AppColors.primary),
-            _healthCard('WiFi RSSI', '-64 dBm', Icons.wifi, AppColors.success),
+            _healthCard(context, 'TEMP CPU', '${temp.toStringAsFixed(0)}°C', Icons.thermostat, fc.warning),
+            // RAM / Uptime / RSSI : non rapportés par FluidNC standard → « — »
+            // tant que le firmware n'envoie pas de [MSG:] custom. Afficher des
+            // valeurs inventées ferait passer l'écran pour du live.
+            _healthCard(context, 'USAGE RAM', '—', Icons.memory, fc.textDisabled),
+            _healthCard(context, 'UPTIME', '—', Icons.schedule, fc.textDisabled),
+            _healthCard(context, 'WiFi RSSI', '—', Icons.wifi, fc.textDisabled),
           ]),
         ),
         SizedBox(height: 24),
-        Text('AMDEC & MAINT. PRÉVENTIVE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'AMDEC & MAINT. PRÉVENTIVE'),
         SizedBox(height: 12),
-        _AmdecRiskPanel(),
+        _AmdecRiskPanel(singularityRisk: singularityRisk, temp: temp, latencyMs: net.latencyMs),
         SizedBox(height: 12),
         _MaintenanceForecastCard(),
       ]),
     );
 
     final yamlPanel = Column(children: [
-      Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: AppColors.surfaceBright, border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+      Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: fc.surfaceBright, border: Border(bottom: BorderSide(color: fc.surfaceBorder))),
         child: Row(children: [
-          Icon(Icons.code, color: AppColors.warning, size: 16),
+          Icon(Icons.code, color: fc.warning, size: 16),
           SizedBox(width: 8),
-          Text('CONFIG.YAML', style: TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(tr('CONFIG.YAML'), style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
           SizedBox(width: 16),
-          Flexible(child: Text('Configuration Machine FluidNC', style: TextStyle(color: AppColors.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
-          SizedBox(width: 8),
-          OutlinedButton(onPressed: () {}, style: OutlinedButton.styleFrom(side: BorderSide(color: AppColors.surfaceBorder), minimumSize: Size(0, 32)), child: Text('EDITER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900))),
-          SizedBox(width: 8),
-          ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 32)), child: Text('SAUVER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900))),
+          Flexible(child: Text(tr('Configuration Machine FluidNC'), style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
+          const Spacer(),
+          OutlinedButton.icon(
+            icon: Icon(Icons.copy_all_rounded, size: 14),
+            label: Text(tr('COPIER'), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
+            style: OutlinedButton.styleFrom(side: BorderSide(color: fc.surfaceBorder), minimumSize: Size(0, 32)),
+            onPressed: () => _copyConfig(context, ref),
+          ),
         ])),
-      Expanded(child: Container(color: AppColors.terminalBg, child: configAsync.when(
+      Expanded(child: Container(color: fc.terminalBg, child: configAsync.when(
         data: (yamlStr) {
           final lines = yamlStr.split('\n');
           return ListView.builder(padding: EdgeInsets.all(16), itemCount: lines.length, itemBuilder: (ctx, i) {
             final l = lines[i];
-            final c = l.trimLeft().startsWith('#') ? AppColors.textDisabled : AppColors.textPrimary;
+            final isComment = l.trimLeft().startsWith('#');
             final parts = l.split(':');
+            final rest = parts.length > 1 ? parts.sublist(1).join(':') : '';
             return Padding(padding: EdgeInsets.symmetric(vertical: 1), child: Row(children: [
-              SizedBox(width: 30, child: Text('${i + 1}', textAlign: TextAlign.right, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono'))),
-              Container(width: 1, height: 16, color: AppColors.surfaceBorder, margin: EdgeInsets.symmetric(horizontal: 10)),
-              Expanded(child: l.trimLeft().startsWith('#')
-                ? Text(l, style: TextStyle(color: AppColors.textDisabled, fontSize: 12, fontFamily: 'JetBrains Mono'))
+              SizedBox(width: 30, child: Text('${i + 1}', textAlign: TextAlign.right, style: TextStyle(color: fc.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono'))),
+              Container(width: 1, height: 16, color: fc.surfaceBorder, margin: EdgeInsets.symmetric(horizontal: 10)),
+              Expanded(child: isComment
+                ? Text(l, style: TextStyle(color: fc.textDisabled, fontSize: 12, fontFamily: 'JetBrains Mono'))
                 : parts.length > 1
                   ? RichText(text: TextSpan(children: [
-                      TextSpan(text: '${parts[0]}:', style: TextStyle(color: AppColors.primary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
-                      TextSpan(text: parts.sublist(1).join(':'), style: TextStyle(color: parts.sublist(1).join(':').contains('"') ? AppColors.success : AppColors.warning, fontSize: 12, fontFamily: 'JetBrains Mono')),
+                      TextSpan(text: '${parts[0]}:', style: TextStyle(color: fc.primary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
+                      TextSpan(text: rest, style: TextStyle(color: rest.contains('"') ? fc.success : fc.warning, fontSize: 12, fontFamily: 'JetBrains Mono')),
                     ]))
-                  : Text(l, style: TextStyle(color: c, fontSize: 12, fontFamily: 'JetBrains Mono'))),
+                  : Text(l, style: TextStyle(color: fc.textPrimary, fontSize: 12, fontFamily: 'JetBrains Mono'))),
             ]));
           });
         },
-        loading: () => Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (e, st) => Center(child: Text('Erreur de chargement: $e', style: TextStyle(color: AppColors.error))),
+        loading: () => Center(child: CircularProgressIndicator(color: fc.primary)),
+        error: (e, st) => Center(child: Text(tr('Erreur de chargement: {}', [e]), style: TextStyle(color: fc.error))),
       ))),
     ]);
 
     final paramsPanel = SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('CINÉMATIQUE DES AXES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'CINÉMATIQUE DES AXES'),
         SizedBox(height: 12),
-        GlassPanel(padding: EdgeInsets.zero, child: Column(children: [
-          Container(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: AppColors.surfaceBright, border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
-            child: Row(children: [SizedBox(width: 36, child: Text('AXE', style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))), Expanded(child: Text('PAS/mm', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))), Expanded(child: Text('AVANCE MAX', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))), Expanded(child: Text('ACCEL', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900))), Expanded(child: Text('COURSE', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)))])),
-          for (final a in _axisParams)
-            Container(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
-              child: Row(children: [SizedBox(width: 36, child: Text(a.$1, style: TextStyle(color: a.$2, fontSize: 12, fontWeight: FontWeight.w900))), for (final v in [a.$3, a.$4, a.$5, a.$6]) Expanded(child: Text(v, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textPrimary, fontSize: 10, fontFamily: 'JetBrains Mono')))])),
-        ])),
+        // Table éditable branchée sur le config.yaml réel de la carte. Les
+        // valeurs étaient auparavant codées en dur ici et avaient dérivé de la
+        // machine (160 pas/mm affichés sur X contre 264 réels).
+        const KinematicsTable(),
         SizedBox(height: 24),
-        Text('IDENTITÉ FIRMWARE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+        _label(context, 'IDENTITÉ FIRMWARE'),
         SizedBox(height: 12),
-        GlassPanel(child: Column(children: [
-          for (final e in [('Version', 'FluidNC v3.7.8'), ('Carte', 'ESP32_WROOM_32D'), ('Taille Flash', '4MB (1.2MB Libre)'), ('SDK ESP-IDF', 'v4.4.4'), ('Date Compilation', 'Oct 24 2023')])
-            Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Row(children: [Text(e.$1, style: TextStyle(color: AppColors.textDisabled, fontSize: 10)), Spacer(), Text(e.$2, style: TextStyle(color: AppColors.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))])),
-        ])),
+        GlassPanel(
+          titleTrailing: fw.isKnown
+              ? null
+              : InkWell(
+                  onTap: () => ref.read(firmwareInfoProvider.notifier).requestInfo(),
+                  child: Icon(Icons.refresh_rounded, size: 14, color: fc.textSecondary),
+                ),
+          child: Column(children: [
+            for (final e in [
+              ('Version', fw.version ?? (fw.isKnown ? '—' : 'en attente (\$I)…')),
+              ('GRBL', fw.grblVersion ?? '—'),
+              ('Carte', fw.board ?? '—'),
+              ('Options', fw.options ?? '—'),
+            ])
+              Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Row(children: [
+                Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+                const SizedBox(width: 12),
+                Expanded(child: Text(e.$2, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))),
+              ])),
+          ]),
+        ),
         SizedBox(height: 24),
-        for (final b in [('SAUVEGARDE', Icons.download, AppColors.primary), ('RESTAURER', Icons.upload, AppColors.warning), ('FLASH FIRMWARE', Icons.system_update, AppColors.danger), ('REDÉMARRER', Icons.power_settings_new, AppColors.error)])
-          Padding(padding: EdgeInsets.only(bottom: 8), child: InkWell(onTap: () {}, child: Container(
-            height: 52, padding: EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(color: b.$3.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(6), border: Border.all(color: b.$3.withValues(alpha: 0.2))),
-            child: Row(children: [Icon(b.$2, color: b.$3, size: 18), SizedBox(width: 12), Text(b.$1, style: TextStyle(color: b.$3, fontSize: 10, fontWeight: FontWeight.w900)), const Spacer(), Icon(Icons.chevron_right, color: AppColors.textDisabled, size: 16)]),
-          ))),
+        _label(context, 'ACTIONS SYSTÈME'),
+        SizedBox(height: 12),
+        _actionRow(context, 'COPIER CONFIG.YAML', Icons.copy_all_rounded, fc.primary,
+            () => _copyConfig(context, ref)),
+        _actionRow(context, 'REDÉMARRER ESP32', Icons.power_settings_new, fc.error,
+            () => _rebootEsp(context, ref)),
         SizedBox(height: 12),
         SizedBox(
           width: double.infinity, height: 50,
           child: ElevatedButton.icon(
             icon: Icon(Icons.analytics),
-            label: Text('GÉNÉRER DUMP DIAGNOSTIC (JSON)', style: TextStyle(fontWeight: FontWeight.w900)),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            label: Text(tr('GÉNÉRER DUMP DIAGNOSTIC (JSON)'), style: TextStyle(fontWeight: FontWeight.w900)),
+            style: ElevatedButton.styleFrom(backgroundColor: fc.primary, foregroundColor: Colors.white),
             onPressed: () {
               final dump = ref.read(loggerServiceProvider.notifier).generateDiagnosticDump();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dump diagnostic généré en console')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Dump diagnostic généré en console'))));
               debugPrint(dump);
             },
           ),
         ),
       ]),
+    );
+
+    final split = ResizableSplitView(
+      initialRatio: 0.3,
+      left: leftPanel,
+      right: ResizableSplitView(
+        initialRatio: 0.6,
+        left: yamlPanel,
+        right: paramsPanel,
+      ),
     );
 
     return ResponsiveLayout(
@@ -187,38 +240,91 @@ class DiagnosticsScreen extends ConsumerWidget {
           ],
         ),
       ),
-      tablet: ResizableSplitView(
-        initialRatio: 0.3,
-        left: leftPanel,
-        right: ResizableSplitView(
-          initialRatio: 0.6,
-          left: yamlPanel,
-          right: paramsPanel,
-        ),
+      tablet: split,
+      desktop: split,
+    );
+  }
+
+  void _copyConfig(BuildContext context, WidgetRef ref) {
+    final cfg = ref.read(configResultProvider).valueOrNull;
+    final m = ScaffoldMessenger.of(context);
+    if (cfg == null) {
+      m.showSnackBar(SnackBar(content: Text(tr('Config non chargée.'))));
+      return;
+    }
+    Clipboard.setData(ClipboardData(text: cfg.yaml));
+    m.showSnackBar(SnackBar(content: Text(tr('config.yaml copié dans le presse-papiers'))));
+  }
+
+  Future<void> _rebootEsp(BuildContext context, WidgetRef ref) async {
+    final fc = context.fc;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text(tr('Redémarrer l\'ESP32 ?'), style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Row(children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
+              style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: fc.error, foregroundColor: Colors.white),
+            child: Text(tr('Redémarrer')),
+          ),
+        ],
       ),
-      desktop: ResizableSplitView(
-        initialRatio: 0.3,
-        left: leftPanel,
-        right: ResizableSplitView(
-          initialRatio: 0.6,
-          left: yamlPanel,
-          right: paramsPanel,
+    );
+    if (ok == true) {
+      ref.read(machineRepositoryProvider).sendRaw('\$Bye\n');
+    }
+  }
+
+  Widget _label(BuildContext context, String text) => Text(text,
+      style: TextStyle(color: context.fc.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0));
+
+  Widget _actionRow(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          height: 52, padding: EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(6), border: Border.all(color: color.withValues(alpha: 0.2))),
+          child: Row(children: [
+            Icon(icon, color: color, size: 18),
+            SizedBox(width: 12),
+            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900)),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: context.fc.textDisabled, size: 16),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _endstopCard(String axis, String gpio, bool triggered, Color axisColor) {
-    final stateColor = triggered ? AppColors.error : AppColors.success;
+  Widget _endstopCard(BuildContext context, String axis, String gpio, bool triggered, Color axisColor) {
+    final fc = context.fc;
+    final stateColor = triggered ? fc.error : fc.success;
     return Container(
       height: 48, margin: EdgeInsets.only(bottom: 6), padding: EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.surfaceBorder)),
+      decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(4), border: Border.all(color: fc.surfaceBorder)),
       child: Row(children: [
         Container(width: 4, height: 28, decoration: BoxDecoration(color: axisColor, borderRadius: BorderRadius.circular(2))),
         SizedBox(width: 12),
         Text(axis, style: TextStyle(color: axisColor, fontSize: 14, fontWeight: FontWeight.w900)),
         SizedBox(width: 8),
-        Text(gpio, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
+        Text(gpio, style: TextStyle(color: fc.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
         const Spacer(),
         Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: stateColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: stateColor.withValues(alpha: 0.3))),
           child: Row(children: [Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: stateColor, boxShadow: [BoxShadow(color: stateColor, blurRadius: 4)])), SizedBox(width: 6), Text(triggered ? 'DÉCL.' : 'OUVERT', style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.w900))])),
@@ -226,11 +332,12 @@ class DiagnosticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _sensorMini(String label, String gpio, bool triggered, Color color) {
-    final stateColor = triggered ? AppColors.error : AppColors.success;
+  Widget _sensorMini(BuildContext context, String label, String gpio, bool triggered, Color color) {
+    final fc = context.fc;
+    final stateColor = triggered ? fc.error : fc.success;
     return Container(
       height: 48, margin: EdgeInsets.only(bottom: 6), padding: EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.surfaceBorder)),
+      decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(4), border: Border.all(color: fc.surfaceBorder)),
       child: Row(children: [
         Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900)),
         const Spacer(),
@@ -241,31 +348,39 @@ class DiagnosticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _healthCard(String label, String value, IconData icon, Color color) {
+  Widget _healthCard(BuildContext context, String label, String value, IconData icon, Color color) {
+    final fc = context.fc;
     return Container(
       padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.surfaceBright, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.surfaceBorder)),
+      decoration: BoxDecoration(color: fc.surfaceBright, borderRadius: BorderRadius.circular(6), border: Border.all(color: fc.surfaceBorder)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, color: color, size: 16),
         const Spacer(),
-        Text(value, style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-        Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)),
+        Text(value, style: TextStyle(color: fc.textPrimary, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+        Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)),
       ]),
     );
   }
 }
 
-class _AmdecRiskPanel extends ConsumerWidget {
+class _AmdecRiskPanel extends StatelessWidget {
+  final double singularityRisk;
+  final double temp;
+  final int latencyMs;
+
+  const _AmdecRiskPanel({
+    required this.singularityRisk,
+    required this.temp,
+    required this.latencyMs,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(machineStateProvider).valueOrNull;
-    final singularityRisk = state?.singularityRisk ?? 0.0;
-    final temp = state?.coreTemp ?? 40.0;
-    
+  Widget build(BuildContext context) {
+    final fc = context.fc;
     final risks = [
       ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
       ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
-      ('Latence UDP', 0.15, 'Faible'),
+      ('Latence UDP', (latencyMs / 200).clamp(0.0, 1.0), 'Faible'),
       ('Perte de Pas (Open Loop)', 0.05, 'Faible'),
     ];
 
@@ -278,18 +393,20 @@ class _AmdecRiskPanel extends ConsumerWidget {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(r.$1, style: TextStyle(color: AppColors.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text('Gravité : ${r.$3}', style: TextStyle(color: AppColors.textDisabled, fontSize: 8)),
+                  Text(r.$1, style: TextStyle(color: fc.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(tr('Gravité : {}', [r.$3]), style: TextStyle(color: fc.textDisabled, fontSize: 8)),
                 ]),
               ),
               SizedBox(
                 width: 80,
-                child: LinearProgressIndicator(
-                  value: r.$2.clamp(0.0, 1.0),
-                  backgroundColor: AppColors.surfaceBright,
-                  color: r.$2 > 0.8 ? AppColors.error : (r.$2 > 0.5 ? AppColors.warning : AppColors.success),
-                  minHeight: 4,
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: r.$2.clamp(0.0, 1.0),
+                    backgroundColor: fc.surfaceBright,
+                    color: r.$2 > 0.8 ? fc.error : (r.$2 > 0.5 ? fc.warning : fc.success),
+                    minHeight: 4,
+                  ),
                 ),
               ),
             ]),
@@ -302,32 +419,37 @@ class _AmdecRiskPanel extends ConsumerWidget {
 class _MaintenanceForecastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final fc = context.fc;
     return Container(
       padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.surfaceBorder)),
+      decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: fc.surfaceBorder)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.engineering, color: AppColors.primary, size: 14),
+          Icon(Icons.engineering, color: fc.primary, size: 14),
           SizedBox(width: 8),
-          Text('PRÉVISION MAINTENANCE', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900)),
+          Text(tr('PRÉVISION MAINTENANCE'), style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900)),
         ]),
         SizedBox(height: 12),
-        _maintRow('Graissage Vis à Billes', 85, '12j'),
-        _maintRow('Tension Courroies', 42, '45j'),
-        _maintRow('Calibration Trunnion', 95, '2j'),
+        _maintRow(context, 'Graissage Vis à Billes', 85, '12j'),
+        _maintRow(context, 'Tension Courroies', 42, '45j'),
+        _maintRow(context, 'Calibration Trunnion', 95, '2j'),
       ]),
     );
   }
 
-  Widget _maintRow(String label, double health, String timeLeft) {
-    final color = health < 20 ? AppColors.error : (health < 60 ? AppColors.warning : AppColors.success);
+  Widget _maintRow(BuildContext context, String label, double health, String timeLeft) {
+    final fc = context.fc;
+    final color = health < 20 ? fc.error : (health < 60 ? fc.warning : fc.success);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
-        Expanded(child: Text(label, style: TextStyle(color: AppColors.textDisabled, fontSize: 9))),
+        Expanded(child: Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 9))),
         Text(timeLeft, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
         SizedBox(width: 8),
-        SizedBox(width: 40, child: LinearProgressIndicator(value: health / 100, backgroundColor: AppColors.surfaceBright, color: color, minHeight: 2)),
+        SizedBox(width: 40, child: ClipRRect(
+          borderRadius: BorderRadius.circular(1),
+          child: LinearProgressIndicator(value: health / 100, backgroundColor: fc.surfaceBright, color: color, minHeight: 2),
+        )),
       ]),
     );
   }

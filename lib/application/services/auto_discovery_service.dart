@@ -75,6 +75,20 @@ class AutoDiscoveryService {
 
       if (response.statusCode < 500) {
         final body = response.body.toLowerCase();
+
+        // La caméra de surveillance répond elle aussi en HTTP sur le port 80.
+        // Sans ce filtre elle serait listée comme un contrôleur — et comme le
+        // scan d'ouverture s'auto-connecte au PREMIER appareil trouvé,
+        // l'application pourrait croire la machine connectée alors qu'elle
+        // parle à un appareil sans moteurs.
+        //
+        // Le firmware caméra s'annonce de deux façons (cf.
+        // `hardware/firmware/esp32cam_forgeron/`) : un en-tête sur toutes ses
+        // réponses, et un marqueur dans sa page d'accueil.
+        final deviceKind = response.headers['x-forgeron-device']?.toLowerCase();
+        if (deviceKind == 'camera' || body.contains('forgeron-device')) {
+          return null;
+        }
         // FluidNC renvoie une page HTML contenant "fluidnc" ou "grbl"
         // ou au minimum un serveur web fonctionnel
         String? firmware;

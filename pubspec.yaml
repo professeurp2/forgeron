@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Localisation des widgets Material/Cupertino (dates, RTL arabe).
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -59,6 +62,40 @@ dependencies:
   audioplayers: ^6.6.0
   # Stockage sécurisé de la clé API de l'agent IA (Keychain/Keystore/DPAPI).
   flutter_secure_storage: ^9.2.2
+  # Version figée : 4.14+ utilise des API Flutter absentes du SDK 3.41.9
+  # installé ici (ScrollCacheExtent, Tooltip.ignorePointer...) — échec de
+  # compilation Windows. 4.13.0 est la dernière connue compatible.
+  fluent_ui: 4.13.0
+  # Figé à 0.2.1 : la 0.3.0 (25/10/2025) est un « BREAK CHANGE » annoncé dans
+  # le changelog qui supprime la classe DesktopMultiWindow et les méthodes
+  # WindowController.close/setFrame/center/setTitle — remplacées par un
+  # simple show()/hide() sans fermeture ni cadrage possibles depuis Dart.
+  # Toute la gestion des fenêtres détachées de l'app (AiWindowChannel,
+  # AiWindowLauncher) s'appuie sur cette API classique.
+  desktop_multi_window: 0.2.1
+  fl_chart: ^1.2.0
+  # window_manager retiré : plus aucun appelant, et sa présence seule
+  # posait problème. Il s'attache à UNE fenêtre native — celle qu'il trouve à
+  # son initialisation. Initialisé dans le second moteur Flutter d'une fenêtre
+  # détachée, il se raccrochait à la fenêtre PRINCIPALE et en détournait la
+  # procédure : refermer une fenêtre détachée fermait l'application entière.
+  # Le cadrage des fenêtres passe désormais par `WindowController`
+  # (desktop_multi_window), qui désigne explicitement la fenêtre visée.
+  # Le réintroduire suppose de ne l'initialiser QUE dans la fenêtre principale.
+
+# webview_windows officiel (0.4.0, dernière version publiée) crée un
+# DispatcherQueueController WinRT par instance de plugin — un par fenêtre,
+# puisque chaque fenêtre desktop_multi_window a son propre moteur Flutter
+# donc sa propre instance du plugin. Windows n'autorise qu'un seul
+# DispatcherQueueController par thread, et toutes les fenêtres tournent sur
+# le même thread (desktop_multi_window n'en crée pas un par fenêtre) : la
+# deuxième visionneuse 3D ouverte échouait toujours avec « The platform is
+# not supported ». Fork local dans third_party/webview_windows qui partage
+# une seule instance entre toutes les fenêtres — voir le commentaire dans
+# windows/webview_windows_plugin.cc pour le détail.
+dependency_overrides:
+  webview_windows:
+    path: third_party/webview_windows
 
 dev_dependencies:
   flutter_test:

@@ -36,6 +36,7 @@ class MachineState with _$MachineState {
     @Default(0.0) double feedrate,      // mm/min
     @Default(0.0) double spindleSpeed,  // RPM
     @Default(0.0) double spindleLoad,   // % ou kW (simulé)
+    @Default(false) bool spindleOn,     // Broche active (champ accessoire A: du rapport GRBL)
     @Default(40.0) double coreTemp,     // °C
     @Default(false) bool isRtcpActive,  // G43.4 status
 

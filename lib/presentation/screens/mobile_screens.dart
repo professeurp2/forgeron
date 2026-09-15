@@ -11,13 +11,18 @@ import '../../application/providers/config_provider.dart';
 import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/firmware_provider.dart';
 import '../../application/providers/network_stats_provider.dart';
-import '../widgets/mobile/mobile_visualizer_panel.dart';
 import '../widgets/mobile/mobile_tab_bar.dart';
+import '../widgets/wcs_offset_dialog.dart';
+import '../widgets/tool_photo.dart';
 import '../../application/services/logger_service.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/di_providers.dart';
+import '../../application/providers/program_tools_provider.dart';
+import '../../application/providers/streaming_provider.dart';
+import '../../core/utils/gcode_tool_extractor.dart';
+import '../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE 2 — PALPAGE & ORIGINES  (Mobile)
@@ -132,7 +137,7 @@ class _WCSTab extends ConsumerWidget {
               ref.read(machineRepositoryProvider).sendGCode(d.$1);
               HapticFeedback.selectionClick();
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('WCS actif: ${d.$1}'),
+                content: Text(tr('WCS actif: {}', [d.$1])),
                 backgroundColor: context.fc.primary,
                 duration: const Duration(seconds: 1),
               ));
@@ -185,6 +190,25 @@ class _WCSTab extends ConsumerWidget {
                 if (sel)
                   Icon(Icons.check_circle,
                       color: context.fc.primary, size: 16),
+                // Saisie du décalage au clavier, pour ce WCS précis. Éditer
+                // depuis sa propre ligne lève toute ambiguïté sur la cible.
+                IconButton(
+                  icon: Icon(Icons.edit_outlined,
+                      color: context.fc.textDisabled, size: 17),
+                  tooltip: tr('Saisir le décalage de {}', [d.$1]),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.only(left: 8),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => WcsOffsetDialog(
+                      wcs: d.$1,
+                      current: d.$2,
+                      axisLabels: axisLabels,
+                      axisColors: axisColors,
+                    ),
+                  ),
+                ),
               ]),
             ),
           );
@@ -230,6 +254,70 @@ class _WCSTab extends ConsumerWidget {
           );
         }),
 
+        SizedBox(height: 20),
+        const _MLabel('DÉFINIR L\'ORIGINE PIÈCE (position actuelle = 0)'),
+        SizedBox(height: 8),
+        Row(children: [
+          for (int i = 0; i < 5; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  ref
+                      .read(machineRepositoryProvider)
+                      .sendGCode('G10 L20 P0 ${axisLabels[i]}0');
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(
+                        tr('{} = 0 à la position actuelle ({})', [axisLabels[i], activeWCS])),
+                    backgroundColor: axisColors[i],
+                    duration: const Duration(seconds: 1),
+                  ));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: axisColors[i].withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: axisColors[i].withValues(alpha: 0.5)),
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(axisLabels[i],
+                        style: TextStyle(
+                            color: axisColors[i],
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            fontFamily: 'JetBrains Mono')),
+                    Text('= 0',
+                        style: TextStyle(
+                            color: axisColors[i].withValues(alpha: 0.8),
+                            fontSize: 9)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
+        ]),
+        SizedBox(height: 8),
+        _MActionButton(
+          'TOUT METTRE À ZÉRO (ICI)',
+          context.fc.primary,
+          Icons.adjust_rounded,
+          () {
+            ref
+                .read(machineRepositoryProvider)
+                .sendGCode('G10 L20 P0 X0 Y0 Z0 A0 C0');
+            HapticFeedback.mediumImpact();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(tr('Origine pièce définie ici ({})', [activeWCS])),
+              backgroundColor: context.fc.primary,
+              duration: const Duration(seconds: 1),
+            ));
+          },
+        ),
+
         SizedBox(height: 16),
         _MActionButton(
           'ALLER AU ZÉRO',
@@ -263,58 +351,55 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
     final machineState = ref.watch(machineStateProvider).valueOrNull;
     final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
 
-    // Le simulateur reste PERSISTANT en haut et le JOG STOP en bas : on ne
-    // commande plus « à l'aveugle ». Seul le panneau de jog défile entre les
-    // deux si l'écran est trop court — le simulateur ne sort jamais du cadre.
-    return LayoutBuilder(builder: (context, box) {
-      final simH = (box.maxHeight * 0.34).clamp(160.0, 300.0);
-      return Column(children: [
-        SizedBox(height: simH, child: const MobileVisualizerPanel(expand: true)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: _JogDroStrip(wPos: wPos),
-        ),
-        // Commandes de jog — défilent seules si nécessaire.
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [context.fc.surfaceBright, context.fc.surface],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.fc.surfaceBorder),
+    // DRO en haut, commandes de jog au milieu, JOG STOP épinglé en bas.
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: _JogDroStrip(wPos: wPos),
+      ),
+      // Commandes de jog — défilent seules si nécessaire.
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [context.fc.surfaceBright, context.fc.surface],
               ),
-              child: JogControlPanel(wPos: wPos),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.fc.surfaceBorder),
             ),
+            child: JogControlPanel(wPos: wPos),
           ),
         ),
-        // JOG STOP épinglé en bas, toujours atteignable au pouce.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: _JogStopButton(onStop: () {
-            jogN.stopJog();
-            HapticFeedback.heavyImpact();
-          }),
-        ),
-      ]);
-    });
+      ),
+      // JOG STOP épinglé en bas, toujours atteignable au pouce.
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: _JogStopButton(onStop: () {
+          jogN.stopJog();
+          HapticFeedback.heavyImpact();
+        }),
+      ),
+    ]);
   }
 }
 
 // ── Bandeau DRO live + bouton STOP (onglet Jog) ─────────────────────────────
 /// Bandeau compact des 5 axes (X/Y/Z/A/C) avec valeurs en direct, pour garder
 /// la position sous les yeux pendant le jog.
-class _JogDroStrip extends StatelessWidget {
+class _JogDroStrip extends ConsumerWidget {
   final List<double> wPos;
   const _JogDroStrip({required this.wPos});
 
+  /// En deca de cette distance relative a une extremite, la jauge alerte.
+  static const _edge = 0.05;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fc = context.fc;
     final axes = [
       ('X', fc.axisX, false),
@@ -323,6 +408,15 @@ class _JogDroStrip extends StatelessWidget {
       ('A', fc.axisA, true),
       ('C', fc.axisC, true),
     ];
+
+    // Position MACHINE et courses : pendant un jog, on conduit l\'axe a la main
+    // vers ses butees. Savoir ce qu\'il reste avant la fin de course est
+    // exactement l\'information qui manque, et la coordonnee piece affichee ne
+    // peut pas la donner puisqu\'elle depend de l\'origine posee.
+    final mPos =
+        ref.watch(machineStateProvider).valueOrNull?.mPos ?? const [0.0, 0.0, 0.0, 0.0, 0.0];
+    final kin = ref.watch(axisKinematicsProvider).valueOrNull;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
@@ -334,32 +428,72 @@ class _JogDroStrip extends StatelessWidget {
         children: [
           for (int i = 0; i < 5; i++)
             Expanded(
-              child: Column(
-                children: [
-                  Text(axes[i].$1,
-                      style: TextStyle(
-                          color: axes[i].$2,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12)),
-                  const SizedBox(height: 3),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      axes[i].$3
-                          ? '${wPos[i].toStringAsFixed(2)}°'
-                          : wPos[i].toStringAsFixed(3),
-                      style: TextStyle(
-                          color: fc.textPrimary,
-                          fontFamily: 'JetBrains Mono',
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13),
-                    ),
-                  ),
-                ],
+              child: _axis(
+                context,
+                axes[i].$1,
+                axes[i].$2,
+                axes[i].$3,
+                i < wPos.length ? wPos[i] : 0.0,
+                (kin != null && i < kin.length)
+                    ? kin[i].travelFraction(i < mPos.length ? mPos[i] : 0.0)
+                    : null,
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _axis(BuildContext context, String label, Color color, bool rotary,
+      double value, double? fraction) {
+    final fc = context.fc;
+    final nearEdge =
+        fraction != null && (fraction <= _edge || fraction >= 1 - _edge);
+
+    return Column(
+      children: [
+        Text(label,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w900, fontSize: 12)),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            rotary ? '${value.toStringAsFixed(2)}°' : value.toStringAsFixed(3),
+            style: TextStyle(
+                color: nearEdge ? fc.warning : fc.textPrimary,
+                fontFamily: 'JetBrains Mono',
+                fontWeight: FontWeight.w900,
+                fontSize: 13),
+          ),
+        ),
+        // Course inconnue = pas de barre, plutot qu\'une proportion inventee.
+        if (fraction != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                height: 3,
+                child: Stack(children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                        color: fc.surfaceBorderDim.withValues(alpha: 0.6)),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: fraction,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      color: nearEdge ? fc.warning : color,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -391,13 +525,13 @@ class _JogStopButton extends StatelessWidget {
                   spreadRadius: -2),
             ],
           ),
-          child: const Center(
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.stop_rounded, color: Colors.white, size: 24),
                 SizedBox(width: 10),
-                Text('JOG STOP',
+                Text(tr('JOG STOP'),
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -506,7 +640,7 @@ class _MobileProbingTab extends ConsumerWidget {
                   backgroundColor: context.fc.danger,
                   foregroundColor: Colors.white),
               onPressed: () { probingN.cancel(); HapticFeedback.heavyImpact(); },
-              child: Text('ANNULER LE PALPAGE',
+              child: Text(tr('ANNULER LE PALPAGE'),
                   style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
             ),
           ),
@@ -595,7 +729,7 @@ class _ProbingCard extends StatelessWidget {
                       spreadRadius: -2),
                 ],
               ),
-              child: Text('LANCER',
+              child: Text(tr('LANCER'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 9,
@@ -630,7 +764,7 @@ class _MobileHomingTab extends ConsumerWidget {
             Icon(Icons.info_outline, color: context.fc.axisZ, size: 14),
             SizedBox(width: 8),
             Expanded(
-              child: Text('Séquence recommandée : Z → X → Y → A → C',
+              child: Text(tr('Séquence recommandée : Z → X → Y → A → C'),
                   style: TextStyle(color: context.fc.textSecondary, fontSize: 10, height: 1.5)),
             ),
           ]),
@@ -654,7 +788,7 @@ class _MobileHomingTab extends ConsumerWidget {
           width: double.infinity, height: 56,
           child: ElevatedButton.icon(
             icon: Icon(Icons.home_rounded, size: 20),
-            label: Text('HOME ALL (\$H)',
+            label: Text(tr('HOME ALL (\$H)'),
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
             style: ElevatedButton.styleFrom(
                 backgroundColor: context.fc.axisZ, foregroundColor: Colors.white),
@@ -670,6 +804,12 @@ class _MobileHomingTab extends ConsumerWidget {
 // PAGE 3 — MAGASIN D'OUTILS  (Mobile)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Magasin d'outils — **lu dans le programme chargé**, jamais saisi.
+///
+/// Il n'existe pas de table d'outils dans l'application : afficher un catalogue
+/// d'outils qui ne sont pas ceux du programme induirait l'opérateur en erreur
+/// au pire moment, celui du changement. Tout vient donc de
+/// [programToolsProvider], c'est-à-dire du G-code lui-même.
 class MobileToolTableScreen extends ConsumerStatefulWidget {
   const MobileToolTableScreen({super.key});
   @override
@@ -682,30 +822,13 @@ class _MobileToolTableScreenState
   final _searchCtrl = TextEditingController();
   String _query = '';
 
-  static List<(String, String, double, double, Color, String)> _tools(
-          ForgeronColorPalette c) =>
-      [
-    ('T1', 'FORET CARBURE Ø12', 120.00, 12.00, c.success, 'OK'),
-    ('T2', 'FRAISE 2 TAILLES Ø20', 85.50, 20.00, c.success, 'OK'),
-    ('T3', 'FRAISE HÉMISP. Ø6', 65.02, 6.00, c.success, 'OK'),
-    ('T4', 'FORET CENTRE D3', 45.00, 3.00, c.success, 'OK'),
-    ('T5', 'TARAUDEUR M8', 70.00, 8.00, c.warning, 'USURE: 85%'),
-    ('T6', 'FRAISE EB Ø25', 90.00, 25.00, c.success, 'OK'),
-    ('T7', 'ALÉSOIR H7 Ø10', 110.00, 10.00, c.success, 'OK'),
-    ('T8', 'GRAVEUR V-BIT 60°', 30.00, 6.00, c.success, 'OK'),
-    ('T9', 'FRAISE EB Ø16', 75.00, 16.00, c.error, 'BRIS DÉTECTÉ'),
-    ('T10', 'FRAISE RAVAGEUSE Ø12', 80.00, 12.00, c.success, 'OK'),
-    ('T11', 'FRAISE TORIQUE R2 Ø8', 60.00, 8.00, c.success, 'OK'),
-    ('T12', 'PALPEUR 3D RENISHAW', 50.00, 4.00, c.info, 'CALIBRÉ'),
-  ];
-
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _showDetail(int index, int activeToolNum, String activeWCS) {
+  void _showDetail(ProgramTool tool, int activeToolNum) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -718,10 +841,9 @@ class _MobileToolTableScreenState
         maxChildSize: 0.95,
         minChildSize: 0.4,
         builder: (ctx, ctrl) => _ToolDetailSheet(
-          tool: _tools(context.fc)[index],
+          tool: tool,
           scrollController: ctrl,
           activeToolNum: activeToolNum,
-          ref: ref,
         ),
       ),
     );
@@ -729,469 +851,527 @@ class _MobileToolTableScreenState
 
   @override
   Widget build(BuildContext context) {
-    final machineState = ref.watch(machineStateProvider).valueOrNull;
-    final activeToolNum = machineState?.activeToolNum ?? 0;
-    final activeWCS = machineState?.activeWCS ?? 'G54';
+    final fc = context.fc;
+    final tools = ref.watch(programToolsProvider);
+    final activeToolNum = ref.watch(activeToolNumberProvider);
 
-    final filtered = _tools(context.fc).asMap().entries.where((e) {
+    final filtered = tools.where((t) {
       if (_query.isEmpty) return true;
-      return e.value.$1.toLowerCase().contains(_query.toLowerCase()) ||
-          e.value.$2.toLowerCase().contains(_query.toLowerCase());
+      final q = _query.toLowerCase();
+      return 'T${t.number}'.toLowerCase().contains(q) ||
+          (t.description ?? '').toLowerCase().contains(q) ||
+          (t.operation ?? '').toLowerCase().contains(q);
     }).toList();
 
     return Column(
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          color: context.fc.surface,
-          child: Column(children: [
-            Row(children: [
-              Text('MAGASIN',
-                  style: TextStyle(
-                      color: context.fc.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.0)),
-              const Spacer(),
-              if (activeToolNum > 0)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: context.fc.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                        color: context.fc.success.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.build, color: context.fc.success, size: 10),
-                    SizedBox(width: 4),
-                    Text('ACTIF: T$activeToolNum',
-                        style: TextStyle(
-                            color: context.fc.success,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'JetBrains Mono')),
-                  ]),
-                ),
-              SizedBox(width: 8),
-              Text('${_tools(context.fc).length}/24',
-                  style: TextStyle(
-                      color: context.fc.primary,
-                      fontSize: 13,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.w900)),
-            ]),
-            SizedBox(height: 8),
-            // Barre de recherche
-            TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-              style: TextStyle(color: context.fc.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Rechercher T# ou nom...',
-                hintStyle: TextStyle(
-                    color: context.fc.textDisabled, fontSize: 12),
-                prefixIcon: Icon(Icons.search,
-                    color: context.fc.textDisabled, size: 18),
-                filled: true,
-                fillColor: context.fc.surfaceBright,
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: context.fc.surfaceBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: context.fc.surfaceBorder),
-                ),
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ]),
-        ),
-
-        // Liste
+        _header(fc, tools.length, activeToolNum),
+        if (tools.isNotEmpty) _searchField(fc),
         Expanded(
-          key: TutorialKeys.toolTable,
-          child: ListView.builder(
-            itemCount: filtered.length,
-            itemBuilder: (ctx, i) {
-              final entry = filtered[i];
-              final t = entry.value;
-              final origIdx = entry.key;
-              final toolNum =
-                  int.tryParse(t.$1.replaceAll('T', '')) ?? -1;
-              final isActive = toolNum == activeToolNum && activeToolNum > 0;
-
-              return InkWell(
-                onTap: () {
-                  _showDetail(origIdx, activeToolNum, activeWCS);
-                  HapticFeedback.selectionClick();
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? context.fc.success.withValues(alpha: 0.04)
-                        : Colors.transparent,
-                    border: Border(
-                      bottom: BorderSide(color: context.fc.surfaceBorder),
-                      left: BorderSide(
-                          color: isActive
-                              ? context.fc.success
-                              : Colors.transparent,
-                          width: 3),
-                    ),
-                  ),
-                  child: Row(children: [
-                    // Badge T#
-                    Container(
-                      width: 44, height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? context.fc.success.withValues(alpha: 0.15)
-                            : context.fc.surfaceBright,
-                        borderRadius: BorderRadius.circular(6),
-                        border: isActive
-                            ? Border.all(
-                                color: context.fc.success, width: 1.5)
-                            : null,
-                      ),
-                      child: Text(t.$1,
-                          style: TextStyle(
-                              color: isActive
-                                  ? context.fc.success
-                                  : context.fc.textSecondary,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono')),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t.$2,
-                                style: TextStyle(
-                                    color: context.fc.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis),
-                            SizedBox(height: 2),
-                            Text(
-                                'L:${t.$3.toStringAsFixed(2)}  D:${t.$4.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                    color: context.fc.textDisabled,
-                                    fontSize: 9,
-                                    fontFamily: 'JetBrains Mono')),
-                          ]),
-                    ),
-                    // État
-                    Column(children: [
-                      Container(
-                          width: 8, height: 8,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: t.$5,
-                              boxShadow: [BoxShadow(color: t.$5, blurRadius: 4)])),
-                      SizedBox(height: 4),
-                      Icon(Icons.chevron_right,
-                          color: context.fc.textDisabled, size: 16),
-                    ]),
-                  ]),
+          child: tools.isEmpty
+              ? _emptyState(fc)
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final t = filtered[i];
+                    return _ToolCard(
+                      tool: t,
+                      isActive: t.number == activeToolNum && activeToolNum > 0,
+                      onTap: () => _showDetail(t, activeToolNum),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
+
+  Widget _header(ForgeronColorPalette fc, int count, int activeToolNum) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('OUTILS DU PROGRAMME'),
+                  style: TextStyle(
+                      color: fc.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2)),
+              const SizedBox(height: 2),
+              Text(tr('lus dans le G-code chargé'),
+                  style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+            ],
+          ),
+          const Spacer(),
+          if (activeToolNum > 0)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: fc.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: fc.primary.withValues(alpha: 0.5)),
+              ),
+              child: Text(tr('ACTIF : T{}', [activeToolNum]),
+                  style: TextStyle(
+                      color: fc.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900)),
+            )
+          else
+            Text(tr(count > 1 ? '{} outils' : '{} outil', [count]),
+                style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchField(ForgeronColorPalette fc) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: (v) => setState(() => _query = v),
+        style: TextStyle(color: fc.textPrimary, fontSize: 13),
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: Icon(Icons.search, color: fc.textSecondary, size: 18),
+          hintText: tr('Filtrer'),
+          hintStyle: TextStyle(color: fc.textDisabled, fontSize: 13),
+          filled: true,
+          fillColor: fc.background.withValues(alpha: 0.4),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.surfaceBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: fc.surfaceBorder),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState(ForgeronColorPalette fc) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.handyman_outlined, color: fc.textDisabled, size: 48),
+            const SizedBox(height: 14),
+            Text(tr('AUCUN PROGRAMME CHARGÉ'),
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            Text(
+              tr('Les outils sont lus dans le G-code. Charge un programme depuis l\'onglet PROGRAMME pour voir ceux qu\'il utilise.'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ToolDetailSheet extends ConsumerWidget {
-  final (String, String, double, double, Color, String) tool;
-  final ScrollController scrollController;
-  final int activeToolNum;
-  final WidgetRef ref;
+/// Carte d'un outil dans la liste.
+class _ToolCard extends StatelessWidget {
+  const _ToolCard({
+    required this.tool,
+    required this.isActive,
+    required this.onTap,
+  });
 
+  final ProgramTool tool;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isActive ? fc.primary.withValues(alpha: 0.10) : fc.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: isActive ? fc.primary : fc.surfaceBorder,
+              width: isActive ? 1.5 : 1),
+        ),
+        child: Row(
+          children: [
+            ToolPhoto(shape: tool.shape, size: 52),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Text('T${tool.number}',
+                        style: TextStyle(
+                            color: isActive ? fc.primary : fc.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'JetBrains Mono')),
+                    const SizedBox(width: 8),
+                    if (isActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: fc.primary,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(tr('MONTÉ'),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(
+                    tool.description ?? 'Descriptif absent du programme',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tool.description == null
+                          ? fc.textDisabled
+                          : fc.textSecondary,
+                      fontSize: 11,
+                      fontStyle: tool.description == null
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                  ),
+                  if (!tool.isBare) ...[
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      if (tool.diameterMm != null)
+                        _Chip('Ø${_trim(tool.diameterMm!)}', fc.primary),
+                      if (tool.flutes != null)
+                        _Chip('${tool.flutes} tailles', fc.info),
+                      if (tool.material != null)
+                        _Chip(tool.material!, fc.textSecondary),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: fc.textDisabled, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.color);
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+String _trim(double v) =>
+    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+/// Fiche détaillée d'un outil.
+class _ToolDetailSheet extends ConsumerWidget {
   const _ToolDetailSheet({
     required this.tool,
     required this.scrollController,
     required this.activeToolNum,
-    required this.ref,
   });
 
+  final ProgramTool tool;
+  final ScrollController scrollController;
+  final int activeToolNum;
+
   @override
-  Widget build(BuildContext context, WidgetRef r) {
-    final toolNum = int.tryParse(tool.$1.replaceAll('T', '')) ?? -1;
-    final isActive = toolNum == activeToolNum && activeToolNum > 0;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    final isActive = tool.number == activeToolNum && activeToolNum > 0;
 
     return SingleChildScrollView(
       controller: scrollController,
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Drag handle
         Center(
           child: Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color: context.fc.textDisabled,
+              color: fc.textDisabled,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
 
-        // Header outil
         Row(children: [
-          Container(
-            width: 56, height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? context.fc.success.withValues(alpha: 0.15)
-                  : context.fc.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: isActive ? Border.all(color: context.fc.success, width: 2) : null,
-            ),
-            child: Text(tool.$1,
-                style: TextStyle(
-                    color: isActive ? context.fc.success : context.fc.primary,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    fontFamily: 'JetBrains Mono')),
-          ),
-          SizedBox(width: 16),
+          ToolPhoto(shape: tool.shape, size: 88),
+          const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tool.$2,
-                  style: TextStyle(
-                      color: context.fc.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900)),
-              SizedBox(height: 4),
-              Row(children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: tool.$5.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text('● ${tool.$6}',
-                      style: TextStyle(
-                          color: tool.$5, fontSize: 9, fontWeight: FontWeight.w900)),
-                ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('T${tool.number}',
+                    style: TextStyle(
+                        color: fc.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'JetBrains Mono')),
+                Text(tool.shape.label,
+                    style: TextStyle(color: fc.primary, fontSize: 12)),
                 if (isActive) ...[
-                  SizedBox(width: 6),
+                  const SizedBox(height: 6),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: context.fc.success.withValues(alpha: 0.1),
+                      color: fc.primary,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('▶ EN BROCHE',
+                    child: Text(tr('ACTUELLEMENT MONTÉ'),
                         style: TextStyle(
-                            color: context.fc.success,
+                            color: Colors.white,
                             fontSize: 9,
                             fontWeight: FontWeight.w900)),
                   ),
                 ],
-              ]),
+              ],
+            ),
+          ),
+        ]),
+
+        const SizedBox(height: 18),
+
+        // ── Ce que dit le programme ────────────────────────────────────────
+        _sectionTitle(fc, 'CE QUE DIT LE PROGRAMME'),
+        const SizedBox(height: 8),
+        if (tool.description != null)
+          _rawLine(fc, tool.description!)
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: fc.warning.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: fc.warning.withValues(alpha: 0.3)),
+            ),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: fc.warning, size: 15),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tr('Le programme ne décrit pas cet outil : il n\'indique que son numéro. Aucune caractéristique n\'est affichée plutôt que d\'en inventer.'),
+                  style: TextStyle(
+                      color: fc.textSecondary, fontSize: 11, height: 1.4),
+                ),
+              ),
             ]),
           ),
-        ]),
 
-        SizedBox(height: 20),
+        if (tool.operation != null) ...[
+          const SizedBox(height: 8),
+          _row(fc, 'Opération', tool.operation!),
+        ],
 
-        // Actions
-        Row(children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: Icon(Icons.build, size: 14),
-              label: Text('APPELER ${tool.$1}  (M6)'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: context.fc.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14)),
-              onPressed: () {
-                Navigator.pop(context);
-                _callTool(context, toolNum);
-              },
+        if (!tool.isBare) ...[
+          const SizedBox(height: 18),
+          _sectionTitle(fc, 'CARACTÉRISTIQUES'),
+          const SizedBox(height: 8),
+          if (tool.diameterMm != null)
+            _row(fc, 'Diamètre', '${_trim(tool.diameterMm!)} mm'),
+          if (tool.flutes != null) _row(fc, 'Tailles', '${tool.flutes}'),
+          if (tool.cuttingLengthMm != null)
+            _row(fc, 'Longueur de coupe',
+                '${_trim(tool.cuttingLengthMm!)} mm'),
+          if (tool.material != null) _row(fc, 'Matière', tool.material!),
+        ],
+
+        const SizedBox(height: 18),
+        _sectionTitle(fc, 'DANS LE PROGRAMME'),
+        const SizedBox(height: 8),
+        _row(fc, 'Appelé', '${tool.changeLines.length} fois'),
+        // Numérotation du FICHIER SOURCE, pas du programme affiché dans
+        // l'onglet PROGRAMME : celui-ci est la version adaptée, dont les lignes
+        // ont été renumérotées. Le préciser évite un renvoi faux.
+        _row(fc, 'Ligne (fichier d\'origine)', '${tool.firstChangeLine + 1}'),
+
+        if (tool.spindleSpeed != null) ...[
+          const SizedBox(height: 8),
+          // Sans cette mise en garde, l'opérateur croirait que la broche tourne
+          // à la vitesse annoncée. Sur une broche pilotée en tout-ou-rien, le
+          // mot S est reçu puis ignoré par le contrôleur.
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: fc.info.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: fc.info.withValues(alpha: 0.25)),
             ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.speed, color: fc.info, size: 15),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tr('Le programme demande S{}. Cette valeur n\'est appliquée que si la broche est pilotée en vitesse ; en tout-ou-rien elle est ignorée.', [tool.spindleSpeed]),
+                  style: TextStyle(
+                      color: fc.textSecondary, fontSize: 11, height: 1.4),
+                ),
+              ),
+            ]),
           ),
-          SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              icon: Icon(Icons.straighten, size: 14, color: context.fc.secondary),
-              label: Text('G43 H$toolNum',
-                  style: TextStyle(color: context.fc.secondary)),
-              style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: context.fc.secondary),
-                  padding: EdgeInsets.symmetric(vertical: 14)),
-              onPressed: () {
-                ref.read(machineRepositoryProvider).sendGCode('G43 H$toolNum');
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('✓ G43 H$toolNum appliqué'),
-                  backgroundColor: context.fc.secondary,
-                ));
-              },
-            ),
-          ),
-        ]),
+        ],
 
-        SizedBox(height: 20),
-        const _MLabel('PARAMÈTRES PHYSIQUES'),
-        SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _MParamCard('LONGUEUR (L)', tool.$3.toStringAsFixed(3), 'mm')),
-          SizedBox(width: 10),
-          Expanded(child: _MParamCard('DIAMÈTRE (D)', tool.$4.toStringAsFixed(3), 'mm')),
-        ]),
-        SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _MParamCard('RAYON (R)', (tool.$4 / 2).toStringAsFixed(3), 'mm')),
-          SizedBox(width: 10),
-          Expanded(child: _MParamCard('AVANCE (F)', '1200', 'mm/min')),
-        ]),
-
-        SizedBox(height: 20),
-        const _MLabel('DURÉE DE VIE'),
-        SizedBox(height: 10),
-        Container(
-          padding: EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: context.fc.surfaceBright,
-            borderRadius: BorderRadius.circular(8),
+        const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.build_circle_outlined, size: 18),
+            label: Text(tr('APPELER T{}  (M6)', [tool.number])),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: fc.surfaceBright,
+              foregroundColor: fc.primary,
+              padding: const EdgeInsets.all(15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: fc.primary.withValues(alpha: 0.3)),
+              ),
+              textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+            ),
+            onPressed: () => _confirmCall(context, ref),
           ),
-          child: Row(children: [
-            SizedBox(
-              width: 80, height: 80,
-              child: Stack(alignment: Alignment.center, children: [
-                CircularProgressIndicator(
-                    value: 0.68,
-                    strokeWidth: 6,
-                    backgroundColor: context.fc.surface,
-                    color: context.fc.success),
-                Text('68%',
-                    style: TextStyle(
-                        color: context.fc.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'JetBrains Mono')),
-              ]),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.straighten, size: 18),
+            label: Text(tr('G43 H{}  (décalage longueur)', [tool.number])),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: fc.textSecondary,
+              padding: const EdgeInsets.all(15),
+              side: BorderSide(color: fc.surfaceBorder),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
             ),
-            SizedBox(width: 20),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                for (final e in [
-                  ('TEMPS TOTAL', '04h 22min'),
-                  ('PIÈCES USINÉES', '47'),
-                  ('VIE RESTANTE', '~02h 08min'),
-                ])
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Row(children: [
-                      Text(e.$1,
-                          style: TextStyle(
-                              color: context.fc.textDisabled,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900)),
-                      const Spacer(),
-                      Text(e.$2,
-                          style: TextStyle(
-                              color: context.fc.textPrimary,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.bold)),
-                    ]),
-                  ),
-              ]),
-            ),
-          ]),
+            onPressed: () {
+              ref
+                  .read(machineRepositoryProvider)
+                  .sendGCode('G43 H${tool.number}');
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(tr('✓ G43 H{} appliqué', [tool.number])),
+              ));
+            },
+          ),
         ),
       ]),
     );
   }
 
-  void _callTool(BuildContext context, int toolNum) {
+  void _confirmCall(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dctx) => AlertDialog(
         backgroundColor: context.fc.surface,
-        title: Text('Appel outil T$toolNum',
-            style: TextStyle(color: context.fc.textPrimary)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.build, color: context.fc.primary, size: 48),
-          SizedBox(height: 16),
-          Text('Envoyer T$toolNum M6 ?',
-              style: TextStyle(color: context.fc.textSecondary),
-              textAlign: TextAlign.center),
-          SizedBox(height: 8),
-          Text('⚠ Changement d\'outil en cours.',
-              style: TextStyle(color: context.fc.warning, fontSize: 11),
-              textAlign: TextAlign.center),
-        ]),
+        title: Text(tr('Appel outil T{}', [tool.number]),
+            style: TextStyle(color: context.fc.textPrimary, fontSize: 16)),
+        content: Text(
+          tr('Envoyer T{} M6 ?\n\nLa broche s\'arrête et le programme se met en pause pour le changement.', [tool.number]),
+          style: TextStyle(color: context.fc.textSecondary, fontSize: 13),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('ANNULER')),
+            onPressed: () => Navigator.pop(dctx),
+            child: Text(tr('Annuler')),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: context.fc.primary),
             onPressed: () {
+              ref
+                  .read(machineRepositoryProvider)
+                  .sendGCode('T${tool.number} M6');
+              Navigator.pop(dctx);
               Navigator.pop(context);
-              ref.read(machineRepositoryProvider).sendGCode('T$toolNum M6');
-              HapticFeedback.heavyImpact();
             },
-            child: Text('APPELER T$toolNum',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            child: Text(tr('Envoyer')),
           ),
         ],
       ),
     );
   }
-}
 
-class _MParamCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  const _MParamCard(this.label, this.value, this.unit);
+  Widget _sectionTitle(ForgeronColorPalette fc, String label) => Text(
+        label,
+        style: TextStyle(
+            color: fc.textDisabled,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5),
+      );
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.fc.surfaceBright,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 9,
-                fontWeight: FontWeight.w900)),
-        SizedBox(height: 6),
-        FittedBox(
-          child: Text(value,
-              style: TextStyle(
-                  color: context.fc.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono')),
+  Widget _rawLine(ForgeronColorPalette fc, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: fc.terminalBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: fc.surfaceBorder),
         ),
-        Text(unit,
+        child: Text(text,
             style: TextStyle(
-                color: context.fc.textDisabled, fontSize: 9)),
-      ]),
-    );
-  }
+                color: fc.textPrimary,
+                fontSize: 12,
+                fontFamily: 'JetBrains Mono')),
+      );
+
+  Widget _row(ForgeronColorPalette fc, String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+          const Spacer(),
+          Text(value,
+              style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+        ]),
+      );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1266,17 +1446,30 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
           ForgeronColorPalette c) =>
       [
     (Icons.home, 'ORIGINES', '\$H', c.primary),
-    (Icons.gps_fixed, 'ZÉRO PIÈCE', 'G0 X0 Y0 Z0', c.primary),
+    // Nom rectifié : la macro DÉPLACE les axes vers l'origine pièce, elle ne
+    // la définit pas. Sous l'étiquette « ZÉRO PIÈCE », l'opérateur croyait
+    // poser son origine et lançait un rapide 5 axes vers Z0 — dans la pièce.
+    // Pour définir l'origine : onglet PALPAGE → DÉFINIR L'ORIGINE (G10 L20).
+    (Icons.gps_fixed, 'ALLER AU ZÉRO', 'G0 X0 Y0 Z0 A0 C0', c.primary),
     (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', c.secondary),
-    (Icons.rotate_right, 'BROCHE H', 'M3 S12000', c.success),
+    // S1000 = 100 % de la speed_map FluidNC (broche relais tout-ou-rien sur
+    // gpio.21). S12000 annonçait un régime que cette broche ne connaît pas.
+    (Icons.rotate_right, 'BROCHE H', 'M3 S1000', c.success),
     (Icons.stop_circle, 'ARRÊT B.', 'M5', c.error),
     (Icons.water_drop, 'ARROSAGE', 'M8', c.primary),
     (Icons.water_drop_outlined, 'ARROS. OFF', 'M9', c.textDisabled),
     (Icons.air, 'SOUFFLAGE', 'M7', c.secondary),
     (Icons.vertical_align_top, 'Z SÉCU', 'G0 Z50', c.primary),
-    (Icons.local_parking, 'PARKING', 'G0 X0 Y200 Z50', c.textSecondary),
+    // G28 (position prédéfinie de la carte), comme sur desktop. L'ancien
+    // « G0 X0 Y200 Z50 » demandait Y200 alors que la course Y est de 150 mm,
+    // soft_limits activées : la macro finissait systématiquement en alarme.
+    (Icons.local_parking, 'PARKING', 'G28', c.textSecondary),
     (Icons.play_arrow, 'REPRENDRE', '~', c.success),
     (Icons.pause, 'PAUSE', '!', c.warning),
+    // Manquaient au mobile : de quoi couper un programme en cours et sortir
+    // d'alarme sans passer par la saisie clavier.
+    (Icons.cancel_rounded, 'ANNULER', '', c.error),
+    (Icons.lock_open_rounded, 'DÉBLOQUER', '\$X', c.warning),
   ];
 
 
@@ -1339,13 +1532,13 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                     Icon(Icons.terminal,
                         color: context.fc.textDisabled, size: 14),
                     SizedBox(width: 8),
-                    Text('LOG MACHINE',
+                    Text(tr('LOG MACHINE'),
                         style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 10,
                             fontWeight: FontWeight.w900)),
                     const Spacer(),
-                    Text('BUFFER: $rxBuf/128',
+                    Text(tr('BUFFER: {}/128', [rxBuf]),
                         style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 9,
@@ -1424,7 +1617,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                             fontFamily: 'JetBrains Mono'),
                         decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Saisir commande G-code...',
+                          hintText: tr('Saisir commande G-code...'),
                           hintStyle: TextStyle(
                               color: context.fc.textDisabled),
                         ),
@@ -1466,6 +1659,10 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                           ref.read(machineRepositoryProvider).pause();
                         } else if (m.$2 == 'REPRENDRE') {
                           ref.read(machineRepositoryProvider).resume();
+                        } else if (m.$2 == 'ANNULER') {
+                          ref.read(streamingProvider.notifier).stopStream();
+                        } else if (m.$2 == 'DÉBLOQUER') {
+                          ref.read(machineRepositoryProvider).sendRaw('\$X\n');
                         } else {
                           ref.read(machineRepositoryProvider).sendGCode(m.$3);
                         }
@@ -1678,7 +1875,7 @@ class _MobileDiagnosticsScreenState
                   child: Column(children: [
                     Center(
                       child: Column(children: [
-                        Text('LATENCE',
+                        Text(tr('LATENCE'),
                             style: TextStyle(
                                 color: context.fc.textDisabled,
                                 fontSize: 9,
@@ -1696,7 +1893,7 @@ class _MobileDiagnosticsScreenState
                     ),
                     SizedBox(height: 12),
                     Row(children: [
-                      Text('QUALITÉ',
+                      Text(tr('QUALITÉ'),
                           style: TextStyle(
                               color: context.fc.textDisabled, fontSize: 9)),
                       SizedBox(width: 8),
@@ -1769,7 +1966,7 @@ class _MobileDiagnosticsScreenState
                                         color: context.fc.textPrimary,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold)),
-                                Text('Gravité : ${r.$3}',
+                                Text(tr('Gravité : {}', [r.$3]),
                                     style: TextStyle(
                                         color: context.fc.textDisabled,
                                         fontSize: 8)),
@@ -1813,20 +2010,11 @@ class _MobileDiagnosticsScreenState
                   Icon(Icons.code, color: context.fc.warning, size: 16),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text('CONFIG.YAML — FluidNC',
+                    child: Text(tr('CONFIG.YAML — FluidNC'),
                         style: TextStyle(
                             color: context.fc.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: context.fc.surfaceBorder),
-                        minimumSize: const Size(0, 32),
-                        padding: EdgeInsets.symmetric(horizontal: 10)),
-                    child: Text('ÉDITER',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
                   ),
                 ]),
               ),
@@ -1901,7 +2089,7 @@ class _MobileDiagnosticsScreenState
                         child: CircularProgressIndicator(
                             color: context.fc.primary)),
                     error: (e, _) => Center(
-                        child: Text('Erreur: $e',
+                        child: Text(tr('Erreur: {}', [e]),
                             style: TextStyle(color: context.fc.error))),
                   ),
                 ),
@@ -1914,11 +2102,6 @@ class _MobileDiagnosticsScreenState
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                const _MLabel('CINÉMATIQUE DES AXES'),
-                SizedBox(height: 8),
-                const _KinematicsTable(),
-
-                SizedBox(height: 20),
                 const _MLabel('IDENTITÉ FIRMWARE'),
                 SizedBox(height: 8),
                 GlassPanel(
@@ -1964,16 +2147,81 @@ class _MobileDiagnosticsScreenState
                 SizedBox(height: 20),
                 const _MLabel('ACTIONS SYSTÈME'),
                 SizedBox(height: 8),
-                for (final b in [
-                  ('SAUVEGARDE CONFIG', Icons.download, context.fc.primary),
-                  ('RESTAURER CONFIG', Icons.upload, context.fc.warning),
-                  ('FLASH FIRMWARE', Icons.system_update, context.fc.danger),
-                  ('REDÉMARRER ESP32', Icons.power_settings_new, context.fc.error),
+                for (final b in <(String, IconData, Color, VoidCallback)>[
+                  (
+                    'COPIER CONFIG.YAML',
+                    Icons.copy_all_rounded,
+                    context.fc.primary,
+                    () {
+                      final cfg = ref.read(configResultProvider).valueOrNull;
+                      final m = ScaffoldMessenger.of(context);
+                      if (cfg == null) {
+                        m.showSnackBar(SnackBar(
+                            content: Text(tr('Config non chargée.'))));
+                        return;
+                      }
+                      Clipboard.setData(ClipboardData(text: cfg.yaml));
+                      HapticFeedback.mediumImpact();
+                      m.showSnackBar(SnackBar(
+                          content: Text(
+                              tr('config.yaml copié dans le presse-papiers'))));
+                    }
+                  ),
+                  (
+                    'REDÉMARRER ESP32',
+                    Icons.power_settings_new,
+                    context.fc.error,
+                    () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: context.fc.surface,
+                          title: Text(tr('Redémarrer l\'ESP32 ?'),
+                              style: TextStyle(
+                                  color: context.fc.textPrimary, fontSize: 16)),
+                          content: Row(children: [
+                            Icon(Icons.warning_amber_rounded,
+                                size: 18, color: context.fc.warning),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
+                                style: TextStyle(
+                                    color: context.fc.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.4),
+                              ),
+                            ),
+                          ]),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text(tr('Annuler'),
+                                    style: TextStyle(
+                                        color: context.fc.textSecondary))),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: context.fc.error,
+                                  foregroundColor: Colors.white),
+                              child: Text(tr('Redémarrer')),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok == true) {
+                        ref
+                            .read(machineRepositoryProvider)
+                            .sendRaw('\$Bye\n');
+                        HapticFeedback.heavyImpact();
+                      }
+                    }
+                  ),
                 ])
                   Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: () => HapticFeedback.mediumImpact(),
+                      onTap: b.$4,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         height: 52,
@@ -2005,7 +2253,7 @@ class _MobileDiagnosticsScreenState
                   width: double.infinity, height: 52,
                   child: ElevatedButton.icon(
                     icon: Icon(Icons.analytics),
-                    label: Text('DUMP DIAGNOSTIC (JSON)',
+                    label: Text(tr('DUMP DIAGNOSTIC (JSON)'),
                         style: TextStyle(fontWeight: FontWeight.w900)),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: context.fc.primary,
@@ -2013,8 +2261,8 @@ class _MobileDiagnosticsScreenState
                     onPressed: () {
                       final dump = ref.read(loggerServiceProvider.notifier)
                           .generateDiagnosticDump();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Dump généré en console')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(tr('Dump généré en console'))));
                       debugPrint(dump);
                     },
                   ),
@@ -2299,7 +2547,7 @@ class _MaintCard extends StatelessWidget {
         Row(children: [
           Icon(Icons.engineering, color: context.fc.primary, size: 14),
           SizedBox(width: 8),
-          Text('MAINTENANCE PRÉVENTIVE',
+          Text(tr('MAINTENANCE PRÉVENTIVE'),
               style: TextStyle(
                   color: context.fc.primary,
                   fontSize: 10,
@@ -2357,14 +2605,35 @@ class _MaintRow extends StatelessWidget {
 // CINÉMATIQUE ÉDITABLE — lit les vraies valeurs du config.yaml (live ou cache
 // offline) et envoie les modifications à FluidNC via `$/axes/<x>/<param>=<v>`.
 // ─────────────────────────────────────────────────────────────────────────────
-class _KinematicsTable extends ConsumerStatefulWidget {
-  const _KinematicsTable();
+class KinematicsTable extends ConsumerStatefulWidget {
+  const KinematicsTable({super.key});
   @override
-  ConsumerState<_KinematicsTable> createState() => _KinematicsTableState();
+  ConsumerState<KinematicsTable> createState() => KinematicsTableState();
 }
 
-class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
+class KinematicsTableState extends ConsumerState<KinematicsTable> {
   final Map<String, double> _overrides = {};
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Synchro depuis la carte à l'ouverture : l'affichage doit refléter la
+    // mémoire réelle (config.yaml), pas un cache éventuellement périmé. En cas
+    // d'échec réseau, configResultProvider retombe proprement sur le cache.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(configResultProvider);
+    });
+  }
+
+  /// Relit les paramètres depuis la carte et abandonne les édits locaux non
+  /// enregistrés — pour lever toute ambiguïté « affiché vs mémoire de la carte ».
+  void _syncFromBoard() {
+    ref.invalidate(configResultProvider);
+    setState(() => _overrides.clear());
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('Lecture des paramètres depuis la carte…'))));
+  }
 
   Color _axisColor(BuildContext c, String axis) => switch (axis) {
         'X' => c.fc.axisX,
@@ -2425,7 +2694,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('COMMANDE FLUIDNC',
+                  Text(tr('COMMANDE FLUIDNC'),
                       style: TextStyle(
                           color: fc.textDisabled,
                           fontSize: 8,
@@ -2453,7 +2722,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                          'Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.',
+                          tr('Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.'),
                           style: TextStyle(color: fc.warning, fontSize: 9)),
                     ),
                   ]),
@@ -2462,7 +2731,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child:
-                      Text('ANNULER', style: TextStyle(color: fc.textDisabled))),
+                      Text(tr('ANNULER'), style: TextStyle(color: fc.textDisabled))),
               ElevatedButton(
                 onPressed: () {
                   final v = double.tryParse(ctrl.text.trim());
@@ -2470,7 +2739,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: fc.primary, foregroundColor: Colors.white),
-                child: const Text('ENVOYER'),
+                child: Text(tr('ENVOYER')),
               ),
             ],
           );
@@ -2478,15 +2747,17 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
       ),
     );
 
-    if (newVal == null) return;
+    if (newVal == null || !mounted) return;
     final cmd = fluidNcSetCommand(k.axis, f, newVal);
     final messenger = ScaffoldMessenger.of(context);
     final okColor = context.fc.success;
     await ref.read(machineRepositoryProvider).sendGCode(cmd);
     if (!mounted) return;
     setState(() => _overrides['${k.axis}.${f.name}'] = newVal);
-    messenger.showSnackBar(
-        SnackBar(content: Text('Envoyé : $cmd'), backgroundColor: okColor));
+    messenger.showSnackBar(SnackBar(
+        content: Text(tr('Appliqué à chaud (volatil, perdu au reboot). « Enregistrer dans la config » pour la mémoire de la carte.')),
+        backgroundColor: okColor,
+        duration: const Duration(seconds: 4)));
   }
 
   @override
@@ -2504,7 +2775,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
           child: Row(children: [
             SizedBox(
                 width: 30,
-                child: Text('AXE',
+                child: Text(tr('AXE'),
                     style: TextStyle(
                         color: fc.textDisabled,
                         fontSize: 9,
@@ -2547,16 +2818,43 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (cfg?.fromCache == true)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(children: [
-            Icon(Icons.cloud_off, size: 12, color: fc.warning),
-            const SizedBox(width: 6),
-            Text('Hors ligne — valeurs en cache',
-                style: TextStyle(color: fc.warning, fontSize: 9)),
-          ]),
-        ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(children: [
+          Icon(cfg?.fromCache == true ? Icons.cloud_off : Icons.cloud_done,
+              size: 12,
+              color: cfg?.fromCache == true ? fc.warning : fc.success),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              cfg == null
+                  ? 'Lecture depuis la carte…'
+                  : cfg.fromCache
+                      ? 'Hors ligne — valeurs en CACHE (non synchronisées)'
+                      : 'Synchronisé avec la carte (config.yaml)',
+              style: TextStyle(
+                  color: cfg?.fromCache == true ? fc.warning : fc.textDisabled,
+                  fontSize: 9),
+            ),
+          ),
+          InkWell(
+            onTap: _saving ? null : _syncFromBoard,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.sync, size: 13, color: fc.primary),
+                const SizedBox(width: 3),
+                Text(tr('SYNCHRONISER'),
+                    style: TextStyle(
+                        color: fc.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900)),
+              ]),
+            ),
+          ),
+        ]),
+      ),
       Container(
         decoration: BoxDecoration(
           color: fc.surface,
@@ -2569,7 +2867,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Config indisponible : $e',
+              child: Text(tr('Config indisponible : {}', [e]),
                   style: TextStyle(color: fc.textDisabled, fontSize: 11))),
           data: (axes) {
             final hasAny = axes.any((k) =>
@@ -2583,7 +2881,7 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                      'Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).',
+                      tr('Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).'),
                       style: TextStyle(color: fc.textDisabled, fontSize: 11)),
                 )
               else
@@ -2611,8 +2909,149 @@ class _KinematicsTableState extends ConsumerState<_KinematicsTable> {
         ),
       ),
       const SizedBox(height: 6),
-      Text('Touchez une valeur pour la modifier et l\'envoyer à la machine.',
+      Text(tr('Touchez une valeur : appliquée à chaud (volatile). « Enregistrer » l\'écrit dans la mémoire de la carte.'),
+          style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _saving ? null : _saveToConfig,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: fc.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: Icon(
+              _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
+              size: 18),
+          label: Text(
+              _saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS LA CONFIG FLUIDNC',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+          tr('Écrit les valeurs actuelles dans config.yaml (permanent) puis redémarre FluidNC pour les appliquer.'),
           style: TextStyle(color: fc.textDisabled, fontSize: 9)),
     ]);
+  }
+
+  Future<void> _saveToConfig() async {
+    final fc = context.fc;
+    final kin = ref.read(axisKinematicsProvider).valueOrNull;
+    if (kin == null || kin.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Cinématique indisponible (config non chargée).'))));
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: fc.surface,
+        title: Text(tr('Enregistrer dans FluidNC ?'),
+            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Les valeurs de cinématique actuelles seront écrites dans config.yaml (permanent), puis FluidNC redémarrera pour les appliquer.'),
+              style:
+                  TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: fc.warning.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: fc.warning.withValues(alpha: 0.4)),
+              ),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Le redémarrage va couper la liaison : l\'app sera déconnectée quelques secondes, le temps que l\'ESP32 reboote. La reconnexion est automatique.'),
+                    style: TextStyle(
+                        color: fc.warning, fontSize: 11, height: 1.35),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child:
+                  Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: fc.primary, foregroundColor: Colors.white),
+            child: Text(tr('Enregistrer & redémarrer')),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final okColor = context.fc.success;
+    final errColor = context.fc.error;
+    try {
+      // On repart du YAML déjà chargé (évite un GET fragile sur l'AP ESP32).
+      final yaml = ref.read(configResultProvider).valueOrNull?.yaml;
+      if (yaml == null || !yaml.contains('axes:')) {
+        throw Exception('config.yaml non chargé ou sans section axes '
+            '(machine hors ligne ?)');
+      }
+      // Construit {axe: {clé_yaml: valeur}} depuis l'affichage (overrides inclus).
+      final byAxis = <String, Map<String, double>>{};
+      for (final k in kin) {
+        final m = <String, double>{};
+        for (final f in KinematicField.values) {
+          final v = _value(k, f);
+          if (v != null) m[f.yamlKey] = v;
+        }
+        if (m.isNotEmpty) byAxis[k.axis.toLowerCase()] = m;
+      }
+      final patched = patchAxisKinematicsYaml(yaml, byAxis);
+
+      try {
+        await ref.read(configRepositoryProvider).saveConfig(patched);
+        // Les édits locaux sont maintenant dans config.yaml → on abandonne les
+        // overrides pour que l'affichage relise la carte (source de vérité).
+        if (mounted) setState(() => _overrides.clear());
+        ref.invalidate(configResultProvider);
+        ref.read(machineRepositoryProvider).sendRaw('\$Bye\n');
+        messenger.showSnackBar(SnackBar(
+            content: Text(tr('Config enregistrée — redémarrage de FluidNC…')),
+            backgroundColor: okColor));
+      } catch (_) {
+        // Écriture auto impossible (endpoint non supporté) → repli fiable :
+        // on copie la config patchée pour la coller dans la WebUI FluidNC.
+        await Clipboard.setData(ClipboardData(text: patched));
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(
+          content: Text(
+              tr('Écriture auto impossible. Config copiée : colle-la dans la WebUI FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.')),
+          backgroundColor: errColor,
+          duration: const Duration(seconds: 6),
+        ));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(tr('Échec : {}', [e])),
+          backgroundColor: errColor,
+          duration: const Duration(seconds: 5)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

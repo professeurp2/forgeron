@@ -6,6 +6,7 @@ import 'tutorial_controller.dart';
 import 'tutorial_highlight_painter.dart';
 import 'tutorial_tooltip_card.dart';
 import 'tutorial_step.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class TutorialOverlay extends ConsumerStatefulWidget {
   final Widget child;
@@ -113,7 +114,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
                 type: MaterialType.transparency,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                  tooltip: 'Quitter la visite',
+                  tooltip: tr('Quitter la visite'),
                   onPressed: () => ref.read(tutorialProvider.notifier).skip(),
                 ),
               ),

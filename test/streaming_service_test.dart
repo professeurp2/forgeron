@@ -22,6 +22,7 @@ class _FakeConnection extends FluidNCConnection {
 }
 
 void main() {
+  _dwellDetectionTests();
   late _FakeConnection conn;
   late GCodeStreamingService svc;
 
@@ -95,7 +96,8 @@ void main() {
       svc.streamLines(List.filled(3, line),
           onStall: (reason) => stalled.complete(reason));
 
-      final reason = await stalled.future.timeout(const Duration(seconds: 4));
+      // 7 s : le watchdog est à 5 s (marge au-dessus du heartbeat de 2 s).
+      final reason = await stalled.future.timeout(const Duration(seconds: 7));
       expect(reason, contains('acquittement'));
     });
 
@@ -118,12 +120,32 @@ void main() {
 
       // Le watchdog DOIT quand même se déclencher.
       final reason = await stalled.future.timeout(
-        const Duration(seconds: 4),
+        const Duration(seconds: 7),
         onTimeout: () => fail(
             'Watchdog désarmé alors que des octets sont encore en vol : '
             'un blocage machine ne serait jamais détecté.'),
       );
       expect(reason, isNotEmpty);
+    });
+
+    test('notifyActivity() évite le faux blocage sur un mouvement long', () async {
+      // Régression du bug « FLUX SUSPENDU » : sur un mouvement plus long que le
+      // timeout, la carte n'acquitte pas de nouvelle ligne (buffer de
+      // planification plein) mais bouge et répond au heartbeat. Ces signaux de
+      // vie doivent réarmer le watchdog.
+      var stalled = false;
+      svc.streamLines([line, line], onStall: (_) => stalled = true);
+      svc.handleAck(); // il reste 22 octets en vol → watchdog armé
+
+      // La machine donne signe de vie régulièrement (< timeout de 5 s).
+      final ticker = Timer.periodic(
+          const Duration(milliseconds: 1500), (_) => svc.notifyActivity());
+      await Future<void>.delayed(const Duration(seconds: 7));
+      ticker.cancel();
+
+      expect(stalled, isFalse,
+          reason: 'Un mouvement long ne doit pas être pris pour un blocage '
+              'tant que la machine donne signe de vie.');
     });
 
     test('se tait quand tout est acquitté', () async {
@@ -141,6 +163,84 @@ void main() {
       // Passé le délai du watchdog, aucun faux positif ne doit survenir.
       await Future<void>.delayed(const Duration(milliseconds: 2600));
       expect(stalledCalled, isFalse);
+    });
+  });
+
+  group('isStreaming — garde du déverrouillage d\'alarme', () {
+    test('faux avant, vrai pendant, faux après stop()', () {
+      expect(svc.isStreaming, isFalse);
+      svc.streamLines(List.filled(3, line));
+      expect(svc.isStreaming, isTrue);
+      svc.stop();
+      expect(svc.isStreaming, isFalse);
+    });
+
+    test('faux une fois tout acquitté (les ok suivants sont hors-bande)', () {
+      svc.streamLines([line, line]);
+      expect(svc.isStreaming, isTrue);
+      svc.handleAck();
+      svc.handleAck();
+      expect(svc.isStreaming, isFalse);
+    });
+
+    test('après une alarme (stop en plein run), le \$X ne relance rien', () {
+      // Simule un dépassement de limite en plein programme : 5 lignes en vol.
+      svc.streamLines(List.filled(10, line));
+      expect(conn.gcodeLines.length, 5);
+      final sentBefore = conn.gcodeLines.length;
+
+      // Le repository purge le flux à l'entrée en ALARM.
+      svc.stop();
+      expect(svc.isStreaming, isFalse);
+
+      // Même si un 'ok' de \$X arrivait et déclenchait handleAck par erreur, la
+      // file est purgée → aucune ligne ne repart dans la butée (défense en
+      // profondeur, en plus du garde isStreaming côté repository).
+      svc.handleAck();
+      expect(conn.gcodeLines.length, sentBefore,
+          reason: 'aucun renvoi après la purge d\'alarme');
+    });
+  });
+}
+
+/// Détection des temporisations `G4 P…` par le watchdog de streaming.
+///
+/// Pendant un dwell la carte n'acquitte rien et peut se déclarer `Idle` : le
+/// watchdog doit s'accorder cette durée EN PLUS de son timeout, sinon un
+/// `G4 P3` — celui qu'injecte l'adaptateur après chaque changement d'outil —
+/// passe pour un blocage et le programme est suspendu au démarrage.
+void _dwellDetectionTests() {
+  group('watchdog — détection des temporisations', () {
+    test('G4 P3 vaut 3 secondes de sursis', () {
+      expect(GCodeStreamingService.dwellMsOf('G4 P3\n'), 3000);
+    });
+
+    test('la forme G04 et les décimales sont reconnues', () {
+      expect(GCodeStreamingService.dwellMsOf('G04 P0.5\n'), 500);
+      expect(GCodeStreamingService.dwellMsOf('G4 P1.25\n'), 1250);
+    });
+
+    test('un commentaire en fin de ligne ne gêne pas', () {
+      expect(GCodeStreamingService.dwellMsOf('G4 P1 (MONTEE EN REGIME 1/3)\n'),
+          1000);
+    });
+
+    test('le S d\'un M3 S1000 n\'est PAS pris pour une temporisation', () {
+      expect(GCodeStreamingService.dwellMsOf('M3 S1000\n'), 0);
+    });
+
+    test('G43 et G54 ne sont pas confondus avec G4', () {
+      expect(GCodeStreamingService.dwellMsOf('G43 P3\n'), 0);
+      expect(GCodeStreamingService.dwellMsOf('G54 P3\n'), 0);
+    });
+
+    test('une ligne de mouvement ordinaire ne donne aucun sursis', () {
+      expect(GCodeStreamingService.dwellMsOf('G1 X4.000 Y0.000 F500\n'), 0);
+      expect(GCodeStreamingService.dwellMsOf('G3 X0.000 Y7.944 I-7.944 J0\n'), 0);
+    });
+
+    test('une valeur aberrante est plafonnée à 60 s', () {
+      expect(GCodeStreamingService.dwellMsOf('G4 P99999\n'), 60000);
     });
   });
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/application/providers/streaming_provider.dart';
+import 'package:forgeron/application/providers/machine_provider.dart';
+import 'package:forgeron/domain/models/machine_state.dart';
 import 'package:forgeron/presentation/widgets/safety_banner.dart';
 
 /// Tests de la bannière de sécurité — la seule chose qui rend visibles
@@ -9,7 +11,13 @@ import 'package:forgeron/presentation/widgets/safety_banner.dart';
 Future<void> _pump(WidgetTester tester, List<Override> overrides) {
   return tester.pumpWidget(
     ProviderScope(
-      overrides: overrides,
+      overrides: [
+        // Évite d'instancier la vraie connexion machine (Timers heartbeat) —
+        // la bannière lit désormais le statut pour le cas ALARME.
+        machineStateProvider
+            .overrideWith((ref) => Stream.value(const MachineState())),
+        ...overrides,
+      ],
       child: const MaterialApp(
         home: Scaffold(body: SafetyBanner()),
       ),

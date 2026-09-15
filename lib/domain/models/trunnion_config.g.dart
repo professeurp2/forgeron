@@ -19,7 +19,7 @@ _$TrunnionConfigImpl _$$TrunnionConfigImplFromJson(Map<String, dynamic> json) =>
       rMaxForce: (json['rMaxForce'] as num?)?.toDouble() ?? 45.6,
       r3axForce: (json['r3axForce'] as num?)?.toDouble() ?? 180.0,
       pivotToTableOffset:
-          (json['pivotToTableOffset'] as num?)?.toDouble() ?? 45.0,
+          (json['pivotToTableOffset'] as num?)?.toDouble() ?? 8.0,
       singularityZone: (json['singularityZone'] as num?)?.toDouble() ?? 5.0,
       aAxisMaxFeed: (json['aAxisMaxFeed'] as num?)?.toDouble() ?? 3600.0,
       cAxisMaxFeed: (json['cAxisMaxFeed'] as num?)?.toDouble() ?? 7200.0,
