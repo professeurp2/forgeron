@@ -55,8 +55,10 @@ Q3 = qa("3", "O&ugrave; en &ecirc;tes-vous&nbsp;? Avez-vous des clients&nbsp;?",
 
 Q4 = qa("4", "&Ecirc;tes-vous disponible pour Addis-Abeba, du 9 au 20 novembre&nbsp;? "
              "Avez-vous un passeport&nbsp;?", "20 s",
-    ["<b>Oui. Passeport en cours de validit&eacute;, et je suis enti&egrave;rement disponible sur ces dates.</b>",
-     "J'ai d&eacute;j&agrave; commenc&eacute; &agrave; pr&eacute;parer les d&eacute;marches de visa pour l'&Eacute;thiopie."],
+    ["<b>Oui. Passeport en cours de validit&eacute;, et je suis enti&egrave;rement disponible.</b>",
+     "J'ai lu la note de cadrage&nbsp;: <b>arriv&eacute;e le dimanche 8 et d&eacute;part le samedi 21</b>, "
+     "je suis disponible sur toute la p&eacute;riode.",
+     "J'ai d&eacute;j&agrave; commenc&eacute; les d&eacute;marches de visa pour l'&Eacute;thiopie."],
     note="Cette question est <b>quasi certaine</b> &mdash; ils te l'ont d&eacute;j&agrave; pos&eacute;e au premier "
          "entretien. R&eacute;ponds <b>court et net</b>. Aucune h&eacute;sitation, aucun &laquo;&nbsp;je pense "
          "que oui&nbsp;&raquo;. C'est une question &eacute;liminatoire d&eacute;guis&eacute;e en formalit&eacute;.")
@@ -99,8 +101,128 @@ BONUS = """
   </table>
 </section>"""
 
+NONTECH = """
+<div class="pb"></div>
+<section class="blk">
+  <div class="blkhd"><span class="bnum">&#9888;</span><h2>FACE &Agrave; QUELQU'UN QUI NE CONNA&Icirc;T PAS L'USINAGE</h2></div>
+  <div class="frame">
+    <p>La derni&egrave;re fois, ton interlocuteur ne connaissait pas les machines-outils.
+    <b>C'est le cas le plus probable demain aussi</b>, et ce n'est pas un accident&nbsp;: le jury
+    s&eacute;lectionne sur 244 projets dont les th&egrave;mes dominants sont la sant&eacute;,
+    l'&eacute;ducation et l'inclusion financi&egrave;re. Du logiciel, presque partout.</p>
+    <p><b>Quelqu'un qui ne conna&icirc;t pas la CNC ne peut pas juger ta technologie.</b> Il juge donc
+    autre chose&nbsp;: est-ce que tu es clair, est-ce que le mod&egrave;le tient debout, et est-ce qu'on a
+    envie de travailler deux semaines avec toi &agrave; Addis. <b>Si ta frustration se voit, elle
+    r&eacute;pond &laquo;&nbsp;non&nbsp;&raquo; &agrave; la troisi&egrave;me question.</b></p>
+    <p class="hi">Et c'est exactement la comp&eacute;tence que tu dis vouloir acqu&eacute;rir. Si tu ne sais
+    pas faire comprendre Forgeron &agrave; un non-sp&eacute;cialiste en 40 secondes, tu ne sauras le vendre
+    ni &agrave; un acheteur, ni &agrave; un investisseur. <b>L'entretien de demain n'est pas un obstacle
+    &agrave; ta pr&eacute;paration&nbsp;: il en fait partie.</b></p>
+  </div>
+
+  <div class="subhd">Traduis &mdash; ne dis pas &#8594; dis plut&ocirc;t</div>
+  <table class="tr">
+    <tr><th>Ne dis pas</th><th>Dis plut&ocirc;t</th></tr>
+    <tr><td>Une CNC 5 axes</td><td>Une machine qui <b>taille une pi&egrave;ce complexe dans un bloc de m&eacute;tal</b>, &agrave; partir d'un dessin sur ordinateur</td></tr>
+    <tr><td>Cinq axes</td><td>Elle attaque la pi&egrave;ce <b>sous tous les angles</b> &mdash; c'est ce qu'il faut pour les formes courbes. Une machine ordinaire ne fait que des formes simples.</td></tr>
+    <tr><td>Du G-code</td><td>La langue de la machine&nbsp;: <b>des milliers de lignes de coordonn&eacute;es</b> qu'un sp&eacute;cialiste &eacute;crit &agrave; la main</td></tr>
+    <tr><td>Un programmeur CNC</td><td>Un sp&eacute;cialiste <b>qu'on ne trouve presque pas au Mali</b>, et qu'un petit atelier ne peut pas payer</td></tr>
+    <tr><td><i>Function calling</i>, agent LLM</td><td><b>On lui parle</b>, en fran&ccedil;ais ou en anglais, et elle ex&eacute;cute</td></tr>
+    <tr><td>Validation <i>lookahead</i> de trajectoire</td><td>Avant de bouger, elle <b>simule le trajet entier</b>. Si l'outil allait taper, elle refuse.</td></tr>
+    <tr><td>ESP32, FluidNC</td><td>Un <b>microcontr&ocirc;leur &agrave; 8 dollars</b>, au lieu d'une armoire de commande propri&eacute;taire</td></tr>
+    <tr><td>Trunnion, axes A et C</td><td>Un <b>plateau qui fait pivoter la pi&egrave;ce</b> dans deux directions</td></tr>
+  </table>
+
+  <div class="two">
+    <div class="box">
+      <div class="boxhd">La r&egrave;gle des deux temps</div>
+      <p>Apr&egrave;s chaque fait technique, dis <b>ce que &ccedil;a change pour l'argent ou le risque</b>. Jamais le fait tout seul.</p>
+      <p>&laquo;&nbsp;Cinq axes&nbsp;&raquo; &#8594; <i>c'est le travail que les ateliers refusent aujourd'hui.</i></p>
+      <p>&laquo;&nbsp;On lui parle&nbsp;&raquo; &#8594; <i>pas besoin d'embaucher un sp&eacute;cialiste introuvable.</i></p>
+      <p>&laquo;&nbsp;Elle simule avant de bouger&nbsp;&raquo; &#8594; <i>un d&eacute;butant ne peut pas casser une machine &agrave; 10 millions.</i></p>
+    </div>
+    <div class="box">
+      <div class="boxhd">L'image qui marche &agrave; tous les coups</div>
+      <p>Quand tu sens qu'il ne suit pas, <b>n'ajoute pas de d&eacute;tail&nbsp;: enl&egrave;ves-en</b>, et reviens &agrave; un objet concret.</p>
+      <p class="quote">&laquo;&nbsp;Une pi&egrave;ce de moto ou de pompe &agrave; eau qui casse. On ne la trouve pas au Mali. L'atelier d'&agrave; c&ocirc;t&eacute; ne sait pas la refaire. Il faut l'importer, attendre trois semaines, et payer trois fois le prix.&nbsp;&raquo;</p>
+      <p>&Ccedil;a, <b>tout le monde le comprend</b> &mdash; y compris quelqu'un qui n'a jamais vu un atelier.</p>
+    </div>
+  </div>
+
+  <div class="reflex">
+    <b>&#9679; Ne dis jamais &laquo;&nbsp;comme je l'ai expliqu&eacute;&nbsp;&raquo;</b>, ne soupire pas, ne l&egrave;ve pas les yeux.
+    Une question na&iuml;ve est une bonne question &mdash; traite-la comme telle.
+    <b>&#9679; Garde le lien de ta vid&eacute;o ouvert.</b> &laquo;&nbsp;Je peux vous envoyer 30 secondes de la machine
+    en fonctionnement&nbsp;&raquo; &mdash; et tu le colles dans le chat Teams. <b>Vingt secondes d'image valent mieux
+    que deux minutes d'explication</b>, surtout avec quelqu'un qui n'arrive pas &agrave; se repr&eacute;senter l'objet.
+  </div>
+</section>
+
+<section class="blk">
+  <div class="blkhd"><span class="bnum">&#9733;</span><h2>CE QUE DIT LE PROGRAMME D'ADDIS &mdash; &agrave; utiliser demain</h2></div>
+  <table class="tr arg">
+    <tr><td class="an">1</td><td><b>Tu es le probl&egrave;me que le programme veut r&eacute;soudre.</b>
+      Le document s'ouvre l&agrave;-dessus&nbsp;: beaucoup de comp&eacute;tences form&eacute;es, tr&egrave;s peu
+      de produits que quelqu'un paie. Toi&nbsp;: machine construite, agent IA qui tourne, <b>z&eacute;ro client
+      payant</b>. Tu n'es pas un candidat <i>malgr&eacute;</i> cette faiblesse &mdash; tu es leur cas d'usage.</td></tr>
+    <tr><td class="an">2</td><td><b>Ta r&eacute;ponse &agrave; la question&nbsp;6 est align&eacute;e au mot pr&egrave;s.</b>
+      Les fondateurs de la cohorte ont eux-m&ecirc;mes class&eacute; en t&ecirc;te de leurs besoins
+      <b>la validation du mod&egrave;le &eacute;conomique</b> et <b>l'acc&egrave;s aux investisseurs</b>.
+      C'est exactement ce que tu comptais dire. Ne change rien.</td></tr>
+    <tr><td class="an">3</td><td><b>&#128273; Le laboratoire de robotique &mdash; ton argument unique.</b>
+      Le UniPod d'Addis a du calcul GPU et un <b>laboratoire de robotique sur place</b>. Les th&egrave;mes
+      dominants de la cohorte sont la sant&eacute;, l'&eacute;ducation, la finance &mdash; du logiciel.
+      <b>Tu es l'un des tr&egrave;s rares &agrave; avoir du mat&eacute;riel r&eacute;el.</b>
+      <span class="say2">&laquo;&nbsp;Il y a un laboratoire de robotique et du calcul sur place. Je suis
+      l'un des rares de la cohorte &agrave; avoir une machine physique&nbsp;: je peux y optimiser le
+      contr&ocirc;leur, tester la validation de trajectoire et faire tourner mon agent sur du vrai calcul.
+      Cette infrastructure, je ne l'ai pas &agrave; Bamako.&nbsp;&raquo;</span></td></tr>
+    <tr><td class="an">4</td><td><b>Les vraies dates&nbsp;: dimanche 8 &#8594; samedi 21 novembre.</b>
+      L'email disait 9&ndash;20, mais le planning pr&eacute;voit l'arriv&eacute;e le <b>dim. 8</b> et les
+      d&eacute;parts le <b>sam. 21</b> &mdash; <b>14 nuits</b>. Si on te parle logistique, montre que tu as
+      lu le document&nbsp;: &ccedil;a se remarque.</td></tr>
+  </table>
+  <div class="odds"><b>Et garde &ccedil;a en t&ecirc;te sans le dire&nbsp;:</b> la r&eacute;sidence ne prend que
+  <b>les 50 meilleures &eacute;quipes</b> sur les 244 de la cohorte &mdash; environ <b>7&nbsp;% des 670
+  candidats de d&eacute;part</b>. L'entretien de demain, ce n'est pas une formalit&eacute;&nbsp;: c'est un
+  entonnoir d'environ <b>1 sur 5</b>.</div>
+</section>
+"""
+
 CSS = """
 @page { size: A4; margin: 11mm 13mm; }
+.pb { break-before: page; }
+.blk { margin-bottom: 11px; }
+.blkhd { display:flex; align-items:center; gap:8px; border-bottom:1.5px solid #1f2733;
+         padding-bottom:3px; margin-bottom:6px; break-after:avoid; }
+.bnum { flex:0 0 auto; min-width:19px; padding:0 4px; height:19px; background:#c8551a; color:#fff;
+        border-radius:3px; text-align:center; line-height:19px; font-weight:bold; font-size:10pt; }
+.blkhd h2 { font-size:11.5pt; flex:1; }
+.frame { border:1.5px solid #1f2733; border-radius:4px; padding:7px 10px; font-size:8.6pt; }
+.frame p { margin:0 0 5px; }
+.frame p:last-child { margin-bottom:0; }
+.hi { background:#fff3ec; border-left:3px solid #c8551a; padding:5px 8px; border-radius:0 3px 3px 0; }
+.subhd { font-size:9.4pt; font-weight:bold; color:#a8410f; margin:9px 0 3px; }
+.tr { width:100%; border-collapse:collapse; font-size:8.3pt; }
+.tr th { text-align:left; font-size:6.8pt; letter-spacing:.1em; text-transform:uppercase; color:#8894a5;
+         border-bottom:1px solid #c9d0da; padding:3px 7px; }
+.tr td { padding:4px 7px; border-bottom:1px solid #edf0f4; vertical-align:top; }
+.tr td:first-child { width:30%; color:#8894a5; }
+.arg td:first-child { width:auto; }
+.arg tr { break-inside: avoid; }
+.odds { break-inside: avoid; }
+.an { width:20px !important; font-weight:bold; color:#fff !important; background:#1f2733;
+      text-align:center; border-radius:3px; }
+.say2 { display:block; margin-top:4px; background:#fffdfb; border-left:3px solid #c8551a;
+        padding:5px 8px; font-size:9.2pt; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:9px; }
+.box { border:1.5px solid #c8551a; border-radius:4px; padding:6px 9px; background:#fff7f2; font-size:8.2pt; }
+.boxhd { font-weight:bold; color:#a8410f; font-size:8.8pt; margin-bottom:4px; }
+.box p { margin:0 0 4px; }
+.quote { background:#fff; border-radius:3px; padding:5px 7px; font-style:italic; }
+.reflex { margin-top:9px; background:#1f2733; color:#fff; border-radius:4px; padding:7px 10px; font-size:8.3pt; }
+.odds { margin-top:7px; background:#fff3ec; border-left:3px solid #c8551a; padding:6px 9px;
+        font-size:8.4pt; border-radius:0 3px 3px 0; }
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { font-family: "DejaVu Sans","Liberation Sans",sans-serif; color:#1f2733; margin:0;
@@ -172,8 +294,9 @@ DOC = f"""<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
   <b>2.</b> Si une question te surprend, prends deux secondes avant de r&eacute;pondre. Deux secondes de silence
   passent mieux qu'une minute de remplissage.
   <b>3.</b> Si &agrave; la fin ils ne t'ont pas pos&eacute; la question&nbsp;4 (Addis), <b>dis-le toi-m&ecirc;me
-  avant de raccrocher</b>&nbsp;: &laquo;&nbsp;Je confirme que je suis disponible du 9 au 20 novembre.&nbsp;&raquo;
+  avant de raccrocher</b>&nbsp;: &laquo;&nbsp;Je confirme que je suis disponible du 8 au 21 novembre.&nbsp;&raquo;
 </div>
+{NONTECH}
 </body></html>"""
 
 html_path = OUT / "fiche_meti.html"
