@@ -189,9 +189,85 @@ NONTECH = """
 </section>
 """
 
+GRILLE = """
+<div class="pb"></div>
+<section class="blk">
+  <div class="blkhd"><span class="bnum">&#9878;</span><h2>LA GRILLE DE NOTATION &mdash; ce sur quoi tu es jug&eacute;</h2></div>
+  <div class="frame">
+    <p>Le guide de s&eacute;lection donne le bar&egrave;me exact. <b>100 points en tout</b>&nbsp;:
+    <b>50 pour ton effort sur le programme</b> (Wadhwani, MIT, Abaca) &mdash; <b>d&eacute;j&agrave; fig&eacute;,
+    plus rien &agrave; y faire</b> &mdash; et <b>50 pour l'entretien</b>. Autrement dit&nbsp;:
+    <b>la moiti&eacute; de ta note se joue en 10 minutes, cet apr&egrave;s-midi.</b></p>
+  </div>
+  <table class="tr grid">
+    <tr><th>Crit&egrave;re de l'entretien</th><th class="pt">Points</th></tr>
+    <tr><td>Maturit&eacute; de la solution</td><td class="pt">10</td></tr>
+    <tr><td>Qualit&eacute; de la solution</td><td class="pt">10</td></tr>
+    <tr><td>Rigueur technique</td><td class="pt">10</td></tr>
+    <tr class="big"><td><b>Ce que l'&eacute;quipe va apporter au bootcamp</b></td><td class="pt">20</td></tr>
+  </table>
+  <div class="hi2"><b>&#9888; Le plus gros bloc n'est pas technique.</b> Il vaut <b>le double</b> de n'importe
+  quel crit&egrave;re technique, et c'est celui que personne ne pr&eacute;pare. La question
+  &laquo;&nbsp;qu'est-ce que vous apportez au bootcamp&nbsp;?&nbsp;&raquo; n'est pas une politesse de fin
+  d'entretien&nbsp;: <b>c'est 40&nbsp;% de ta note.</b> Si on ne te la pose pas, <b>pose-la toi-m&ecirc;me.</b></div>
+
+  <div class="subhd">Ta r&eacute;ponse aux 20 points &mdash; &agrave; placer absolument</div>
+  <div class="say3">
+    <p>&laquo;&nbsp;Trois choses, concr&egrave;tement.</p>
+    <p><b>D'abord, le METI est le minist&egrave;re japonais de l'industrie &mdash; et le Japon est le
+    leader mondial de la machine-outil et de la robotique industrielle.</b> Dans une cohorte de
+    sant&eacute;, d'&eacute;ducation et de finance, Forgeron est le seul projet dont le secteur est
+    exactement celui o&ugrave; les entreprises japonaises sont les meilleures. Pour vos mises en relation,
+    je suis le partenaire &eacute;vident.</p>
+    <p><b>Ensuite, j'apporte du mat&eacute;riel r&eacute;el.</b> Vous avez un laboratoire de robotique et
+    du calcul &agrave; Addis. Je suis l'un des rares &agrave; avoir une machine physique&nbsp;: je vais
+    r&eacute;ellement m'en servir, et les autres fondateurs verront ce que &ccedil;a veut dire de faire
+    tourner de l'IA sur du mat&eacute;riel.</p>
+    <p><b>Enfin, j'ai une IA critique pour la s&eacute;curit&eacute;, qui tourne d&eacute;j&agrave;.</b>
+    Permissions, validation avant mouvement, arr&ecirc;t d'urgence jamais filtr&eacute;. Votre journ&eacute;e 5
+    porte sur l'IA responsable&nbsp;: moi, je l'ai impl&eacute;ment&eacute;e, sur une machine qui peut blesser
+    quelqu'un. C'est quelque chose que je peux partager avec la cohorte.&nbsp;&raquo;</p>
+  </div>
+  <div class="note2">Et si tu veux une quatri&egrave;me&nbsp;: <b>ton code est ouvert</b>, donc r&eacute;utilisable
+  par les autres &mdash; et <b>une machine qui tourne est la d&eacute;mo la plus m&eacute;morable</b> du
+  Demo Day devant les investisseurs et les partenaires japonais.</div>
+</section>
+
+<section class="blk">
+  <div class="blkhd"><span class="bnum">&#8505;</span><h2>TROIS CORRECTIONS DE DERNI&Egrave;RE MINUTE</h2></div>
+  <table class="tr arg">
+    <tr><td class="an">1</td><td><b>Tes chances sont bien meilleures que ce que je t'avais dit.</b>
+      Seules <b>les 100 meilleures</b> candidatures (sur ~250) sont convoqu&eacute;es en entretien
+      &mdash; <b>tu es d&eacute;j&agrave; pass&eacute; par ce filtre</b>. Et 50 partent &agrave; Addis.
+      Donc &agrave; ce stade&nbsp;: <b>environ 1 sur 2</b>, pas 1 sur 5. Oublie ce que je t'ai dit hier.</td></tr>
+    <tr><td class="an">2</td><td><b>L'entretien dure 10 minutes, pas 15.</b> Le cr&eacute;neau r&eacute;serv&eacute;
+      est de 15 min, mais le guide pr&eacute;voit 10 min d'entretien. <b>Pr&eacute;pare-toi pour 10.</b>
+      La r&egrave;gle des 45 secondes devient encore plus vitale&nbsp;: tu n'auras le temps que de
+      <b>4 ou 5 questions</b>.</td></tr>
+    <tr><td class="an">3</td><td><b>Tu as le droit de venir avec Aboubacar.</b> Le guide l'autorise
+      express&eacute;ment, et n'importe quel membre peut r&eacute;pondre. Avec 20 points sur
+      &laquo;&nbsp;ce que l'&eacute;quipe apporte&nbsp;&raquo;, montrer une vraie &eacute;quipe peut aider.
+      <b>Mais seulement s'il est disponible et bri&eacute;f&eacute;</b> &mdash; un second silencieux et mal
+      pr&eacute;par&eacute; vaut moins qu'un fondateur seul et net. &Agrave; toi de juger ce matin.</td></tr>
+  </table>
+  <div class="odds"><b>Ce qui reste vrai&nbsp;:</b> ta phase&nbsp;1 est fig&eacute;e, tu ne peux plus rien y
+  changer. <b>Le seul levier qu'il te reste, c'est l'entretien &mdash; et il p&egrave;se la moiti&eacute; du
+  total.</b> Tout se joue cet apr&egrave;s-midi, en 10 minutes.</div>
+</section>
+"""
+
 CSS = """
 @page { size: A4; margin: 11mm 13mm; }
 .pb { break-before: page; }
+.grid td { font-size:9.4pt; }
+.grid .pt { text-align:right; font-weight:bold; width:60px; font-family:"DejaVu Sans Mono",monospace; }
+.grid .big td { background:#1f2733; color:#fff; font-size:10.4pt; }
+.hi2 { margin-top:7px; background:#fff3ec; border-left:3px solid #c8551a; padding:6px 10px;
+       font-size:8.6pt; border-radius:0 3px 3px 0; }
+.say3 { border-left:3px solid #c8551a; background:#fffdfb; padding:6px 10px; }
+.say3 p { margin:0 0 5px; font-size:9.4pt; line-height:1.45; }
+.say3 p:last-child { margin-bottom:0; }
+.note2 { font-size:8.2pt; color:#6b5c4e; background:#fdf8f2; border-radius:3px; padding:5px 9px; margin-top:5px; }
 .blk { margin-bottom: 11px; }
 .blkhd { display:flex; align-items:center; gap:8px; border-bottom:1.5px solid #1f2733;
          padding-bottom:3px; margin-bottom:6px; break-after:avoid; }
@@ -297,6 +373,7 @@ DOC = f"""<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
   avant de raccrocher</b>&nbsp;: &laquo;&nbsp;Je confirme que je suis disponible du 8 au 21 novembre.&nbsp;&raquo;
 </div>
 {NONTECH}
+{GRILLE}
 </body></html>"""
 
 html_path = OUT / "fiche_meti.html"
