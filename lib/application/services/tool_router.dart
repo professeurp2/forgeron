@@ -37,8 +37,10 @@ class ToolRouter {
       tools: {
         'get_machine_state', 'get_diagnostics', 'get_activity_log',
         'get_wcs_offsets', 'get_axis_kinematics', 'get_config', 'read_settings',
+        'search_docs',
       },
       keywords: [
+        'doc', 'documentation', 'fiche', 'c est quoi', 'comment', 'm3', 'm5', 'g38',
         'etat', 'statut', 'status', 'state', 'position', 'ou est', 'ou en',
         'alarme', 'alarm', 'temperature', 'diagnostic', 'journal', 'historique',
         'activity', 'log', 'offset', 'decalage', 'course', 'kinematic',

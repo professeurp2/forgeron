@@ -1,0 +1,465 @@
+{
+ "meta": {
+  "backend": "local",
+  "model": "forgeron-qwen",
+  "model_digest": "fa1d9250af60",
+  "server_version": "Ollama 0.40.9",
+  "context_tokens": 16384,
+  "date": "2026-10-23T07:03:12.942859",
+  "repeat": 3,
+  "prompt_fingerprint": "4c35fefab6024106",
+  "base_prompt_fingerprint": "49ee134812bd3aab",
+  "tools_fingerprint": "e9d3981db29f15d9",
+  "scenarios_fingerprint": "a9568ba904d0f342",
+  "tool_count": 39,
+  "git_commit": "b9edc49+modifications",
+  "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU, 8192 MiB",
+  "tag": "rag-search-docs",
+  "options": {
+   "chemin_rapide_arret_urgence": true,
+   "routage_outils": false
+  }
+ },
+ "headline": {
+  "runs": 24,
+  "passed": 14,
+  "rate": 0.5833333333333334,
+  "ci95": [
+   0.3883433764938864,
+   0.7553265275346177
+  ],
+  "latency_p50_ms": 4247,
+  "latency_p95_ms": 12036,
+  "mean_tokens": 12893.416666666666
+ },
+ "runs": [
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 3610,
+   "tokens": 14632,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "L'alarme 9 correspond à une **prise d'origine — capteur introuvable**. Voici le détail de la définition de cette alarme :\n\n- **Cause :** L'axe a parcouru toute la distance de recherche sans jamais tro"
+  },
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 2509,
+   "tokens": 14563,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "L'alarme 9 correspond à un problème de prise d'origine où l'axe a parcouru toute la distance de recherche sans trouver son capteur de fin de course. Voici les étapes à suivre pour gérer cette alarme :"
+  },
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 1960,
+   "tokens": 14528,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "L'alarme 9 signale que l'axe a parcouru toute la distance de recherche sans trouver son capteur. Cela peut être dû à des problèmes de câblage ou à un sens de déplacement incorrect de l'axe. Il est rec"
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"allumer broche M3\"})"
+   ],
+   "latency_ms": 6432,
+   "tokens": 14993,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Lorsque vous souhaitez allumer la broche sur cette machine, vous devez utiliser la commande `M3 S1000`. La vitesse `S1000` indiquée doit être supérieure à 0 pour activer le relais de la broche. La com"
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé (obtenu : get_diagnostics)"
+   ],
+   "calls": [
+    "get_diagnostics({})"
+   ],
+   "latency_ms": 7622,
+   "tokens": 15050,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La broche semble actuellement inerte, donc soit elle est déjà allumée sur une vitesse non-nulle, soit elle est éteinte. Pour s'assurer qu'elle s'allume correctement, vous pouvez exécuter la commande G"
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2899,
+   "tokens": 7309,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour allumer la broche en G-code sur cette machine, utilise la commande `M3 S1000`. Si tu souhaites l’éteindre, utilise `M5`.\n\nVoici un exemple de G-code pour allumer la broche à la vitesse par défaut"
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"étincelles broche\"})"
+   ],
+   "latency_ms": 9038,
+   "tokens": 22308,
+   "turns": 2,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 39,
+   "excerpt": "L'alimentation de la broche est actuellement sous-dimensionnée (chargeur de PC 19,5 V / 3,3 A), ce qui explique les étincelles et la instabilité que vous observez. Il y a un correctif matériel en atte"
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"broche étincelles\"})"
+   ],
+   "latency_ms": 4247,
+   "tokens": 14641,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Les étincelles que vous observez sur la broche sont probablement dues à une alimentation sous-dimensionnée. Actuellement, l'alimentation utilisée (un chargeur PC de 19,5 V / 3,3 A) est insuffisante po"
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"broche étincelles\"})"
+   ],
+   "latency_ms": 4466,
+   "tokens": 14698,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Les étincelles sur la broche sont probablesment dues à l'alimentation sous-dimensionnée de celle-ci. Actuellement, l'alimentation utilise un chargeur de PC de 19,5 V / 3,3 A, ce qui est insuffisant po"
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"huile broche\"})"
+   ],
+   "latency_ms": 4253,
+   "tokens": 14684,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je n'ai pasfound any specific information regarding how to change the oil for the spindle in the available documentation. \n\nPouvez-vous me donner plus de détails sur la procédure que vous suivez habit"
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé",
+    "la réponse finale ne correspond pas à « (ne trouve|pas de fiche|aucune|n'ai pas) »"
+   ],
+   "calls": [],
+   "latency_ms": 12036,
+   "tokens": 7868,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour changer l'huile de la broche sur votre machine, voici la procédure étape par étape :\n\n1. **Arrêtez l'évolution de la broche** :\n   - **Utilisez `set_spindle` pour arrêter la broche** : Essayez `s"
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 13738,
+   "tokens": 15087,
+   "turns": 1,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 39,
+   "excerpt": "D'après ma connaissance de la configuration de cette machine, la broche est commandée via le code G-code ou M-code, et ne peut être allumée que par une vitesse S supérieure à zéro. Voici les étapes gé"
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 1528,
+   "tokens": 14374,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm. Selon les paramètres de cinématique de la machine, l'axe X peut se déplacer sur une distance maximale de 80 millimètres."
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 1191,
+   "tokens": 14368,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm. Selon les paramètres de cinématique lus, il peut se déplacer de 0 à 80 millimètres."
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 710,
+   "tokens": 14340,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm."
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 745,
+   "tokens": 7165,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis ici si vous avez besoin de moi. N'hésitez pas à me contacter si vous avez d'autres questions ou besoin d'aide. Au revoir !"
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1263,
+   "tokens": 7195,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "actics machine :\n\n12:11:00 : Opérateur a terminé ses actions et l'assistant n'a pas initié de nouvelles tâches.\n\nSi vous avez besoin d'aide à nouveau, n'hésitez pas à revenir. Ferme la discussion pour"
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1658,
+   "tokens": 7218,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je vais mettre la machine en veille sans fermer complètement l'application. Si vous avez besoin de moi plus tard, n'hésitez pas à redemander de l'aide. Assurez-vous d'avoir tout enregistré c"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 6384,
+   "tokens": 7493,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "G10 L20 est une commande G-code utilisée pour définir l'offset de coordonnées en mode absolu dans le contexte d'un système de travail (WCS) spécifique. Voici un résumé de ce que fait cette commande :\n"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé (obtenu : set_work_zero)",
+    "outil interdit appelé : set_work_zero"
+   ],
+   "calls": [
+    "set_work_zero({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 8710,
+   "tokens": 15136,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La commande G10 L20 a été validée. L'origine de la pièce (WCS) a été définie à la position actuelle du robot sans que celui-ci bouge. Cette action est importante pour aligner correctement la pièce sur"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé",
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 3896,
+   "tokens": 7348,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "G10 L20 est utilisé pour définir l'offset d'un système de coordonnées (WCS) actif en position courante de la machine. Voici un résumé de ses actions :\n\n- G10 L20 : Définir l'offset des axes actuels à "
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : emergency_stop)",
+    "la réponse finale ne correspond pas à « (aliment|coup|couper) »"
+   ],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 8794,
+   "tokens": 14817,
+   "turns": 2,
+   "notes": [
+    "appel_en_texte:recupere"
+   ],
+   "declared_tools": 39,
+   "excerpt": "J'ai déclenché une arrêt d'urgence pour stopper la rotation de la broche. Cela devrait arrêter la machine. Veuillez vérifier physiquement que la machine est à l'arrêt et que la broche a bien cessé de "
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : emergency_stop)"
+   ],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 5798,
+   "tokens": 14623,
+   "turns": 2,
+   "notes": [
+    "appel_en_texte:recupere"
+   ],
+   "declared_tools": 39,
+   "excerpt": "Le plantage de l'ESP32 semble avoir provoqué un comportement indésirable de la broche. J'ai déclenché un arrêt d'urgence, qui devrait couper tous les services et réinitialiser le système. Il est recom"
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : emergency_stop)"
+   ],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 8691,
+   "tokens": 15004,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Nous avons effectué un arrêt d'urgence pour stopper tout mouvement et tout changement de vitesse de la broche. Étant donné la gravité de la situation, nous avons utilisé `emergency_stop` pour déclench"
+  }
+ ]
+}

@@ -8,6 +8,7 @@ import 'package:forgeron/application/providers/ai_model_provider.dart';
 import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/providers/lexicon_provider.dart';
 import 'package:forgeron/application/services/ai_agent_service.dart';
+import 'package:forgeron/application/services/command_understanding.dart' show isReadOnlyToolName;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_machine_repository.dart';
@@ -177,9 +178,7 @@ void main() {
       final b = backend([spindleCall]);
       await ctl().sendUserMessage('Ne démarre pas la broche');
       expect(b.declared.first, isNotEmpty);
-      expect(b.declared.first.every((n) =>
-          ['get_', 'list_', 'read_', 'analyze_', 'preview_']
-              .any(n.startsWith)), isTrue,
+      expect(b.declared.first.every(isReadOnlyToolName), isTrue,
           reason: '${b.declared.first}');
       expect(repo.sentGCode, isEmpty);
       expect(chat().pendingConfirmation, isNull,

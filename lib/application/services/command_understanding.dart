@@ -98,7 +98,9 @@ bool isSignalRefusal(String refusal) =>
 /// Préfixes des outils de LECTURE : ce qui reste au modèle quand le lexique a
 /// reconnu une question ou une négation. Même règle que Forgeron-Bench
 /// (`BENCH_GATE=1`), qui l'importe d'ici pour mesurer le produit lui-même.
-const kReadOnlyToolPrefixes = ['get_', 'list_', 'read_', 'analyze_', 'preview_'];
+const kReadOnlyToolPrefixes = [
+  'get_', 'list_', 'read_', 'analyze_', 'preview_', 'search_',
+];
 
 bool isReadOnlyToolName(String name) =>
     kReadOnlyToolPrefixes.any(name.startsWith);

@@ -964,7 +964,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
       'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
       'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
-      'relancer.';
+      'relancer. '
+      'QUESTION TECHNIQUE (code d\'alarme, G-code, M-code, réglage, câblage, '
+      'consigne de sécurité) : appelle search_docs AVANT de répondre et cite '
+      'l\'identifiant de la fiche utilisée (ex. alarme-9). Si search_docs ne '
+      'trouve rien, dis-le : n\'invente ni code, ni valeur, ni procédure. Pour '
+      'une VALEUR de cette machine (course, pas/mm), la configuration en '
+      'direct (get_axis_kinematics, get_config) prime sur toute fiche.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont

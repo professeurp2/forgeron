@@ -12,6 +12,7 @@ import '../providers/streaming_provider.dart';
 import '../providers/firmware_provider.dart';
 import '../providers/network_stats_provider.dart';
 import '../providers/config_provider.dart';
+import '../providers/docs_provider.dart';
 import '../providers/machine_params_provider.dart';
 import '../providers/activity_log_provider.dart';
 import '../providers/jog_provider.dart';
@@ -160,6 +161,52 @@ class AiToolCatalog {
       execute: (input, ref) async {
         final s = ref.read(machineRepositoryProvider).currentState;
         return jsonEncode(machineStateMap(s));
+      },
+    ),
+    AiTool(
+      name: 'search_docs',
+      description:
+          'Cherche dans les fiches de connaissance de Forgeron (codes d\'alarme, G-code et M-code, broche, homing, fins de course, câblage de la carte, consignes de sécurité). À appeler AVANT de répondre à une question technique. Retourne au plus 3 fiches avec leur identifiant et leur source : cite l\'identifiant. Si la liste est vide, dis que tu ne trouves pas — n\'invente rien. Les VALEURS de cette machine (courses, pas/mm) viennent de get_axis_kinematics ou get_config, pas des fiches.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'query': {
+            'type': 'string',
+            'description': 'Mots-clés en français, par exemple : alarme 9 ; M3 broche ; homing Z.'
+          },
+        },
+        'required': ['query'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final query = ('${input['query'] ?? ''}').trim();
+        if (query.isEmpty) return 'ERREUR: « query » obligatoire (mots-clés).';
+        final corpus = await ref.read(docCorpusProvider.future);
+        final hits = corpus.index.search(query);
+        if (hits.isEmpty) {
+          return jsonEncode({
+            'resultats': <Object>[],
+            'note': 'Aucune fiche ne correspond. Dis que tu ne trouves pas '
+                'cette information ; n\'invente rien.',
+          });
+        }
+        var budget = 1800; // le contexte d'un modèle local est fini
+        final results = <Map<String, Object>>[];
+        for (final h in hits) {
+          final text = h.chunk.text.length > 600
+              ? '${h.chunk.text.substring(0, 600)}…'
+              : h.chunk.text;
+          if (budget - text.length < 0 && results.isNotEmpty) break;
+          budget -= text.length;
+          results.add({
+            'id': h.chunk.id,
+            'titre': h.chunk.title,
+            'source': h.chunk.source,
+            'statut': h.chunk.status,
+            'extrait': text,
+          });
+        }
+        return jsonEncode({'resultats': results});
       },
     ),
     AiTool(
