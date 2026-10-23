@@ -11,16 +11,20 @@ final themeModeProvider =
     StateNotifierProvider<ThemeModeController, ThemeMode>(
         (ref) => ThemeModeController());
 
+/// Clé de persistance du mode de thème — publique : les fenêtres détachées
+/// (moteur Flutter séparé, sans le moindre Riverpod partagé avec la fenêtre
+/// principale) la relisent directement pour ne pas s'afficher figées en
+/// sombre quel que soit le thème choisi. Voir `AiSubWindowApp`.
+const themeModePrefsKey = 'theme_mode';
+
 class ThemeModeController extends StateNotifier<ThemeMode> {
   ThemeModeController() : super(ThemeMode.system) {
     _load();
   }
 
-  static const _key = 'theme_mode';
-
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_key);
+    final saved = prefs.getString(themeModePrefsKey);
     // Rien d'enregistré = l'utilisateur n'a jamais choisi : on reste sur le
     // système. Sans persistance, un choix explicite serait perdu à chaque
     // lancement et le réglage n'aurait aucun sens.
@@ -34,7 +38,7 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
   Future<void> set(ThemeMode mode) async {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, mode.name);
+    await prefs.setString(themeModePrefsKey, mode.name);
   }
 
   /// Fait tourner système → clair → sombre → système.

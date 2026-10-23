@@ -41,14 +41,75 @@ Depuis [`26bdd95`](.), l'agent peut tourner sur un **modèle local** posé sur l
 réseau de l'atelier (Ollama, llama.cpp, LM Studio). Renseigner l'URL du serveur
 suffit à basculer : plus de clé API, plus de quota, plus de latence cellulaire.
 
-Configuration de référence validée : Qwen2.5-7B quantisé Q4_K_M sur une RTX 3070
-Laptop 8 Go, entièrement en VRAM.
+Configuration de référence, **mesurée sur machine** : Qwen2.5-7B quantisé Q4_K_M
+sur une RTX 3070 Laptop 8 Go — 5,5 Go de VRAM avec le contexte de l'agent,
+100 % sur le GPU (`ollama ps`).
 
-> **Piège documenté.** Le prompt système et les 33 déclarations d'outils pèsent
-> ~3 100 tokens par requête. Ollama plafonne le contexte à 4 096 par défaut,
-> quelle que soit la capacité du modèle : le plancher occuperait 77 % de la
-> fenêtre avant la première question. Il faut un modèle dérivé avec
-> `PARAMETER num_ctx 16384`.
+```
+ollama pull qwen2.5:7b
+ollama create forgeron-qwen -f tool/ollama/Modelfile
+```
+
+Puis, dans Paramètres > Agent IA, adresse du serveur (`localhost` sur le PC qui
+l'héberge) et modèle `forgeron-qwen`.
+
+> **Piège mesuré.** Ollama charge `qwen2.5:7b` avec un contexte de **4 096
+> tokens**, quelle que soit la capacité du modèle (32 768). Le prompt système et
+> les 38 outils de l'agent pèsent à eux seuls **~6 800 tokens** : ils ne tiennent
+> pas. Ollama ne le dit pas — il tronque le prompt par le début, donc le prompt
+> système part en premier. D'où le modèle dérivé (`num_ctx 16384`), et trois
+> garde-fous dans l'application :
+>
+> - le contexte réel est lu sur le serveur (`/api/show`) ; en dessous de 8 192,
+>   l'agent refuse de partir et dit comment corriger, plutôt que de répondre de
+>   travers ;
+> - le budget d'historique en découle (Gemini n'est borné que par son quota,
+>   pas par une fenêtre) ;
+> - `test/local_ai_agent_live_test.dart` rejoue tout cela face au vrai serveur,
+>   avec le vrai catalogue d'outils, et échoue si la charge utile grossit au
+>   point de déborder la part prévue.
+>
+> Qwen2.5-7B ne lit pas les images : celles-ci (pièce jointe, capture caméra)
+> ne lui sont pas transmises, et il en est prévenu pour ne pas les inventer.
+
+> **Limite mesurée : la fiabilité baisse avec l'historique, pas seulement avec
+> la place.** Sur une vraie discussion rejouée 30 fois (« donne-moi l'état de la
+> machine »), le bon appel d'outil sort 28/30 avec 4 000 caractères d'historique,
+> 29/30 avec 12 000, mais **18/30 avec 22 000** — alors que la fenêtre n'est qu'aux
+> deux tiers pleine. Au-delà, le modèle répond de mémoire (il recopie une
+> ancienne position comme si elle était actuelle) ou écrit l'appel en texte.
+> D'où un plafond d'historique de 12 000 caractères
+> (`LocalAiAgentService.reliableHistoryChars`), quelle que soit la fenêtre.
+>
+> Trois parades en plus :
+>
+> - le prompt dit que toute valeur lue plus haut est périmée dès que la machine
+>   bouge ;
+> - un appel écrit en texte (`Ronaldo {"name": "get_machine_state", …}`, la balise
+>   d'ouverture remplacée par un mot parasite) est récupéré, mais seulement si le
+>   nom est un outil réellement déclaré ;
+> - **dérive en chinois** : Qwen2.5 bascule parfois en pleine phrase française
+>   (« …à côté de la讨论中… ») puis finit sa réponse dans cette langue — observé
+>   dans l'application sur une discussion de neuf messages, jamais reproduit hors
+>   de l'application (0 sur ~170 rejeux). Cause non établie, donc garde-fou
+>   déterministe : une réponse contenant des caractères chinois, alors que
+>   l'opérateur n'en a pas écrit, est redemandée jusqu'à deux fois avec un rappel
+>   de langue.
+>
+> Elles n'effacent pas le problème : sur une discussion extrême (40 interrogations
+> d'état d'affilée) le modèle reste autour de **50 %**. Les vrais leviers sont un
+> modèle plus gros, ou moins d'outils déclarés à chaque tour (~4 800 des ~6 800
+> tokens fixes). Tant que c'est le cas, un chiffre lu dans une réponse du modèle
+> local n'est à croire que s'il vient d'un appel d'outil visible dans la
+> discussion.
+>
+> **Le G-code écrit à la main par le modèle local n'est pas fiable.** Observé :
+> sur « fais-moi un G-code de test du perçage de la grille », Qwen2.5-7B écrit
+> 33 lignes avec un cycle `G81` aux paramètres incohérents (profondeur 0,5 mm,
+> « rayon 1 mm »), présentées avec les boutons copier / enregistrer. C'est
+> exactement ce que la règle de la section 2 interdit ; le prompt système
+> l'autorise encore (« tu peux générer un programme G-code »). Pour un modèle de
+> cette taille, le chemin sûr est celui des générateurs déterministes.
 
 ---
 
@@ -105,7 +166,17 @@ zéro machine est à la position des capteurs, un G28 y enverrait l'axe. Il
 **bloque** ce qu'il ne peut pas assumer (RTCP G43.4, compensation de rayon
 machine G41/G42) au lieu de le laisser passer en silence.
 
-**253 tests** couvrent ces comportements.
+**Langues locales** (étude du 23 octobre 2026 :
+[`docs/addis/05-etude-comparative-langues-locales.md`](docs/addis/05-etude-comparative-langues-locales.md)).
+Ce n'est pas encore un garde-fou, c'est une limite mesurée. Le modèle local
+comprend 19 % des ordres de base en bambara pur (83 % en français) et, devant
+une langue qu'il ne lit pas, se raccroche au seul mot qu'il reconnaît :
+« explique le homing » en haoussa ou en yoruba lance le homing. Le prototype
+[`command_lexicon.dart`](lib/core/utils/command_lexicon.dart) — un lexique fermé
+qu'un locuteur peut relire, déterministe, qui refuse plutôt que de deviner — est
+mesuré mais **non branché** ; son lexique bambara est un brouillon non relu.
+
+**656 tests** (suite complète, tous verts au 23 octobre 2026 ; 2 ignorés par conception) couvrent ces comportements.
 
 ---
 

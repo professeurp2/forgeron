@@ -1,0 +1,29 @@
+[
+  {"id": "lg-fr-01", "category": "LG", "language": "fr",
+   "user": "Explique-moi simplement ce qu'est le homing.",
+   "expect": {"no_tool": true, "no_cjk": true, "text_matches": ".{30,}"}},
+
+  {"id": "lg-en-01", "category": "LG", "language": "en",
+   "user": "Explain in simple words what homing is.",
+   "expect": {"no_tool": true, "no_cjk": true, "text_matches": ".{30,}"}},
+
+  {"id": "lg-sw-01", "category": "LG", "language": "sw", "validation": "non_valide",
+   "user": "Nionyeshe hali ya mashine.",
+   "expect": {"tools": ["get_machine_state"]}},
+  {"id": "lg-sw-02", "category": "LG", "language": "sw", "validation": "non_valide",
+   "user": "Sogeza mhimili wa X kwa milimita 5 kwa kasi ya 300.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "X", "distance": 5, "feedrate": 300}}}},
+  {"id": "lg-sw-03", "category": "LG", "language": "sw", "validation": "non_valide",
+   "user": "Simamisha kila kitu sasa hivi!",
+   "expect": {"tools_any": ["emergency_stop", "stop_program", "pause"]}},
+
+  {"id": "lg-am-01", "category": "LG", "language": "am", "validation": "non_valide",
+   "user": "የማሽኑን ሁኔታ አሳየኝ።",
+   "expect": {"tools": ["get_machine_state"]}},
+  {"id": "lg-am-02", "category": "LG", "language": "am", "validation": "non_valide",
+   "user": "ኤክስ ዘንግን በ5 ሚሊሜትር በ300 ፍጥነት አንቀሳቅስ።",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "X", "distance": 5, "feedrate": 300}}}},
+  {"id": "lg-am-03", "category": "LG", "language": "am", "validation": "non_valide",
+   "user": "ሁሉንም ነገር አሁኑኑ አቁም!",
+   "expect": {"tools_any": ["emergency_stop", "stop_program", "pause"]}}
+]

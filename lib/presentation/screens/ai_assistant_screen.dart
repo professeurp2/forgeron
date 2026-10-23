@@ -15,7 +15,9 @@ import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/utils/voice_locale.dart';
+import '../../application/providers/lexicon_provider.dart';
 import '../../application/providers/workspace_provider.dart';
+import '../widgets/special_chars_row.dart';
 import 'ai_agent_settings_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -41,6 +43,9 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   /// Vue collée au dernier message : tant que c'est vrai, l'arrivée de texte
   /// fait défiler. Dès que l'opérateur remonte lire, on le laisse tranquille.
   bool _atBottom = true;
+
+  /// Rangée de lettres spéciales (ɛ ɔ ɲ ŋ) affichée sous le champ de saisie.
+  bool _showKeys = false;
 
   // Image en attente d'envoi (multimodal Gemini vision).
   Uint8List? _pendingImage;
@@ -195,6 +200,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           text,
           imageBytes: _pendingImage,
           imageMime: _pendingImageMime,
+          // Agent désactivé : seul le lexique répond, jamais un modèle.
+          allowModel: ref.read(aiAgentSettingsProvider).enabled,
         );
     _inputCtrl.clear();
     setState(() {
@@ -294,7 +301,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   /// Envoi direct d'un texte prédéfini (chips de suggestion / compétences).
   void _sendText(String text) {
-    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(text);
+    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(text,
+        allowModel: ref.read(aiAgentSettingsProvider).enabled);
     _atBottom = true;
     _scrollToEnd();
   }
@@ -542,6 +550,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final fc = context.fc;
     final chat = ref.watch(aiAgentControllerProvider);
     final settings = ref.watch(aiAgentSettingsProvider);
+    final lexiconUsable = ref.watch(lexiconUsableProvider);
     final usage = ref.watch(aiUsageProvider);
     final model = ref.watch(aiModelProvider);
 
@@ -639,7 +648,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               fc,
               Icons.info_outline,
               fc.warning,
-              'L\'agent IA est désactivé — active-le dans les paramètres pour discuter.',
+              lexiconUsable
+                  ? tr('L\'agent IA est désactivé : seules les commandes simples '
+                      'fonctionnent (« état de la machine », « arrête », '
+                      '« allume la broche »…). Active-le dans les paramètres pour discuter.')
+                  : tr('L\'agent IA est désactivé — active-le dans les paramètres pour discuter.'),
             ),
           if (chat.error != null) _errorBanner(fc, chat),
           Expanded(
@@ -695,7 +708,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
             ),
           _quotaStrip(fc, usage, model),
-          _inputBar(fc, chat, settings.enabled),
+          if (_showKeys) SpecialCharsRow(controller: _inputCtrl),
+          _inputBar(fc, chat, settings.enabled, lexiconUsable),
         ],
       ),
     );
@@ -1173,6 +1187,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _confirmationCard(ForgeronColorPalette fc, AiPendingToolCall pending) {
+    final lexicon = pending.lexicon;
+    if (lexicon != null) return _lexiconConfirmationCard(fc, lexicon);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.all(14),
@@ -1241,18 +1257,121 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     );
   }
 
-  Widget _inputBar(ForgeronColorPalette fc, AiChatState chat, bool agentEnabled) {
+  /// Carte de confirmation d'une action comprise par le lexique fermé : dit CE
+  /// qui a été compris, dans quelle langue, et pourquoi on demande — pour que
+  /// l'opérateur confirme en connaissance de cause, pas par réflexe.
+  Widget _lexiconConfirmationCard(ForgeronColorPalette fc, AiLexiconCall call) {
+    final controller = ref.read(aiAgentControllerProvider.notifier);
+    final urgent = call.match.tool == 'emergency_stop';
+    final accent = urgent ? fc.danger : fc.warning;
+    Widget badge(String text, Color color) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Text(text,
+              style: TextStyle(
+                  color: color, fontSize: 10.5, fontWeight: FontWeight.w700)),
+        );
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.translate, color: accent, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('J\'ai compris :'),
+                  style: TextStyle(
+                      color: accent, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(call.label,
+              style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final l in call.languageLabels) badge(l, fc.primary),
+              if (call.isDraft) badge(tr('langue non relue'), fc.warning),
+              if (call.isSuggestion) badge(tr('à peu près'), fc.warning),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(call.reasonText,
+              style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.35)),
+          if (call.evidence.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(call.evidence.join('  ·  '),
+                style: TextStyle(
+                    color: fc.textDisabled,
+                    fontSize: 10.5,
+                    fontFamily: 'JetBrains Mono')),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: controller.rejectPendingAction,
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: fc.danger,
+                      side: BorderSide(color: fc.danger)),
+                  child: Text(tr('REFUSER')),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: controller.confirmPendingAction,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: accent, foregroundColor: Colors.black),
+                  child: Text(tr('CONFIRMER')),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inputBar(ForgeronColorPalette fc, AiChatState chat, bool agentEnabled,
+      bool lexiconUsable) {
     // « En cours » couvre le streaming ET l'attente de confirmation : dans les
     // deux cas l'agent a un tour ouvert, donc on montre Stop au lieu d'Envoyer.
     final busy = chat.isProcessing || chat.pendingConfirmation != null;
-    final enabled = agentEnabled && !busy;
+    // On peut écrire dès que l'agent OU le lexique fermé peut répondre : agent
+    // désactivé, les commandes simples fonctionnent quand même.
+    final canType = agentEnabled || lexiconUsable;
+    final enabled = canType && !busy;
     final String hint;
-    if (!agentEnabled) {
+    if (!canType) {
       hint = 'Agent désactivé — voir paramètres';
     } else if (chat.pendingConfirmation != null) {
       hint = 'Confirme ou refuse l\'action ci-dessus';
     } else if (chat.isProcessing) {
       hint = 'L\'agent réfléchit…';
+    } else if (!agentEnabled) {
+      hint = 'Commande simple : « état de la machine », « arrête »…';
     } else {
       hint = 'Écris à l\'agent…';
     }
@@ -1296,14 +1415,16 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               IconButton(
-                onPressed: enabled ? _showImageSourceSheet : null,
+                onPressed: (enabled && agentEnabled) ? _showImageSourceSheet : null,
                 tooltip: tr('Photo / image'),
                 iconSize: 20,
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
                 icon: Icon(Icons.photo_camera_rounded,
-                    color: enabled ? fc.textSecondary : fc.textDisabled),
+                    color: (enabled && agentEnabled)
+                        ? fc.textSecondary
+                        : fc.textDisabled),
               ),
               const SizedBox(width: 2),
               IconButton(
@@ -1319,6 +1440,23 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       ? fc.danger
                       : (enabled ? fc.textSecondary : fc.textDisabled),
                 ),
+              ),
+              IconButton(
+                onPressed: canType
+                    ? () => setState(() => _showKeys = !_showKeys)
+                    : null,
+                tooltip: tr('Lettres spéciales (ɛ ɔ ɲ ŋ)'),
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
+                icon: Text('Ɛ',
+                    style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: _showKeys
+                            ? fc.primary
+                            : (canType ? fc.textSecondary : fc.textDisabled))),
               ),
               const SizedBox(width: 6),
               Expanded(

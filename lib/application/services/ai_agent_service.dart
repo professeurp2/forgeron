@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../core/net/cellular_http_client.dart';
+import '../../core/utils/gemini_context.dart' show kMaxContextChars;
 
 /// Contrat commun aux fournisseurs de l'agent : Gemini distant
 /// ([AiAgentService]) ou modèle local sur le réseau de l'atelier
@@ -17,6 +18,28 @@ abstract class AiBackend {
   /// Identifiant du modèle actif. Sert au cache de service : le fournisseur
   /// est recréé quand cette valeur change.
   String get model;
+
+  /// Taille maximale de l'historique, en caractères de JSON, que l'agent
+  /// envoie à chaque tour (voir `compactGeminiContents`).
+  ///
+  /// Dépend du fournisseur parce que la contrainte n'est pas la même : Gemini
+  /// a une fenêtre immense et c'est le QUOTA gratuit qui borne l'historique ;
+  /// un modèle local a une fenêtre finie, que dépasse en silence — par le
+  /// début, donc en perdant le prompt système — tout ce qui ne tient pas.
+  int get historyBudgetChars;
+
+  /// Vrai si les appels de ce fournisseur doivent passer par le réseau mobile
+  /// (4G/5G). Seul Gemini : le WiFi de l'ESP32 n'a pas d'Internet. Un modèle
+  /// local est joint par le WiFi de l'atelier — lui demander la 4G
+  /// contredirait tout l'intérêt du mode hors-ligne.
+  bool get usesCellular;
+
+  /// Le fournisseur répond-il en ce moment ? Sert à relancer tout seul un tour
+  /// resté en attente.
+  Future<bool> isReachable();
+
+  /// Ce qu'on dit à l'opérateur quand le fournisseur ne répond pas.
+  String get unreachableMessage;
 
   Future<AiApiResponse> sendMessages({
     required List<Map<String, dynamic>> contents,
@@ -57,6 +80,20 @@ class AiAgentService implements AiBackend {
     this.model = 'gemini-flash-lite-latest',
     http.Client? client,
   }) : _client = client ?? http.Client();
+
+  @override
+  int get historyBudgetChars => kMaxContextChars;
+
+  @override
+  bool get usesCellular => true;
+
+  @override
+  Future<bool> isReachable() => CellularNetwork.isAvailable();
+
+  @override
+  String get unreachableMessage =>
+      'Connexion perdue avec le service IA. L\'envoi reprendra dès que le '
+      'réseau (4G/5G) sera de nouveau disponible.';
 
   Uri get _endpoint => Uri.parse(
       'https://generativelanguage.googleapis.com/$_apiVersion/models/$model:generateContent');
@@ -257,10 +294,18 @@ class AiApiResponse {
   /// Tokens totaux de l'échange (`usageMetadata.totalTokenCount`), 0 si absent.
   final int totalTokens;
 
+  /// Ce que les garde-fous de l'adaptateur ont dû corriger pour produire cette
+  /// réponse (`langue:nouvelle_tentative`, `appel_en_texte:recupere`…). Vide
+  /// pour une réponse livrée telle quelle. Sert à MESURER ce que chaque
+  /// garde-fou rattrape : un garde-fou qu'on ne compte pas, on ne sait pas
+  /// s'il sert.
+  final List<String> notes;
+
   const AiApiResponse({
     required this.parts,
     required this.finishReason,
     this.totalTokens = 0,
+    this.notes = const [],
   });
 
   factory AiApiResponse.fromJson(Map<String, dynamic> json) {

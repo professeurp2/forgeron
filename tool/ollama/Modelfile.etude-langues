@@ -1,0 +1,30 @@
+# Modèles de l'étude des langues locales (docs/addis/05-etude-comparative-langues-locales.md).
+#
+# Ces fichiers reprennent les réglages de `Modelfile` (forgeron-qwen) — contexte
+# assez grand pour le prompt de l'agent, température basse — appliqués à d'autres
+# poids, pour que la comparaison ne mesure que le modèle. (Un Modelfile ne décrit
+# qu'un modèle : ce fichier-ci est la notice.)
+#
+#   ollama create forgeron-qwen3-4b -f tool/ollama/Modelfile.etude-langues-qwen3-4b
+#       qwen3:4b tel quel, en RÉFLEXION native (le seul mode qu'il ait).
+#   python -I tool/ollama/make_nothink_modelfile.py qwen3:8b tool/ollama/Modelfile.etude-langues-qwen3-8b-nothink 8192
+#   ollama create forgeron-qwen3-8b-nothink -f tool/ollama/Modelfile.etude-langues-qwen3-8b-nothink
+#       qwen3:8b SANS réflexion (gabarit qui referme la réflexion d'avance).
+#
+# 8 192 de contexte pour le 8B et non 12 288 ou 16 384 : le cache de contexte de
+# Qwen3-8B pèse ~147 Ko par token ; à 12 288, `ollama ps` montre 7,2 Go dont 13 %
+# sur le processeur (mesuré), à 8 192 6,2 Go, 100 % GPU. Le prompt de l'agent pèse
+# ~7 000 tokens par tour : 8 192 suffit aux scénarios à un tour de l'étude, pas
+# aux enchaînements longs du banc complet.
+#
+# Pourquoi un gabarit particulier : Qwen3 « réfléchit » avant de répondre
+# (≈ 1 000 tokens, 12 à 15 s par requête sur une RTX 3070 Laptop, mesuré), ce qui
+# est incompatible avec un opérateur devant sa machine. `/no_think` (message ou
+# prompt système), `think:false` et `reasoning_effort:none` sur l'API /v1
+# d'Ollama 0.34.2 n'y changent RIEN (mesuré). Seule voie : un gabarit qui referme
+# la réflexion d'avance — qui échoue pour qwen3:4b (build « réflexion » sans mode
+# court : voir Modelfile.etude-langues-qwen3-4b-nothink) et qui marche pour
+# qwen3:8b (20 tokens de réponse au lieu de ~1 000, mesuré).
+#
+# gemma3:4b n'a pas été retenu : son gabarit (358 octets) ne déclare aucun outil,
+# Ollama refuserait les outils, le banc ne peut pas le mesurer.

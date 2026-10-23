@@ -1,21 +1,37 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../domain/models/machine_state.dart' show MachineStatus;
 import '../services/ai_agent_service.dart';
+import '../services/command_understanding.dart';
+import '../services/live_state_block.dart';
+import '../services/ai_turn_journal.dart';
 import '../services/local_ai_agent_service.dart';
 import '../services/ai_agent_tools.dart';
+import '../services/tool_router.dart';
 import '../../core/net/cellular_http_client.dart';
+import '../../core/utils/command_lexicon.dart';
+import '../../core/utils/emergency_intent.dart';
+import '../../core/utils/fingerprint.dart';
 import '../../core/utils/gemini_context.dart';
 import 'ai_agent_settings_provider.dart';
+import 'di_providers.dart';
 import 'ai_inbox_provider.dart';
 import 'ai_usage_provider.dart';
 import 'ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
+import '../../core/i18n/app_localizations.dart';
 import 'activity_log_provider.dart';
 import 'ai_artifacts_provider.dart';
+import 'lexicon_provider.dart';
 import 'machine_params_provider.dart';
+
+// Porte d'entrée « lexique fermé » du contrôleur : voir ai_lexicon_front.dart.
+part 'ai_lexicon_front.dart';
 
 class AiChatMessage {
   final String role; // 'user' | 'assistant' | 'tool'
@@ -68,7 +84,7 @@ class AiChatMessage {
   factory AiChatMessage.toolStarted(String name, Map<String, dynamic> args) =>
       AiChatMessage(
         role: 'tool',
-        text: '\$name → …',
+        text: '$name → …',
         timestamp: DateTime.now(),
         toolName: name,
         toolArgs: args,
@@ -79,7 +95,7 @@ class AiChatMessage {
   AiChatMessage toolFinished(String result, {Uint8List? image}) =>
       AiChatMessage(
         role: 'tool',
-        text: '\${toolName ?? role} → \$result',
+        text: '${toolName ?? role} → $result',
         timestamp: timestamp,
         imageBytes: image,
         toolName: toolName,
@@ -117,7 +133,7 @@ class AiChatMessage {
       'ts': timestamp.millisecondsSinceEpoch,
       if (interrupted) 'cut': true,
       if (toolName != null) 'tool': toolName,
-      if (encodedArgs != null) 'args': encodedArgs,
+      'args': ?encodedArgs,
       if (toolDuration != null) 'ms': toolDuration!.inMilliseconds,
     };
   }
@@ -223,11 +239,54 @@ class AiPendingToolCall {
   final String toolName;
   final Map<String, dynamic> input;
 
+  /// Renseigné quand l'action vient du **lexique fermé** et non du modèle : la
+  /// carte de confirmation montre alors ce qui a été compris, dans quelle
+  /// langue et pourquoi on demande.
+  final AiLexiconCall? lexicon;
+
   const AiPendingToolCall({
     required this.id,
     required this.toolName,
     required this.input,
+    this.lexicon,
   });
+}
+
+/// Ce que le lexique a compris, gardé avec l'action en attente.
+class AiLexiconCall {
+  const AiLexiconCall({
+    required this.match,
+    required this.originalText,
+    required this.reasons,
+    required this.label,
+    required this.reasonText,
+  });
+
+  final LexiconMatch match;
+
+  /// Le message tel que l'opérateur l'a écrit (pour l'historique protocole).
+  final String originalText;
+
+  final Set<ConfirmReason> reasons;
+
+  /// Action en une phrase ordinaire (« Allumer la broche »).
+  final String label;
+
+  /// Pourquoi on demande, en une ligne sans jargon.
+  final String reasonText;
+
+  /// Ce qui a été reconnu, mot à mot (« broche→objet:broche »).
+  List<String> get evidence => match.evidence;
+
+  /// Langues des mots reconnus, déjà libellées (« bambara », « français »).
+  List<String> get languageLabels =>
+      match.languages.map(lexiconLanguageLabel).toList();
+
+  /// Au moins un mot vient d'une langue pas encore relue par un locuteur.
+  bool get isDraft => !match.trusted;
+
+  /// Appariement souple : une suggestion.
+  bool get isSuggestion => match.relaxed;
 }
 
 class AiChatState {
@@ -355,6 +414,128 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// Action à rejouer après un échec réseau (renvoi manuel ou automatique).
   Future<void> Function()? _retry;
   Timer? _autoRetryTimer;
+
+  /// Ce qui dit que la reprise automatique peut partir : le réseau mobile pour
+  /// Gemini (défaut), la réponse du serveur pour un modèle local.
+  Future<bool> Function()? _retryProbe;
+
+  // ── Surveillance et routage d'outils ──────────────────────────────────────
+
+  /// Routage d'outils (n'exposer au modèle que les outils utiles au message) :
+  /// **désactivé tant que Forgeron-Bench n'a pas montré qu'il ne dégrade ni la
+  /// réussite ni la sécurité** (`BENCH_ROUTING=1`, voir `tool/eval/README.md`).
+  /// Ne concerne jamais Gemini, dont la fenêtre et le quota ne le justifient
+  /// pas.
+  static const _useToolRouting = false;
+
+  AiTurnJournal? _journal;
+  Set<String> _recentToolGroups = const {};
+  int _declaredToolCount = 0;
+
+  // ── Porte d'entrée « lexique fermé » (voir ai_lexicon_front.dart) ─────────
+
+  /// Le lexique a reconnu une QUESTION ou une NÉGATION dans le message en
+  /// cours : le modèle n'a, pour ce tour, que les outils de lecture. Remis à
+  /// faux à chaque nouveau message de l'opérateur.
+  bool _readOnlyTurn = false;
+
+  /// Ce que le lexique a décidé pour le tour en cours (`lexique:refus:…`,
+  /// `lexique:lecture_seule:question`) — recopié dans la ligne du journal.
+  String? _frontTag;
+
+  /// Empreintes du prompt fixe et des outils, calculées une fois : elles
+  /// disent, dans chaque ligne du journal, QUELLE version de l'IA a répondu.
+  static final String _releaseTag = () {
+    final prompt = fingerprint(baseSystemPrompt);
+    final tools = fingerprint(jsonEncode(AiToolCatalog.tools
+        .map((t) => t.toGeminiFunctionDeclaration())
+        .toList()));
+    return '${prompt.substring(0, 8)}/${tools.substring(0, 8)}';
+  }();
+
+  Future<AiTurnJournal?> _journalOrNull() async {
+    if (_journal != null) return _journal;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      return _journal = AiTurnJournal(dir.path);
+    } catch (_) {
+      return null; // pas de journal ≠ pas d'agent
+    }
+  }
+
+  /// Écrit une ligne dans le journal, sans jamais attendre ni échouer.
+  void _logTurn(
+    AiBackend service,
+    AiTurnOutcome outcome,
+    Stopwatch clock, {
+    AiApiResponse? response,
+    String? errorKind,
+  }) {
+    unawaited(() async {
+      final journal = await _journalOrNull();
+      if (journal == null) return;
+      await journal.record(AiTurnRecord(
+        time: DateTime.now(),
+        backend: service.usesCellular ? 'gemini' : 'local',
+        model: service.model,
+        outcome: outcome,
+        latencyMs: clock.elapsedMilliseconds,
+        tokens: response?.totalTokens ?? 0,
+        tools: [
+          for (final c in response?.functionCalls ?? const <Map<String, dynamic>>[])
+            '${(c['functionCall'] as Map)['name']}',
+        ],
+        notes: response?.notes ?? const [],
+        declaredTools: _declaredToolCount,
+        release: _releaseTag,
+        errorKind: errorKind,
+        front: _frontTag,
+        lexicon: _lexiconStamp,
+      ));
+    }());
+  }
+
+  /// Texte du dernier message de l'opérateur (celui qui pilote le routage).
+  String _lastUserText() {
+    for (final c in _contents.reversed) {
+      if (c['role'] != 'user') continue;
+      for (final p in (c['parts'] as List? ?? const []).whereType<Map>()) {
+        final t = p['text'];
+        if (t is String && t.isNotEmpty) return t;
+      }
+    }
+    return '';
+  }
+
+  /// Outils déclarés au modèle pour ce tour : tous, ou — modèle local avec le
+  /// routage activé — ceux que [ToolRouter] retient.
+  List<Map<String, dynamic>> _declarationsFor(AiBackend service) {
+    final all = AiToolCatalog.tools
+        .map((t) => t.toGeminiFunctionDeclaration())
+        .toList();
+    // Question ou négation reconnue par le lexique : lecture seule, quel que
+    // soit le fournisseur (c'est une règle de sécurité, pas d'économie de jetons).
+    if (_readOnlyTurn) {
+      final readOnly =
+          all.where((d) => isReadOnlyToolName('${d['name']}')).toList();
+      _declaredToolCount = readOnly.length;
+      return readOnly;
+    }
+    if (!_useToolRouting || service.usesCellular) {
+      _declaredToolCount = all.length;
+      return all;
+    }
+    final routing = const ToolRouter().route(
+      text: _lastUserText(),
+      allTools: all.map((d) => d['name'] as String),
+      recentGroups: _recentToolGroups,
+    );
+    _recentToolGroups = routing.groups;
+    final routed =
+        all.where((d) => routing.tools.contains(d['name'])).toList();
+    _declaredToolCount = routed.length;
+    return routed;
+  }
 
   // Persistance locale des conversations : l'historique protocole Gemini
   // (_contents) ET l'affichage (messages) survivent au redémarrage de l'app,
@@ -587,6 +768,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _contents.clear();
     _pendingToolQueue = [];
     _collectedResults = [];
+    _readOnlyTurn = false;
     _retry = null;
     _autoRetryTimer?.cancel();
     _conversations.insert(
@@ -621,6 +803,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _pruneEmpty();
       _pendingToolQueue = [];
       _collectedResults = [];
+      _readOnlyTurn = false;
       _retry = null;
       _autoRetryTimer?.cancel();
       state = AiChatState(
@@ -712,7 +895,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'Pour toute question factuelle sur la machine (état, config, cinématique, '
       'diagnostics, offsets, actions récentes), utilise les outils de lecture '
       '(get_machine_state, get_config, get_axis_kinematics, get_diagnostics, '
-      'get_wcs_offsets, get_activity_log) plutôt que de deviner. '
+      'get_wcs_offsets, get_activity_log) plutôt que de deviner. Ce qu\'un '
+      'résultat plus haut dans la discussion t\'a appris (position, statut, '
+      'alarme) est PÉRIMÉ dès que la machine bouge : à chaque question sur '
+      'l\'état présent, rappelle l\'outil de lecture, même si tu viens de le '
+      'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. '
       'Tu peux lister, lire, analyser et écrire les fichiers G-code de l\'espace '
       'de travail (list_workspace_files, read_workspace_file, analyze_gcode, '
       'write_workspace_file). Au chargement, Forgeron adapte automatiquement le '
@@ -735,17 +922,24 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'l\'opérateur ET les tiennes) : surveille-le pour la sécurité et '
       'l\'optimisation — signale spontanément tout enchaînement risqué (ex. '
       'lancer un programme sans homing, changer d\'origine en plein usinage). '
-      'Tu peux générer un programme G-code et l\'exécuter directement avec '
-      'run_gcode_program (ou run_program pour le programme déjà chargé). Avant '
-      'de lancer un programme ou un mouvement, vérifie/annonce les points de '
-      'sécurité clés (homing fait, Z dégagé, bon WCS) et laisse l\'utilisateur '
-      'confirmer les actions gatées. '
+      'Tu n\'écris JAMAIS toi-même un programme G-code : une coordonnée fausse '
+      'peut casser la fraise ou la machine, et l\'opérateur ne peut pas la '
+      'relire. Pour obtenir un programme, utilise run_step_pipeline sur un '
+      'fichier STEP, ou travaille sur un fichier DÉJÀ présent dans l\'espace de '
+      'travail. Si aucun générateur ne convient, dis-le simplement et propose '
+      'ces deux options, sans inventer de chemin de fichier. Tu peux lancer le '
+      'programme déjà chargé (run_program) ou un programme que l\'OPÉRATEUR te '
+      'donne mot pour mot (run_gcode_program) — jamais un programme de ta '
+      'façon. Avant de lancer un programme ou un mouvement, vérifie/annonce les '
+      'points de sécurité clés (homing fait, Z dégagé, bon WCS) et laisse '
+      'l\'utilisateur confirmer les actions gatées. '
       'Sois concis et confirme toujours ce que tu as fait. Si une action semble '
       'risquée ou ambiguë, explique-le et demande une précision. '
       'Réponds en texte clair : tu peux utiliser du **gras** et des listes à '
       'puces simples, mais évite le LaTeX et les formules mathématiques (\$...\$) '
       '— écris les valeurs et unités en clair (ex. « 15 mm »). '
-      'Quand tu donnes du G-code, mets-le TOUJOURS dans un bloc de code '
+      'Quand tu cites des lignes de G-code (extraites d\'un fichier existant ou '
+      'données par l\'opérateur), mets-les TOUJOURS dans un bloc de code '
       'markdown ouvert par ```gcode et fermé par ``` : l\'app y ajoute alors '
       'les boutons « copier » et « enregistrer dans l\'espace de travail ». '
       'MONTRE, ne décris pas : l\'opérateur n\'est ni développeur ni '
@@ -759,11 +953,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'Dès qu\'un '
       'fichier STEP est mentionné, ouvre son aperçu 3D avec preview_step_file — '
       'c\'est aussi ta façon de vérifier que le fichier contient bien la pièce '
-      'attendue (encombrement, volume). Dès qu\'un programme est généré, ouvre '
-      'son parcours d\'outil avec open_toolpath_window, en passant le STEP '
-      'd\'origine pour que la pièce apparaisse sous le parcours. Les deux '
-      's\'ouvrent dans des fenêtres séparées que l\'opérateur garde sous les '
-      'yeux pendant que la discussion continue. '
+      'attendue (encombrement, volume). Dès qu\'un programme est généré, '
+      'affiche son parcours d\'outil avec open_toolpath_window (le tracé seul : '
+      'la pièce se voit dans l\'aperçu STEP). Les deux s\'affichent dans des '
+      'panneaux à côté de la discussion, qui continue normalement. '
       'AVANT de lancer run_step_pipeline sur une pièce de révolution, DEMANDE '
       'le diamètre du barreau brut et passe-le en stockRadius (la moitié du '
       'diamètre). C\'est une question à laquelle un opérateur répond en deux '
@@ -801,6 +994,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'RÉCUPÉRATION d\'une alarme fin de course : « \$X » pour déverrouiller, '
       'puis jog DOUX pour éloigner l\'axe du switch (voir écran Récupération).';
 
+  /// La partie FIXE du prompt système (identité, règles, spécificités machine),
+  /// sans les blocs injectés à chaque tour. Publique pour qu'un test mesure la
+  /// charge utile RÉELLE envoyée à un modèle local — son contexte est fini, et
+  /// un prompt qui le déborde est tronqué en silence par le début (voir
+  /// `LocalAiAgentService.historyBudgetChars`).
+  @visibleForTesting
+  static const baseSystemPrompt = '$_systemPrompt\n\n$_machineSpecs';
+
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
   /// Injectée à chaque tour pour que l'agent cite les VRAIES courses et pas/mm
   /// — des constantes figées dans le code dérivent au premier recalibrage.
@@ -837,10 +1038,25 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// actions de l'opérateur, sans appel API supplémentaire).
   String _buildSystemPrompt() {
     final activity = formatRecentActivity(_ref.read(activityLogProvider));
-    return '$_systemPrompt\n\n'
-        '$_machineSpecs\n\n'
+    // État lu À L'INSTANT de l'appel : le prompt est reconstruit à chaque
+    // appel au modèle, donc l'état y est frais par construction (voir
+    // live_state_block.dart — sans lui, le modèle recopiait d'anciennes
+    // positions au lieu de rappeler l'outil, 10 fois sur 15 au banc).
+    String liveState;
+    try {
+      final s = _ref.read(machineRepositoryProvider).currentState;
+      liveState = liveStateBlock(
+        state: machineStateMap(s),
+        offline: s.status == MachineStatus.offline,
+        now: DateTime.now(),
+      );
+    } catch (_) {
+      liveState = liveStateBlock(state: null, offline: true, now: DateTime.now());
+    }
+    return '$baseSystemPrompt\n\n'
         '${_kinematicsBlock()}\n\n'
         '${_ref.read(appLanguageProvider).promptDirective}\n\n'
+        '$liveState\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity';
   }
@@ -848,6 +1064,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
   // ---------------------------------------------------------------------
   // Conversation
   // ---------------------------------------------------------------------
+
+  /// Pose un faux fournisseur de modèle (tests du contrôleur). Il est réutilisé
+  /// tel quel par [_ensureService] tant que son `model` est celui du réglage
+  /// actif et qu'aucune adresse locale n'est renseignée.
+  @visibleForTesting
+  void debugUseBackend(AiBackend backend) => _service = backend;
 
   Future<AiBackend?> _ensureService() async {
     // Une adresse de serveur local renseignée l'emporte : l'agent tourne alors
@@ -872,7 +1094,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Client HTTP standard, volontairement : le process est déjà lié au WiFi
       // de l'ESP32 par bindProcessToNetwork, et c'est sur CE réseau que vit le
       // serveur. Le forcer sur la 4G comme Gemini n'aboutirait nulle part.
-      _service = LocalAiAgentService(baseUrl: localUrl, model: modelId);
+      //
+      // Le sondage lit ce que le serveur dit de CE modèle (contexte, images) :
+      // c'est lui qui décide du budget d'historique et du sort des images, et
+      // il peut refuser une configuration qui dégraderait les réponses en
+      // silence — avant la première question, pas après.
+      final info = await LocalAiAgentService.probe(localUrl, modelId);
+      final local = LocalAiAgentService(
+          baseUrl: localUrl, model: modelId, info: info);
+      final problem = local.configurationProblem;
+      if (problem != null) {
+        local.dispose();
+        state = state.copyWith(error: problem);
+        return null;
+      }
+      _service = local;
       return _service;
     }
     final key = await _ref.read(aiAgentSettingsProvider.notifier).readApiKey();
@@ -916,16 +1152,63 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Envoie un message. [imageBytes] (optionnel) joint une image analysée par
   /// Gemini (vision) : photo de pièce, plan, écran, défaut à inspecter…
+  ///
+  /// [allowModel] = faux quand l'opérateur a désactivé l'agent IA : seul le
+  /// lexique fermé répond (voir `ai_lexicon_front.dart`), jamais un modèle —
+  /// local ou distant. Les écrans qui gardent la saisie ouverte malgré un agent
+  /// désactivé le passent à faux.
   Future<void> sendUserMessage(
     String text, {
     Uint8List? imageBytes,
     String? imageMime,
+    bool allowModel = true,
   }) async {
     final trimmed = text.trim();
+
+    // Arrêt d'urgence : le chemin de sécurité ne passe PAS par le modèle (voir
+    // emergency_intent.dart). Ni serveur IA, ni réseau mobile, ni tirage
+    // probabiliste — et même si l'agent est en train de répondre.
+    if (imageBytes == null && isEmergencyStopRequest(trimmed)) {
+      await _emergencyStopFromChat(trimmed);
+      return;
+    }
+
+    // Porte d'entrée « lexique fermé » : lit le message AVANT le modèle. Elle
+    // passe avant le garde « agent occupé » ci-dessous parce qu'un arrêt
+    // d'urgence dit dans une langue que l'expression ci-dessus ne connaît pas
+    // (« jɔ sisan ») ne doit pas être jeté parce que le modèle réfléchit.
+    final front = (imageBytes == null && trimmed.isNotEmpty)
+        ? await _readFront(trimmed)
+        : null;
+    if (front != null && front.isEmergencyStop) {
+      await _emergencyStopFromChat(trimmed, front: front);
+      return;
+    }
+
     if ((trimmed.isEmpty && imageBytes == null) || state.isProcessing) return;
 
+    // Nouveau tour : l'éventuelle action du lexique restée en attente est
+    // abandonnée (l'opérateur est passé à autre chose), et la restriction de
+    // lecture du tour précédent ne se reporte pas.
+    _readOnlyTurn = false;
+    _frontTag = null;
+    if (state.pendingConfirmation?.lexicon != null) {
+      _dropLexiconPending('remplacée par un nouveau message', quiet: true);
+    }
+
+    if (front != null) {
+      if (await _applyFront(trimmed, front, allowModel: allowModel)) return;
+    } else if (!allowModel) {
+      return; // agent désactivé et rien que le lexique puisse faire de ce message
+    }
+
     final service = await _ensureService();
-    if (service == null) return;
+    if (service == null) {
+      // Pas de modèle joignable (pas de clé, serveur absent) : le lexique reste
+      // utile, et dit à l'opérateur ce qui marche quand même.
+      if (front != null) _answerWithoutModel(trimmed, front.refusal);
+      return;
+    }
 
     _cancelled = false;
 
@@ -954,11 +1237,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
     ));
     state = state.copyWith(turnStartedAt: DateTime.now(), turnTokens: 0);
 
-    // Pré-vérif réseau : le WiFi de l'ESP32 n'a pas d'Internet, l'IA doit
-    // passer par la 4G/5G. Si les données mobiles sont coupées, on prévient
-    // tout de suite (≤ 2 s) au lieu d'attendre un timeout HTTP, et on arme la
-    // reprise automatique dès que le réseau revient.
-    if (!await CellularNetwork.isAvailable()) {
+    // Pré-vérif réseau : le WiFi de l'ESP32 n'a pas d'Internet, l'IA distante
+    // doit passer par la 4G/5G. Si les données mobiles sont coupées, on
+    // prévient tout de suite (≤ 2 s) au lieu d'attendre un timeout HTTP, et on
+    // arme la reprise automatique dès que le réseau revient.
+    //
+    // Un modèle LOCAL n'a pas besoin de la 4G : l'exiger ici l'empêcherait de
+    // servir précisément là où il est utile — téléphone sur le WiFi de la
+    // machine, données mobiles coupées ou absentes.
+    if (service.usesCellular && !await CellularNetwork.isAvailable()) {
       _armRetry(
         () => _runTurn(service),
         'Données mobiles désactivées : l\'IA a besoin de la 4G/5G, car le WiFi '
@@ -971,6 +1258,69 @@ class AiAgentController extends StateNotifier<AiChatState> {
     await _runTurn(service);
   }
 
+  /// Arrêt d'urgence demandé dans le chat : exécuté tout de suite, sans
+  /// passer par le modèle. Mesuré sur le modèle local, « Arrête tout, c'est
+  /// urgent ! » a un jour rendu une réponse vide : un ordre d'arrêt ne peut pas
+  /// dépendre d'un tirage probabiliste.
+  Future<void> _emergencyStopFromChat(String text, {_Front? front}) async {
+    final clock = Stopwatch()..start();
+    final wasBusy = state.isProcessing || state.pendingConfirmation != null;
+    _addMessage(AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
+
+    var result = 'ERREUR: outil d\'arrêt d\'urgence introuvable';
+    var parts = <Map<String, dynamic>>[];
+    final tool = AiToolCatalog.byName('emergency_stop');
+    if (tool != null) {
+      parts = await _executeTool(tool, 'emergency_stop', const {});
+      final response = parts.isEmpty
+          ? null
+          : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+      result = '${response?['result'] ?? response?['error'] ?? result}';
+    }
+
+    // Un tour en cours est interrompu APRÈS l'arrêt, jamais avant : l'arrêt prime.
+    if (wasBusy) stopGeneration();
+
+    final sent = result.startsWith('OK');
+    final match = front?.match;
+    final reply = match != null
+        // Compris par le lexique : phrase fixe, relue pour la langue si elle
+        // l'est (voir CommandLexicon.reply), sinon celle de l'application.
+        ? lexiconReply(match: match, toolResult: result, lexicon: front!.lexicon)
+        : sent
+            ? 'Arrêt d\'urgence envoyé à la machine.'
+            : 'ATTENTION — $result. Utilise le bouton rouge « Arrêt d\'urgence » '
+                'ou coupe l\'alimentation.';
+    if (front != null) {
+      _logFront(front, 'lexique:direct:emergencyStop:urgence', clock,
+          tools: const ['emergency_stop']);
+    }
+    _addMessage(AiChatMessage(role: 'assistant', text: reply, timestamp: DateTime.now()));
+    _ref.read(aiInboxProvider.notifier).pushAlert(reply, problem: !sent);
+
+    // Fil de protocole valide (texte, appel, réponse, texte) — sauf si un tour
+    // était en cours : y insérer des entrées romprait l'appariement appel /
+    // réponse de ce tour.
+    if (!wasBusy) {
+      _contents
+        ..add({'role': 'user', 'parts': [{'text': text}]})
+        ..add({
+          'role': 'model',
+          'parts': [
+            {'functionCall': {'name': 'emergency_stop', 'args': <String, dynamic>{}}}
+          ]
+        })
+        ..add({
+          'role': 'user',
+          'parts': parts.isEmpty
+              ? [_functionResponse('emergency_stop', result: result)]
+              : parts,
+        })
+        ..add({'role': 'model', 'parts': [{'text': reply}]});
+      unawaited(_persist());
+    }
+  }
+
   /// Interrompt la génération en cours (bouton « Stop »). Le texte déjà reçu
   /// est conservé et marqué comme tronqué ; l'historique protocole reste
   /// valide (chaque appel d'outil resté en attente reçoit une réponse
@@ -978,6 +1328,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
   void stopGeneration() {
     final pending = state.pendingConfirmation;
     if (!state.isProcessing && pending == null) return;
+
+    // Action du lexique en attente : aucune boucle de modèle à interrompre,
+    // aucune réponse d'outil à fabriquer pour l'historique du modèle.
+    if (pending?.lexicon != null) {
+      _dropLexiconPending('annulée par l\'opérateur');
+      return;
+    }
     _cancelled = true;
 
     if (pending != null) {
@@ -1005,8 +1362,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Arme une reprise : mémorise l'action à rejouer, affiche l'erreur et lance
   /// la surveillance réseau qui la relancera automatiquement dès que possible.
-  void _armRetry(Future<void> Function() action, String message) {
+  void _armRetry(Future<void> Function() action, String message,
+      {Future<bool> Function()? probe}) {
     _retry = action;
+    _retryProbe = probe;
     state = state.copyWith(
       isProcessing: false,
       error: message,
@@ -1026,7 +1385,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         t.cancel();
         return;
       }
-      if (await CellularNetwork.isAvailable()) {
+      if (await (_retryProbe ?? CellularNetwork.isAvailable)()) {
         t.cancel();
         await retryNow();
       }
@@ -1060,7 +1419,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final epoch = _epoch;
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
-    compactGeminiContents(_contents);
+    compactGeminiContents(_contents, maxChars: service.historyBudgetChars);
     state = state.copyWith(
         isProcessing: true,
         clearError: true,
@@ -1068,11 +1427,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
         awaitingNetwork: false,
         clearStreamingText: true,
         turnStartedAt: state.turnStartedAt ?? DateTime.now());
+    final clock = Stopwatch()..start();
     try {
       final response = await service.streamMessages(
         contents: _contents,
-        functionDeclarations:
-            AiToolCatalog.tools.map((t) => t.toGeminiFunctionDeclaration()).toList(),
+        functionDeclarations: _declarationsFor(service),
         systemPrompt: _buildSystemPrompt(),
         // Aperçu live : le texte s'affiche au fur et à mesure.
         onDelta: (partial) {
@@ -1087,7 +1446,32 @@ class AiAgentController extends StateNotifier<AiChatState> {
       if (_epoch != epoch) return;
 
       if (_cancelled) {
+        _logTurn(service, AiTurnOutcome.cancelled, clock, response: response);
         _finishCancelled(response);
+        return;
+      }
+
+      // Réponse vide : ni texte, ni appel d'outil. Ne PAS l'inscrire dans
+      // l'historique (une entrée sans contenu invalide le fil chez Gemini) et
+      // ne pas se taire non plus : devant un ordre comme « arrête tout », un
+      // silence ferait croire que c'est fait. Mesuré sur le modèle local :
+      // « Arrête tout, c'est urgent ! » a rendu une réponse vide.
+      if (response.text.trim().isEmpty && response.functionCalls.isEmpty) {
+        _logTurn(service, AiTurnOutcome.empty, clock, response: response);
+        _ref
+            .read(aiUsageProvider.notifier)
+            .recordRequest(service.model, tokens: response.totalTokens);
+        _retry = () => _runTurn(service);
+        _retryProbe = null;
+        state = state.copyWith(
+          clearStreamingText: true,
+          isProcessing: false,
+          error: 'L\'assistant n\'a rien répondu. Réessaie ; si cela se '
+              'répète, reformule ta demande. Pour un arrêt immédiat, utilise '
+              'le bouton rouge « Arrêt d\'urgence ».',
+          retryable: true,
+          clearTurnStartedAt: true,
+        );
         return;
       }
 
@@ -1099,6 +1483,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _ref
           .read(aiUsageProvider.notifier)
           .recordRequest(service.model, tokens: response.totalTokens);
+      _logTurn(service, AiTurnOutcome.ok, clock, response: response);
       state = state.copyWith(
           turnTokens: state.turnTokens + response.totalTokens);
 
@@ -1125,11 +1510,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       // Interruption demandée : l'échec est attendu, pas une panne à rejouer.
       if (_cancelled) {
+        _logTurn(service, AiTurnOutcome.cancelled, clock);
         _finishCancelled(const AiApiResponse(parts: [], finishReason: 'CANCELLED'));
         return;
       }
 
       final raw = e.toString();
+      _logTurn(service, AiTurnOutcome.error, clock,
+          errorKind: _isQuota(raw)
+              ? 'quota'
+              : _isUnreachable(e)
+                  ? 'unreachable'
+                  : 'other');
 
       // Quota gratuit épuisé (429) → bascule automatique sur le modèle suivant.
       if (_isQuota(raw)) {
@@ -1160,7 +1552,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Échec réseau/API → on garde le tour en mémoire pour le rejouer (le
       // message utilisateur est déjà dans _contents), et on tente une reprise
       // automatique dès que la connexion revient.
-      _armRetry(() => _runTurn(service), _friendlyError(e));
+      _armRetry(
+        () => _runTurn(service),
+        _friendlyError(e, service),
+        probe: service.usesCellular ? null : service.isReachable,
+      );
     }
   }
 
@@ -1219,17 +1615,19 @@ class AiAgentController extends StateNotifier<AiChatState> {
       raw.contains('Too Many Requests');
 
   /// Traduit une erreur technique en message court et actionnable.
-  String _friendlyError(Object e) {
+  String _friendlyError(Object e, AiBackend service) {
+    if (e is CellularNetworkException) return e.toString();
+    if (_isUnreachable(e)) return service.unreachableMessage;
+    return e.toString();
+  }
+
+  /// Échec de joignabilité (réseau coupé, serveur éteint, délai dépassé).
+  bool _isUnreachable(Object e) {
     final raw = e.toString();
-    if (e is CellularNetworkException) return raw;
-    if (raw.contains('SocketException') ||
+    return raw.contains('SocketException') ||
         raw.contains('Failed host lookup') ||
         raw.contains('TimeoutException') ||
-        raw.contains('Connection')) {
-      return 'Connexion perdue avec le service IA. L\'envoi reprendra dès que '
-          'le réseau (4G/5G) sera de nouveau disponible.';
-    }
-    return raw;
+        raw.contains('Connection');
   }
 
   Future<void> _processNextToolCall(AiBackend service, int epoch) async {
@@ -1265,6 +1663,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return;
     }
 
+    // Le lexique a lu une question ou une négation : seuls les outils de
+    // lecture ont été déclarés, et un appel à un autre outil (un modèle peut en
+    // inventer un) n'est PAS exécuté — la restriction est une règle, pas un
+    // souhait.
+    if (_readOnlyTurn && !isReadOnlyToolName(toolName)) {
+      _collectedResults.add(_functionResponse(toolName,
+          error: 'Non exécuté : le message est une question ou une négation, '
+              'aucune action sur la machine n\'est permise pour ce tour.'));
+      await _processNextToolCall(service, epoch);
+      return;
+    }
+
     final category = tool.category;
     final needsConfirmation = category != null &&
         _ref.read(aiAgentSettingsProvider).levelFor(category) ==
@@ -1289,6 +1699,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// Approuve l'appel d'outil en attente et poursuit la conversation.
   Future<void> confirmPendingAction() async {
     final pending = state.pendingConfirmation;
+    // Action venue du lexique : pas de modèle dans la boucle, donc pas besoin
+    // d'un service — la confirmation marche même agent désactivé ou hors ligne.
+    if (pending?.lexicon != null) {
+      await _confirmLexiconPending(pending!);
+      return;
+    }
     final service = _service;
     if (pending == null || service == null) return;
 
@@ -1312,6 +1728,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// d'échec et la conversation continue sans que l'action soit exécutée.
   Future<void> rejectPendingAction() async {
     final pending = state.pendingConfirmation;
+    if (pending?.lexicon != null) {
+      _dropLexiconPending('refusée par l\'opérateur');
+      return;
+    }
     final service = _service;
     if (pending == null || service == null) return;
 
@@ -1411,6 +1831,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _contents.clear();
     _pendingToolQueue = [];
     _collectedResults = [];
+    _readOnlyTurn = false;
     _retry = null;
     _autoRetryTimer?.cancel();
     state = AiChatState(

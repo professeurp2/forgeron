@@ -236,7 +236,7 @@ La phase 5 ne figure pas dans ces critères — délibérément.
 
 ## 7. Ce qu'on arrête
 
-- Ajouter des outils à l'agent — 33 suffisent, chacun coûte du contexte.
+- Ajouter des outils à l'agent — l'agent en a 38 aujourd'hui (33 au 9 septembre) ; chacun coûte du contexte.
 - Ajouter des fonctionnalités à l'application.
 - Chercher à faire produire du G-code par le modèle.
 - **Confier à un réseau ce qu'un algorithme déterministe résout mieux** :

@@ -1,0 +1,21 @@
+# Modèle dérivé pour l'agent Forgeron.
+#
+#   ollama create forgeron-qwen -f tool/ollama/Modelfile
+#
+# Mêmes poids que qwen2.5:7b — rien n'est retéléchargé — mais deux réglages
+# que le modèle de la bibliothèque ne donne pas :
+#
+# num_ctx : le prompt système et les déclarations d'outils pèsent ~3 100
+#   tokens par requête, avant la première question. Ollama charge qwen2.5:7b
+#   avec un contexte de 4 096 (mesuré : `ollama ps`), quelle que soit la
+#   capacité du modèle. Dépassé, le prompt est tronqué EN SILENCE par le
+#   début — c'est-à-dire que le prompt système disparaît, sans aucune erreur.
+#   16 384 tient dans les 8 Go d'une RTX 3070 Laptop avec le modèle (4,7 Go) :
+#   ~56 Ko de cache par token, ~0,9 Go au total.
+#
+# temperature : un argument d'outil (axe, distance, nom de fichier) doit sortir
+#   identique d'un essai à l'autre. Le défaut du modèle est fait pour la
+#   conversation, pas pour piloter une machine.
+FROM qwen2.5:7b
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2

@@ -61,6 +61,7 @@ disparaître en silence.
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 from dataclasses import dataclass
 
@@ -252,10 +253,13 @@ def apply_pocket(op, p: CutParams, log: Settings) -> None:
     percent = max(1, min(100, round(100.0 * p.ae / p.tool_dia)))
     log.set(op, "StepOver", percent, "poche.recouvrement_%")
     log.applied["poche.recouvrement_mm"] = f"{p.tool_dia * percent / 100:.3f} mm"
-    # Une spirale sortante garde l'outil dans la matière et évite les entrées
-    # répétées d'un zigzag — sur une machine sensible au broutage, ce sont les
-    # entrées qui font le bruit.
-    log.set(op, "OffsetPattern", "Spiral", "poche.motif")
+    # "Offset" (contours concentriques resserrés vers le centre) garde l'outil
+    # dans la matière et évite les entrées répétées d'un zigzag — sur une
+    # machine sensible au broutage, ce sont les entrées qui font le bruit.
+    # Vérifié empiriquement (FreeCAD 1.1.3) : la propriété s'appelle
+    # ClearingPattern, pas OffsetPattern, et ses seules valeurs valides sont
+    # ZigZag / Offset / ZigZagOffset / Line / Grid — pas de motif "Spiral".
+    log.set(op, "ClearingPattern", "Offset", "poche.motif")
     log.set(op, "KeepToolDown", True, "poche.outil_reste_bas")
 
 
@@ -353,14 +357,29 @@ def parse_args(argv: list[str]) -> tuple[str, str, CutParams]:
     argv[1] (pas le script en argv[0] comme un interpréteur Python normal)
     — vérifié empiriquement, pas supposé. argparse, lui, suppose l'inverse
     pour composer son message d'usage ; on découpe donc à la main.
+
+    freecadcmd analyse lui-même toute option « --xxx » de sa ligne de
+    commande (Boost.Program_options, AVANT de lancer ce script) et refuse
+    celles qu'il ne connaît pas — « --outil » lui est inconnu, il arrête le
+    process avec « unrecognised option '--outil' » sans même atteindre ce
+    code (vérifié empiriquement : tout appel avec des réglages personnalisés
+    échouait, alors que step_path/out_path seuls, sans aucun « -- »,
+    passaient très bien). Son échappatoire documentée est « --pass » : LA
+    chaîne qui suit (une seule — entre guillemets côté appelant) lui est
+    transmise telle quelle, espaces compris, sans qu'il y touche — on la
+    re-découpe ici avec shlex avant l'analyse habituelle.
     """
     args = argv[2:]
+    if "--pass" in args:
+        i = args.index("--pass")
+        options = shlex.split(args[i + 1]) if i + 1 < len(args) else []
+        args = args[:i] + options
     positional = [a for a in args if not a.startswith("--")]
     if len(positional) < 2:
         raise ValueError(
             "usage : freecadcmd prismatic_to_gcode.py <piece.step> <sortie.nc> "
-            "[--outil D] [--ap P] [--ae R] [--avance F] [--plongee F] "
-            "[--broche S] [--debourrage P] [--brut-marge M] [--brut-dessus M]"
+            "[--pass \"[--outil D] [--ap P] [--ae R] [--avance F] [--plongee F] "
+            "[--broche S] [--debourrage P] [--brut-marge M] [--brut-dessus M]\"]"
         )
 
     values: dict[str, float] = {}

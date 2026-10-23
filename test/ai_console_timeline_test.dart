@@ -154,7 +154,9 @@ void main() {
           '{"pipeline":"revolution","operations":[1,2],"lignes_gcode":420}';
       final resume = resultSummary('run_step_pipeline', rapport);
 
-      expect(resume, contains('révolution'));
+      // « révolution » est un terme interne : il ne doit pas atteindre
+      // l'opérateur (7ffc093).
+      expect(resume, isNot(contains('révolution')));
       expect(resume, contains('2 opération(s)'));
       expect(resume, contains('420 lignes'));
     });

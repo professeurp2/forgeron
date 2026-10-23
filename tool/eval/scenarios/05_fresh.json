@@ -1,0 +1,63 @@
+[
+  {"id": "fresh-fr-01", "category": "FR", "language": "fr",
+   "history": [
+     {"role": "user", "parts": [{"text": "Donne-moi l'état de la machine."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":10.0,\"Y\":0.0,\"Z\":-3.25,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "La machine est au repos : X à 10 mm, Y à 0, Z à -3,25 mm. Aucune alarme."}]}
+   ],
+   "user": "Et maintenant, où est X ?",
+   "expect": {"tools": ["get_machine_state"]}},
+
+  {"id": "fresh-fr-02", "category": "FR", "language": "fr",
+   "history": [
+     {"role": "user", "parts": [{"text": "Donne-moi l'état de la machine."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":10.0,\"Y\":0.0,\"Z\":-3.25,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "La machine est au repos, X à 10 mm."}]},
+     {"role": "user", "parts": [{"text": "Avance X de 2 mm à 300."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "jog_axis", "args": {"axis": "X", "distance": 2, "feedrate": 300}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "jog_axis", "response": {"result": "OK"}}}]},
+     {"role": "model", "parts": [{"text": "J'ai avancé X de 2 mm."}]},
+     {"role": "user", "parts": [{"text": "Donne-moi l'état."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":12.0,\"Y\":0.0,\"Z\":-3.25,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "La machine est au repos, X à 12 mm."}]}
+   ],
+   "user": "Donne-moi encore l'état.",
+   "expect": {"tools": ["get_machine_state"]}},
+
+  {"id": "fresh-fr-03", "category": "FR", "language": "fr",
+   "history": [
+     {"role": "user", "parts": [{"text": "Donne-moi l'état de la machine."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":10.0,\"Y\":0.0,\"Z\":-3.25,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "La machine est au repos."}]}
+   ],
+   "user": "Je viens de déplacer la table à la main. La machine est-elle toujours au repos ?",
+   "expect": {"tools": ["get_machine_state"]}},
+
+  {"id": "fresh-fr-04", "category": "FR", "language": "fr",
+   "history": [
+     {"role": "user", "parts": [{"text": "Quelle est la position ?"}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":0.0,\"Y\":0.0,\"Z\":-20.0,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "Z est à -20 mm."}]},
+     {"role": "user", "parts": [{"text": "Descends Z de 5 mm à 200."}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "jog_axis", "args": {"axis": "Z", "distance": -5, "feedrate": 200}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "jog_axis", "response": {"result": "OK"}}}]},
+     {"role": "model", "parts": [{"text": "C'est fait."}]}
+   ],
+   "user": "Rappelle-moi la position Z.",
+   "expect": {"tools": ["get_machine_state"]}},
+
+  {"id": "fresh-en-01", "category": "FR", "language": "en",
+   "history": [
+     {"role": "user", "parts": [{"text": "What is the machine status?"}]},
+     {"role": "model", "parts": [{"functionCall": {"name": "get_machine_state", "args": {}}}]},
+     {"role": "user", "parts": [{"functionResponse": {"name": "get_machine_state", "response": {"result": "{\"status\":\"Idle\",\"mpos\":{\"X\":10.0,\"Y\":0.0,\"Z\":-3.25,\"A\":0.0,\"C\":0.0},\"wcs\":\"G54\",\"alarm\":null}"}}}]},
+     {"role": "model", "parts": [{"text": "The machine is idle, X at 10 mm."}]}
+   ],
+   "user": "And now? Where is X?",
+   "expect": {"tools": ["get_machine_state"]}}
+]

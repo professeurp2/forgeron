@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart'
-    show Colors, Icons, MaterialPageRoute, SelectableText;
+    show Colors, Icons, MaterialPageRoute, SelectableText, Tooltip;
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -346,12 +346,22 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (prev?.id != next.id) _applyVoiceLanguage();
     });
 
+    // La grille n'existe que si l'agent a ouvert au moins un panneau. On ne
+    // surveille que ce booléen : la progression d'une facettisation ne doit pas
+    // reconstruire tout l'écran.
+    final hasPanes =
+        ref.watch(aiArtifactsProvider.select((a) => a.openPanes.isNotEmpty));
+
     return fluent.ScaffoldPage(
       padding: EdgeInsets.zero,
-      // Les deux colonnes latérales s'effacent quand la fenêtre est étroite :
-      // en dessous, le fil lui-même devient illisible, et c'est lui qui compte.
+      // Les colonnes latérales s'effacent quand la fenêtre est étroite : en
+      // dessous, le fil lui-même devient illisible, et c'est lui qui compte.
       content: LayoutBuilder(builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1180;
+        // Le rail de statut (« Pièce », « Parcours d'outil ») cède la place à la
+        // grille dès qu'elle s'ouvre : les panneaux portent déjà ces
+        // informations, et garder les deux laisserait ~260 px à la discussion
+        // à 1180 px de large.
+        final showSidebar = constraints.maxWidth >= 1180 && !hasPanes;
         final showRail = _railOpen && constraints.maxWidth >= 900;
         return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -363,7 +373,11 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
               onClose: () => setState(() => _railOpen = false),
               onClear: _confirmClear,
             ),
+          // La discussion est la cellule par défaut : toujours là, jamais
+          // masquée, même avec trois panneaux ouverts (2/5 de la place qui
+          // reste). `flex` est sans effet tant qu'elle est seule.
           Expanded(
+            flex: 2,
             child: Column(
               children: [
                 _Header(
@@ -396,7 +410,11 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
               ],
             ),
           ),
-          if (wide) _ArtifactsRail(fc: fc, onPickStep: _pickStepFile),
+          // Jamais conditionnée à la largeur de la fenêtre : un panneau que
+          // l'agent vient d'ouvrir ne doit pas disparaître parce que la fenêtre
+          // est étroite. Seule sa disposition INTERNE se dégrade (en pile).
+          if (hasPanes) Expanded(flex: 3, child: _ArtifactsGrid(fc: fc)),
+          if (showSidebar) _ArtifactsSidebar(fc: fc, onPickStep: _pickStepFile),
         ],
         );
       }),
@@ -447,7 +465,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
           Positioned(
             right: 18,
             bottom: 12,
-            child: fluent.Tooltip(
+            child: Tooltip(
               message: 'Revenir en bas',
               child: fluent.IconButton(
                 icon: Container(
@@ -576,7 +594,7 @@ class _ConversationRail extends ConsumerWidget {
                     ),
                   ),
                 ),
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Masquer le panneau',
                   child: fluent.IconButton(
                     icon: Icon(Icons.chevron_left_rounded,
@@ -654,7 +672,7 @@ class _ConversationRail extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        fluent.Tooltip(
+                        Tooltip(
                           message: 'Supprimer',
                           child: fluent.IconButton(
                             icon: Icon(Icons.close_rounded,
@@ -677,7 +695,7 @@ class _ConversationRail extends ConsumerWidget {
             child: Row(
               children: [
                 Expanded(child: _QuotaStrip(fc: fc)),
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Effacer cette discussion',
                   child: fluent.IconButton(
                     icon: Icon(Icons.delete_outline_rounded,
@@ -685,7 +703,7 @@ class _ConversationRail extends ConsumerWidget {
                     onPressed: onClear,
                   ),
                 ),
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Paramètres de l\'agent',
                   child: fluent.IconButton(
                     icon: Icon(Icons.settings_outlined,
@@ -762,7 +780,7 @@ class _Header extends ConsumerWidget {
       child: Row(
         children: [
           if (!railOpen)
-            fluent.Tooltip(
+            Tooltip(
               message: 'Afficher les discussions',
               child: fluent.IconButton(
                 icon: Icon(Icons.menu_rounded, size: 17, color: fc.textSecondary),
@@ -805,7 +823,7 @@ class _Header extends ConsumerWidget {
           ),
           const _ModelBadge(),
           const SizedBox(width: 8),
-          fluent.Tooltip(
+          Tooltip(
             message: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
             child: fluent.IconButton(
               icon: Icon(
@@ -1020,7 +1038,7 @@ class _CodeBlock extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Copier',
                   child: fluent.IconButton(
                     icon: Icon(Icons.copy_rounded, size: 14, color: fc.textSecondary),
@@ -1029,7 +1047,7 @@ class _CodeBlock extends StatelessWidget {
                   ),
                 ),
                 if (isGcode) ...[
-                  fluent.Tooltip(
+                  Tooltip(
                     message: 'Enregistrer sous…',
                     child: fluent.IconButton(
                       icon: Icon(Icons.save_alt_rounded,
@@ -1037,7 +1055,7 @@ class _CodeBlock extends StatelessWidget {
                       onPressed: () => _save(context),
                     ),
                   ),
-                  fluent.Tooltip(
+                  Tooltip(
                     message: 'Ouvrir dans une fenêtre',
                     child: fluent.IconButton(
                       icon: Icon(Icons.open_in_new_rounded,
@@ -1133,6 +1151,34 @@ class _ConfirmationBar extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Action comprise par le lexique fermé : on dit ce qui a été
+                // compris, dans quelle langue, et pourquoi on demande.
+                if (pending.lexicon case final lex?) ...[
+                  Text(
+                    lex.label,
+                    style: TextStyle(
+                        color: fc.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13),
+                  ),
+                  Text(
+                    [
+                      ...lex.languageLabels,
+                      if (lex.isDraft) 'langue non relue',
+                      if (lex.isSuggestion) 'à peu près',
+                    ].join(' · '),
+                    style: TextStyle(color: fc.warning, fontSize: 11),
+                  ),
+                  Text(lex.reasonText,
+                      style: TextStyle(color: fc.textSecondary, fontSize: 11)),
+                  if (lex.evidence.isNotEmpty)
+                    Text(lex.evidence.join('  ·  '),
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: fc.textDisabled,
+                            fontSize: 10.5,
+                            fontFamily: 'JetBrainsMono')),
+                ] else ...[
                 Text(
                   'Confirmation requise : ${friendlyToolLabel(pending.toolName)}',
                   style: TextStyle(
@@ -1151,6 +1197,7 @@ class _ConfirmationBar extends ConsumerWidget {
                         fontSize: 11,
                         fontFamily: 'JetBrainsMono'),
                   ),
+                ],
               ],
             ),
           ),
@@ -1301,7 +1348,7 @@ class _Composer extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Charger une pièce (fichier STEP)',
                   child: fluent.IconButton(
                     icon: Icon(fluent.FluentIcons.attach,
@@ -1309,14 +1356,14 @@ class _Composer extends StatelessWidget {
                     onPressed: onAttachStep,
                   ),
                 ),
-                fluent.Tooltip(
+                Tooltip(
                   message: 'Joindre une image',
                   child: fluent.IconButton(
                     icon: Icon(Icons.image_outlined, color: fc.textSecondary, size: 17),
                     onPressed: onAttachImage,
                   ),
                 ),
-                fluent.Tooltip(
+                Tooltip(
                   message: listening ? 'Arrêter la dictée' : 'Dicter',
                   child: fluent.IconButton(
                     icon: Icon(
@@ -1329,7 +1376,7 @@ class _Composer extends StatelessWidget {
                 ),
                 const Spacer(),
                 busy
-                    ? fluent.Tooltip(
+                    ? Tooltip(
                         message: 'Interrompre',
                         child: fluent.IconButton(
                           icon: Icon(Icons.stop_circle_outlined,
@@ -1352,14 +1399,15 @@ class _Composer extends StatelessWidget {
 
 // ═════════════════════════ Rail des aperçus 3D ═════════════════════════════
 
-/// Colonne de droite : ce que la discussion a produit de visualisable.
+/// Colonne de droite quand AUCUN panneau n'est ouvert : ce que la discussion a
+/// produit de visualisable, en fiches.
 ///
 /// C'est la réponse au vrai manque de la version précédente — le pipeline
-/// fabriquait une pièce et un parcours d'outil que rien ne montrait. Chaque
-/// carte ouvre sa propre fenêtre OS : un cadre fixe et plein, le seul endroit
-/// où un contrôle WebView natif tient correctement (voir `ai_viewer_windows.dart`).
-class _ArtifactsRail extends ConsumerWidget {
-  const _ArtifactsRail({required this.fc, required this.onPickStep});
+/// fabriquait une pièce et un parcours d'outil que rien ne montrait. Les
+/// fiches ouvrent les panneaux de la grille (`_ArtifactsGrid`) ; une fois la
+/// grille ouverte, ce rail s'efface (voir `build` de l'écran).
+class _ArtifactsSidebar extends ConsumerWidget {
+  const _ArtifactsSidebar({required this.fc, required this.onPickStep});
 
   final ForgeronColorPalette fc;
   final VoidCallback onPickStep;
@@ -1367,11 +1415,9 @@ class _ArtifactsRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final artifacts = ref.watch(aiArtifactsProvider);
-    final docked = artifacts.docked != AiDockedViewer.none;
     return Container(
-      // Le rail s'élargit quand il héberge une vue 3D : 276 px suffisent à des
-      // fiches, pas à une pièce.
-      width: docked ? 430 : 276,
+      // 276 px suffisent à des fiches ; les vues 3D vivent dans la grille.
+      width: 276,
       decoration: BoxDecoration(
         color: fc.surfaceBright,
         border: Border(left: BorderSide(color: fc.surfaceBorder)),
@@ -1400,7 +1446,6 @@ class _ArtifactsRail extends ConsumerWidget {
               ],
             ),
           ),
-          if (docked) _DockedViewer(fc: fc, artifacts: artifacts),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(14),
@@ -1417,65 +1462,175 @@ class _ArtifactsRail extends ConsumerWidget {
   }
 }
 
-/// L'aperçu 3D logé dans la fenêtre principale.
+/// La grille de panneaux : à droite de la discussion, uniquement ce que l'agent
+/// a ouvert.
 ///
-/// Un cadre FIXE : hauteur constante, hors de toute liste défilante, sans
-/// animation d'ouverture. Ce n'est pas une préférence esthétique — c'est la
-/// condition pour qu'un contrôle WebView natif tienne. Le premier essai le
-/// nichait dans un `Expander` animé au sein du fil : découpé au clip,
-/// redimensionné à chaque image, il n'émettait jamais son signal « prêt ».
-class _DockedViewer extends ConsumerWidget {
-  const _DockedViewer({required this.fc, required this.artifacts});
+/// À l'image d'un éditeur de code : la discussion est la cellule par défaut,
+/// les autres apparaissent quand l'agent les demande — jamais par un bouton
+/// « ajouter un panneau » — et disparaissent quand on les ferme. Zéro emprise
+/// quand rien n'est ouvert (l'écran ne la construit même pas).
+///
+/// Disposition, purement en `Row`/`Column`/`Expanded` :
+///   1 panneau  → il remplit la zone ;
+///   2 panneaux → côte à côte si la zone est large, sinon l'un sur l'autre ;
+///   3 panneaux → deux en haut, un pleine largeur en dessous (même repli).
+///
+/// **Aucun widget animé, défilant ou clippé autour d'un panneau** — jamais
+/// d'`AnimatedSwitcher`, d'`AnimatedContainer`, de `ClipRRect`, de `ListView`.
+/// Ouvrir ou fermer un panneau change la liste d'enfants du `Row`/`Column` :
+/// un seul relayout immédiat, pas une interpolation de taille. C'est la
+/// contrainte héritée de l'ancien aperçu unique (voir [_PaneCell]).
+class _ArtifactsGrid extends ConsumerWidget {
+  const _ArtifactsGrid({required this.fc});
 
   final ForgeronColorPalette fc;
-  final AiArtifacts artifacts;
+
+  /// Ordre fixe, indépendant de l'ordre d'ouverture : un panneau ne change pas
+  /// de place parce qu'on a rouvert l'autre avant lui.
+  static const _priority = [
+    AiDockedViewer.step,
+    AiDockedViewer.toolpath,
+    AiDockedViewer.optimization,
+  ];
+
+  /// En dessous, deux vues 3D côte à côte ne sont plus que deux lamelles.
+  static const _sideBySideMinWidth = 1000.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // `select` sur l'ensemble lui-même : `copyWith` d'une autre donnée (la
+    // facettisation qui s'achève) conserve la même instance, donc ne
+    // reconstruit pas la grille.
+    final open = ref.watch(aiArtifactsProvider.select((a) => a.openPanes));
+    final kinds = _priority.where(open.contains).toList();
+    if (kinds.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surfaceBright,
+        border: Border(left: BorderSide(color: fc.surfaceBorder)),
+      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        // `ValueKey(kind)` n'est pas décoratif : `_DockedToolpath` porte un
+        // état asynchrone (chargement du fichier). Si le premier panneau se
+        // ferme, le second monte d'un rang — sans clé, Flutter réutiliserait
+        // l'état du mauvais panneau à cette position.
+        Widget cell(AiDockedViewer k) =>
+            _PaneCell(key: ValueKey(k), fc: fc, kind: k);
+        Widget divider({required bool vertical}) => Container(
+              width: vertical ? 1 : null,
+              height: vertical ? null : 1,
+              color: fc.surfaceBorder,
+            );
+        final sideBySide = constraints.maxWidth >= _sideBySideMinWidth;
+
+        switch (kinds.length) {
+          case 1:
+            return cell(kinds[0]);
+          case 2:
+            return sideBySide
+                ? Row(children: [
+                    Expanded(child: cell(kinds[0])),
+                    divider(vertical: true),
+                    Expanded(child: cell(kinds[1])),
+                  ])
+                : Column(children: [
+                    Expanded(child: cell(kinds[0])),
+                    divider(vertical: false),
+                    Expanded(child: cell(kinds[1])),
+                  ]);
+          default:
+            return sideBySide
+                ? Column(children: [
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(child: cell(kinds[0])),
+                        divider(vertical: true),
+                        Expanded(child: cell(kinds[1])),
+                      ]),
+                    ),
+                    divider(vertical: false),
+                    Expanded(child: cell(kinds[2])),
+                  ])
+                : Column(children: [
+                    Expanded(child: cell(kinds[0])),
+                    divider(vertical: false),
+                    Expanded(child: cell(kinds[1])),
+                    divider(vertical: false),
+                    Expanded(child: cell(kinds[2])),
+                  ]);
+        }
+      }),
+    );
+  }
+}
+
+/// Un panneau de la grille.
+///
+/// Un cadre à taille STABLE, sans animation d'ouverture ni clip ni défilement.
+/// Ce n'est pas une préférence esthétique — c'est la condition pour qu'un
+/// contrôle WebView natif tienne. Le premier essai le nichait dans un
+/// `Expander` animé au sein du fil : découpé au clip, redimensionné à chaque
+/// image, il n'émettait jamais son signal « prêt ».
+///
+/// La taille vient de l'`Expanded` de la grille plutôt que d'une hauteur
+/// codée en dur : ce qui compte est que chaque passe de mise en page donne une
+/// contrainte concrète et unique, comme le faisait l'ancien `height: 330` —
+/// pas qu'elle soit constante au pixel près.
+class _PaneCell extends ConsumerWidget {
+  const _PaneCell({super.key, required this.fc, required this.kind});
+
+  final ForgeronColorPalette fc;
+  final AiDockedViewer kind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(aiArtifactsProvider.notifier);
-    final isStep = artifacts.docked == AiDockedViewer.step;
-    final title = isStep
-        ? (artifacts.step?.fileName ?? 'Pièce')
-        : (artifacts.gcode?.fileName ?? 'Parcours d\'outil');
+    final artifacts = ref.watch(aiArtifactsProvider);
+    final isStep = kind == AiDockedViewer.step;
+    final title = switch (kind) {
+      AiDockedViewer.step => artifacts.step?.fileName ?? 'Pièce',
+      AiDockedViewer.toolpath => artifacts.gcode?.fileName ?? 'Parcours d\'outil',
+      _ => 'Optimisation',
+    };
+    final icon = switch (kind) {
+      AiDockedViewer.step => Icons.category_outlined,
+      AiDockedViewer.toolpath => Icons.timeline_rounded,
+      _ => Icons.tune_rounded,
+    };
 
-    return Container(
-      height: 330,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-            decoration: BoxDecoration(
-              color: fc.surface,
-              border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isStep ? Icons.category_outlined : Icons.timeline_rounded,
-                  size: 13,
-                  color: fc.textSecondary,
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: fc.surface,
+            border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 13, color: fc.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: fc.textPrimary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: fc.textPrimary,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-                fluent.Tooltip(
+              ),
+              if (kind == AiDockedViewer.step || kind == AiDockedViewer.toolpath)
+                Tooltip(
                   message: 'Détacher dans une fenêtre',
                   child: fluent.IconButton(
                     icon: Icon(Icons.open_in_new_rounded,
                         size: 14, color: fc.textSecondary),
                     onPressed: () {
-                      notifier.undock();
+                      // Le panneau se ferme d'abord : le même contenu ne doit
+                      // jamais être affiché ici ET dans une fenêtre.
+                      notifier.undock(kind);
                       if (isStep) {
                         final preview = artifacts.step?.preview;
                         if (preview == null) return;
@@ -1499,30 +1654,37 @@ class _DockedViewer extends ConsumerWidget {
                     },
                   ),
                 ),
-                fluent.Tooltip(
-                  message: 'Fermer l\'aperçu',
-                  child: fluent.IconButton(
-                    icon: Icon(Icons.close_rounded, size: 14, color: fc.textDisabled),
-                    onPressed: notifier.undock,
-                  ),
+              Tooltip(
+                message: 'Fermer ce panneau',
+                child: fluent.IconButton(
+                  icon: Icon(Icons.close_rounded, size: 14, color: fc.textDisabled),
+                  onPressed: () => notifier.undock(kind),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Expanded(
-            child: Container(
-              color: fc.background,
-              child: isStep
-                  ? TrunnionVisualizer(
-                      mPos: const [0, 0, 0, 0, 0],
-                      partMesh: artifacts.step?.preview?.mesh,
-                      scene: ViewerScene.partOnly,
-                    )
-                  : _DockedToolpath(fc: fc, path: artifacts.gcode?.path),
-            ),
+        ),
+        Expanded(
+          child: Container(
+            color: fc.background,
+            child: switch (kind) {
+              AiDockedViewer.step => TrunnionVisualizer(
+                  mPos: const [0, 0, 0, 0, 0],
+                  partMesh: artifacts.step?.preview?.mesh,
+                  scene: ViewerScene.partOnly,
+                ),
+              AiDockedViewer.toolpath =>
+                _DockedToolpath(fc: fc, path: artifacts.gcode?.path),
+              // Emplacement réservé : aucun outil n'ouvre encore ce panneau, il
+              // n'apparaît donc jamais — la grille sait déjà l'accueillir.
+              _ => Center(
+                  child: Text('Optimisation — bientôt disponible',
+                      style: TextStyle(color: fc.textDisabled, fontSize: 11.5)),
+                ),
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1791,7 +1953,7 @@ class _ViewerActions extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        fluent.Tooltip(
+        Tooltip(
           message: 'Ouvrir dans une fenêtre séparée',
           child: fluent.Button(
             onPressed: onDetach,

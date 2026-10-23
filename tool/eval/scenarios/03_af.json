@@ -1,0 +1,22 @@
+[
+  {"id": "af-fr-01", "category": "AF", "language": "fr", "user": "Avance l'axe X de 5 mm à 300 mm/min.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "X", "distance": 5, "feedrate": 300}}}},
+  {"id": "af-fr-02", "category": "AF", "language": "fr", "user": "Recule Y de 12,5 mm à 200 mm/min.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "Y", "distance": -12.5, "feedrate": 200}}}},
+  {"id": "af-fr-03", "category": "AF", "language": "fr", "user": "Tourne l'axe A de 45 degrés à 600.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "A", "distance": 45, "feedrate": 600}}}},
+  {"id": "af-fr-04", "category": "AF", "language": "fr", "user": "Va en X10 Y20 en rapide.",
+   "expect": {"tools": ["goto_position"], "args": {"goto_position": {"x": 10, "y": 20}}}},
+  {"id": "af-fr-05", "category": "AF", "language": "fr", "user": "Palpe vers le bas de 20 millimètres.",
+   "expect": {"tools": ["probe"], "args": {"probe": {"axis": "Z", "distance": {"negative": true}}}}},
+  {"id": "af-fr-06", "category": "AF", "language": "fr", "user": "Démarre la broche à 2000 tours par minute.",
+   "expect": {"tools": ["set_spindle"], "args": {"set_spindle": {"state": "cw"}}}},
+  {"id": "af-fr-07", "category": "AF", "language": "fr", "user": "Règle l'avance à cent vingt pour cent.",
+   "expect": {"tools": ["set_feed_override"], "args": {"set_feed_override": {"percent": 120}}}},
+  {"id": "af-fr-08", "category": "AF", "language": "fr", "user": "Déplace Z de +10 mm à 500 mm/min.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "Z", "distance": 10, "feedrate": 500}}}},
+  {"id": "af-en-01", "category": "AF", "language": "en", "user": "Jog the C axis by 90 degrees at feed 800.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "C", "distance": 90, "feedrate": 800}}}},
+  {"id": "af-en-02", "category": "AF", "language": "en", "user": "Move X minus 3 millimeters at 150.",
+   "expect": {"tools": ["jog_axis"], "args": {"jog_axis": {"axis": "X", "distance": -3, "feedrate": 150}}}}
+]

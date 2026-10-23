@@ -1,0 +1,9 @@
+# ollama create forgeron-qwen3-8b-reflexion -f tool/ollama/Modelfile.etude-langues-qwen3-8b-reflexion
+# Voir Modelfile.etude-langues pour le contexte.
+#
+# qwen3:8b avec son gabarit d'origine : il RÉFLÉCHIT avant de répondre (≈ 1 000
+# tokens). Sert de plafond « avec raisonnement » face à la variante sans
+# réflexion (Modelfile.etude-langues-qwen3-8b-nothink).
+FROM qwen3:8b
+PARAMETER num_ctx 8192
+PARAMETER temperature 0.2

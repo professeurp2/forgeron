@@ -59,3 +59,6 @@ pipeline/*_rapport.json
 pipeline/*.nc
 pipeline/*.step
 pipeline/*.stp
+
+# Rapports de Forgeron-Bench (copier les rapports retenus dans docs/addis/evidence/)
+/eval_reports/

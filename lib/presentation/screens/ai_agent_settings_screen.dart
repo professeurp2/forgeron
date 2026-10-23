@@ -8,6 +8,8 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/providers/lexicon_provider.dart';
+import '../../application/services/command_understanding.dart' show lexiconLanguageLabel;
 import '../../application/services/local_ai_agent_service.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -94,6 +96,10 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
   Future<void> _probeLocalServer() async {
     final url = LocalAiAgentService.normalizeBaseUrl(_localUrlCtrl.text);
     if (url.isEmpty) return;
+    // Le champ montre l'adresse COMPLÈTE qui va être interrogée (schéma et
+    // port compris), comme après « Enregistrer » : « localhost » seul laisse
+    // croire qu'elle est incomplète, et ne dit pas sur quel port on a testé.
+    _localUrlCtrl.text = url;
     setState(() {
       _probing = true;
       _localProbe = null;
@@ -115,19 +121,33 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
           .where((e) => e.isNotEmpty)
           .toList();
       if (ids.isEmpty) {
-        _setProbe(false, 'Serveur joignable, mais aucun modèle chargé.');
-      } else if (ids.contains(wanted)) {
-        _setProbe(true, 'Serveur joignable, modèle « $wanted » disponible.');
+        _setProbe(false, 'Serveur joignable à $url, mais aucun modèle chargé.');
+      } else if (LocalAiAgentService.isListed(ids, wanted)) {
+        // Joignable ET présent ne suffit pas : un contexte trop court fait
+        // tronquer le prompt de l'agent en silence — mieux vaut le dire ici
+        // que de laisser des réponses étranges le faire découvrir.
+        final info = await LocalAiAgentService.probe(url, wanted);
+        final problem = LocalAiAgentService.problemFor(wanted, info);
+        if (problem != null) {
+          _setProbe(false, problem);
+        } else {
+          final ctx = info.contextTokens;
+          _setProbe(
+              true,
+              'Serveur joignable à $url, modèle « $wanted » disponible — contexte '
+              '${ctx == null ? 'non communiqué' : '$ctx tokens'}, '
+              '${info.supportsImages ? 'images lues' : 'texte seul (les images ne lui sont pas transmises)'}.');
+        }
       } else {
         _setProbe(
             false,
-            'Serveur joignable, mais « $wanted » est absent. '
+            'Serveur joignable à $url, mais « $wanted » est absent. '
             'Disponibles : ${ids.join(', ')}');
       }
     } catch (e) {
       _setProbe(
           false,
-          'Injoignable. Vérifie qu\'Ollama écoute sur 0.0.0.0 '
+          'Injoignable à $url. Vérifie qu\'Ollama écoute sur 0.0.0.0 '
           '(OLLAMA_HOST) et que le port 11434 est ouvert au pare-feu.');
     }
   }
@@ -239,6 +259,13 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
+                    title: tr('COMPRÉHENSION DES COMMANDES'),
+                    borderColor: fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: _LexiconSection(fc: fc),
                   ),
                   const SizedBox(height: 20),
                   GlassPanel(
@@ -367,7 +394,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                           decoration: InputDecoration(
                             labelText: tr('Modèle'),
                             labelStyle: TextStyle(color: fc.textSecondary),
-                            hintText: 'qwen2.5:7b',
+                            hintText: 'forgeron-qwen',
                             hintStyle: TextStyle(color: fc.textDisabled),
                             filled: true,
                             fillColor: fc.background.withValues(alpha: 0.4),
@@ -618,6 +645,120 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// Réglage et état du lexique fermé : ce que l'assistant comprend SANS modèle,
+/// dans quelles langues, et à quel point on peut s'y fier.
+class _LexiconSection extends ConsumerWidget {
+  const _LexiconSection({required this.fc});
+
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled =
+        ref.watch(aiAgentSettingsProvider.select((s) => s.lexiconEnabled));
+    final load = ref.watch(lexiconLoadProvider);
+    final value = load.valueOrNull;
+    final lexicon = value?.lexicon;
+    final sizes = lexicon?.sizes() ?? const <String, Map<String, int>>{};
+
+    Widget status(String code) {
+      final reviewed = lexicon!.isReviewed(code);
+      final review = lexicon.reviews[code];
+      final text = reviewed
+          ? tr('relu par {} le {}', [review?.by ?? '?', review?.on ?? '?'])
+          : tr('brouillon : pas encore relu, confirmation toujours demandée');
+      final color = reviewed ? fc.success : fc.warning;
+      final words = (sizes[code] ?? const {}).values.fold<int>(0, (a, b) => a + b);
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(reviewed ? Icons.verified_outlined : Icons.edit_note,
+                size: 16, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(TextSpan(
+                children: [
+                  TextSpan(
+                      text: lexiconLanguageLabel(code),
+                      style: TextStyle(
+                          color: fc.textPrimary, fontWeight: FontWeight.w700)),
+                  TextSpan(
+                      text: '  ·  ${tr('{} mots', [words])}  ·  ',
+                      style: TextStyle(color: fc.textSecondary)),
+                  TextSpan(text: text, style: TextStyle(color: color)),
+                ],
+                style: const TextStyle(fontSize: 11.5),
+              )),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr('Comprendre les commandes sans l\'IA'),
+                      style: TextStyle(
+                          color: fc.textPrimary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('Lit tes ordres courts (état, pause, homing, broche, déplacement, arrêt) dans plusieurs langues, sans réseau ni modèle. L\'arrêt d\'urgence reste toujours immédiat.'),
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: enabled,
+              activeThumbColor: fc.primary,
+              onChanged: ref.read(aiAgentSettingsProvider.notifier).setLexiconEnabled,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (load.isLoading)
+          Text(tr('Chargement du lexique…'),
+              style: TextStyle(color: fc.textSecondary, fontSize: 11))
+        else if (lexicon == null)
+          Text(
+            tr('Lexique indisponible : {}. L\'assistant fonctionne comme avant, avec le modèle seul.',
+                [value?.failure ?? '?']),
+            style: TextStyle(color: fc.danger, fontSize: 11),
+          )
+        else ...[
+          Text(
+            tr('Lexique version {} · empreinte {}',
+                [lexicon.version, lexicon.fingerprint.substring(0, 8)]),
+            style: TextStyle(
+                color: fc.textDisabled,
+                fontSize: 10.5,
+                fontFamily: 'JetBrains Mono'),
+          ),
+          for (final code in lexicon.languages) status(code),
+          if ((value?.warnings.length ?? 0) > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              tr('{} avertissement(s) de validation : voir docs/lexique-gouvernance.md',
+                  [value!.warnings.length]),
+              style: TextStyle(color: fc.warning, fontSize: 10.5),
+            ),
+          ],
+        ],
+      ],
     );
   }
 }

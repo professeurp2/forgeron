@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'application/services/ai_window_channel.dart';
 import 'core/i18n/app_language.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/fallback_localizations.dart';
+import 'core/storage/prefs_guard_bootstrap.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/forgeron_colors.dart';
 import 'application/providers/theme_provider.dart';
@@ -45,6 +47,11 @@ Future<void> main(List<String> args) async {
     return true; // Empêche l'application de crasher complètement
   };
 
+  // Une copie saine des préférences doit exister — et remplacer un fichier
+  // corrompu — AVANT que quoi que ce soit ne les lise (voir PrefsFileGuard :
+  // un arrêt brutal du PC avait vidé tout le profil le 21 octobre 2026).
+  final prefsReport = _isDesktopPlatform ? await installPrefsGuard() : null;
+
   // Notifications système de l'agent IA (non bloquant).
   NotificationService.instance.init();
 
@@ -53,6 +60,9 @@ Future<void> main(List<String> args) async {
   // fenêtre-ci, et leur message arrive par un canal de plateforme, hors de
   // tout widget. Il faut donc pouvoir écrire dans les providers depuis là.
   final container = ProviderContainer();
+  if (prefsReport != null) {
+    container.read(prefsRestoreNoticeProvider.notifier).state = prefsReport;
+  }
   if (_isDesktopPlatform) _listenToSubWindows(container);
 
   runApp(UncontrolledProviderScope(
@@ -66,13 +76,29 @@ Future<void> main(List<String> args) async {
 /// Un seul message pour l'instant : « remets cet aperçu chez toi ». La réponse
 /// dit si c'est accepté — la fenêtre appelante ne se referme que dans ce cas,
 /// faute de quoi elle serait le dernier endroit où l'aperçu existe encore.
+///
+/// La réponse part AVANT que la vue 3D soit réellement affichée ici : la
+/// fenêtre appelante doit pouvoir se refermer sans attendre la fin de notre
+/// travail. C'est justement sa fermeture qu'on attend, en retour, avant
+/// d'afficher quoi que ce soit — jamais deux vues 3D vivantes en même temps
+/// sur l'environnement WebView2 partagé (voir
+/// AiWindowChannel.waitUntilWindowClosed pour le pourquoi).
 void _listenToSubWindows(ProviderContainer container) {
   try {
     DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
       if (call.method != AiWindowChannel.dockViewer) return false;
       final viewer = AiDockedViewer.fromWire(call.arguments as String?);
       if (viewer == AiDockedViewer.none) return false;
-      return container.read(aiArtifactsProvider.notifier).dock(viewer);
+      final notifier = container.read(aiArtifactsProvider.notifier);
+      if (!notifier.canDock(viewer)) {
+        return false;
+      }
+      unawaited(
+        AiWindowChannel.waitUntilWindowClosed(fromWindowId).then((_) {
+          notifier.dock(viewer);
+        }),
+      );
+      return true;
     });
   } catch (e) {
     // Canal indisponible : les fenêtres restent détachables, elles ne savent
@@ -122,7 +148,7 @@ class ForgeronApp extends ConsumerWidget {
             : forgeronLightColors,
         child: child!,
       ),
-      home: const MainScaffold(),
+      home: const PrefsRestoreNotice(child: MainScaffold()),
     );
   }
 }

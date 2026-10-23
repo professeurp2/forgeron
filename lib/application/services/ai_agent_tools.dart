@@ -18,11 +18,28 @@ import '../providers/jog_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_adapter.dart';
+import '../../core/utils/gcode_command_guard.dart';
+import '../../domain/models/machine_state.dart';
 import 'ai_window_launcher.dart';
 import 'cam_pipeline_service.dart';
 import 'prismatic_pipeline_service.dart';
 import 'step_pipeline_service.dart';
 import 'step_preview_service.dart';
+
+/// État de la machine tel que l'agent le lit. Partagé par l'outil
+/// `get_machine_state` et par le bloc « état actuel » du prompt : les deux
+/// montrent exactement la même chose, ou le modèle recevrait deux vérités.
+Map<String, dynamic> machineStateMap(MachineState s) => {
+      'status': s.status.name,
+      'wPos': s.wPos,
+      'mPos': s.mPos,
+      'activeWCS': s.activeWCS,
+      'activeToolNum': s.activeToolNum,
+      'feedrate': s.feedrate,
+      'spindleSpeed': s.spindleSpeed,
+      'overrides': s.overrides,
+      'alarmCode': s.alarmCode,
+    };
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -142,17 +159,7 @@ class AiToolCatalog {
       category: null,
       execute: (input, ref) async {
         final s = ref.read(machineRepositoryProvider).currentState;
-        return jsonEncode({
-          'status': s.status.name,
-          'wPos': s.wPos,
-          'mPos': s.mPos,
-          'activeWCS': s.activeWCS,
-          'activeToolNum': s.activeToolNum,
-          'feedrate': s.feedrate,
-          'spindleSpeed': s.spindleSpeed,
-          'overrides': s.overrides,
-          'alarmCode': s.alarmCode,
-        });
+        return jsonEncode(machineStateMap(s));
       },
     ),
     AiTool(
@@ -363,6 +370,7 @@ class AiToolCatalog {
           'corrigé un dépassement de course). ⚠️ Pour ne PAS perdre l\'original, '
           'écris sous un NOUVEAU nom (ex. « piece_corrige.nc ») ; n\'écrase le '
           'fichier d\'origine que si l\'opérateur le demande explicitement. '
+          'Jamais pour y mettre un programme NOUVEAU rédigé par toi. '
           'Action gardée : le contenu est confirmé par l\'opérateur.',
       inputSchema: const {
         'type': 'object',
@@ -503,7 +511,7 @@ class AiToolCatalog {
     ),
     AiTool(
       name: 'home',
-      description: 'Prise d\'origine (homing) des axes indiqués, ou de tous les axes configurés si la liste est vide/absente.',
+      description: 'HOMING : la machine SE DÉPLACE vers ses capteurs de fin de course pour retrouver son origine MACHINE. À utiliser seulement quand l\'opérateur demande le homing ou la prise d\'origine des axes — PAS pour poser le zéro pièce (c\'est set_work_zero). Axes indiqués, ou tous les axes configurés si la liste est vide/absente.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -620,7 +628,12 @@ class AiToolCatalog {
       },
       category: AiActionCategory.streaming,
       execute: (input, ref) async {
-        await ref.read(machineRepositoryProvider).sendGCode(input['gcode'] as String);
+        final line = input['gcode'] as String;
+        // Jamais d'écriture des réglages du micrologiciel par l'agent
+        // ($RST=*, $20=0…) : mesuré, le modèle local l'a tenté (voir le garde).
+        final why = GcodeCommandGuard.refusal(line);
+        if (why != null) return 'REFUSÉ (sécurité) : $why';
+        await ref.read(machineRepositoryProvider).sendGCode(line);
         return 'OK';
       },
     ),
@@ -670,7 +683,7 @@ class AiToolCatalog {
     AiTool(
       name: 'run_gcode_program',
       description:
-          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute, avec validation trajectoire + ForceGuard. Utiliser pour exécuter un programme que tu viens de générer. Remplace le programme actuellement chargé.',
+          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute, avec validation trajectoire + ForceGuard. Réservé à un programme que l\'OPÉRATEUR t\'a donné mot pour mot : jamais un programme rédigé par toi (une coordonnée fausse peut casser la machine). Remplace le programme actuellement chargé.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -685,6 +698,8 @@ class AiToolCatalog {
       execute: (input, ref) async {
         final code = (input['gcode'] as String?)?.trim() ?? '';
         if (code.isEmpty) return 'ERREUR: G-code vide';
+        final why = GcodeCommandGuard.refusalInProgram(code);
+        if (why != null) return 'REFUSÉ (sécurité) : $why';
         await ref.read(gcodeProvider.notifier).loadFile(code);
         final r = await ref.read(streamingProvider.notifier).startStream();
         if (r.isValid) return 'OK: programme chargé et exécution démarrée';
@@ -713,7 +728,12 @@ class AiToolCatalog {
       inputSchema: const {
         'type': 'object',
         'properties': {
-          'state': {'type': 'string', 'enum': ['cw', 'ccw', 'off']},
+          'state': {
+            'type': 'string',
+            'enum': ['cw', 'ccw', 'off'],
+            'description':
+                'OBLIGATOIRE. « cw » pour allumer (sens horaire), « off » pour éteindre.'
+          },
           'rpm': {
             'type': 'number',
             'description':
@@ -725,7 +745,12 @@ class AiToolCatalog {
       },
       category: AiActionCategory.spindleCoolant,
       execute: (input, ref) async {
-        final st = input['state'] as String;
+        // Mesuré : un petit modèle omet parfois ce champ pourtant obligatoire.
+        // Un message clair lui permet de se corriger ; un cast raté, non.
+        final st = input['state'] as String?;
+        if (st != 'cw' && st != 'ccw' && st != 'off') {
+          return 'ERREUR: « state » obligatoire : cw (allumer), ccw ou off (éteindre).';
+        }
         String cmd;
         if (st == 'off') {
           cmd = 'M5';
@@ -815,7 +840,7 @@ class AiToolCatalog {
     AiTool(
       name: 'set_work_zero',
       description:
-          'Définit la position ACTUELLE comme zéro pièce (origine) pour les axes indiqués, dans le WCS actif (G10 L20). Absent = X, Y, Z.',
+          'Définit la position ACTUELLE comme zéro pièce (« origine pièce », « zéro ici ») pour les axes indiqués, dans le WCS actif (G10 L20). AUCUN mouvement : la machine ne bouge pas. Absent = X, Y, Z.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -1017,12 +1042,11 @@ class AiToolCatalog {
     AiTool(
       name: 'preview_step_file',
       description:
-          'Ouvre l\'aperçu 3D d\'un fichier STEP dans une fenêtre séparée (desktop uniquement) : la pièce est facettisée puis affichée telle quelle, AVANT tout usinage. À utiliser dès qu\'un fichier STEP est mentionné, pour que l\'opérateur voie ce qui a été chargé — et pour vérifier soi-même que le fichier contient bien la pièce attendue. Retourne l\'encombrement, le volume et le nombre de triangles.',
+          'Affiche l\'aperçu 3D d\'un fichier STEP dans un panneau à côté de la discussion (desktop uniquement) : la pièce est facettisée puis affichée telle quelle, AVANT tout usinage. À utiliser dès qu\'un fichier STEP est mentionné, pour que l\'opérateur voie ce qui a été chargé — et pour vérifier soi-même que le fichier contient bien la pièce attendue. Retourne l\'encombrement, le volume et le nombre de triangles.',
       inputSchema: const {
         'type': 'object',
         'properties': {
           'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
-          'title': {'type': 'string', 'description': 'Titre de la fenêtre (défaut : nom du fichier)'},
         },
         'required': ['stepPath'],
       },
@@ -1031,21 +1055,14 @@ class AiToolCatalog {
         final path = input['stepPath'] as String;
         try {
           final preview = await StepPreviewService.run(path);
-          // L'écran principal garde la pièce sous la main : rouvrir la
-          // fenêtre ensuite ne refacettise rien.
-          unawaited(ref.read(aiArtifactsProvider.notifier).loadStep(path));
-          final name = path.split(RegExp(r'[/\\]')).last;
-          final message = await AiWindowLauncher.openStepPreview(
-            title: input['title'] as String? ?? 'Aperçu — $name',
-            mesh: preview.mesh,
-            info: {
-              'encombrement': preview.sizeLabel,
-              'volume': '${preview.volume.toStringAsFixed(0)} mm³',
-              'triangles': preview.triangles,
-            },
-          );
+          // `loadStep` retrouve le maillage dans le cache disque que vient de
+          // remplir `run` : le panneau reçoit donc sa pièce tout de suite, et
+          // rouvrir l'aperçu ensuite ne refacettise rien.
+          final artifacts = ref.read(aiArtifactsProvider.notifier);
+          await artifacts.loadStep(path);
+          artifacts.dock(AiDockedViewer.step);
           return jsonEncode({
-            'fenetre': message,
+            'affichage': 'Aperçu affiché dans la console, à côté de la discussion.',
             'encombrement_mm': preview.size,
             'volume_mm3': preview.volume,
             'triangles': preview.triangles,
@@ -1058,24 +1075,22 @@ class AiToolCatalog {
     AiTool(
       name: 'open_toolpath_window',
       description:
-          'Ouvre le parcours d\'outil d\'un programme G-code en 3D, dans une fenêtre séparée (desktop uniquement) — le tracé réel et lui seul, rapides en rouge et passes de travail en vert. À utiliser après avoir généré un programme, pour que l\'opérateur voie le parcours plutôt que d\'avoir à lire des lignes de G-code. La pièce n\'y est pas dessinée : elle masquerait les passes. Pour la voir, c\'est preview_step_file.',
+          'Affiche le parcours d\'outil d\'un programme G-code en 3D, dans un panneau à côté de la discussion (desktop uniquement) — le tracé réel et lui seul, rapides en rouge et passes de travail en vert. À utiliser après avoir généré un programme, pour que l\'opérateur voie le parcours plutôt que d\'avoir à lire des lignes de G-code. La pièce n\'y est pas dessinée : elle masquerait les passes. Pour la voir, c\'est preview_step_file.',
       inputSchema: const {
         'type': 'object',
         'properties': {
           'gcodePath': {'type': 'string', 'description': 'Chemin absolu du fichier .nc / .gcode'},
-          'title': {'type': 'string', 'description': 'Titre de la fenêtre (défaut : nom du fichier)'},
         },
         'required': ['gcodePath'],
       },
       category: null,
       execute: (input, ref) async {
         final gcodePath = input['gcodePath'] as String;
-        ref.read(aiArtifactsProvider.notifier).setGcodePath(gcodePath);
+        final artifacts = ref.read(aiArtifactsProvider.notifier);
+        artifacts.setGcodePath(gcodePath);
+        artifacts.dock(AiDockedViewer.toolpath);
         final name = gcodePath.split(RegExp(r'[/\\]')).last;
-        return AiWindowLauncher.openToolpath(
-          title: input['title'] as String? ?? 'Parcours — $name',
-          gcodePath: gcodePath,
-        );
+        return 'Parcours « $name » affiché dans la console, à côté de la discussion.';
       },
     ),
     AiTool(

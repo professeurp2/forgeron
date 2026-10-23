@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../application/providers/theme_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
 import 'ai_sub_window_content.dart';
@@ -39,6 +41,37 @@ class AiSubWindowApp extends StatefulWidget {
 class _AiSubWindowAppState extends State<AiSubWindowApp> {
   late final Map<String, dynamic> _payload = _parse(widget.rawArguments);
 
+  /// Cette fenêtre est un second moteur Flutter, sans le moindre Riverpod
+  /// partagé avec la fenêtre principale (voir la note de classe) — elle ne
+  /// peut donc pas lire `themeModeProvider` directement. Mais les deux
+  /// moteurs tournent dans le même processus et lisent le même
+  /// SharedPreferences : elle relit la même clé pour ne pas s'afficher
+  /// figée en sombre quel que soit le thème choisi dans la fenêtre
+  /// principale.
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemeMode();
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(themeModePrefsKey);
+      if (saved == null || !mounted) return;
+      final mode = ThemeMode.values.firstWhere(
+        (m) => m.name == saved,
+        orElse: () => ThemeMode.system,
+      );
+      setState(() => _themeMode = mode);
+    } catch (_) {
+      // Préférence illisible : la fenêtre reste sur le système, mieux
+      // qu'une fenêtre qui ne s'ouvre pas.
+    }
+  }
+
   /// Les charges volumineuses (maillage d'une pièce) transitent par un
   /// fichier temporaire plutôt que par les arguments — voir
   /// `AiWindowLauncher._arguments`. Le fichier est consommé puis supprimé :
@@ -68,15 +101,23 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
 
   @override
   Widget build(BuildContext context) {
+    // `colors` doit se calculer SOUS FluentApp (dans `builder`), pas ici :
+    // c'est FluentApp qui pose le MediaQuery dont `isDarkTheme` a besoin pour
+    // résoudre le mode système. Même raison que ForgeronApp dans main.dart.
     return ProviderScope(
-      child: ForgeronTheme(
-        colors: forgeronDarkColors,
-        child: FluentApp(
-          debugShowCheckedModeBanner: false,
-          title: _payload['title'] as String? ?? 'Forgeron',
-          theme: forgeronFluentTheme(forgeronDarkColors),
-          home: _content(),
+      child: FluentApp(
+        debugShowCheckedModeBanner: false,
+        title: _payload['title'] as String? ?? 'Forgeron',
+        theme: forgeronFluentTheme(forgeronLightColors),
+        darkTheme: forgeronFluentTheme(forgeronDarkColors),
+        themeMode: _themeMode,
+        builder: (context, child) => ForgeronTheme(
+          colors: isDarkTheme(context, _themeMode)
+              ? forgeronDarkColors
+              : forgeronLightColors,
+          child: child!,
         ),
+        home: _content(),
       ),
     );
   }

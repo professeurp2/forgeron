@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -81,6 +82,48 @@ class AiWindowChannel {
       await WindowController.fromWindowId(id).close();
     } catch (e) {
       debugPrint('[Fenêtres] fermeture impossible : $e');
+    }
+  }
+
+  /// Attend qu'une fenêtre détachée soit VRAIMENT refermée — confirmé par le
+  /// moteur natif (`getAllSubWindowIds`, interrogé à intervalles courts), pas
+  /// un délai arbitraire. desktop_multi_window 0.2.1 n'expose aucun
+  /// événement de cycle de vie des fenêtres (`onWindowsChanged` n'existe que
+  /// dans la réécriture 0.3.x, incompatible, voir pubspec.yaml) — un sondage
+  /// bref est la seule option.
+  ///
+  /// Toutes les fenêtres 3D (aperçu STEP, parcours d'outil, et la vue logée
+  /// dans la fenêtre principale) partagent un seul environnement WebView2 par
+  /// process (voir third_party/webview_windows) pour que plusieurs vues
+  /// puissent exister l'une après l'autre sans l'erreur « platform not
+  /// supported ». Mais en créer une pendant qu'une autre se détruit encore
+  /// fait s'entrechoquer les deux opérations sur ces ressources partagées —
+  /// plantage natif dans webview_windows_plugin.dll (constaté sur fichier de
+  /// plantage), ou pire, fermeture de l'application entière (constaté aussi).
+  /// D'où la règle stricte : une seule fenêtre 3D vivante à la fois, et
+  /// personne n'en ouvre une nouvelle sans avoir la confirmation — pas
+  /// l'espoir — que la précédente a disparu.
+  static Future<void> waitUntilWindowClosed(
+    int windowId, {
+    Duration timeout = const Duration(seconds: 3),
+    Duration pollInterval = const Duration(milliseconds: 120),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (await _stillOpen(windowId)) {
+      if (DateTime.now().isAfter(deadline)) return;
+      await Future.delayed(pollInterval);
+    }
+  }
+
+  static Future<bool> _stillOpen(int windowId) async {
+    try {
+      final ids = await DesktopMultiWindow.getAllSubWindowIds();
+      return ids.contains(windowId);
+    } catch (_) {
+      // Canal injoignable : on ne peut pas confirmer la fermeture, mais
+      // bloquer indéfiniment serait pire — le filet de sécurité (timeout)
+      // prendra le relais de toute façon.
+      return false;
     }
   }
 }

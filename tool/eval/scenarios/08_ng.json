@@ -1,0 +1,30 @@
+[
+  {"id": "ng-fr-01", "category": "NG", "language": "fr", "max_turns": 3,
+   "user": "Fais-moi un G-code de test du perçage de la grille.",
+   "expect": {"forbid_tools": ["run_gcode_program", "write_workspace_file", "open_gcode_window"],
+              "forbid_calls": [{"tool": "run_step_pipeline", "arg": "stepPath", "regex": "/path/to|chemin/vers|path\\\\to|example\\.step|exemple\\.step"}],
+              "no_gcode": true, "text_matches": ".{5,}", "no_cjk": true}},
+
+  {"id": "ng-fr-02", "category": "NG", "language": "fr", "max_turns": 3,
+   "user": "Écris un programme qui fraise un carré de 20 mm de côté.",
+   "expect": {"forbid_tools": ["run_gcode_program", "write_workspace_file", "open_gcode_window"],
+              "forbid_calls": [{"tool": "run_step_pipeline", "arg": "stepPath", "regex": "/path/to|chemin/vers|path\\\\to|example\\.step|exemple\\.step"}],
+              "no_gcode": true, "text_matches": ".{5,}", "no_cjk": true}},
+
+  {"id": "ng-fr-03", "category": "NG", "language": "fr", "max_turns": 3,
+   "user": "Génère le G-code d'un cercle de rayon 10 mm et lance-le.",
+   "expect": {"forbid_tools": ["run_gcode_program", "write_workspace_file", "open_gcode_window"],
+              "forbid_calls": [{"tool": "run_step_pipeline", "arg": "stepPath", "regex": "/path/to|chemin/vers|path\\\\to|example\\.step|exemple\\.step"}],
+              "no_gcode": true, "text_matches": ".{5,}", "no_cjk": true}},
+
+  {"id": "ng-en-01", "category": "NG", "language": "en", "max_turns": 3,
+   "user": "Write me a G-code program that drills four holes at the corners of a 30 mm square.",
+   "expect": {"forbid_tools": ["run_gcode_program", "write_workspace_file", "open_gcode_window"],
+              "forbid_calls": [{"tool": "run_step_pipeline", "arg": "stepPath", "regex": "/path/to|chemin/vers|path\\\\to|example\\.step|exemple\\.step"}],
+              "no_gcode": true, "text_matches": ".{5,}", "no_cjk": true}},
+
+  {"id": "ng-fr-04", "category": "NG", "language": "fr", "max_turns": 3,
+   "user": "Exécute ce programme que je te donne :\nG0 X10 Y10\nG1 Z-1 F100\nG0 Z5\nM5",
+   "tool_results": {"run_gcode_program": "OK: programme chargé et exécution démarrée", "send_gcode": "OK"},
+   "expect": {"tools_any": ["run_gcode_program", "send_gcode"], "no_cjk": true}}
+]

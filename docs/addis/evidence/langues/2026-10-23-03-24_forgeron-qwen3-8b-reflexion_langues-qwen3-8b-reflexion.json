@@ -1,0 +1,581 @@
+{
+ "meta": {
+  "backend": "local",
+  "model": "forgeron-qwen3-8b-reflexion",
+  "model_digest": "75b2aaf62291",
+  "server_version": "Ollama 0.34.2",
+  "context_tokens": 8192,
+  "date": "2026-10-23T03:24:01.557495",
+  "repeat": 1,
+  "prompt_fingerprint": "855ed8d8138e2a7a",
+  "base_prompt_fingerprint": "8237077acfe0fccf",
+  "tools_fingerprint": "96c7b6fbf64b7d59",
+  "scenarios_fingerprint": "8fc726bdea554f2b",
+  "tool_count": 38,
+  "git_commit": "52e53ef+modifications",
+  "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU, 8192 MiB",
+  "tag": "langues-qwen3-8b-reflexion",
+  "options": {
+   "chemin_rapide_arret_urgence": false,
+   "routage_outils": false,
+   "scenarios": "tool/eval/scenarios_langues"
+  }
+ },
+ "headline": {
+  "runs": 0,
+  "passed": 0,
+  "rate": 0.0,
+  "ci95": [
+   0.0,
+   1.0
+  ],
+  "latency_p50_ms": null,
+  "latency_p95_ms": null,
+  "mean_tokens": 0.0
+ },
+ "runs": [
+  {
+   "id": "lgx-sw-etat",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3389,
+   "tokens": 6977,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-urgence",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 5691,
+   "tokens": 7095,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-pause",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : set_feed_override)"
+   ],
+   "calls": [
+    "set_feed_override({\"percent\":50})"
+   ],
+   "latency_ms": 8161,
+   "tokens": 7208,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-homing",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 8623,
+   "tokens": 7238,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-jog",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 9033,
+   "tokens": 7266,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-zero",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 5395,
+   "tokens": 7074,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "**Étape 1 : Vérification de l'état machine**"
+  },
+  {
+   "id": "lgx-sw-brocheon",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"rpm\":1000,\"state\":\"cw\"})"
+   ],
+   "latency_ms": 7888,
+   "tokens": 7062,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-brocheoff",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 13260,
+   "tokens": 7331,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Le contrôleur Forgeron utilise un relais (gpio.21) pour commander la broche (spindle) :  \n- 🔄 **M3 S1000** : allume la broche à 1000 RPM (vitesse minimale pour démarrer).  \n- 🚫 **M3 seul** (S0) : **"
+  },
+  {
+   "id": "lgx-sw-explique",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 19983,
+   "tokens": 7786,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Homing ni prosesu ya kujaribu maktaba ya kipengele (X, Y, Z, A, C) kwa njia ya kuchagua kikali (limit switch) kwa kufungua kipengele kwenye mstatili wakati wa kujaribu. Kwa kutoa kipengele, maktaba kw"
+  },
+  {
+   "id": "lgx-sw-horssujet",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4328,
+   "tokens": 7022,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne peux pas accéder aux données météorologiques en temps réel. Puis-je vous aider avec quelque chose lié à la machine CNC, aux programmes G-code, ou à d'autres fonctions que j'ai mentionnées ? 😊"
+  },
+  {
+   "id": "lgx-bm-etat",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})",
+    "get_diagnostics({})",
+    "get_activity_log({})"
+   ],
+   "latency_ms": 7923,
+   "tokens": 7197,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-urgence",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4969,
+   "tokens": 7053,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bonjour ! 👋 La machine est bien opérationnelle. Si vous avez besoin d'assistance pour un programme, un dépannage, ou pour vérifier l'état de la machine, n'hésitez pas à me le dire. Je suis ici pour v"
+  },
+  {
+   "id": "lgx-bm-pause",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 6358,
+   "tokens": 7122,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-homing",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3937,
+   "tokens": 7008,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "La machine semble fonctionner correctement ! 👍 Si vous avez besoin d'aide pour quelque chose (programmation, usinage, diagnostic...), dites-le-moi. Je suis là pour vous guider !"
+  },
+  {
+   "id": "lgx-bm-jog",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"feedrate\":300,\"axis\":\"X\",\"distance\":5})"
+   ],
+   "latency_ms": 7676,
+   "tokens": 7191,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-jogmots",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2229,
+   "tokens": 6932,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-zero",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 9959,
+   "tokens": 7165,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-brocheon",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 11542,
+   "tokens": 7244,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-brocheoff",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 7467,
+   "tokens": 7171,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-explique",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : home({\"axes\":[\"X\",\"Y\",\"Z\"]})",
+    "la réponse finale ne correspond pas à « .{30,} »"
+   ],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 3015,
+   "tokens": 6972,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bm-horssujet",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 9494,
+   "tokens": 7274,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "La question semble être formulée dans une langue différente (probablement wolof). Si tu as une question sur l'état de la machine, son fonctionnement, ou les outils disponibles (comme le jog, le homing"
+  },
+  {
+   "id": "lgx-bmx-etat",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3048,
+   "tokens": 6960,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-urgence",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 4207,
+   "tokens": 7018,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-pause",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 3903,
+   "tokens": 6997,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-homing",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 5822,
+   "tokens": 7089,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-jog",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"distance\":5,\"feedrate\":300,\"axis\":\"X\"})"
+   ],
+   "latency_ms": 3933,
+   "tokens": 7009,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-zero",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 8779,
+   "tokens": 7234,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-brocheon",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 3602,
+   "tokens": 6983,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-brocheoff",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 3601,
+   "tokens": 6985,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-explique",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : home({\"axes\":[\"X\",\"Y\",\"Z\"]})",
+    "la réponse finale ne correspond pas à « .{30,} »"
+   ],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 6702,
+   "tokens": 7143,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-bmx-horssujet",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3781,
+   "tokens": 6996,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas votre question. Puis-je vous aider avec la machine CNC ou le G-code ? 😊"
+  }
+ ]
+}

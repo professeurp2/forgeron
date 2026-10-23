@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/painting.dart' show Offset, Size;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
+import 'ai_window_channel.dart';
+
 /// Fenêtres OS séparées que l'agent IA peut ouvrir lui-même — un graphique,
 /// un G-code détaché, un rapport, l'aperçu 3D d'une pièce, un parcours
 /// d'outil — chacune relance `main()` avec un second moteur Flutter (voir
@@ -97,9 +99,32 @@ class AiWindowLauncher {
 
   static bool _is3d(Object? type) => type == 'step_preview' || type == 'toolpath';
 
+  /// La fenêtre 3D actuellement ouverte, s'il y en a une — `null` sinon.
+  ///
+  /// Toutes les vues 3D (aperçu STEP, parcours d'outil) partagent un seul
+  /// environnement WebView2 par process (voir third_party/webview_windows),
+  /// pour éviter l'erreur « platform not supported » qu'un environnement par
+  /// fenêtre provoquait. Mais en créer une pendant qu'une autre se détruit
+  /// encore fait s'entrechoquer les deux opérations sur ces ressources
+  /// partagées — plantage natif, ou pire, fermeture de l'application entière
+  /// (les deux constatés). D'où la règle stricte : une seule fenêtre 3D
+  /// vivante à la fois. Ce champ ne suit QUE les vues 3D, pas les fenêtres
+  /// bénignes (graphique, G-code, rapport) qui n'ouvrent aucune webview.
+  static int? _open3dWindowId;
+
   static Future<String> _open(Map<String, dynamic> payload) async {
     if (!isSupported) {
       return 'Fenêtres indisponibles sur cette plateforme (desktop uniquement).';
+    }
+    final is3d = _is3d(payload['type']);
+    if (is3d && _open3dWindowId != null) {
+      try {
+        await WindowController.fromWindowId(_open3dWindowId!).close();
+      } catch (_) {
+        // Déjà partie d'une autre façon (fermée à la main) : tant mieux.
+      }
+      await AiWindowChannel.waitUntilWindowClosed(_open3dWindowId!);
+      _open3dWindowId = null;
     }
     // desktop_multi_window 0.2.1 : la fenêtre est créée cachée par défaut,
     // WindowController.show() doit être appelé explicitement (voir doc de
@@ -109,6 +134,7 @@ class AiWindowLauncher {
     final controller = await DesktopMultiWindow.createWindow(
       _arguments(payload),
     );
+    if (is3d) _open3dWindowId = controller.windowId;
 
     // Le cadre, le titre et la position sont posés D'ICI, depuis la fenêtre
     // principale, avant l'affichage.

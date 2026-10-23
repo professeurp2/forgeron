@@ -14,6 +14,9 @@ class FakeMachineRepository implements MachineRepository {
   int resetCalls = 0;
   final List<String> sentGCode = [];
   final List<String> sentRaw = [];
+  final List<String> homeCalls = [];
+  final List<(String, double, double)> jogCalls = [];
+  int pauseCalls = 0;
 
   @override
   Future<bool> emergencyStop() async {
@@ -48,13 +51,14 @@ class FakeMachineRepository implements MachineRepository {
     void Function(String reason)? onStall,
   }) async {}
   @override
-  Future<void> home([List<String> axes = const []]) async {}
+  Future<void> home([List<String> axes = const []]) async => homeCalls.add(axes.join(','));
   @override
-  Future<void> jog(String axis, double distance, double feedrate) async {}
+  Future<void> jog(String axis, double distance, double feedrate) async =>
+      jogCalls.add((axis, distance, feedrate));
   @override
   Future<void> resume() async {}
   @override
-  Future<void> pause() async {}
+  Future<void> pause() async => pauseCalls++;
   @override
   Future<void> setFeedOverride(int percent) async {}
   @override

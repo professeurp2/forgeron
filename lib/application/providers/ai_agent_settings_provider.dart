@@ -40,6 +40,12 @@ enum AiAutonomyLevel {
   requireConfirmation,
 }
 
+/// Modèle local proposé par défaut : le dérivé de `tool/ollama/Modelfile`, pas
+/// `qwen2.5:7b` tel quel. Ollama charge ce dernier avec un contexte de 4 096
+/// tokens (mesuré) — le prompt de l'agent en occupe à lui seul ~6 800 et serait
+/// tronqué en silence ; le service local le refuse d'ailleurs.
+const defaultLocalModel = 'forgeron-qwen';
+
 /// Réglages persistants de l'agent IA : activation, permissions par
 /// catégorie d'action. La clé API est gérée séparément (stockage sécurisé),
 /// jamais incluse dans cet objet ni dans sa sérialisation JSON.
@@ -58,10 +64,18 @@ class AiAgentSettings {
   /// Nom du modèle servi à cette adresse, tel que le serveur le connaît.
   final String localModel;
 
+  /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
+  /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
+  /// toutes les langues du lexique, restriction à la lecture sur les questions
+  /// et les négations. Activée par défaut ; la couper ramène l'assistant au
+  /// comportement d'avant (modèle seul + chemin rapide de l'arrêt d'urgence).
+  final bool lexiconEnabled;
+
   const AiAgentSettings({
     this.enabled = false,
     this.localBaseUrl = '',
-    this.localModel = 'qwen2.5:7b',
+    this.localModel = defaultLocalModel,
+    this.lexiconEnabled = true,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
@@ -79,12 +93,14 @@ class AiAgentSettings {
     Map<AiActionCategory, AiAutonomyLevel>? autonomy,
     String? localBaseUrl,
     String? localModel,
+    bool? lexiconEnabled,
   }) {
     return AiAgentSettings(
       enabled: enabled ?? this.enabled,
       autonomy: autonomy ?? this.autonomy,
       localBaseUrl: localBaseUrl ?? this.localBaseUrl,
       localModel: localModel ?? this.localModel,
+      lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
     );
   }
 
@@ -93,6 +109,7 @@ class AiAgentSettings {
         'autonomy': autonomy.map((k, v) => MapEntry(k.name, v.name)),
         'localBaseUrl': localBaseUrl,
         'localModel': localModel,
+        'lexiconEnabled': lexiconEnabled,
       };
 
   factory AiAgentSettings.fromJson(Map<String, dynamic> json) {
@@ -110,7 +127,9 @@ class AiAgentSettings {
       enabled: json['enabled'] as bool? ?? false,
       autonomy: autonomy,
       localBaseUrl: json['localBaseUrl'] as String? ?? '',
-      localModel: json['localModel'] as String? ?? 'qwen2.5:7b',
+      localModel: json['localModel'] as String? ?? defaultLocalModel,
+      // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
+      lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
     );
   }
 }
@@ -150,6 +169,11 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   void setLocalBaseUrl(String value) {
     state = state.copyWith(
         localBaseUrl: LocalAiAgentService.normalizeBaseUrl(value));
+    _persist();
+  }
+
+  void setLexiconEnabled(bool value) {
+    state = state.copyWith(lexiconEnabled: value);
     _persist();
   }
 

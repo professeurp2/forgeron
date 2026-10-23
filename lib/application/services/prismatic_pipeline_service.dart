@@ -75,13 +75,17 @@ class PrismaticPipelineService {
         '${pipelineDir.path}${Platform.pathSeparator}prismatic_to_gcode.py',
         stepPath,
         outPath,
-        '--outil', '$toolDiameter',
-        '--ap', '$ap',
-        '--ae', '$ae',
-        '--avance', '$feed',
-        '--plongee', '$plunge',
-        '--broche', '$spindle',
-        '--debourrage', '$peck',
+        // freecadcmd analyse lui-même toute option « --xxx » de sa ligne de
+        // commande (Boost.Program_options) et rejette celles qu'il ne connaît
+        // pas — « --outil » séparé en arguments distincts faisait échouer
+        // TOUT appel avec des réglages personnalisés, avant même d'atteindre
+        // prismatic_to_gcode.py (« unrecognised option '--outil' », vérifié
+        // empiriquement). Son échappatoire documentée est « --pass » : UNE
+        // seule chaîne, transmise telle quelle au script, à charge pour lui
+        // de la re-découper (voir parse_args côté Python).
+        '--pass',
+        '--outil $toolDiameter --ap $ap --ae $ae --avance $feed '
+            '--plongee $plunge --broche $spindle --debourrage $peck',
       ],
     );
 

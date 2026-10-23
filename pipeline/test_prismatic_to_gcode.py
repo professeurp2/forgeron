@@ -148,9 +148,13 @@ def main() -> int:
     # ── 1 bis. Les options de la ligne de commande sont-elles suivies ? ────
     # Sans cette vérification, le script pourrait ignorer ses arguments en
     # silence et produire toujours le même parcours.
+    # freecadcmd intercepte lui-même tout "--xxx" de sa ligne de commande et
+    # rejette ceux qu'il ne connaît pas : "--outil" en argument séparé le
+    # fait échouer AVANT d'atteindre prismatic_to_gcode.py. "--pass" est son
+    # échappatoire documentée — une seule chaîne, transmise telle quelle.
     opt_out = tmp / "bloc_opt.nc"
-    code_opt, _ = run_pipeline(
-        step_path, opt_out, "--outil", "3", "--ap", "0.1", "--ae", "0.25"
+    code_opt, opt_output = run_pipeline(
+        step_path, opt_out, "--pass", "--outil 3 --ap 0.1 --ae 0.25"
     )
     if code_opt == 0:
         opt_report = json.loads(
@@ -170,6 +174,7 @@ def main() -> int:
             ok = False
     else:
         print("  ÉCHEC : le pipeline refuse ses propres options.")
+        print(opt_output[-2000:])
         ok = False
 
     # ── 2. Pavé plein, sans poche ni perçage : Pocket ne doit pas apparaître

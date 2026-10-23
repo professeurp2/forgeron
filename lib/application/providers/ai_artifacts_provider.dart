@@ -2,26 +2,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/step_preview_service.dart';
 
-/// Quel aperçu 3D est logé DANS la fenêtre principale.
+/// Quels panneaux 3D/2D sont logés DANS la fenêtre principale, en grille.
 ///
-/// Les aperçus vivent normalement dans des fenêtres détachées — un cadre fixe
-/// et plein, le seul endroit où un contrôle WebView natif tient correctement.
-/// Mais une fenêtre détachée finit par gêner : sur un écran unique elle
-/// recouvre la discussion. Chacune sait donc revenir ici, et le panneau qui
-/// l'accueille est lui aussi fixe et non animé — c'est cette contrainte-là,
-/// pas le fait d'être détaché, qui fait tenir la WebView.
+/// Plusieurs peuvent être ouverts à la fois — voir `AiArtifacts.openPanes`.
+/// Chaque panneau est un cadre fixe et non animé, le seul endroit où un
+/// contrôle WebView natif tient correctement (une fenêtre détachée
+/// fonctionnait pour la même raison ; l'app n'en ouvre plus, un bug natif non
+/// résolu fermait parfois l'application entière à la refermeture — voir
+/// `AiWindowLauncher`, laissé de côté plutôt que réparé).
 enum AiDockedViewer {
-  /// Aucun aperçu dans la fenêtre principale.
+  /// Aucun panneau — jamais dans `openPanes`, seulement une valeur de retour
+  /// pour `fromWire` sur une chaîne inconnue.
   none,
 
   /// Le maillage de la pièce STEP.
   step,
 
   /// Le parcours d'outil du programme généré.
-  toolpath;
+  toolpath,
 
-  /// Nom court transporté par le canal inter-fenêtres. Volontairement stable :
-  /// les deux moteurs Flutter ne partagent que ces chaînes.
+  /// Emplacement réservé pour un futur panneau d'optimisation — aucun outil
+  /// ne l'ouvre encore, gardé seulement pour que le code qui énumère les
+  /// panneaux (la grille) reste exhaustif sans retouche le jour venu.
+  optimization;
+
+  /// Nom court transporté par le canal inter-fenêtres (chemin détaché,
+  /// laissé de côté). Volontairement stable : les deux moteurs Flutter ne
+  /// partagent que ces chaînes. `optimization` n'y transite jamais.
   static AiDockedViewer fromWire(String? wire) => switch (wire) {
         'step' => AiDockedViewer.step,
         'toolpath' => AiDockedViewer.toolpath,
@@ -42,28 +49,30 @@ class AiArtifacts {
   const AiArtifacts({
     this.step,
     this.gcode,
-    this.docked = AiDockedViewer.none,
+    this.openPanes = const {},
   });
 
   final StepArtifact? step;
   final GcodeArtifact? gcode;
 
-  /// L'aperçu logé dans la fenêtre principale, s'il y en a un.
-  final AiDockedViewer docked;
+  /// Les panneaux actuellement ouverts dans la grille de la fenêtre
+  /// principale — plusieurs à la fois, contrairement à l'ancien champ
+  /// `docked` unique qu'il remplace.
+  final Set<AiDockedViewer> openPanes;
 
   bool get isEmpty => step == null && gcode == null;
 
   AiArtifacts copyWith({
     StepArtifact? step,
     GcodeArtifact? gcode,
-    AiDockedViewer? docked,
+    Set<AiDockedViewer>? openPanes,
     bool clearStep = false,
     bool clearGcode = false,
   }) =>
       AiArtifacts(
         step: clearStep ? null : (step ?? this.step),
         gcode: clearGcode ? null : (gcode ?? this.gcode),
-        docked: docked ?? this.docked,
+        openPanes: openPanes ?? this.openPanes,
       );
 }
 
@@ -153,24 +162,34 @@ class AiArtifactsNotifier extends StateNotifier<AiArtifacts> {
   void setGcodePath(String path) =>
       state = state.copyWith(gcode: GcodeArtifact(path: path));
 
-  /// Loge un aperçu dans la fenêtre principale.
+  /// L'objet à montrer existe-t-il encore ici ? Une fenêtre détachée peut
+  /// porter une pièce que cette discussion ne connaît plus (discussion
+  /// changée, historique effacé) — à vérifier AVANT de promettre le retour à
+  /// la fenêtre appelante, qui ne doit se refermer que sur un « oui ».
+  bool canDock(AiDockedViewer viewer) => switch (viewer) {
+        AiDockedViewer.step => state.step?.preview != null,
+        AiDockedViewer.toolpath => state.gcode != null,
+        AiDockedViewer.optimization => false,
+        AiDockedViewer.none => true,
+      };
+
+  bool isOpen(AiDockedViewer viewer) => state.openPanes.contains(viewer);
+
+  /// Ouvre un panneau dans la grille de la fenêtre principale — s'ajoute aux
+  /// panneaux déjà ouverts, ne les remplace pas. Idempotent.
   ///
-  /// Retourne `false` si l'objet à montrer n'existe pas ici : une fenêtre
-  /// détachée peut porter une pièce que cette discussion ne connaît plus
-  /// (discussion changée, historique effacé). Elle doit alors rester ouverte —
-  /// elle est le dernier endroit où cet aperçu existe.
-  bool dock(AiDockedViewer viewer) {
-    final possible = switch (viewer) {
-      AiDockedViewer.step => state.step?.preview != null,
-      AiDockedViewer.toolpath => state.gcode != null,
-      AiDockedViewer.none => true,
-    };
-    if (!possible) return false;
-    state = state.copyWith(docked: viewer);
-    return true;
+  /// Suppose [canDock] déjà vérifié : voir `main.dart`, qui vérifie d'abord,
+  /// répond à la fenêtre appelante (chemin détaché, laissé de côté), puis
+  /// appelle ceci.
+  void dock(AiDockedViewer viewer) {
+    if (viewer == AiDockedViewer.none) return;
+    state = state.copyWith(openPanes: {...state.openPanes, viewer});
   }
 
-  void undock() => state = state.copyWith(docked: AiDockedViewer.none);
+  /// Referme [viewer] — les autres panneaux ouverts restent en place.
+  void undock(AiDockedViewer viewer) => state = state.copyWith(
+        openPanes: state.openPanes.difference({viewer}),
+      );
 
   /// Nouvelle discussion : les aperçus de l'ancienne n'ont plus lieu d'être.
   void clear() => state = const AiArtifacts();
