@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "version": "0.2.1",
+  "note": "Lexique de commandes de l'assistant. Un mot n'a de sens ici que parce qu'une personne a dit qu'il l'a. Statut `brouillon` = écrit sans relecteur nommé (par l'assistant de code, avec les sources citées dans `sources`) : l'application DEMANDE confirmation avant d'agir sur ces mots. Une langue ne passe à `relu` qu'avec le nom d'un locuteur et la date (voir docs/lexique-gouvernance.md). Toute modification : changer `version`, relancer `dart run tool/lexicon/lock.dart`, committer le fichier .lock avec le changement. Les mots sont écrits dans leur orthographe naturelle (ɛ, ɔ, ɲ…) ; le moteur les plie lui-même (ɛ→e, ɔ→o, ɲ→ny) pour que la saisie sans ces lettres marche aussi.",
+
+  "intents": [
+    {"id": "etat",      "tool": "get_machine_state", "action": ["show"], "object": ["etat", "machine"], "read_only": true, "tolerance": 1},
+    {"id": "etat",      "tool": "get_machine_state", "action": [null],   "object": ["etat", "machine"], "need": ["etat"], "read_only": true, "tolerance": 1},
+    {"id": "urgence",   "tool": "emergency_stop",    "action": ["stop"], "object": ["machine", "all", null], "alarm_alone": true, "tolerance": 0},
+    {"id": "pause",     "tool": "pause",             "action": ["pause"], "object": ["programme", "machine", null], "tolerance": 0},
+    {"id": "homing",    "tool": "home",              "action": ["home"], "object": ["machine", "all", "axe", null], "tolerance": 0},
+    {"id": "jog",       "tool": "jog_axis",          "action": ["move"], "object": ["axe", null], "slots": ["axis", "distance", "feedrate"], "tolerance": 0},
+    {"id": "zero",      "tool": "set_work_zero",     "action": [null],   "object": ["zero"], "tolerance": 0},
+    {"id": "brocheon",  "tool": "set_spindle", "args": {"state": "cw"},  "action": ["start"], "object": ["broche"], "tolerance": 0},
+    {"id": "brocheoff", "tool": "set_spindle", "args": {"state": "off"}, "action": ["stop"],  "object": ["broche"], "tolerance": 0}
+  ],
+
+  "languages": {
+    "fr": {
+      "status": "brouillon",
+      "reviewed_by": null,
+      "actions": {
+        "stop": ["arrête", "arrêter", "arrêtez", "arrêt d'urgence", "arrêt urgence", "stoppe", "stopper", "stop", "coupe", "couper", "éteins", "éteindre", "halte", "à l'arrêt"],
+        "start": ["démarre", "démarrer", "lance", "lancer", "allume", "allumer", "active", "activer", "en marche", "marche"],
+        "pause": ["pause", "en pause", "suspends", "suspendre"],
+        "show": ["montre", "affiche", "afficher", "donne", "dis", "indique", "quel", "quelle", "où", "comment", "voir"],
+        "home": ["homing", "prise d'origine", "origine machine", "origine de tous les axes", "origine des axes", "retour à l'origine", "position de départ", "position initiale", "position d'origine"],
+        "move": ["avance", "avancer", "déplace", "déplacer", "bouge", "bouger", "jog"]
+      },
+      "polite": ["peux tu", "tu peux", "pouvez vous", "vous pouvez", "pourrais tu", "tu pourrais", "pourriez vous", "vous pourriez", "veux tu", "voulez vous", "voudrais tu", "est ce que tu peux", "est ce que vous pouvez", "est ce que tu pourrais", "est ce que vous pourriez"],
+      "light": ["fais", "faire", "mets", "met", "mettre", "pose", "poser", "définis", "règle", "fixe"],
+      "objects": {
+        "machine": ["machine"],
+        "all": ["tout", "tous", "toute", "toutes"],
+        "broche": ["broche"],
+        "programme": ["programme", "prog"],
+        "zero": ["zéro pièce", "zéro", "origine pièce", "origine de la pièce", "point zéro"],
+        "etat": ["état", "statut", "position", "situation"],
+        "axe": ["axe", "axes"]
+      },
+      "urgent": ["vite", "immédiatement", "tout de suite", "maintenant", "c'est urgent", "urgent"],
+      "alarm": ["urgence", "au secours", "sos"],
+      "fillers": ["le", "la", "les", "l", "un", "une", "de", "du", "des", "d", "a", "au", "aux", "en", "est", "il", "ce", "c", "que", "qu", "moi", "me", "m", "s", "svp", "stp", "pour", "ici", "cette", "cet", "ça", "sur", "avec", "s'il te plaît", "s'il vous plaît"],
+      "negations": ["ne", "pas", "jamais", "non", "aucun", "aucune", "plus"],
+      "conditions": ["avant", "après", "quand", "lorsque", "si", "puis", "ensuite", "et", "sans", "pendant", "jusqu", "alors"],
+      "directions": ["recule", "reculer", "arrière", "derrière", "monte", "monter", "descend", "descends", "descendre", "haut", "bas", "gauche", "droite", "inverse", "opposé", "négatif", "moins", "vers", "sens"],
+      "questions": ["pourquoi", "quoi", "qui", "explique", "expliquer", "définition", "c'est quoi", "qu'est-ce", "est-ce que"],
+      "feed": ["vitesse", "f"],
+      "units": {"mm": ["mm", "millimètre", "millimètres"], "cm": ["cm", "centimètre", "centimètres"]},
+      "numbers": {
+        "style": "multiplier_first",
+        "units": {"deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8, "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13, "quatorze": 14, "quinze": 15, "seize": 16},
+        "tens": {"vingt": 20, "vingts": 20, "trente": 30, "quarante": 40, "cinquante": 50, "soixante": 60},
+        "hundred": ["cent", "cents"],
+        "thousand": ["mille"],
+        "quatre_vingt": true
+      }
+    },
+
+    "en": {
+      "status": "brouillon",
+      "reviewed_by": null,
+      "actions": {
+        "stop": ["stop", "halt", "kill", "e stop", "estop", "emergency stop", "turn off", "switch off", "power off", "shut off", "shut down", "off"],
+        "start": ["start", "run", "launch", "activate", "turn on", "switch on", "power on", "on"],
+        "pause": ["pause", "hold", "suspend"],
+        "show": ["show", "display", "give", "tell", "what", "where", "how", "check"],
+        "home": ["homing", "home all", "home", "go home", "return home", "return to home", "back to home", "return to origin", "go to origin", "machine origin", "home position", "starting position"],
+        "move": ["move", "jog", "shift", "displace"]
+      },
+      "polite": ["can you", "could you", "would you", "will you", "can you please", "could you please", "would you please", "please can you", "please could you"],
+      "light": ["do", "make", "put", "set"],
+      "objects": {
+        "machine": ["machine"],
+        "all": ["everything", "all"],
+        "broche": ["spindle"],
+        "programme": ["program", "programme", "job"],
+        "zero": ["work zero", "part origin", "workpiece origin", "zero", "origin"],
+        "etat": ["state", "status", "position", "condition"],
+        "axe": ["axis", "axes"]
+      },
+      "urgent": ["now", "immediately", "urgent", "urgently", "asap", "quickly", "right now", "at once"],
+      "alarm": ["emergency", "sos", "help"],
+      "fillers": ["the", "a", "an", "of", "to", "me", "please", "it", "is", "s", "at", "by", "this", "here", "in", "my", "for", "with"],
+      "negations": ["not", "no", "never", "don", "doesn", "didn", "won", "cannot", "t", "nothing"],
+      "conditions": ["if", "when", "after", "before", "once", "until", "then", "and", "without", "while"],
+      "directions": ["back", "backward", "backwards", "up", "down", "left", "right", "minus", "negative", "reverse", "forward", "forwards", "away", "toward", "towards"],
+      "questions": ["why", "what is", "what's", "explain", "define", "who"],
+      "feed": ["speed", "rate", "feedrate", "feed", "f"],
+      "units": {"mm": ["mm", "millimeter", "millimeters", "millimetre", "millimetres"], "cm": ["cm", "centimeter", "centimeters", "centimetre", "centimetres"]},
+      "numbers": {
+        "style": "multiplier_first",
+        "units": {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19},
+        "tens": {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90},
+        "hundred": ["hundred"],
+        "thousand": ["thousand"]
+      }
+    },
+
+    "bm": {
+      "name": "bambara (bamanankan)",
+      "status": "brouillon",
+      "reviewed_by": null,
+      "reviewed_on": null,
+      "script": "latin",
+      "sources": [
+        "An ka taa — dictionnaire bambara/dioula-anglais-français (dictionary.ankataa.com) : chaque mot a été cherché le 2026-10-23, le sens retenu est celui du dictionnaire ; voir docs/addis/langues-locales/feuille-bambara.md pour la source mot à mot",
+        "Aucun locuteur n'a encore relu cette liste. Les mots d'atelier absents du dictionnaire (broche, programme, homing, zéro, unités) restent des mots FRANÇAIS, comme on parle en atelier."
+      ],
+      "actions": {
+        "stop": ["jɔ", "dabila"],
+        "start": ["daminɛ", "mɛnɛ"],
+        "pause": ["jɔ dɔɔnin", "dabila dɔɔnin", "to dɔɔnin", "makɔnɔ"],
+        "show": ["jira", "fɔ", "lajɛ"],
+        "home": ["segin a daminɛ yɔrɔ", "segin a yɔrɔ", "segin so"],
+        "move": ["taa"]
+      },
+      "light": ["kɛ", "da", "sigi", "bila"],
+      "objects": {
+        "machine": ["mansin"],
+        "all": ["bɛɛ"],
+        "etat": ["cogoya", "cogo"]
+      },
+      "urgent": ["sisan", "sisan sisan", "joona", "joona joona"],
+      "alarm": ["dɛmɛ", "fàràti"],
+      "fillers": ["n", "ye", "in", "la", "na", "yan", "a", "ka", "o", "bɛ"],
+      "negations": ["kana", "tena", "man", "tɛ"],
+      "conditions": ["ni"],
+      "directions": ["jigin", "yɛlɛn", "wuli", "kɔfɛ", "ɲɛfɛ", "numan", "numanbolo", "kini", "kinibolo", "kininfɛ"],
+      "questions": ["mun", "munna", "jɔn", "ɲɛfɔ"],
+      "feed": ["teliya"],
+      "numbers": {
+        "style": "multiplier_after",
+        "units": {"kelen": 1, "fila": 2, "saba": 3, "naani": 4, "duuru": 5, "wooro": 6, "wolonwula": 7, "wolonfila": 7, "seegin": 8, "kɔnɔntɔn": 9},
+        "tens": {"tan": 10, "mugan": 20, "bisaba": 30, "binaani": 40, "biduuru": 50, "biwooro": 60, "biwolonwula": 70, "bisegin": 80, "bikɔnɔntɔn": 90},
+        "tens_prefix": "bi",
+        "hundred": ["kɛmɛ"],
+        "thousand": ["waa", "waga"],
+        "connectors": ["ni"]
+      }
+    }
+  }
+}

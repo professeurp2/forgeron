@@ -1,0 +1,5 @@
+# ollama create forgeron-qwen3-4b -f tool/ollama/Modelfile.etude-langues-qwen3-4b
+# Voir Modelfile.etude-langues pour le contexte.
+FROM qwen3:4b
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2

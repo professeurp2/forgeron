@@ -1,0 +1,24 @@
+# Pipeline CAO → parcours (phase 5 du PLAN-IA).
+#
+# Installation :
+#   python -m venv pipeline/.venv
+#   pipeline/.venv/Scripts/python -m pip install -r pipeline/requirements.txt
+#
+# Lancer les vérifications :
+#   cd pipeline && .venv/Scripts/python test_mesh_profile.py
+
+# Seule dépendance. Le STL est lu et écrit en numpy pur (`stl_io.py`).
+numpy>=1.26
+
+# ── Écartés, et pourquoi ────────────────────────────────────────────────────
+#
+# trimesh : provoque une erreur de segmentation sur Python 3.15.0b1 — une de
+#   ses dépendances compilées n'est pas prête pour cette bêta. Le format STL
+#   étant trivial (en-tête de 84 octets puis 50 octets par triangle), il est
+#   plus sûr de le lire directement que de dépendre d'une pile fragile.
+#
+# cadquery / cadquery-ocp : lecture de STEP en géométrie exacte. Aucune
+#   distribution compatible avec Python 3.15.0b1 — ce sont des bindings C++
+#   précompilés, publiés pour les versions stables uniquement. Exigera un
+#   Python 3.12 installé à côté, le jour où le STEP deviendra nécessaire
+#   (phase 5.c). Le STL suffit pour les pièces de révolution.

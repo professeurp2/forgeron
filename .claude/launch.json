@@ -6,6 +6,12 @@
       "runtimeExecutable": "flutter",
       "runtimeArgs": ["run", "-d", "web-server", "--web-port", "5757"],
       "port": 5757
+    },
+    {
+      "name": "viewer3d",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", "web"],
+      "port": 8777
     }
   ]
 }

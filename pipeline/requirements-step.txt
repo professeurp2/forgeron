@@ -1,0 +1,19 @@
+# Environnement séparé pour la lecture STEP (phase 5.b/5.c du PLAN-IA).
+#
+# Nécessite Python 3.12 — les bindings OpenCASCADE sont des binaires
+# précompilés, publiés pour des versions stables uniquement. Ils échouent à
+# s'installer sur Python 3.15.0b1, la version du reste du pipeline (voir
+# requirements.txt) : c'est pourquoi ce venv est séparé.
+#
+# Installation :
+#   py -3.12 -m venv pipeline/.venv312
+#   pipeline/.venv312/Scripts/python -m pip install -r pipeline/requirements-step.txt
+#
+# Lancer les vérifications :
+#   pipeline/.venv312/Scripts/python pipeline/test_step_io.py
+
+# Bindings OpenCASCADE. `pythonocc-core`, cité dans ARCHITECTURE.md, ne publie
+# ses wheels que sur conda-forge — aucune conda ici. `cadquery-ocp` publie les
+# mêmes bindings (module `OCP`) sur PyPI pour Python 3.12, avec vtk et
+# matplotlib en dépendances (visualisation, inutilisées par ce pipeline).
+cadquery-ocp==8.0.1.0.0

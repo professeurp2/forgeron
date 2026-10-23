@@ -36,6 +36,7 @@ _$MachineStateImpl _$$MachineStateImplFromJson(Map<String, dynamic> json) =>
       feedrate: (json['feedrate'] as num?)?.toDouble() ?? 0.0,
       spindleSpeed: (json['spindleSpeed'] as num?)?.toDouble() ?? 0.0,
       spindleLoad: (json['spindleLoad'] as num?)?.toDouble() ?? 0.0,
+      spindleOn: json['spindleOn'] as bool? ?? false,
       coreTemp: (json['coreTemp'] as num?)?.toDouble() ?? 40.0,
       isRtcpActive: json['isRtcpActive'] as bool? ?? false,
       overrides:
@@ -85,6 +86,7 @@ Map<String, dynamic> _$$MachineStateImplToJson(_$MachineStateImpl instance) =>
       'feedrate': instance.feedrate,
       'spindleSpeed': instance.spindleSpeed,
       'spindleLoad': instance.spindleLoad,
+      'spindleOn': instance.spindleOn,
       'coreTemp': instance.coreTemp,
       'isRtcpActive': instance.isRtcpActive,
       'overrides': instance.overrides,

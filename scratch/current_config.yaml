@@ -78,7 +78,10 @@ control:
   macro2_pin: NO_PIN
   macro3_pin: NO_PIN
   fault_pin: NO_PIN
-  estop_pin: NO_PIN
+  # ARRÊT D'URGENCE : bouton NF entre GPIO15 et GND, pull-up interne (:pu).
+  # Repos (fermé)=LOW=inactif ; appui ou fil coupé=HIGH=arrêt (fail-safe).
+  # ⚠️ Câbler le bouton AVANT de téléverser (sinon HIGH au boot → ALARM).
+  estop_pin: gpio.15:high:pu
 
 coolant:
   flood_pin: NO_PIN

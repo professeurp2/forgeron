@@ -1,0 +1,470 @@
+{
+ "meta": {
+  "backend": "local",
+  "model": "forgeron-qwen",
+  "model_digest": "fa1d9250af60",
+  "server_version": "Ollama 0.40.9",
+  "context_tokens": 16384,
+  "date": "2026-10-23T07:00:45.105790",
+  "repeat": 3,
+  "prompt_fingerprint": "4c35fefab6024106",
+  "base_prompt_fingerprint": "49ee134812bd3aab",
+  "tools_fingerprint": "e9d3981db29f15d9",
+  "scenarios_fingerprint": "b469a1a63ea1511e",
+  "tool_count": 39,
+  "git_commit": "b9edc49+modifications",
+  "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU, 8192 MiB",
+  "tag": "rag-search-docs",
+  "options": {
+   "chemin_rapide_arret_urgence": true,
+   "routage_outils": false
+  }
+ },
+ "headline": {
+  "runs": 24,
+  "passed": 7,
+  "rate": 0.2916666666666667,
+  "ci95": [
+   0.14914460334164278,
+   0.49168063658709704
+  ],
+  "latency_p50_ms": 1097,
+  "latency_p95_ms": 8163,
+  "mean_tokens": 7602.208333333333
+ },
+ "runs": [
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 422,
+   "tokens": 7148,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 405,
+   "tokens": 7148,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 406,
+   "tokens": 7148,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé (obtenu : get_config)"
+   ],
+   "calls": [
+    "get_config({})"
+   ],
+   "latency_ms": 2420,
+   "tokens": 7280,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour allumer la broche en G-code sur cette machine, vous devez utiliser la commande `M3` avec une valeur de vitesse S supérieure à 0. Sur cette machine, la valeur S doit être > 0 pour allumer la broch"
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"allumer broche avec G-code\"})"
+   ],
+   "latency_ms": 2312,
+   "tokens": 7274,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour allumer la broche en G-code sur cette machine, vous devez utiliser la commande `M3 S1000`. Cette commande fait appel à un relais à TOUT-OU-RIEN, donc une vitesse S différente de zéro est nécessai"
+  },
+  {
+   "id": "doc-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3364,
+   "tokens": 7340,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour allumer la broche en G-code sur cette machine, vous devez utiliser la commande `M3 S1000` où `S1000` est la vitesse de rotation (1000 tr/min).\n\nVoici comment vous pouvez l'inclure dans un G-code "
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « alimentation »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"broche étincelles\"})"
+   ],
+   "latency_ms": 840,
+   "tokens": 7176,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Avant de répondre, commençons par chercher les informations pertinentes dans la base documents de Forgeron."
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « alimentation »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"broche fais étincelles\"})"
+   ],
+   "latency_ms": 440,
+   "tokens": 7151,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « alimentation »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"broche étincelles\"})"
+   ],
+   "latency_ms": 4880,
+   "tokens": 14464,
+   "turns": 1,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 39,
+   "excerpt": "Avant de répondre, j'appelle search_docs pour vérifier s'il y a une explication pertinente."
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (ne trouve|pas de fiche|aucune|n'ai pas) »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"huile broche\"})"
+   ],
+   "latency_ms": 8891,
+   "tokens": 7680,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Pour changer l'huile de la broche sur cette machine, voici la procédure générale :\n\n1. **Arrêter la broche** : \n   - Commandez l'arrêt de la broche en utilisant la commande `M5` (arrêt horaire).\n\n2. *"
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé",
+    "la réponse finale ne correspond pas à « (ne trouve|pas de fiche|aucune|n'ai pas) »"
+   ],
+   "calls": [],
+   "latency_ms": 8163,
+   "tokens": 7650,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je comprends que vous souhaitez changer l'huile de la broche, mais cette tâche ne relève pas du contrôle de la machine ou de la gestion de FluidNC. Cependant, je peux vous fournir les informations néc"
+  },
+  {
+   "id": "doc-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (ne trouve|pas de fiche|aucune|n'ai pas) »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"changement huile broche\"})"
+   ],
+   "latency_ms": 1097,
+   "tokens": 7199,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Avant de répondre, je vais utiliser `search_docs` pour vérifier si Forgeron possède des instructions spécifiques sur le changement d'huile de la broche."
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 353,
+   "tokens": 7145,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 346,
+   "tokens": 7145,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 342,
+   "tokens": 7145,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": ""
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 736,
+   "tokens": 7168,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis ici si vous avez d'autres questions dans l'avenir. Faites bonne journée et n'hésitez pas à me contacter si vous avez besoin d'aide !"
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 533,
+   "tokens": 7156,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je serai ici si vous avez besoin de moi. Prenez soin de vous et de la machine. Bonne journée !"
+  },
+  {
+   "id": "doc-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 925,
+   "tokens": 7181,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis là si vous avez d'autres questions à l'avenir. Profitez de votre journée ! Si vous aviez des fichiers G-code à analyser ou à partager, n'hésitez pas à me le faire savoir dès votre re"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4130,
+   "tokens": 7384,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "La commande `G10 L20` est utilisée en G-code pour définir un zéro de pièce (nommé aussi “origine pièce” ou “zéro ici”) en utilisant la position actuelle de la machine. Voici comment elle fonctionne :\n"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 6292,
+   "tokens": 7520,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "La commande G10 L20 est utilisée pour définir une nouvelle position zéro pièce (la \"origine pièce\") en utilisant la position actuelle de la machine. Voici un résumé de ses arguments et de son action :"
+  },
+  {
+   "id": "doc-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « search_docs » non appelé",
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 5581,
+   "tokens": 7472,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "La commande G10 L20 est utilisée pour définir l'offset de coordonnées d'un système de coordonnées pièce (WCS) via le point actuel de la table de la machine. Voici ses caractéristiques :\n\n- **G10 L20**"
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : emergency_stop)",
+    "la réponse finale ne correspond pas à « (aliment|coup|couper) »"
+   ],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 4407,
+   "tokens": 7413,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "L'arrêt d'urgence semble nécessaire dans cette situation, car la broche tourne sans commande depuis l'ESP32. Voici les étapes à suivre :\n\n1. Vérifiez les connecteurs et les câbles de la broche pour vo"
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : emergency_stop)"
+   ],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 8027,
+   "tokens": 7640,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "L'instabilité de l'ESP32 et la continuité du fonctionnement de la broche sont des symptômes concernant l'alimentation ou la programmation du relais. Voici les étapes à suivre :\n\n1. **Arrêtez l'activit"
+  },
+  {
+   "id": "doc-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "aucun de search_docs / get_machine_state appelé (obtenu : get_diagnostics, emergency_stop)"
+   ],
+   "calls": [
+    "get_diagnostics({})",
+    "emergency_stop({})"
+   ],
+   "latency_ms": 4620,
+   "tokens": 7426,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "L'instabilité de la broche pouvant conduire à ce comportement, voici les étapes à suivre :\n\n1. **Vérification de l'état actuel** : Utilisons `get_diagnostics` pour vérifier si l'ESP32 a été redémarré "
+  }
+ ]
+}

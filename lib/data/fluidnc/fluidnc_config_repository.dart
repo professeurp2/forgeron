@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../domain/repositories/config_repository.dart';
@@ -33,12 +34,24 @@ class FluidNcConfigRepository implements ConfigRepository {
 
   @override
   Future<void> saveConfig(String yaml) async {
-    final uri = Uri.parse('$baseUrl/config.yaml');
-    final response = await _client
-        .post(uri, body: yaml, headers: {'Content-Type': 'text/plain'})
-        .timeout(const Duration(seconds: 15));
+    // FluidNC (serveur ESP3D) n'accepte pas un POST texte simple sur
+    // /config.yaml (« Connection closed while receiving data »). Le vrai
+    // mécanisme d'upload est un POST multipart vers /files, avec le fichier
+    // et sa taille (champ « <nom>S » attendu par ESP3D).
+    final bytes = utf8.encode(yaml);
+    final uri = Uri.parse('$baseUrl/files');
+    final req = http.MultipartRequest('POST', uri)
+      ..fields['path'] = '/'
+      ..fields['config.yamlS'] = bytes.length.toString()
+      ..files.add(http.MultipartFile.fromBytes(
+        'config.yaml',
+        bytes,
+        filename: 'config.yaml',
+      ));
+    final streamed = await req.send().timeout(const Duration(seconds: 20));
+    final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 200) {
-      throw Exception('Sauvegarde config échouée: HTTP ${response.statusCode}');
+      throw Exception('Upload config échoué: HTTP ${response.statusCode}');
     }
   }
 

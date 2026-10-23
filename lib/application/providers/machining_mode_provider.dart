@@ -39,13 +39,18 @@ final rotaryAxesActiveProvider = Provider<bool>((ref) {
   return mode.rotaryAxesActive;
 });
 
-/// Profondeur de passe max recommandée (mm) selon le mode actif.
+/// Profondeur de passe max (mm).
+///
+/// Le mode reste surveillé bien que la valeur n'en dépende plus : c'est un
+/// plafond VIBRATOIRE, et la structure ne sait pas si A et C bougent (voir
+/// [MachiningMode.maxDepthOfCut]). Le jour où une mesure distinguerait les
+/// deux régimes, l'écran suivrait sans qu'on y touche.
 final activeMaxApProvider = Provider<double>((ref) {
   final mode = ref.watch(machiningModeProvider);
   return mode.maxDepthOfCut;
 });
 
-/// Largeur d'engagement max recommandée (mm) selon le mode actif.
+/// Largeur d'engagement max (mm). Même plafond vibratoire, même raison.
 final activeMaxAeProvider = Provider<double>((ref) {
   final mode = ref.watch(machiningModeProvider);
   return mode.maxWidthOfCut;

@@ -1,0 +1,6020 @@
+{
+ "meta": {
+  "backend": "local",
+  "model": "forgeron-qwen",
+  "model_digest": "fa1d9250af60",
+  "server_version": "Ollama 0.34.2",
+  "context_tokens": 16384,
+  "date": "2026-10-23T00:59:04.394423",
+  "repeat": 3,
+  "prompt_fingerprint": "855ed8d8138e2a7a",
+  "base_prompt_fingerprint": "8237077acfe0fccf",
+  "tools_fingerprint": "96c7b6fbf64b7d59",
+  "scenarios_fingerprint": "3e4679992c323888",
+  "tool_count": 38,
+  "git_commit": "52e53ef+modifications",
+  "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU, 8192 MiB",
+  "tag": "langues-lexique-garde",
+  "options": {
+   "chemin_rapide_arret_urgence": false,
+   "routage_outils": false,
+   "frontal_lexique": true,
+   "garde_refus_lexique": true,
+   "scenarios": "tool/eval/scenarios_langues"
+  }
+ },
+ "headline": {
+  "runs": 66,
+  "passed": 61,
+  "rate": 0.9242424242424242,
+  "ci95": [
+   0.834605945487485,
+   0.9672084459353918
+  ],
+  "latency_p50_ms": 0,
+  "latency_p95_ms": 4564,
+  "mean_tokens": 2389.4242424242425
+ },
+ "runs": [
+  {
+   "id": "lgx-fr-etat",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Montre→action:show, moi→filler, l→filler, état→object:etat, de→filler, la→filler, machine→object:machine)"
+  },
+  {
+   "id": "lgx-fr-etat",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Montre→action:show, moi→filler, l→filler, état→object:etat, de→filler, la→filler, machine→object:machine)"
+  },
+  {
+   "id": "lgx-fr-etat",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Montre→action:show, moi→filler, l→filler, état→object:etat, de→filler, la→filler, machine→object:machine)"
+  },
+  {
+   "id": "lgx-fr-urgence",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrête→action:stop, la→filler, machine→object:machine, tout de suite→urgent, c→filler, est→filler, une→filler, urgence→alarm)"
+  },
+  {
+   "id": "lgx-fr-urgence",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrête→action:stop, la→filler, machine→object:machine, tout de suite→urgent, c→filler, est→filler, une→filler, urgence→alarm)"
+  },
+  {
+   "id": "lgx-fr-urgence",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrête→action:stop, la→filler, machine→object:machine, tout de suite→urgent, c→filler, est→filler, une→filler, urgence→alarm)"
+  },
+  {
+   "id": "lgx-fr-pause",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 288,
+   "tokens": 6826,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-fr-pause",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 275,
+   "tokens": 6826,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-fr-pause",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 1550,
+   "tokens": 6908,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour mettre le programme en pause, nous allons utiliser la commande `pause`. Voici ce que je vais faire :\n\n```json"
+  },
+  {
+   "id": "lgx-fr-homing",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 2635,
+   "tokens": 6971,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour ramener la machine à sa position de départ, nous devons d'abord effectuer le homing des axes configurés. Voici les étapes :\n\n1. Assurez-vous que l'origine machine Z est en haut et que le bout de "
+  },
+  {
+   "id": "lgx-fr-homing",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 2130,
+   "tokens": 6939,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour ramener la machine à sa position de départ, nous allons utiliser `home` pour effectuer le homing des axes configurés. Voici les étapes :\n\n1. Effectuer le homing des axes.\n2. Vérifier l'état post-"
+  },
+  {
+   "id": "lgx-fr-homing",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : set_spindle, set_feed_override)"
+   ],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})",
+    "set_feed_override({\"percent\":100})"
+   ],
+   "latency_ms": 6267,
+   "tokens": 7211,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "abilia ! Voici les étapes pour ramener la machine à sa position de départ :\n\n1. Assure-toi que la position courante de la machine est enregistrée (par exemple en utilisant `get_position` dans l'API, m"
+  },
+  {
+   "id": "lgx-fr-jog",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, 5→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, 300→num)"
+  },
+  {
+   "id": "lgx-fr-jog",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, 5→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, 300→num)"
+  },
+  {
+   "id": "lgx-fr-jog",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, 5→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, 300→num)"
+  },
+  {
+   "id": "lgx-fr-jogmots",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, cinq→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, trois cents→num)"
+  },
+  {
+   "id": "lgx-fr-jogmots",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, cinq→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, trois cents→num)"
+  },
+  {
+   "id": "lgx-fr-jogmots",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Déplace→action:move, l→filler, axe→object:axe, X→axis:X, de→filler, cinq→num, millimètres→unit:mm, à→filler, la→filler, vitesse→feed, de→filler, trois cents→num)"
+  },
+  {
+   "id": "lgx-fr-zero",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Pose→light, le→filler, zéro pièce→object:zero, ici→filler)"
+  },
+  {
+   "id": "lgx-fr-zero",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Pose→light, le→filler, zéro pièce→object:zero, ici→filler)"
+  },
+  {
+   "id": "lgx-fr-zero",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Pose→light, le→filler, zéro pièce→object:zero, ici→filler)"
+  },
+  {
+   "id": "lgx-fr-brocheon",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Allume→action:start, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-brocheon",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Allume→action:start, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-brocheon",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Allume→action:start, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-brocheoff",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Éteins→action:stop, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-brocheoff",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Éteins→action:stop, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-brocheoff",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Éteins→action:stop, la→filler, broche→object:broche)"
+  },
+  {
+   "id": "lgx-fr-explique",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 6724,
+   "tokens": 4124,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Le homing est une procédure importante dans la préparation aux opérations de fabrication sur une machine outil. Voici une explication simple :\n\n1. **Définition** : C'est le processus de détermination "
+  },
+  {
+   "id": "lgx-fr-explique",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4341,
+   "tokens": 3987,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Le homing est un processus important dans l'accueil et l'orientation de la pièce à usiner. Voici une explication simple :\n\nLorsque tu starts l'usinage, la machine doit connaître où elle se trouve par "
+  },
+  {
+   "id": "lgx-fr-explique",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4931,
+   "tokens": 4028,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Le homing, en usinage, c'est comme si la machine \"retournait à la maison\" pour se positionner correctement. Imagine que la machine est comme un robot qui doit retrouver ses repères pour savoir exactem"
+  },
+  {
+   "id": "lgx-fr-horssujet",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3409,
+   "tokens": 6923,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je m'excuse, mais en tant qu'assistant pour la machine de tournage, je ne dispose pas de données météorologiques en temps réel. Je peux vous aider avec des informations sur l'état actuel de la machine"
+  },
+  {
+   "id": "lgx-fr-horssujet",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1308,
+   "tokens": 6893,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je n'ai pas la capacité de fournir des informations météorologiques en temps réel. Ma fonctionnalité se limite à la gestion de la machine et des tâches liées à l'usinage. Pour obt"
+  },
+  {
+   "id": "lgx-fr-horssujet",
+   "category": "LGX",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1175,
+   "tokens": 6884,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne suis pas capable de fournir des informations météorologiques pour la météo future. Pour connaître les prévisions du temps, il faudrait utiliser une API météo ou consulter un"
+  },
+  {
+   "id": "lgx-en-etat",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Show→action:show, me→filler, the→filler, machine→object:machine, state→object:etat)"
+  },
+  {
+   "id": "lgx-en-etat",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Show→action:show, me→filler, the→filler, machine→object:machine, state→object:etat)"
+  },
+  {
+   "id": "lgx-en-etat",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Show→action:show, me→filler, the→filler, machine→object:machine, state→object:etat)"
+  },
+  {
+   "id": "lgx-en-urgence",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Stop→action:stop, the→filler, machine→object:machine, right now→urgent, it→filler, s→filler, an→filler, emergency→alarm)"
+  },
+  {
+   "id": "lgx-en-urgence",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Stop→action:stop, the→filler, machine→object:machine, right now→urgent, it→filler, s→filler, an→filler, emergency→alarm)"
+  },
+  {
+   "id": "lgx-en-urgence",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Stop→action:stop, the→filler, machine→object:machine, right now→urgent, it→filler, s→filler, an→filler, emergency→alarm)"
+  },
+  {
+   "id": "lgx-en-pause",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 292,
+   "tokens": 6824,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-en-pause",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 279,
+   "tokens": 6824,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-en-pause",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1680,
+   "tokens": 6910,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "abilia pour exécuter une pause ? Si c'est le cas, allons-y : \n\n```gcode\nM0\n```\n\nCela place le programme en pause. L'utilisateur devra appuyer sur \"Résumer\" pour reprendre l'exécution.\n\nPour confirmer "
+  },
+  {
+   "id": "lgx-en-homing",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3356,
+   "tokens": 7018,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour remettre la machine à sa position initiale, nous allons d'abord obtenir l'état de la machine pour voir où en est la table et ensuite déplacer la table vers la position de départ. Voici la procédu"
+  },
+  {
+   "id": "lgx-en-homing",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_wcs_offsets)"
+   ],
+   "calls": [
+    "get_wcs_offsets({})"
+   ],
+   "latency_ms": 4564,
+   "tokens": 7088,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vous rendre à la position initiale, je vais d'abord vérifier l'état de l'ébauche afin de faire un retour en arrière de manière sécurisée. Je vais déterminer les coordonnées de l'ébauche et les ut"
+  },
+  {
+   "id": "lgx-en-homing",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1582,
+   "tokens": 6908,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour renvoyer la machine à sa position de départ, nous allons d'abord obtenir l'état courant de la machine pour vérifier ses positions actuelles. Ensuite, si nécessaire, nous pouvons déplacer la machi"
+  },
+  {
+   "id": "lgx-en-jog",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, 5→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, 300→num)"
+  },
+  {
+   "id": "lgx-en-jog",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, 5→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, 300→num)"
+  },
+  {
+   "id": "lgx-en-jog",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, 5→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, 300→num)"
+  },
+  {
+   "id": "lgx-en-jogmots",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, five→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, three hundred→num)"
+  },
+  {
+   "id": "lgx-en-jogmots",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, five→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, three hundred→num)"
+  },
+  {
+   "id": "lgx-en-jogmots",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Move→action:move, the→filler, X→axis:X, axis→object:axe, by→filler, five→num, millimeters→unit:mm, at→filler, a→filler, speed→feed, of→filler, three hundred→num)"
+  },
+  {
+   "id": "lgx-en-zero",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Set→light, the→filler, work zero→object:zero, here→filler)"
+  },
+  {
+   "id": "lgx-en-zero",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Set→light, the→filler, work zero→object:zero, here→filler)"
+  },
+  {
+   "id": "lgx-en-zero",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Set→light, the→filler, work zero→object:zero, here→filler)"
+  },
+  {
+   "id": "lgx-en-brocheon",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn on→action:start, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-brocheon",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn on→action:start, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-brocheon",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn on→action:start, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-brocheoff",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn off→action:stop, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-brocheoff",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn off→action:stop, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-brocheoff",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Turn off→action:stop, the→filler, spindle→object:broche)"
+  },
+  {
+   "id": "lgx-en-explique",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2945,
+   "tokens": 6997,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Homing est comme une grande \"recherche de domicile\" que la machine fait. Au début de chaque travail, elle se déplace jusqu'aux limites de ses mouvements pour trouver ses points de départ définitifs. C"
+  },
+  {
+   "id": "lgx-en-explique",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1749,
+   "tokens": 6922,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Le homing consiste à faire revenir la machine dans ses positions de référence absolues, appelées \"origines\". C'est comme si la machine s'alignait avec un repère fixe du monde réel. Pour cela, elle se "
+  },
+  {
+   "id": "lgx-en-explique",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2208,
+   "tokens": 6951,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "La homing est comme un grand \"retrouvailles\" de la machine. Tout d'abord, la machine se déplace vers les limites minimums de chaque axe pour trouver où sont ses capteurs de fin de course. C'est comme "
+  },
+  {
+   "id": "lgx-en-horssujet",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1284,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je n'ai pas la capacité de prédire la météo. Je peux vous aider avec des questions techniques liées à votre machine à cutter, comme vérifier son état ou analyser un programme G-co"
+  },
+  {
+   "id": "lgx-en-horssujet",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1704,
+   "tokens": 6916,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne peux pas fournir la météo pour demain car je n'ai pas accès aux informations météorologiques en temps réel. Je suis conçu pour gérer les tâches liées à la machine de déroule"
+  },
+  {
+   "id": "lgx-en-horssujet",
+   "category": "LGX",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2023,
+   "tokens": 6936,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je m'excuse, mais je suis un assistant virtuel dédié au contrôle de la machine et je n'ai pas la capacité de fournir des prévisions météorologiques. Je peux vous aider avec des questions relatives à l"
+  },
+  {
+   "id": "lgx-ar-etat",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})",
+    "get_diagnostics({})"
+   ],
+   "latency_ms": 3303,
+   "tokens": 7016,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour obtenir une vue d'ensemble détaillée de l'état actuel de la machine, allons-y par étapes. D'abord, rafraîchissons la position présente et le statut de la machine à travers `get_machine_state`. Vo"
+  },
+  {
+   "id": "lgx-ar-etat",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2608,
+   "tokens": 6972,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vous fournir une vue d'ensemble actualisée de l'état de la machine, je vais d'abord récupérer l'état courant de la machine. Cela nous permettra de vérifier la position des axes, l'état du program"
+  },
+  {
+   "id": "lgx-ar-etat",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 307,
+   "tokens": 6826,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-urgence",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 303,
+   "tokens": 6834,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-urgence",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 284,
+   "tokens": 6834,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-urgence",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 295,
+   "tokens": 6834,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-pause",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 334,
+   "tokens": 6825,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-pause",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 296,
+   "tokens": 6825,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-pause",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 293,
+   "tokens": 6825,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-homing",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3523,
+   "tokens": 7029,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour repositionner l'origine de la machine, nous devons émettre des commandes de homing pour chacun des axes linéaires et rotatifs configurés. Cependant, avant cela, assurons-nous que l'OPÉRATEUR a co"
+  },
+  {
+   "id": "lgx-ar-homing",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 2896,
+   "tokens": 6989,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour redémarrer l'opération, nous devons d'abord poser l'origine machine et, ensuite, vérifier que l'origine de la pièce est correctement définie. Voici les étapes :\n\n1. Réinitialiser l'origine de la "
+  },
+  {
+   "id": "lgx-ar-homing",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})",
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3156,
+   "tokens": 7005,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour redémarrer l'usinage de manière sécurisée, nous devons nous assurer que la machine est entièrement hachée. En raison du câblage NC des fins de course des axes X, Y et Z, le homoering est absolume"
+  },
+  {
+   "id": "lgx-ar-jog",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 617,
+   "tokens": 6858,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-jog",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 610,
+   "tokens": 6858,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-jog",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"feedrate\":300,\"axis\":\"X\",\"distance\":5})"
+   ],
+   "latency_ms": 607,
+   "tokens": 6858,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ar-zero",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3320,
+   "tokens": 7012,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bon, allons-y étape par étape. Avant d'établir la position comme zéro pièce, assureons-nous que l'origine machine est correcte. L'opérateur doit vérifier sur l'écran de table de bord que tous les axes"
+  },
+  {
+   "id": "lgx-ar-zero",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2580,
+   "tokens": 6968,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "sàng avis: Avant de définir un nouveau zéro de pièce, veuillez vérifier que la machine est correctement homée. Si nous devons procéder, nous allons définir la position actuelle de la machine comme le "
+  },
+  {
+   "id": "lgx-ar-zero",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4272,
+   "tokens": 7074,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant d'établir le zéro de la pièce, veuillez vérifier que l'opération s'effectue dans le bon système de coordonnées (WCS) et que l'axe Z est dégagé. Le zéro de la pièce doit être défini à partir de l"
+  },
+  {
+   "id": "lgx-ar-brocheon",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 6946,
+   "tokens": 7242,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de lancer le programme, il est important de vérifier certains points de sécurité et de configuration.\n\n### Points de sécurité à vérifier :\n1. **Homage des axes** : S'assurer que tous les axes on"
+  },
+  {
+   "id": "lgx-ar-brocheon",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1107,
+   "tokens": 6877,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne peux pas exécuter de programme sans avoir le fichier G-code correspondant. Pourriez-vous me fournir le nom du fichier que vous souhaitez charger et exécuter ? Si vous avez un programme que vous "
+  },
+  {
+   "id": "lgx-ar-brocheon",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2501,
+   "tokens": 6962,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne peux pas exécuter de programme avant d'avoir vérifié les points de sécurité et d'annonce les actions à l'opérateur. Pouvez-vous s'il vous plaît confirmer que :\n\n1. L'opérateur a effectué un homi"
+  },
+  {
+   "id": "lgx-ar-brocheoff",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\",\"rpm\":0})"
+   ],
+   "latency_ms": 2254,
+   "tokens": 6945,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour éteindre le moteur de broche, utilisez la commande `set_spindle` avec l'état `\"off\"` et une vitesse de 0. Voici comment procéder :\n\n```json"
+  },
+  {
+   "id": "lgx-ar-brocheoff",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 2277,
+   "tokens": 6948,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour éteindre le marteau, utilisez la commande `set_spindle` en spécifiant l'état « off ». Voici comment vous pouvez le faire :\n\n```json"
+  },
+  {
+   "id": "lgx-ar-brocheoff",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1159,
+   "tokens": 6879,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour éteindre le marteau-piqueur, utilisez la commande suivante :\n\n```gcode\nM5\n```\n\nCette commande arrêtera la rotation du marteau-piqueur sans l'allumer à nouveau. Assurez-vous d'avoir homé les axes "
+  },
+  {
+   "id": "lgx-ar-explique",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4041,
+   "tokens": 7065,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "الهومينج (homing) هو عملية تحديد موقع بدء المحاور في آلة التحكم بالأقنية (CNC). أشبه بالتحديد المكان المزروع فيه الصفر في نظام الإحداثيات.\n\nعندما نقوم بالهومينج:\n\n1. نقوم بتحديد نقطة بداية دقيقة لجميع"
+  },
+  {
+   "id": "lgx-ar-explique",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4004,
+   "tokens": 7060,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "الهومينج (homing) في عالم الطابور (CNC) يعني أن نتحرك بالملحقات المختلفة (مثل المحاور X, Y, Z) نحو المراكز المعرفة كإنهائيات. هذه المراكز هي Points de Retour Initial (PRIMARY HOME POINTS) حيث توجد أجه"
+  },
+  {
+   "id": "lgx-ar-explique",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3906,
+   "tokens": 7053,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "الهومينج (homing) هو عملية مهمتها العودة للنقطة التي تُعتبر نقطة الصفر أو البداية للمعلمات في الجهاز. في هذه المACHINE, هذا يعني:\n\n- تعيين موقع الأصل للمراوح (A و C) التي لا تملك فؤوس نهاية مشغلة (End"
+  },
+  {
+   "id": "lgx-ar-horssujet",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1224,
+   "tokens": 6882,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je suis un assistant virtuel pour la gestion de votre machine CNC et je n'ai pas la capacité de prédire le temps ou la météo. Pour obtenir des informations sur la météo, je vous r"
+  },
+  {
+   "id": "lgx-ar-horssujet",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2032,
+   "tokens": 6925,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne peux pas fournir des informations météorologiques car je suis une intelligence artificielle intégrée dans le système de contrôle de la machine CNC, et je n'ai pas la capacit"
+  },
+  {
+   "id": "lgx-ar-horssujet",
+   "category": "LGX",
+   "language": "ar",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1530,
+   "tokens": 6899,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne peux pas fournir une prédiction météorologique car je nepossède pas les données d'actualité nécessaires pour cela. Je peux vous aider avec des informations techniques sur l'"
+  },
+  {
+   "id": "lgx-sw-etat",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 926,
+   "tokens": 6864,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour commencer, allons vérifier l'état courant de la machine. Je vais utiliser la fonction `get_machine_state` pour obtenir les informations pertinentes."
+  },
+  {
+   "id": "lgx-sw-etat",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1095,
+   "tokens": 6874,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais vérifier l'état actuel de la machine et vous fournir les informations nécessaires. \n\nPremièrement, je vais utiliser `get_machine_state` pour obtenir l'état courant de la machine."
+  },
+  {
+   "id": "lgx-sw-etat",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1385,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vérifier l'état actuel de la machine, je vais utiliser l'outil `get_machine_state`. Cela nous donnera des informations sur le statut, la position actuelle, la vitesse de la broche, les overrides "
+  },
+  {
+   "id": "lgx-sw-urgence",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1587,
+   "tokens": 6903,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, allumons la machine. Avant de procéder, veuillez confirmer que vous avez bien homégné les axes récemment puisque des jog ont été effectués sans homing préalable.\n\nSerait-il possible de vérif"
+  },
+  {
+   "id": "lgx-sw-urgence",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 333,
+   "tokens": 6834,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-urgence",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 5142,
+   "tokens": 7104,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Salamalaika! Nipitili kuhusu mashine hapa. Hizi kuna kutoa tukio kuu kusaidia kubadilisha mikakutolewa, nina kisogopoyo kutoa maeneo yako kwenye mikakutolewa. Nipe kati ya kila kujua ni \"ok\" ili nilik"
+  },
+  {
+   "id": "lgx-sw-pause",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2526,
+   "tokens": 6950,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je comprends que vous souhaitez lancer un programme, mais pour des raisons de sécurité et de précision, je vais d'abord vérifier l'état de la machine et vous demander une confirmation. Voici ce que je"
+  },
+  {
+   "id": "lgx-sw-pause",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1488,
+   "tokens": 6893,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour exécuter un programme, nous devons d'abord vérifier l'état de la machine et assurer la sécurité. Pouvez-vous m'indiquer comment est organisé votre espace de travail et y a-t-il un programme prêt "
+  },
+  {
+   "id": "lgx-sw-pause",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : stop_program)"
+   ],
+   "calls": [
+    "stop_program({})"
+   ],
+   "latency_ms": 1754,
+   "tokens": 6908,
+   "turns": 1,
+   "notes": [
+    "appel_en_texte:recupere"
+   ],
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-homing",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 7300,
+   "tokens": 7224,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Rudisha mashine kwenye nafasi ya mwanzo ni barua pia kama jamii kama haya. Huchaguliwa kama:\n\n```gcode\nG28\n```\n\nHii husaidia kuhusiana na kufaa na capteuri zinazohusianisha nafasi za kawaida za mashin"
+  },
+  {
+   "id": "lgx-sw-homing",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 8630,
+   "tokens": 7301,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "anfordahatia, Rudisha mashine kwenye nafasi ya mwanzo halisi kama mudhibiti. Kutoheni kusanya kutoa mwanzo ya maeneo yangu za X, Y, na Z au kwa sababu yanaweza kuwasibu kutoa mwanzo ya zimawe za X, Y,"
+  },
+  {
+   "id": "lgx-sw-homing",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4583,
+   "tokens": 7073,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Rudisha mashine kwenye nafasi ya mwanzo, unaweza kujifunza kama vile:\n\n```gcode\nG28\n```\n\nHata hivyo, unaweza kujifunza hivyo kwa ujumla kama:\n\n```gcode\nG28 X Y Z\n```\n\nKwa sababu aina ya Z linéare akis"
+  },
+  {
+   "id": "lgx-sw-jog",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : set_feed_override)"
+   ],
+   "calls": [
+    "set_feed_override({\"percent\":300})"
+   ],
+   "latency_ms": 4198,
+   "tokens": 7060,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "J'ajusterai la vitesse de l'axe X pour qu'elle ne dépasse pas 500 mm/min, conformément aux spécifications de la machine. Voici la commande que je vais exécuter :\n\n```gcode\nG1 F300\n```\n\nCette commande "
+  },
+  {
+   "id": "lgx-sw-jog",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"feedrate\":300,\"axis\":\"X\",\"distance\":5})"
+   ],
+   "latency_ms": 664,
+   "tokens": 6863,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-jog",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4299,
+   "tokens": 7067,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "J'ai bienNoté votre demande. Pour déplacer l'axe X de 5 mm à une vitesse de 300 mm/min, voici la ligne de G-code correspondante que vous pouvez envoyer à la machine :\n\n```gcode\nG00 X5.0 F300\n```\n\nCett"
+  },
+  {
+   "id": "lgx-sw-zero",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1499,
+   "tokens": 6895,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, je suis ici pour vous aider. Que devez-vous faire d'abord ? Voulez-vous vérifier l'état de la machine, lancer un palpage, analyser un programme G-code, ou est-ce que vous avez besoin d'infor"
+  },
+  {
+   "id": "lgx-sw-zero",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé (obtenu : get_activity_log, get_machine_state)"
+   ],
+   "calls": [
+    "get_activity_log({})",
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3056,
+   "tokens": 13822,
+   "turns": 1,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 38,
+   "excerpt": "Je vais vérifier l'état de la machine et m'assurer que tout est bien configuré pour une utilisation sûre. Je vais d'abord récupérer le journal des actions récentes et vérifier l'état courant de la mac"
+  },
+  {
+   "id": "lgx-sw-zero",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2015,
+   "tokens": 6914,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de commencer, pouvons-nous vérifier l'état actuel de la machine pour nous assurer que tout est correct et sécurisé ? Je peux exécuter `get_machine_state` pour obtenir les informations de base. C"
+  },
+  {
+   "id": "lgx-sw-brocheon",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 589,
+   "tokens": 6836,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-sw-brocheon",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"rpm\":1000,\"state\":\"cw\"})"
+   ],
+   "latency_ms": 1988,
+   "tokens": 6916,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour allumer la broche, vous devez lancer une commande `set_spindle` avec l'argument `state` à \"cw\" et en faisant sûre que la vitesse `rpm` est supérieure à 0. La vitesse par défaut est de 1000 tr/min"
+  },
+  {
+   "id": "lgx-sw-brocheon",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3579,
+   "tokens": 7006,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de faire fonctionner la broche, nous devons nous assurer que la machine est correctement homisée et prêtée. Pouvez-vous vérifier que l'homéage de la machine a été effectué récemment et que la po"
+  },
+  {
+   "id": "lgx-sw-brocheoff",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 4039,
+   "tokens": 7031,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "### Estado de la Máquina\n\nDe acuerdo con el journal de actividad, parece que la máquina ha estado en movimiento lineal en los ejes X y Y. Antes de continuar, necesito verificar el estado actual de la "
+  },
+  {
+   "id": "lgx-sw-brocheoff",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3304,
+   "tokens": 6989,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour activer l'axe de la broche (la broche est à relais), il faut lancer une commande `M3` avec une vitesse supérieure à 0 mm/min. La valeur par défaut est 1000 mm/min. Nous devons également vérifier "
+  },
+  {
+   "id": "lgx-sw-brocheoff",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2821,
+   "tokens": 6963,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour activer la broche (Zima spindle), nous devons lancer la commande M3 avec une vitesse supérieure à 0, car cette broche fonctionne avec un relais à tout-ou-rien. Voici comment procéder :\n\n```gcode\n"
+  },
+  {
+   "id": "lgx-sw-explique",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 10343,
+   "tokens": 7395,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Homing ni prosesu alipitisha kipatikanani ya maisha ya maono kwenye mtiwazo wengi. Kwa kununua:\n\n1. **Mtiwazo A (Rotatif):** Maisha ya maono huo ni kubadilika mbadiliko mbadiliko unapokuwa kwenye 360°"
+  },
+  {
+   "id": "lgx-sw-explique",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 5794,
+   "tokens": 7138,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "L'homing est un processus important pour réinitialiser toutes les positions des axes et les définir comme origine de la machine. Voici ce que cela signifie dans le contexte de votre machine :\n\n- **Hom"
+  },
+  {
+   "id": "lgx-sw-explique",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : home({})"
+   ],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 5793,
+   "tokens": 7140,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Homing ni prosesu yasiyogi kusikia zero za makini na makumi zifuatazo ya kikundi zaidi kilishimo. Kwa ajili ya tofauti baya, kipatkati kuna kinywamini kwenye Forgeron:\n\n1. **Z - Mkoa**: Homing ya Z ku"
+  },
+  {
+   "id": "lgx-sw-horssujet",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 606,
+   "tokens": 6844,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Sure, how can I assist you today? Do you need help with operating Forgeron, checking the machine's status, or any other related tasks?"
+  },
+  {
+   "id": "lgx-sw-horssujet",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2277,
+   "tokens": 6938,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Tafadhali itanyesha vutu vya kusimama na kuwa kutosha kama vile \"jog X+1.0 (F300)\" kama uwezo wako wanaoingia. Nibu kama hii ni uwezo wake wakawezake kuwasiliana na mifano zako zinazozifuata, ninafung"
+  },
+  {
+   "id": "lgx-sw-horssujet",
+   "category": "LGX",
+   "language": "sw",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1046,
+   "tokens": 6868,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis ici pour vous aider avec toutes vos questions sur l'état de la machine, le programme G-code, la configuration, les diagnostics, etc. Que souhaitez-vous savoir ou faire exactement ?.onreadystat"
+  },
+  {
+   "id": "lgx-ha-etat",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 733,
+   "tokens": 6851,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je n'ai pas compris votre requête. Pouvez-vous reformuler en français s'il vous plaît ? Essayez de me dire ce que vous souhaitez faire avec la machine."
+  },
+  {
+   "id": "lgx-ha-etat",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1200,
+   "tokens": 6875,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je m'excuse, mais votre message ne semble pas clair pour moi. Pourriez-vous donner plus de détails sur ce que vous voulez faire ? Par exemple, voulez-vous changer quelque chose sur la machine, ou bien"
+  },
+  {
+   "id": "lgx-ha-etat",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1457,
+   "tokens": 6891,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas complètement votre message. Pouvons-nous avoir plus de détails sur ce que vous voulez faire ou discuter ? Voulez-vous utiliser la fonction `jog_axis` pour faire un jog manuel, ou a"
+  },
+  {
+   "id": "lgx-ha-urgence",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2041,
+   "tokens": 3798,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Je suis désolé, mais votre message ne contient pas de demande spécifique ou d'instruction claire pour moi. Pourraient-vous préciser ce dont vous avez besoin ? Par exemple, souhaitez-vous inspecter un "
+  },
+  {
+   "id": "lgx-ha-urgence",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1835,
+   "tokens": 3810,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Salut ! J'ai bien pris en note votre demande. Pour bien commencer, pourriez-vous me préciser exactement ce que vous souhaitez faire avec Forgeron ? A-t-on un fichier G-code spécifique à exécuter, ou u"
+  },
+  {
+   "id": "lgx-ha-urgence",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1536,
+   "tokens": 3792,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Bien sûr, je suis prêt à vous assister. Pour commencer, pourriez-vous me dire quel aspects spécifiques de la machine ou du processus vous aimeriez aborder ? Par exemple, voudriez-vous inspecter l'état"
+  },
+  {
+   "id": "lgx-ha-pause",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3117,
+   "tokens": 6867,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message n'est pas clair en wolof. Pourriez-vous reformuler en français s'il vous plaît ? Je serai ravi de vous aider une fois que je comprendrai votre requête."
+  },
+  {
+   "id": "lgx-ha-pause",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 480,
+   "tokens": 6840,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je n'ai pas compris la demande. Pourriez-vous reformuler en français s'il vous plaît ?"
+  },
+  {
+   "id": "lgx-ha-pause",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1271,
+   "tokens": 6884,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas clair en français. Pouvez-vous préciser ce que vous voulez faire avec la machine ou poser une question spécifique ? Par exemple, voulez-vous vérifier l"
+  },
+  {
+   "id": "lgx-ha-homing",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 718,
+   "tokens": 6853,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "I'm sorry, but the instruction you provided is in Hausa, and I need the request in French to proceed accurately. Could you please rephrase your request in French?"
+  },
+  {
+   "id": "lgx-ha-homing",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3575,
+   "tokens": 7010,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Akwai na matsayinta na farko game da za. Yana iya bayar da farko ta matsayin da kuma yake a ranar matain da wani nasarar da za. \n\nIdan kuna yin farko tsnin matsayin game da za, zai yi zaba na bayar ma"
+  },
+  {
+   "id": "lgx-ha-homing",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4293,
+   "tokens": 7055,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Amsa game da mai na'urar zuwa matsayinta na farko, kuma ban da fahimtar ciken gwamnatin. Ga wasu bayanai game da na'urar zuwa matsayinta na farko, babu m'anfas ta bayar da tushen bayanai game da matsa"
+  },
+  {
+   "id": "lgx-ha-jog",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : set_feed_override)"
+   ],
+   "calls": [
+    "set_feed_override({\"percent\":5})"
+   ],
+   "latency_ms": 2766,
+   "tokens": 6972,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais ajuster la vitesse maximale de l'axe X pour que ce soit de 5 mm/min au lieu des 300 mm/min initiaux. Voici la configuration mise à jour :"
+  },
+  {
+   "id": "lgx-ha-jog",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : set_feed_override)"
+   ],
+   "calls": [
+    "set_feed_override({\"percent\":300})"
+   ],
+   "latency_ms": 5187,
+   "tokens": 7110,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je comprends que vous souhaitez définir une vitesse de 300 mm/min pour l'axe X. Pour ce faire, nous allons utiliser la fonction `set_feed_override` qui permet de définir un pourcentage d'override de l"
+  },
+  {
+   "id": "lgx-ha-jog",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2065,
+   "tokens": 6936,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "J'ai bien compris, nous allons limiter l'axe X à une vitesse de 5 mm/min (300 pas/min) pour une sécurité accrue. Tout d'abord, je vais vérifier l'état courant de la machine pour m'assurer que toutes l"
+  },
+  {
+   "id": "lgx-ha-zero",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1160,
+   "tokens": 6876,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement votre message. Pourriez-vous reformuler en utilisant des termes techniques liés à la machine ? Par exemple, mentionnez-vous-vous un axe spécifique"
+  },
+  {
+   "id": "lgx-ha-zero",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 923,
+   "tokens": 6864,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vous prie de reformuler votre demande en français s'il vous plaît. Je suis désolé, mais je n'ai pas compris la signification de \"sifilin aiki a nan\" dans ce contexte."
+  },
+  {
+   "id": "lgx-ha-zero",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 867,
+   "tokens": 6862,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble ne pas être en français. Pouvez-vous reformuler votre demande en français, s'il vous plaît ? Je serai ravi de vous aider avec vos questions sur la machine."
+  },
+  {
+   "id": "lgx-ha-brocheon",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 578,
+   "tokens": 6837,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ha-brocheon",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2505,
+   "tokens": 6946,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour déclencher la broche, nous devons utiliser la commande `set_spindle`. Puisque le relais ne gère que des impulsions en tout ou rien, il est important que nous définissions une vitesse non zéro. \n\n"
+  },
+  {
+   "id": "lgx-ha-brocheon",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2868,
+   "tokens": 6967,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Kunna spindle signifie que la broche est allumée. Pour activer la broche, nous devons lui demander de tourner dans le sens horaire avec une vitesse non nulle. La vitesse minimale recommandée est de 10"
+  },
+  {
+   "id": "lgx-ha-brocheoff",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_diagnostics)"
+   ],
+   "calls": [
+    "get_diagnostics({\"spindle\":true})"
+   ],
+   "latency_ms": 1197,
+   "tokens": 6870,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vérifier l'état de la broche, nous pouvons déterminer si elle est en marche, en arrêt, ou s'il y a une alarme. Allons-y :"
+  },
+  {
+   "id": "lgx-ha-brocheoff",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2641,
+   "tokens": 6950,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vérifier l'état de la broche, nous pouvons exécuter une commande pour obtenir les diagnostics de la machine. Cela nous permettra aussi de vérifier si la broche est allumée et d'identifier éventue"
+  },
+  {
+   "id": "lgx-ha-brocheoff",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_diagnostics)"
+   ],
+   "calls": [
+    "get_diagnostics({})"
+   ],
+   "latency_ms": 2663,
+   "tokens": 6953,
+   "turns": 1,
+   "notes": [
+    "appel_en_texte:recupere"
+   ],
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-ha-explique",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({}), get_activity_log({})"
+   ],
+   "calls": [
+    "get_machine_state({})",
+    "get_activity_log({})"
+   ],
+   "latency_ms": 2812,
+   "tokens": 6972,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais vous demander de confirmer certains points :\n\n1. Quelle est l'origine de ces instructions ? L'opérateur souhaite effectuer un « homing » ?\n2. Quel est l'ensemble d'axes concerné ? Tous les axe"
+  },
+  {
+   "id": "lgx-ha-explique",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 4715,
+   "tokens": 7069,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de procéder au homing, nous devons nous assurer que la position du capteur Z est correcte. L'opérateur a déjà fait des jog sur les axes X et Y, mais nous devons vérifier que la position du capte"
+  },
+  {
+   "id": "lgx-ha-explique",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : home({\"axes\":[\"X\",\"Y\",\"Z\",\"A\",\"C\"]})"
+   ],
+   "calls": [
+    "home({\"axes\":[\"X\",\"Y\",\"Z\",\"A\",\"C\"]})"
+   ],
+   "latency_ms": 1962,
+   "tokens": 6920,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour effectuer le homing de l'ensemble des axes, nous devons d'abord vérifier l'état actuel du homing. Voici les axes configurés sur cette machine : X, Y, Z, A, C. J'exécute la commande de homing pour"
+  },
+  {
+   "id": "lgx-ha-horssujet",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1284,
+   "tokens": 6875,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas complètement votre question. Pouvez-vous préciser s'il s'agit de vérifier une position particulière de la machine Z, ou de demander comment déplacer l'outil vers le bas en Z? Veuil"
+  },
+  {
+   "id": "lgx-ha-horssujet",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 965,
+   "tokens": 6858,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas complètement votre message. Pouvez-vous reformuler en français s'il vous plaît ? Je serai heureux de vous aider si vous me dites ce que vous voulez savoir ou faire."
+  },
+  {
+   "id": "lgx-ha-horssujet",
+   "category": "LGX",
+   "language": "ha",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2069,
+   "tokens": 6924,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas complètement votre question. Seriez-vous en train de demander si je peux déplacer l'axe Z vers le haut (rétracter l'outil) ? Si oui, je peux accomplir cela. Pourriez-vous s'il vous"
+  },
+  {
+   "id": "lgx-yo-etat",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1186,
+   "tokens": 6875,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en Yoruba et je ne suis pas sûr de sa signification complète. Pourriez-vous reformuler votre demande en français s'il vous plaît ? Cela m'aidera à vous c"
+  },
+  {
+   "id": "lgx-yo-etat",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1012,
+   "tokens": 6868,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas clair. Pourriez-vous reformuler votre requête en français s'il vous plaît ? Je serai ravi de vous aider avec la machine si vous me donnez plus de détai"
+  },
+  {
+   "id": "lgx-yo-etat",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1606,
+   "tokens": 6901,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement votre message. Pourriez-vous reformuler en français s'il vous plaît ? Vous avez mentionné \"Fi ipo ẹrọ naa han mi\", ce qui semble être en Yoruba, m"
+  },
+  {
+   "id": "lgx-yo-urgence",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2504,
+   "tokens": 6960,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Comprenez-moi, mais je suis un assistant numérique lié à une machine à usiner CNC. Je ne peux pas sentir la température, donc je ne peux pas dire si la pièce est prête ou non sans plus d'informations."
+  },
+  {
+   "id": "lgx-yo-urgence",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé (obtenu : get_machine_state, get_activity_log)"
+   ],
+   "calls": [
+    "get_machine_state({})",
+    "get_activity_log({})"
+   ],
+   "latency_ms": 4624,
+   "tokens": 7062,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais vérifier l'état de la machine et vous informer des points importants avant d'exécuter n'importe quel programme. Voici les actions prioritaires :\n\n1. **État de la machine** : J'effectue une lec"
+  },
+  {
+   "id": "lgx-yo-urgence",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1853,
+   "tokens": 6912,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble ne pas être clair. Pouvez-vous être plus précis sur ce que vous voulez réaliser avec la machine ? Souhaitez-vous exécuter un programme, générer un G-code à pa"
+  },
+  {
+   "id": "lgx-yo-pause",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1088,
+   "tokens": 6871,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je déploie les outils de l'application pour obtenir les informations nécessaires sur l'état de la machine. Voici ce que je fais :"
+  },
+  {
+   "id": "lgx-yo-pause",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 920,
+   "tokens": 6869,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas clair en wolof. Pourriez-vous reformuler en français ou en anglais ? Je serai ravi de vous aider une fois que je comprendrai votre demande."
+  },
+  {
+   "id": "lgx-yo-pause",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1484,
+   "tokens": 6901,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne peux pas exécuter de commandes en wolof, mais je peux vous aider avec vos demandes relatives à la machine à usiner. Pouvez-vous me préciser ce que vous souhaitez faire ? Voulez-vous analyser un "
+  },
+  {
+   "id": "lgx-yo-homing",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1244,
+   "tokens": 6889,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble ne pas être en français ou ne pas être clair. Pourriez-vous reformuler votre demande en français s'il vous plaît ? Je serai ravi de vous aider si vous me donn"
+  },
+  {
+   "id": "lgx-yo-homing",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 841,
+   "tokens": 6867,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je n'ai pas compris votre demande. Pourriez-vous reformuler en français s'il vous plaît ? Je serai heureux d'essayer d'y répondre."
+  },
+  {
+   "id": "lgx-yo-homing",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2096,
+   "tokens": 6937,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je n'ai pas reçu de commandes spécifiques pour exécuter un mouvement direct ou modifier l'état de la machine dans votre message. Il semble que vous ayez fait quelques mouvements de jog (déplacement ma"
+  },
+  {
+   "id": "lgx-yo-jog",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 687,
+   "tokens": 6855,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-jog",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2164,
+   "tokens": 6935,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais déplacer l'axe X de 5 mm à une vitesse de 300 mm/min. Voici la commande que je vais exécuter :\n\n```gcode\nG0 X5.0 F300\n```\n\nCela correspond à un déplacement rapide de 5 mm sur l'axe X à une vit"
+  },
+  {
+   "id": "lgx-yo-jog",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 1597,
+   "tokens": 6904,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour déplacer l'axe X d'une distance de 5 mm à une vitesse de 300 mm/min, nous allons utiliser la fonction `jog_axis`. Voici la commande que je vais exécuter :"
+  },
+  {
+   "id": "lgx-yo-zero",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1040,
+   "tokens": 6868,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas être en français. Pourriez-vous reformuler votre demande en français, s'il vous plaît ? Cela m'aidera à mieux vous comprendre et vous fournir l'aide ap"
+  },
+  {
+   "id": "lgx-yo-zero",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1227,
+   "tokens": 6880,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je n'ai pas reçu de commande spécifique concernant la machine. Pourriez-vous me dire ce que vous souhaitez accomplir exactement, par exemple déplacer la machine, lancer un programme, analyser un fichi"
+  },
+  {
+   "id": "lgx-yo-zero",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 958,
+   "tokens": 6864,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je n'ai pas compris la demande. Pourriez-vous reformuler votre message en français s'il vous plaît ? Je serai ravi de vous aider une fois que je comprendrai votre requête."
+  },
+  {
+   "id": "lgx-yo-brocheon",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 578,
+   "tokens": 6835,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-brocheon",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"rpm\":1000,\"state\":\"cw\"})"
+   ],
+   "latency_ms": 591,
+   "tokens": 6835,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-brocheon",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 569,
+   "tokens": 6835,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-brocheoff",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\",\"rpm\":0})"
+   ],
+   "latency_ms": 550,
+   "tokens": 6832,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-brocheoff",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 921,
+   "tokens": 6854,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "leanor : M5 pour arrêter la broche.\n\nJe vais maintenant désactiver l'alimentation à la broche. Veuillez confirmer que l'opérateur souhaite procéder à cette action."
+  },
+  {
+   "id": "lgx-yo-brocheoff",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\",\"rpm\":0})"
+   ],
+   "latency_ms": 541,
+   "tokens": 6832,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-yo-explique",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1852,
+   "tokens": 6919,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour effectuer le homing, nous devons d'abord vérifier si l'appareil est prêt et si toutes les fonctions nécessaires sont disponibles. Je vais d'abord obtenir l'état courant de la machine afin de nous"
+  },
+  {
+   "id": "lgx-yo-explique",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4084,
+   "tokens": 7034,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour effectuer un homing, nous devons nous assurer que la machine est prête et que l'opérateur a bien demandé le homing. Rien n'est fait automatiquement, il faut toujours une confirmation de l'opérate"
+  },
+  {
+   "id": "lgx-yo-explique",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 5518,
+   "tokens": 7103,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Voici les étapes à suivre pour réaliser le homing de la machine :\n\n1. Assurez-vous que la pièce est retirée et que l'espace de travail est clair afin d'éviter tout risque d'interception de l'axe penda"
+  },
+  {
+   "id": "lgx-yo-horssujet",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1323,
+   "tokens": 6881,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message n'est pas clair pour moi. Peut-être pourriez-vous reformuler en utilisant des termes techniques relatifs à la machine ou en expliquant exactement ce que vous recherc"
+  },
+  {
+   "id": "lgx-yo-horssujet",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1104,
+   "tokens": 6868,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je m'excuse, mais votre message ne semble pas être en français. Pourriez-vous reformuler votre question s'il vous plaît ? Je serai heureux d'essayer de vous aider si vous me posez votre question en fr"
+  },
+  {
+   "id": "lgx-yo-horssujet",
+   "category": "LGX",
+   "language": "yo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2015,
+   "tokens": 6917,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement votre question. Pourriez-vous reformuler en utilisant le vocabulaire de la machine CNC, s'il vous plaît ? Par exemple, avez-vous des questions sur"
+  },
+  {
+   "id": "lgx-am-etat",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1117,
+   "tokens": 6874,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je ne comprends pas complètement votre requête en amharique. Pourriez-vous reformuler votre demande en français, s'il vous plaît ? Cela m'aidera à vous fournir une réponse précise et utile."
+  },
+  {
+   "id": "lgx-am-etat",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 960,
+   "tokens": 6867,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en amharique. Pouvez-vous reformuler votre question en français ou en anglais afin que je puisse mieux vous comprendre et vous aider ?Merci."
+  },
+  {
+   "id": "lgx-am-etat",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « get_machine_state » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1808,
+   "tokens": 6912,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en amharique et il n'a pas de contexte clair concernant la tâche à réaliser sur la machine. Pourriez-vous reformuler votre question en français ou en ang"
+  },
+  {
+   "id": "lgx-am-urgence",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 914,
+   "tokens": 6877,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis Here! Comment puis-je vous aider aujourd'hui ? Êtes-vous en train de travailler sur un programme G-code ou avez-vous quelques questions sur l'état de la machine ?"
+  },
+  {
+   "id": "lgx-am-urgence",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1450,
+   "tokens": 6906,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bonjour! Je suis Forgeron, votre assistent pour la gestion de votre machine CNC 5 axes. Comment puis-je vous aider aujourd'hui ? N'hésitez pas à me poser des questions sur l'état de la machine, l'exéc"
+  },
+  {
+   "id": "lgx-am-urgence",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1705,
+   "tokens": 6918,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, je serai ravi de vous assister. Pouvez-vous préciser votre demande ou poser une question en français ? Par exemple, souhaiteriez-vous vérifier l'état de la machine, voir l'affichage 3D d'un "
+  },
+  {
+   "id": "lgx-am-pause",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1373,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour exécuter le programme G-code actuellement chargé, nous devons nous assurer que toutes les conditions de sécurité sont remplies. Vérifions d'abord l'état courant de la machine :"
+  },
+  {
+   "id": "lgx-am-pause",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 5886,
+   "tokens": 7122,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour lancer un programme G-code existant, je vais vérifier l'état actuel de la machine et confirmer les points essentiels. Si le programme est actuellement chargé, nous pourrons l'exécuter une fois ce"
+  },
+  {
+   "id": "lgx-am-pause",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3500,
+   "tokens": 7000,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour exécuter le programme G-code actuellement chargé, nous allons utiliser la fonction `run_program`. Cependant, avant de le faire, il est important de vérifier certains points de sécurité :\n\n1. Assu"
+  },
+  {
+   "id": "lgx-am-homing",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1291,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en Amharique et il me est difficile de comprendre ce que vous demandez exactement. Pourriez-vous reformuler votre demande en français ou en anglais ? Je "
+  },
+  {
+   "id": "lgx-am-homing",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 7624,
+   "tokens": 7212,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je comprends que vous souhaitez que la table de la machine se déplace vers une position à partir de laquelle elle pourra commencer l'usinage. Pour cela, nous allons utiliser la commande `goto_position"
+  },
+  {
+   "id": "lgx-am-homing",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1805,
+   "tokens": 6916,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour vous aider, j'ai besoin de comprendre un peu mieux votre demande. Dans quel contexte souhaitez-vous faire se déplacer la machine vers des positions de mérite ? Souhaitez-vous effectuer un mouveme"
+  },
+  {
+   "id": "lgx-am-jog",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 3022,
+   "tokens": 6994,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "J'entends bien votre demande. Pour déplacer l'axe X d'une distance de 5 mm à une vitesse de 300 mm/min, je vais utiliser la fonction `jog_axis`. Cependant, veuillez noter que les valeurs par défaut da"
+  },
+  {
+   "id": "lgx-am-jog",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 756,
+   "tokens": 6879,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-am-jog",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 4894,
+   "tokens": 7099,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "La commande G-code pour déplacer l'axe X d'une distance de 5 mm à une vitesse de 300 mm/min se fait avec la commande suivante :\n\n```gcode\nG0 F300 X5.0\n```\n\nCette commande utilise un feedrate de 300 mm"
+  },
+  {
+   "id": "lgx-am-zero",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1506,
+   "tokens": 6901,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je crois qu'il y a une confusion ici. Vous semblez essayer de communiquer en amharique, mais je ne suis pas capable de comprendre ou de répondre en amharique. Pourriez-vous reformuler votre demande en"
+  },
+  {
+   "id": "lgx-am-zero",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1084,
+   "tokens": 6878,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement la requête en amharique. Pourriez-vous reformuler votre demande en français ou en anglais ? Cela m'aidera à vous fournir une réponse précise."
+  },
+  {
+   "id": "lgx-am-zero",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1718,
+   "tokens": 6909,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement la demande en amharique. Pourriez-vous reformuler votre demande en français ou en anglais ? Par exemple, avez-vous besoin d'informations sur l'éta"
+  },
+  {
+   "id": "lgx-am-brocheon",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1251,
+   "tokens": 6874,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en Amharique. Pouvons-nous travailler ensemble en français ? Pourriez-vous reformuler votre demande en français, s'il vous plaît ? Cela me permettra de v"
+  },
+  {
+   "id": "lgx-am-brocheon",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1116,
+   "tokens": 6869,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vous prie de reformuler votre demande en français. Je suis heureux de vous aider si vous me posez une question spécifique sur l'état de la machine, un programme à exécuter, ou quelconque autre dema"
+  },
+  {
+   "id": "lgx-am-brocheon",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 873,
+   "tokens": 6856,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en amharique. Pouvez-vous reformuler votre demande en français ou en anglais pour que je puisse mieux vous aider ? Merci."
+  },
+  {
+   "id": "lgx-am-brocheoff",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 975,
+   "tokens": 6860,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en Amharique. Pourriez-vous reformuler votre demande en français ou en anglais afin que je puisse mieux comprendre et vous aider correctement ?"
+  },
+  {
+   "id": "lgx-am-brocheoff",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1429,
+   "tokens": 6885,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être dans la langue d'Éthiopie (amharique). Pour pouvoir comuniquer efficacement, pourriez-vous s'il vous plaît reformuler votre demande en français ? Je sera"
+  },
+  {
+   "id": "lgx-am-brocheoff",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3771,
+   "tokens": 13830,
+   "turns": 1,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 38,
+   "excerpt": "Je pars du principe que vous vouliez entrer un jog ou une valeur sur le joystick, mais vous avez utilisé des caractères qui ne sont pas reconnus. Pouvez-vous essayer de nouveau en utilisant des lettre"
+  },
+  {
+   "id": "lgx-am-explique",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1504,
+   "tokens": 6892,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas clair en amharique. Pourriez-vous reformuler votre demande en français ou en anglais ? Je serai heureux de vous aider une fois que je comprendrai mieux"
+  },
+  {
+   "id": "lgx-am-explique",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4425,
+   "tokens": 7079,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais je ne comprends pas complètement votre demande. Pourriez-vous préciser ce que vous entendez par \" Braves les conditions de fraisage \" ? Voulez-vous savoir comment l'opérateur peut"
+  },
+  {
+   "id": "lgx-am-explique",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1838,
+   "tokens": 6932,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en amharique, ce qui n'est pas géré par la conversation avec votre machine de ciseaux CNC FluidNC. Pourriez-vous reformuler votre demande en français s'i"
+  },
+  {
+   "id": "lgx-am-horssujet",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1788,
+   "tokens": 6909,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je pars du principe que vous souhaitez savoir l'état courant de la machine. Pour obtenir ces informations, je vais utiliser la fonction `get_machine_state`. Cela nous donnera les positions actuelles, "
+  },
+  {
+   "id": "lgx-am-horssujet",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1923,
+   "tokens": 6914,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis prêt à vous aider ! Pouvez-vous me préciser ce que vous souhaitez savoir ou faire avec Forgeron ? Voici quelques options :\n\n1. Vérifier l'état de la machine\n2. Analyser un programme G-code\n3. "
+  },
+  {
+   "id": "lgx-am-horssujet",
+   "category": "LGX",
+   "language": "am",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1125,
+   "tokens": 6877,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je m'excuse, mais votre message semble être en amharique. Pour me comprendre correctement, pourriez-vous reformuler votre question en français, s'il vous plaît ? Cela m'aidera à vous fournir une répon"
+  },
+  {
+   "id": "lgx-wo-etat",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1416,
+   "tokens": 6886,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais vérifier l'état courant de la machine. Cela me permettra de me familiariser avec sa position actuelle, les WCS en vigueur et tout autre détail pertinent pour garantir une exécution sûre. Voici"
+  },
+  {
+   "id": "lgx-wo-etat",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 977,
+   "tokens": 6860,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour obtenir l'état actuel de la machine, je vais utiliser la fonction `get_machine_state`. Voici les informations que cela nous donnera :"
+  },
+  {
+   "id": "lgx-wo-etat",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1596,
+   "tokens": 6893,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour obtenir une information à jour sur l'état de la machine, il serait préférable de lire directement l'état de la machine. Cependant, étant donné votre requête, je vais lire l'état actuel de la mach"
+  },
+  {
+   "id": "lgx-wo-urgence",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2151,
+   "tokens": 6925,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, je vais vérifier l'état de la machine. Voici ce que je vais faire :\n\n1. Obtenir l'état de la machine pour vérifier le statut courant et la position.\n2. Analyser le G-code actuellement chargé"
+  },
+  {
+   "id": "lgx-wo-urgence",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1536,
+   "tokens": 6898,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, Taxaw! Pour commencer, j'aimerais vérifier l'état courant de la machine afin de nous assurer que tout est en ordre avant que vous commencer l'utilisation de la pièce. Je vais utiliser l'outi"
+  },
+  {
+   "id": "lgx-wo-urgence",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « emergency_stop » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2110,
+   "tokens": 6930,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr, je vais vérifier l'état de la machine pour vous. Voici ce que je vais faire :\n\n1. Je vais utiliser la fonction `get_machine_state` pour obtenir l'état courant de la machine.\n2. Je vais égale"
+  },
+  {
+   "id": "lgx-wo-pause",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1092,
+   "tokens": 6871,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour exécuter un programme G-code, nous devons d'abord vérifier que le fichier est prêt et que les conditions sont réunies. Pour commencer, veuillez m'indiquer le nom exact du fichier que vous souhait"
+  },
+  {
+   "id": "lgx-wo-pause",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé (obtenu : get_activity_log)"
+   ],
+   "calls": [
+    "get_activity_log({})"
+   ],
+   "latency_ms": 10755,
+   "tokens": 7415,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de lancer le programme, il faut vérifier certains pointsimportants pour assurer la sécurité et l'optimisation de l'usinage.\n\n1. **Homing des axes** : Assure-toi que l'homming a étéeffectué corre"
+  },
+  {
+   "id": "lgx-wo-pause",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « pause » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1419,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pouvez-vous me donner le programme G-code exact que vous souhaitez exécuter ? Je vais ensuite utiliser la fonction `run_gcode_program` pour lancer l'exécution. N'oubliez pas d'assurer que le programme"
+  },
+  {
+   "id": "lgx-wo-homing",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1509,
+   "tokens": 6899,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message n'est pas clair pour moi. Pourriez-vous préciser ce que vous voulez faire avec la machine ? Voulez-vous exécuter un programme, modifier une configuration, ou avez-vo"
+  },
+  {
+   "id": "lgx-wo-homing",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1792,
+   "tokens": 6916,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je pense que vous souhaitez vérifier l'état actuel de la machine. Je vais passer en revue les informations pertinentes en utilisant les outils appropriés.\n\n### Premiers pas : Vérification de l'état de"
+  },
+  {
+   "id": "lgx-wo-homing",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « home » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 1642,
+   "tokens": 6907,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vous demande de reformuler votre message en français s'il vous plaît. Je ne comprends pas complètement votre demande concernant la machine et si vous voulez effectuer un jog ou un autre type de mou"
+  },
+  {
+   "id": "lgx-wo-jog",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « jog_axis » non appelé (obtenu : set_feed_override, set_feed_override)"
+   ],
+   "calls": [
+    "set_feed_override({\"percent\":300})",
+    "set_feed_override({\"percent\":150})"
+   ],
+   "latency_ms": 5915,
+   "tokens": 7146,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour ajuster le feedrate de l'axe X à 300 mm/min, je vais utiliser la fonction `set_feed_override`. Voici la commande que je vais exécuter :"
+  },
+  {
+   "id": "lgx-wo-jog",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 3553,
+   "tokens": 7016,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Veuillez corriger votre demande pour qu'elle soit claire et précise. Vous semblez envisager de déplacer l'axe X de 5 mm à une vitesse de 300 mm/min, mais j'aurais besoin des détails exacts pour vous a"
+  },
+  {
+   "id": "lgx-wo-jog",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 1449,
+   "tokens": 6897,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour déplacer l'axe X de 5 mm à une vitesse de 300 mm/min, je vais utiliser la fonction `jog_axis`. Voici le paramètre que j'utilise :"
+  },
+  {
+   "id": "lgx-wo-zero",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({\"axes\":[\"X\",\"Y\",\"Z\"]})"
+   ],
+   "latency_ms": 3050,
+   "tokens": 6978,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais procéder au zéro bi fii de la pièce. Veuillez vous assurer que la machine est homée et que la zonne de travail est de bonne sécurité avant de confirmer cette action. \n\nAvant de continuer, pouv"
+  },
+  {
+   "id": "lgx-wo-zero",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 3092,
+   "tokens": 6982,
+   "turns": 1,
+   "notes": [
+    "appel_en_texte:recupere"
+   ],
+   "declared_tools": 38,
+   "excerpt": ""
+  },
+  {
+   "id": "lgx-wo-zero",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_work_zero » non appelé (obtenu : home)"
+   ],
+   "calls": [
+    "home({\"axes\":[\"Z\"]})"
+   ],
+   "latency_ms": 2394,
+   "tokens": 6942,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais activer un homing sur l'axe Z pour définir le zéro machine. Veuillez vous assurer que la table est positionnée de manière à permettre le dégagement vers le haut par l'axe Z avant de confirmer."
+  },
+  {
+   "id": "lgx-wo-brocheon",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2132,
+   "tokens": 6925,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour démarrer la broche, nous devons nous assurer que la vitesse est définie à une valeur supérieure à zéro. Commençons par commander l'allumage de la broche en utilisant la commande M3 avec une vites"
+  },
+  {
+   "id": "lgx-wo-brocheon",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\",\"rpm\":1000})"
+   ],
+   "latency_ms": 6771,
+   "tokens": 7185,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je comprends que vous avez un problème avec la broche. Pour votre information, la broche de cette machine est commandée via le relais 5V, ce qui signifie qu'elle doit recevoir une signalisation en-des"
+  },
+  {
+   "id": "lgx-wo-brocheon",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_machine_state)"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2345,
+   "tokens": 6934,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je vais vérifier l'état de la broche en suivant les spécificités de cette machine. Voici ce que je vais faire :\n\n1. Vérifier l'état de la broche sans l'allumer.\n2. Annuler toute opération en cours.\n\nJ"
+  },
+  {
+   "id": "lgx-wo-brocheoff",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé (obtenu : get_diagnostics)"
+   ],
+   "calls": [
+    "get_diagnostics({})"
+   ],
+   "latency_ms": 1642,
+   "tokens": 6899,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pouvez-vous vérifier la position actuelle de la broche svp? Si elle est allumée, elle devrait être en rotation avec une vitesse de 1000 rpm par défaut. Sinon, veuillez m'informer de sa position. Je va"
+  },
+  {
+   "id": "lgx-wo-brocheoff",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 3130,
+   "tokens": 6983,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour démarrer la broche, il faut utiliser la commande `set_spindle` avec une vitesse de rotation supérieure à 0. La machine actuelle utilise une broche à relais, donc la valeur S (vitesse) doit être s"
+  },
+  {
+   "id": "lgx-wo-brocheoff",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil attendu « set_spindle » non appelé"
+   ],
+   "calls": [],
+   "latency_ms": 2336,
+   "tokens": 6938,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour activer la broche, il faut lancer une commande avec une vitesse supérieure à 0. La commande correcte est \"M3 S1000\". Cela démarre la broche en mode horaire (sens des aiguilles d'horloge). Voici c"
+  },
+  {
+   "id": "lgx-wo-explique",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1685,
+   "tokens": 6908,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Avant de lancer le homing, assureons-nous que la pièce est bien emboîtée et que la machine est prêtée. L'opérateur doit vérifier que la table est à plat et les axes n'ont pas d'obstacles. Si c'est con"
+  },
+  {
+   "id": "lgx-wo-explique",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 1389,
+   "tokens": 6892,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je comprends que vous souhaitez effectuer un homing. Cependant, avant de le faire, je vais vérifier l'état de la machine pour m'assurer que cela est nécessaire et sécurisé.\n\nJe vais d'abord lire l'éta"
+  },
+  {
+   "id": "lgx-wo-explique",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : home({})"
+   ],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 2481,
+   "tokens": 6954,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Pour réaliser un homing sur cette machine, nous devons bouger tous les axes afin de détecter les capteurs de fin de course. Cela permet de retrouver l'origine machine sans référence extérieure. Voici "
+  },
+  {
+   "id": "lgx-wo-horssujet",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3602,
+   "tokens": 7016,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr ! Je peux vous aider pour de nombreuses tâches liées à la machine. Voici quelques options :\n\n1. Vous pouvez demander l'état présente de la machine en utilisant `get_machine_state`.\n2. Vous po"
+  },
+  {
+   "id": "lgx-wo-horssujet",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1436,
+   "tokens": 6894,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr ! Comment puis-je vous aider aujourd'hui ? Avant de commencer, veuillez me confirmer si vous souhaitez exécuter un programme G-code existant, générer un nouveau programme à partir d'un fichie"
+  },
+  {
+   "id": "lgx-wo-horssujet",
+   "category": "LGX",
+   "language": "wo",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 2634,
+   "tokens": 6963,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Bien sûr ! Je vais vérifier l'état courant de la machine pour vous. Voici les informations actuelles basées sur les actions récentes :\n\n12:10:00 opérateur : jog X+1.0 (F300)\n12:10:05 opérateur : jog X"
+  },
+  {
+   "id": "lgx-bm-etat",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bm-etat",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bm-etat",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bm-urgence",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jɔ→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bm-urgence",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jɔ→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bm-urgence",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jɔ→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bm-pause",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jɔ dɔɔnin→action:pause)"
+  },
+  {
+   "id": "lgx-bm-pause",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jɔ dɔɔnin→action:pause)"
+  },
+  {
+   "id": "lgx-bm-pause",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jɔ dɔɔnin→action:pause)"
+  },
+  {
+   "id": "lgx-bm-homing",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a daminɛ yɔrɔ→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bm-homing",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a daminɛ yɔrɔ→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bm-homing",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a daminɛ yɔrɔ→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bm-jog",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, mm→unit:mm, 5→num, la→filler, teliya→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bm-jog",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, mm→unit:mm, 5→num, la→filler, teliya→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bm-jog",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, mm→unit:mm, 5→num, la→filler, teliya→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bm-jogmots",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimɛtɛri→unit:mm, duuru→num, la→filler, teliya→feed, kɛmɛ saba→num)"
+  },
+  {
+   "id": "lgx-bm-jogmots",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimɛtɛri→unit:mm, duuru→num, la→filler, teliya→feed, kɛmɛ saba→num)"
+  },
+  {
+   "id": "lgx-bm-jogmots",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimɛtɛri→unit:mm, duuru→num, la→filler, teliya→feed, kɛmɛ saba→num)"
+  },
+  {
+   "id": "lgx-bm-zero",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zero→object:zero, in→filler, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bm-zero",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zero→object:zero, in→filler, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bm-zero",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zero→object:zero, in→filler, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bm-brocheon",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, daminɛ→action:start)"
+  },
+  {
+   "id": "lgx-bm-brocheon",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, daminɛ→action:start)"
+  },
+  {
+   "id": "lgx-bm-brocheon",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, daminɛ→action:start)"
+  },
+  {
+   "id": "lgx-bm-brocheoff",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, dabila→action:stop)"
+  },
+  {
+   "id": "lgx-bm-brocheoff",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, dabila→action:stop)"
+  },
+  {
+   "id": "lgx-bm-brocheoff",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, dabila→action:stop)"
+  },
+  {
+   "id": "lgx-bm-explique",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 6115,
+   "tokens": 4043,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Je n'ai pas reçu de journal d'activité contenant la dernière homin de l'origine (homing). Cependant, vu que vous souhaitez hominiser, voici les étapes à suivre :\n\n1. Assurez-vous que tous les axes son"
+  },
+  {
+   "id": "lgx-bm-explique",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4069,
+   "tokens": 3951,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Pour procéder à l'homing, veuillez d'abord vérifier que la machine est prête. Assurez-vous que la pièce est bien placée et que l'outil est prêt pour l'usinage. Voici les étapes à suivre pour l'homing "
+  },
+  {
+   "id": "lgx-bm-explique",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2886,
+   "tokens": 3881,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "### Étape 1 : Homing de l'axe Z\n\nAvant de continuer, il faut homer l'axe Z. C'est crucial pour que la machine puisse détecter correctement les fins de course et définir le zéro de l'usinage. Homé l'ax"
+  },
+  {
+   "id": "lgx-bm-horssujet",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2857,
+   "tokens": 6856,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en wolof. Pourriez-vous reformuler votre question en français, s'il vous plaît ? Je serai ravi de vous aider si possible."
+  },
+  {
+   "id": "lgx-bm-horssujet",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1406,
+   "tokens": 6887,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en wolof. Je suis l'assistant Forgeron, intégré à la machine CNC et je ne peux pas comprendre ou répondre directement à des messages en wolof. Pourriez-v"
+  },
+  {
+   "id": "lgx-bm-horssujet",
+   "category": "LGX",
+   "language": "bm",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1810,
+   "tokens": 6910,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble ne pas être en français et fait référence à un personnage qui n'est pas lié à la machine outil que je suis censé contrôler. Pourriez-vous reformuler votre que"
+  },
+  {
+   "id": "lgx-bmx-etat",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, état→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bmx-etat",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, état→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bmx-etat",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, état→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bmx-urgence",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrêt d urgence→action:stop, mashini→object:machine, la→filler, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-urgence",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrêt d urgence→action:stop, mashini→object:machine, la→filler, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-urgence",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Arrêt d urgence→action:stop, mashini→object:machine, la→filler, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-pause",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Programme→object:programme, pause→action:pause, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-pause",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Programme→object:programme, pause→action:pause, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-pause",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Programme→object:programme, pause→action:pause, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-homing",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Homing→action:home, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-homing",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Homing→action:home, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-homing",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Homing→action:home, kɛ→light)"
+  },
+  {
+   "id": "lgx-bmx-jog",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Axe→object:axe, X→axis:X, taa→action:move, 5→num, mm→unit:mm, la→filler, vitesse→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bmx-jog",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Axe→object:axe, X→axis:X, taa→action:move, 5→num, mm→unit:mm, la→filler, vitesse→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bmx-jog",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Axe→object:axe, X→axis:X, taa→action:move, 5→num, mm→unit:mm, la→filler, vitesse→feed, 300→num)"
+  },
+  {
+   "id": "lgx-bmx-zero",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zéro pièce→object:zero, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bmx-zero",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zéro pièce→object:zero, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bmx-zero",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_work_zero({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:zero"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Zéro pièce→object:zero, da→light, yan→filler)"
+  },
+  {
+   "id": "lgx-bmx-brocheon",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, allumer→action:start, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-brocheon",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, allumer→action:start, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-brocheon",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, allumer→action:start, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-brocheoff",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, éteindre→action:stop, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-brocheoff",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, éteindre→action:stop, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-brocheoff",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"off\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheoff"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, éteindre→action:stop, sisan→urgent)"
+  },
+  {
+   "id": "lgx-bmx-explique",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "outil appelé alors qu'aucun n'était attendu : get_machine_state({})"
+   ],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 3825,
+   "tokens": 3893,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Avant toute action, il est nécessaire de procéder à l'homing pour activer les limites de sécurité et les soft_limits. Rallongez-vous et allons-y.\n\nPour homager tous les axes, effectuons les jog manuel"
+  },
+  {
+   "id": "lgx-bmx-explique",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4699,
+   "tokens": 3975,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Je m'assurerai que l'homing a bien été effectué avant toute manipulation. Pouvez-vous confirmer que l'homing a été fait correctement, s'il vous plaît ? Si ce n'est pas le cas, veuillez effectuer l'hom"
+  },
+  {
+   "id": "lgx-bmx-explique",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1241,
+   "tokens": 3776,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Je ne suis pas en train de procéder à un homing en ce moment. Avant de lancer un programme ou tout mouvement, il est crucial d'avoir homé toutes les axes, surtout Z qui se dégage vers le haut. Souhait"
+  },
+  {
+   "id": "lgx-bmx-horssujet",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3869,
+   "tokens": 6914,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en wolof. Je suis un assistant prévu pour aider avec des questions spécifiques concernant une machine CNC 5 axes. Pourriez-vous reformuler votre demande "
+  },
+  {
+   "id": "lgx-bmx-horssujet",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1073,
+   "tokens": 6869,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en wolof, une langue que je peux reconnaissance mais pas traduire automatiquement vers le français. Pourriez-vous reformuler votre question en français s"
+  },
+  {
+   "id": "lgx-bmx-horssujet",
+   "category": "LGX",
+   "language": "bm-mixte",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1618,
+   "tokens": 6900,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message semble être en wolof, une langue que je peux comprendre en surface, mais je ne peux pas y répondre correctement. Pourriez-vous reformuler votre question en français "
+  },
+  {
+   "id": "lgx-bma-etat",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bma-etat",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bma-etat",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_machine_state({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:etat"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, cogoya→object:etat, jira→action:show, n→filler, ye→filler)"
+  },
+  {
+   "id": "lgx-bma-urgence",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jo→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bma-urgence",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jo→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bma-urgence",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "emergency_stop({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:urgence"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, jo→action:stop, sisan→urgent, joona→urgent)"
+  },
+  {
+   "id": "lgx-bma-pause",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jo doonin→action:pause)"
+  },
+  {
+   "id": "lgx-bma-pause",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jo doonin→action:pause)"
+  },
+  {
+   "id": "lgx-bma-pause",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "pause({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:pause"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Porogaramu→object:programme, jo doonin→action:pause)"
+  },
+  {
+   "id": "lgx-bma-homing",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a damine yoro→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bma-homing",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a damine yoro→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bma-homing",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "home({})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:homing"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Mashini→object:machine, segin a damine yoro→action:home, la→filler)"
+  },
+  {
+   "id": "lgx-bma-jogmots",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimetri→unit:mm, duuru→num, la→filler, teliya→feed, keme saba→num)"
+  },
+  {
+   "id": "lgx-bma-jogmots",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimetri→unit:mm, duuru→num, la→filler, teliya→feed, keme saba→num)"
+  },
+  {
+   "id": "lgx-bma-jogmots",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "jog_axis({\"axis\":\"X\",\"distance\":5,\"feedrate\":300})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:jog"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : X→axis:X, taa→action:move, milimetri→unit:mm, duuru→num, la→filler, teliya→feed, keme saba→num)"
+  },
+  {
+   "id": "lgx-bma-brocheon",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, damine→action:start)"
+  },
+  {
+   "id": "lgx-bma-brocheon",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, damine→action:start)"
+  },
+  {
+   "id": "lgx-bma-brocheon",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "set_spindle({\"state\":\"cw\"})"
+   ],
+   "latency_ms": 0,
+   "tokens": 0,
+   "turns": 0,
+   "notes": [
+    "frontal_lexique:brocheon"
+   ],
+   "declared_tools": 0,
+   "excerpt": "(compris par le lexique : Broche→object:broche, damine→action:start)"
+  },
+  {
+   "id": "lgx-bma-explique",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3447,
+   "tokens": 3879,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Avant toute opération, il est crucial de faire un homing complet de la machine. Cela permet d'activer les soft limits et de sécuriser l'usinage. Pouvez-vous déclencher le homing en appuyant sur le bou"
+  },
+  {
+   "id": "lgx-bma-explique",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2995,
+   "tokens": 3882,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Avant de commencer, il est essentiel de homager la machine. Sans homing, l'alignement des axes et les offsets nécessaires pour le programme ne peuvent pas être correctement définis. Veuillez effectuer"
+  },
+  {
+   "id": "lgx-bma-explique",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 4955,
+   "tokens": 3995,
+   "turns": 1,
+   "declared_tools": 12,
+   "excerpt": "Avant de procéder à toute autre action, nous devons effectuer le homing. Voici les étapes :\n\n1. Le homing est essentiel pour activer les soft_limits et définir les origines des axes.\n2. Il est recomma"
+  },
+  {
+   "id": "lgx-bma-horssujet",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3573,
+   "tokens": 6894,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis l'assistant intégré de Forgeron, un contrôleur CNC 5 axes piloté par FluidNC/GRBL sur ESP32. Je ne peux pas communiquer directement avec le monde réel ou accéder à des informations externes. P"
+  },
+  {
+   "id": "lgx-bma-horssujet",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1422,
+   "tokens": 6888,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis l'assistant intégré de Forgeron, une machine à coudre numérique pilotée par un firmware FluidNC/GRBL sur ESP32. Je ne peux pas parler de \"sini wa\" qui semble être un terme ou une expression no"
+  },
+  {
+   "id": "lgx-bma-horssujet",
+   "category": "LGX",
+   "language": "bm-ascii",
+   "validation": "non_valide",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1134,
+   "tokens": 6871,
+   "turns": 1,
+   "declared_tools": 38,
+   "excerpt": "Je suis désolé, mais votre message ne semble pas clair pour moi. Pourriez-vous reformuler en utilisant des mots français ? Par exemple, demandez-vous si la machine est en bon état ou si vous avez une "
+  }
+ ]
+}

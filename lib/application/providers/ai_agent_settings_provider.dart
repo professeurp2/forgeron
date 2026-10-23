@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/local_ai_agent_service.dart';
 
 /// Catégories d'actions que l'agent IA peut exécuter sur la machine.
 /// La lecture seule (état machine, diagnostics) et l'arrêt d'urgence ne sont
@@ -13,6 +14,7 @@ enum AiActionCategory {
   spindleCoolant, // Broche, arrosage
   wcsTool, // Changement de WCS, offsets, outil
   streaming, // Démarrage/pause/reprise/reset d'un programme G-code
+  fileEdit, // Écriture/correction d'un fichier G-code de l'espace de travail
 }
 
 extension AiActionCategoryLabel on AiActionCategory {
@@ -26,6 +28,8 @@ extension AiActionCategoryLabel on AiActionCategory {
         return 'WCS & Outil';
       case AiActionCategory.streaming:
         return 'Streaming G-code';
+      case AiActionCategory.fileEdit:
+        return 'Édition de fichiers G-code';
     }
   }
 }
@@ -36,6 +40,12 @@ enum AiAutonomyLevel {
   requireConfirmation,
 }
 
+/// Modèle local proposé par défaut : le dérivé de `tool/ollama/Modelfile`, pas
+/// `qwen2.5:7b` tel quel. Ollama charge ce dernier avec un contexte de 4 096
+/// tokens (mesuré) — le prompt de l'agent en occupe à lui seul ~6 800 et serait
+/// tronqué en silence ; le service local le refuse d'ailleurs.
+const defaultLocalModel = 'forgeron-qwen';
+
 /// Réglages persistants de l'agent IA : activation, permissions par
 /// catégorie d'action. La clé API est gérée séparément (stockage sécurisé),
 /// jamais incluse dans cet objet ni dans sa sérialisation JSON.
@@ -43,13 +53,42 @@ class AiAgentSettings {
   final bool enabled;
   final Map<AiActionCategory, AiAutonomyLevel> autonomy;
 
+  /// Adresse du serveur IA **local** (Ollama, llama.cpp, LM Studio…) sur le
+  /// réseau de l'atelier. Vide = on interroge Gemini.
+  ///
+  /// C'est ce seul champ qui choisit le fournisseur : renseigné, tout passe en
+  /// local et l'agent n'a plus besoin d'Internet — donc plus besoin de la 4G
+  /// pendant que le téléphone est joint à l'AP de l'ESP32.
+  final String localBaseUrl;
+
+  /// Nom du modèle servi à cette adresse, tel que le serveur le connaît.
+  final String localModel;
+
+  /// Modèle local qui LIT LES IMAGES (photo jointe, caméra), vide = aucun. Souvent un
+  /// autre que [localModel] : un modèle qui voit (gemma3n) n'appelle pas d\'outils, un
+  /// modèle qui pilote la machine (forgeron-qwen) ne voit pas. Les tours qui portent
+  /// une image vont au premier, sans outils ; tous les autres au second.
+  final String localVisionModel;
+
+  /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
+  /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
+  /// toutes les langues du lexique, restriction à la lecture sur les questions
+  /// et les négations. Activée par défaut ; la couper ramène l'assistant au
+  /// comportement d'avant (modèle seul + chemin rapide de l'arrêt d'urgence).
+  final bool lexiconEnabled;
+
   const AiAgentSettings({
     this.enabled = false,
+    this.localBaseUrl = '',
+    this.localModel = defaultLocalModel,
+    this.localVisionModel = '',
+    this.lexiconEnabled = true,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.wcsTool: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.streaming: AiAutonomyLevel.requireConfirmation,
+      AiActionCategory.fileEdit: AiAutonomyLevel.requireConfirmation,
     },
   });
 
@@ -59,16 +98,28 @@ class AiAgentSettings {
   AiAgentSettings copyWith({
     bool? enabled,
     Map<AiActionCategory, AiAutonomyLevel>? autonomy,
+    String? localBaseUrl,
+    String? localModel,
+    String? localVisionModel,
+    bool? lexiconEnabled,
   }) {
     return AiAgentSettings(
       enabled: enabled ?? this.enabled,
       autonomy: autonomy ?? this.autonomy,
+      localBaseUrl: localBaseUrl ?? this.localBaseUrl,
+      localModel: localModel ?? this.localModel,
+      localVisionModel: localVisionModel ?? this.localVisionModel,
+      lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'enabled': enabled,
         'autonomy': autonomy.map((k, v) => MapEntry(k.name, v.name)),
+        'localBaseUrl': localBaseUrl,
+        'localModel': localModel,
+        'localVisionModel': localVisionModel,
+        'lexiconEnabled': lexiconEnabled,
       };
 
   factory AiAgentSettings.fromJson(Map<String, dynamic> json) {
@@ -85,6 +136,11 @@ class AiAgentSettings {
     return AiAgentSettings(
       enabled: json['enabled'] as bool? ?? false,
       autonomy: autonomy,
+      localBaseUrl: json['localBaseUrl'] as String? ?? '',
+      localModel: json['localModel'] as String? ?? defaultLocalModel,
+      localVisionModel: json['localVisionModel'] as String? ?? '',
+      // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
+      lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
     );
   }
 }
@@ -113,6 +169,35 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
 
   void setEnabled(bool value) {
     state = state.copyWith(enabled: value);
+    _persist();
+  }
+
+  /// Adresse du serveur IA local. Vide = retour à Gemini.
+  ///
+  /// L'adresse est normalisée à l'enregistrement (« 192.168.0.42 » devient
+  /// « http://192.168.0.42:11434 ») : l'opérateur saisit ce qu'il lit sur son
+  /// PC, pas une URL complète.
+  void setLocalBaseUrl(String value) {
+    state = state.copyWith(
+        localBaseUrl: LocalAiAgentService.normalizeBaseUrl(value));
+    _persist();
+  }
+
+  /// Modèle local pour les images ; vide = aucun.
+  void setLocalVisionModel(String value) {
+    state = state.copyWith(localVisionModel: value.trim());
+    _persist();
+  }
+
+  void setLexiconEnabled(bool value) {
+    state = state.copyWith(lexiconEnabled: value);
+    _persist();
+  }
+
+  void setLocalModel(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    state = state.copyWith(localModel: trimmed);
     _persist();
   }
 

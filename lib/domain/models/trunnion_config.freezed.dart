@@ -54,6 +54,7 @@ mixin _$TrunnionConfig {
   double get r3axForce =>
       throw _privateConstructorUsedError; // ── Géométrie ──────────────────────────────────────────────────────
   /// Distance Z entre le centre de rotation A et la surface du plateau (mm).
+  /// Mesuré sur la machine réelle (2026-08-05) : 8 mm.
   double get pivotToTableOffset => throw _privateConstructorUsedError;
 
   /// Zone de singularité autour de A = 0° (degrés).
@@ -372,7 +373,7 @@ class _$TrunnionConfigImpl extends _TrunnionConfig {
     this.r5axForce = 30.0,
     this.rMaxForce = 45.6,
     this.r3axForce = 180.0,
-    this.pivotToTableOffset = 45.0,
+    this.pivotToTableOffset = 8.0,
     this.singularityZone = 5.0,
     this.aAxisMaxFeed = 3600.0,
     this.cAxisMaxFeed = 7200.0,
@@ -437,6 +438,7 @@ class _$TrunnionConfigImpl extends _TrunnionConfig {
   final double r3axForce;
   // ── Géométrie ──────────────────────────────────────────────────────
   /// Distance Z entre le centre de rotation A et la surface du plateau (mm).
+  /// Mesuré sur la machine réelle (2026-08-05) : 8 mm.
   @override
   @JsonKey()
   final double pivotToTableOffset;
@@ -618,6 +620,7 @@ abstract class _TrunnionConfig extends TrunnionConfig {
   @override
   double get r3axForce; // ── Géométrie ──────────────────────────────────────────────────────
   /// Distance Z entre le centre de rotation A et la surface du plateau (mm).
+  /// Mesuré sur la machine réelle (2026-08-05) : 8 mm.
   @override
   double get pivotToTableOffset;
 

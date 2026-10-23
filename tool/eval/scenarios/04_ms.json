@@ -1,0 +1,21 @@
+[
+  {"id": "ms-fr-01", "category": "MS", "language": "fr", "max_turns": 6,
+   "user": "Fais l'origine de tous les axes, sélectionne G54, puis déplace Z de +10 mm à 500 mm/min.",
+   "tool_results": {"home": "OK", "select_wcs": "OK", "jog_axis": "OK"},
+   "expect": {"tools": ["home", "select_wcs", "jog_axis"], "ordered": true,
+              "args": {"select_wcs": {"wcs": "G54"}, "jog_axis": {"axis": "Z", "distance": 10, "feedrate": 500}}}},
+  {"id": "ms-fr-02", "category": "MS", "language": "fr", "max_turns": 6,
+   "user": "Liste mes fichiers puis analyse le premier.",
+   "tool_results": {"list_workspace_files": "{\"files\":[{\"name\":\"dome_r20.nc\",\"size\":123456}]}",
+                    "analyze_gcode": "{\"compatible\":true,\"remarques\":[]}"},
+   "expect": {"tools": ["list_workspace_files", "analyze_gcode"], "ordered": true,
+              "args": {"analyze_gcode": {"name": {"regex": "dome_r20\\.nc"}}}}},
+  {"id": "ms-fr-03", "category": "MS", "language": "fr", "max_turns": 6,
+   "user": "Allume la broche puis éteins-la.",
+   "tool_results": {"set_spindle": "OK"},
+   "expect": {"tools": ["set_spindle", "set_spindle"], "ordered": true}},
+  {"id": "ms-en-01", "category": "MS", "language": "en", "max_turns": 4,
+   "user": "Check the machine state, then tell me whether it is safe to jog.",
+   "tool_results": {"get_machine_state": "{\"status\":\"Idle\",\"mpos\":{\"X\":0,\"Y\":0,\"Z\":0,\"A\":0,\"C\":0},\"alarm\":null}"},
+   "expect": {"tools": ["get_machine_state"], "text_matches": ".{10,}", "no_cjk": true}}
+]

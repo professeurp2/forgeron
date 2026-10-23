@@ -1,0 +1,536 @@
+{
+ "lgx-ar-etat": {
+  "langue": "ar",
+  "source": "أرني حالة الآلة.",
+  "traduction": "Montrez-moi l'état de la machine.",
+  "ms": 1433
+ },
+ "lgx-ar-urgence": {
+  "langue": "ar",
+  "source": "أوقف الآلة فوراً، إنها حالة طوارئ!",
+  "traduction": "Arrêtez la machine immédiatement, c'est une urgence !",
+  "ms": 1550
+ },
+ "lgx-ar-pause": {
+  "langue": "ar",
+  "source": "أوقف البرنامج مؤقتاً.",
+  "traduction": "Le programme a été temporairement interrompu.",
+  "ms": 1076
+ },
+ "lgx-ar-homing": {
+  "langue": "ar",
+  "source": "أعد الآلة إلى موضع البداية.",
+  "traduction": "Remettez la machine en position de départ.",
+  "ms": 1102
+ },
+ "lgx-ar-jog": {
+  "langue": "ar",
+  "source": "حرّك المحور X بمقدار 5 مم بسرعة 300.",
+  "traduction": "Déplacez l'axe X de 5 mm à une vitesse de 300.",
+  "ms": 2054
+ },
+ "lgx-ar-zero": {
+  "langue": "ar",
+  "source": "اضبط صفر القطعة هنا.",
+  "traduction": "Définissez le zéro de la pièce ici.",
+  "ms": 1073
+ },
+ "lgx-ar-brocheon": {
+  "langue": "ar",
+  "source": "شغّل المغزل.",
+  "traduction": "Mettez le fil en marche.",
+  "ms": 1172
+ },
+ "lgx-ar-brocheoff": {
+  "langue": "ar",
+  "source": "أطفئ المغزل.",
+  "traduction": "Éteignez le fil.",
+  "ms": 939
+ },
+ "lgx-ar-explique": {
+  "langue": "ar",
+  "source": "اشرح لي بكلمات بسيطة ما هو الـ homing.",
+  "traduction": "Expliquez-moi en termes simples ce qu'est le homing.",
+  "ms": 1803
+ },
+ "lgx-ar-horssujet": {
+  "langue": "ar",
+  "source": "هل ستمطر غداً؟",
+  "traduction": "Il pleuvra-t-il demain ?",
+  "ms": 1240
+ },
+ "lgx-sw-etat": {
+  "langue": "sw",
+  "source": "Nionyeshe hali ya mashine.",
+  "traduction": "Montrez-moi l'état de la machine.",
+  "ms": 1450
+ },
+ "lgx-sw-urgence": {
+  "langue": "sw",
+  "source": "Simamisha mashine sasa hivi, ni dharura!",
+  "traduction": "Déplacez la machine maintenant, c'est urgent!",
+  "ms": 1300
+ },
+ "lgx-sw-pause": {
+  "langue": "sw",
+  "source": "Sitisha programu kwa muda.",
+  "traduction": "Arrêtez l'application temporairement.",
+  "ms": 1141
+ },
+ "lgx-sw-homing": {
+  "langue": "sw",
+  "source": "Rudisha mashine kwenye nafasi ya mwanzo.",
+  "traduction": "Remettez la machine dans sa position initiale.",
+  "ms": 1096
+ },
+ "lgx-sw-jog": {
+  "langue": "sw",
+  "source": "Sogeza mhimili wa X kwa milimita 5 kwa kasi ya 300.",
+  "traduction": "Déplacez l'axe X de 5 mm à une vitesse de 300.",
+  "ms": 2186
+ },
+ "lgx-sw-zero": {
+  "langue": "sw",
+  "source": "Weka sifuri ya kazi hapa.",
+  "traduction": "Mettez le zéro de travail ici.",
+  "ms": 1184
+ },
+ "lgx-sw-brocheon": {
+  "langue": "sw",
+  "source": "Washa spindle.",
+  "traduction": "Broche Washa. Broche Washa.",
+  "ms": 1065
+ },
+ "lgx-sw-brocheoff": {
+  "langue": "sw",
+  "source": "Zima spindle.",
+  "traduction": "Broche Zima. Broche Zima.",
+  "ms": 1320
+ },
+ "lgx-sw-explique": {
+  "langue": "sw",
+  "source": "Eleza kwa maneno rahisi homing ni nini.",
+  "traduction": "Décrivez en termes simples ce qu'est le homing.",
+  "ms": 1658
+ },
+ "lgx-sw-horssujet": {
+  "langue": "sw",
+  "source": "Kesho mvua itanyesha?",
+  "traduction": "Demain, il pleuvra-t-il ?",
+  "ms": 1556
+ },
+ "lgx-ha-etat": {
+  "langue": "ha",
+  "source": "Nuna mini yanayin na'urar.",
+  "traduction": "Affiche le mini état de l'appareil.",
+  "ms": 1185
+ },
+ "lgx-ha-urgence": {
+  "langue": "ha",
+  "source": "Dakatar da na'urar yanzu, gaggawa ne!",
+  "traduction": "Arrêtez l'appareil maintenant, c'est urgent!",
+  "ms": 1478
+ },
+ "lgx-ha-pause": {
+  "langue": "ha",
+  "source": "Dakatar da shirin na ɗan lokaci.",
+  "traduction": "Le programme est temporairement interrompu.",
+  "ms": 991
+ },
+ "lgx-ha-homing": {
+  "langue": "ha",
+  "source": "Mayar da na'urar zuwa matsayinta na farko.",
+  "traduction": "Remettez l'appareil dans sa position initiale.",
+  "ms": 1309
+ },
+ "lgx-ha-jog": {
+  "langue": "ha",
+  "source": "Motsa axis X da milimita 5 da gudun 300.",
+  "traduction": "Déplacer l'axe X de 5 mm à une vitesse de 300.",
+  "ms": 2537
+ },
+ "lgx-ha-zero": {
+  "langue": "ha",
+  "source": "Saita sifilin aiki a nan.",
+  "traduction": "Définissez un essai de travail ici.",
+  "ms": 1019
+ },
+ "lgx-ha-brocheon": {
+  "langue": "ha",
+  "source": "Kunna spindle.",
+  "traduction": "Kunna broche. Kunna broche.",
+  "ms": 976
+ },
+ "lgx-ha-brocheoff": {
+  "langue": "ha",
+  "source": "Kashe spindle.",
+  "traduction": "Broche de Kashe. Broche de Kashe.",
+  "ms": 1118
+ },
+ "lgx-ha-explique": {
+  "langue": "ha",
+  "source": "Bayyana mini a cikin sauƙaƙan kalmomi menene homing.",
+  "traduction": "Expliquez-moi en termes simples ce qu'est le homing.",
+  "ms": 1802
+ },
+ "lgx-ha-horssujet": {
+  "langue": "ha",
+  "source": "Gobe za a yi ruwan sama?",
+  "traduction": "Y aura-t-il de la pluie demain ?",
+  "ms": 1787
+ },
+ "lgx-yo-etat": {
+  "langue": "yo",
+  "source": "Fi ipo ẹrọ naa han mi.",
+  "traduction": "Montrez-moi l'emplacement de l'appareil.",
+  "ms": 1609
+ },
+ "lgx-yo-urgence": {
+  "langue": "yo",
+  "source": "Duro ẹrọ naa lẹsẹkẹsẹ, pajawiri ni!",
+  "traduction": "Arrêtez la machine immédiatement, ne la débranchez pas !",
+  "ms": 1732
+ },
+ "lgx-yo-pause": {
+  "langue": "yo",
+  "source": "Dá eto naa dúró fún ìgbà díẹ̀.",
+  "traduction": "Laissez le programme fonctionner pendant un certain temps.",
+  "ms": 1149
+ },
+ "lgx-yo-homing": {
+  "langue": "yo",
+  "source": "Mú ẹrọ naa pada si ibi ti o ti bẹrẹ.",
+  "traduction": "Remettez la machine à l'endroit où vous l'avez démarrée.",
+  "ms": 2256
+ },
+ "lgx-yo-jog": {
+  "langue": "yo",
+  "source": "Gbe axis X lọ 5 mm ni iyara 300.",
+  "traduction": "Déplacez l'axe X de 5 mm à une vitesse de 300.",
+  "ms": 2021
+ },
+ "lgx-yo-zero": {
+  "langue": "yo",
+  "source": "Fi odo iṣẹ si ibi yii.",
+  "traduction": "Définir le chemin d'accès à cet emplacement.",
+  "ms": 1260
+ },
+ "lgx-yo-brocheon": {
+  "langue": "yo",
+  "source": "Tan spindle.",
+  "traduction": "Broche en tan. Broche en tan.",
+  "ms": 1172
+ },
+ "lgx-yo-brocheoff": {
+  "langue": "yo",
+  "source": "Pa spindle.",
+  "traduction": "Pa broche. Pa broche.",
+  "ms": 799
+ },
+ "lgx-yo-explique": {
+  "langue": "yo",
+  "source": "Ṣe alaye ni ọrọ ti o rọrun kini homing jẹ.",
+  "traduction": "Expliquez en termes simples ce qu'est le homing.",
+  "ms": 1643
+ },
+ "lgx-yo-horssujet": {
+  "langue": "yo",
+  "source": "Ṣe ojo yoo rọ ni ọla?",
+  "traduction": "Le soleil se transformera-t-il en or ?",
+  "ms": 1613
+ },
+ "lgx-am-etat": {
+  "langue": "am",
+  "source": "የማሽኑን ሁኔታ አሳየኝ።",
+  "traduction": "Il m'a montré l'état de la machine.",
+  "ms": 2066
+ },
+ "lgx-am-urgence": {
+  "langue": "am",
+  "source": "ማሽኑን አሁኑኑ አቁም፣ አስቸኳይ ነው!",
+  "traduction": "Arrêtez la machine maintenant, c'est urgent !",
+  "ms": 1275
+ },
+ "lgx-am-pause": {
+  "langue": "am",
+  "source": "ፕሮግራሙን ለጊዜው አቁም።",
+  "traduction": "Mettre le programme en pause.",
+  "ms": 965
+ },
+ "lgx-am-homing": {
+  "langue": "am",
+  "source": "ማሽኑን ወደ መነሻ ቦታው መልሰው።",
+  "traduction": "Remettez la machine en position de départ.",
+  "ms": 1177
+ },
+ "lgx-am-jog": {
+  "langue": "am",
+  "source": "ኤክስ ዘንግን በ5 ሚሊሜትር በ300 ፍጥነት አንቀሳቅስ።",
+  "traduction": "Déplacez la tige X de 5 millimètres à 300 tours par minute.",
+  "ms": 2173
+ },
+ "lgx-am-zero": {
+  "langue": "am",
+  "source": "የስራ ዜሮን እዚህ አስቀምጥ።",
+  "traduction": "Enregistrer le zéro de travail ici.",
+  "ms": 1042
+ },
+ "lgx-am-brocheon": {
+  "langue": "am",
+  "source": "ስፒንድሉን አብራ።",
+  "traduction": "Tournez la broche.",
+  "ms": 750
+ },
+ "lgx-am-brocheoff": {
+  "langue": "am",
+  "source": "ስፒንድሉን አጥፋ።",
+  "traduction": "Éteignez la broche.",
+  "ms": 902
+ },
+ "lgx-am-explique": {
+  "langue": "am",
+  "source": "ሆሚንግ ምን እንደሆነ በቀላል ቃላት አብራራልኝ።",
+  "traduction": "Il m'explique en termes simples ce qu'est le homing.",
+  "ms": 1721
+ },
+ "lgx-am-horssujet": {
+  "langue": "am",
+  "source": "ነገ ዝናብ ይዘንባል?",
+  "traduction": "Va-t-il pleuvoir demain ?",
+  "ms": 1408
+ },
+ "lgx-wo-etat": {
+  "langue": "wo",
+  "source": "Wone ma ni machine bi nekk.",
+  "traduction": "Wone ma ni machine bi nekk. Wone ma ni machine bi nekk.",
+  "ms": 1614
+ },
+ "lgx-wo-urgence": {
+  "langue": "wo",
+  "source": "Taxawal machine bi léegi, gaaw!",
+  "traduction": "La voiture de taxi s'arrête, gaaw!",
+  "ms": 1378
+ },
+ "lgx-wo-pause": {
+  "langue": "wo",
+  "source": "Taxawal programme bi ba ab diir.",
+  "traduction": "Taxawal programme bi ba ab diir.",
+  "ms": 1517
+ },
+ "lgx-wo-homing": {
+  "langue": "wo",
+  "source": "Delloo machine bi ci béréb bi mu tambalee.",
+  "traduction": "Delloo machine bi ci béréb bi mu tambalee.",
+  "ms": 4285
+ },
+ "lgx-wo-jog": {
+  "langue": "wo",
+  "source": "Dox axe X ci 5 mm ak gaaw 300.",
+  "traduction": "Dox axe X ci 5 mm ak gaaw 300.",
+  "ms": 4030
+ },
+ "lgx-wo-zero": {
+  "langue": "wo",
+  "source": "Teg zéro bi fii.",
+  "traduction": "Teg zéro bi fii. Teg zéro bi fii.",
+  "ms": 1456
+ },
+ "lgx-wo-brocheon": {
+  "langue": "wo",
+  "source": "Tambali broche bi.",
+  "traduction": "Tambali broche bi. broche bi.",
+  "ms": 1263
+ },
+ "lgx-wo-brocheoff": {
+  "langue": "wo",
+  "source": "Taxawal broche bi.",
+  "traduction": "Broche bi. Taxawal broche bi.",
+  "ms": 1003
+ },
+ "lgx-wo-explique": {
+  "langue": "wo",
+  "source": "Wax ma ci wax yu yomb lan la homing.",
+  "traduction": "Wax ma ci wax yu yomb lan la homing. Wax ma ci wax yu yomb lan la homing. Wax ma ci wax yu yomb lan la homing.",
+  "ms": 3580
+ },
+ "lgx-wo-horssujet": {
+  "langue": "wo",
+  "source": "Taw dina ñëw ëllëg?",
+  "traduction": "Qu'est-ce qu'il s'est passé ?",
+  "ms": 1379
+ },
+ "lgx-bm-etat": {
+  "langue": "bm",
+  "source": "Mashini cogoya jira n ye.",
+  "traduction": "Il s'agit d'une description du fonctionnement de la machine.",
+  "ms": 1813
+ },
+ "lgx-bm-urgence": {
+  "langue": "bm",
+  "source": "Mashini jɔ sisan, joona!",
+  "traduction": "Arrête la voiture, Jonah !",
+  "ms": 922
+ },
+ "lgx-bm-pause": {
+  "langue": "bm",
+  "source": "Porogaramu jɔ dɔɔnin.",
+  "traduction": "Le logiciel est facile à utiliser.",
+  "ms": 1186
+ },
+ "lgx-bm-homing": {
+  "langue": "bm",
+  "source": "Mashini segin a daminɛ yɔrɔ la.",
+  "traduction": "La voiture a repris son chemin au point de départ, à l'endroit où elle avait commencé.",
+  "ms": 2200
+ },
+ "lgx-bm-jog": {
+  "langue": "bm",
+  "source": "X taa mm 5 la, teliya 300.",
+  "traduction": "X à 5 mm, vitesse 300.",
+  "ms": 1358
+ },
+ "lgx-bm-jogmots": {
+  "langue": "bm",
+  "source": "X taa milimɛtɛri duuru la, teliya kɛmɛ saba.",
+  "traduction": "X à cinq millimètres, vitesse trois cents.",
+  "ms": 1544
+ },
+ "lgx-bm-zero": {
+  "langue": "bm",
+  "source": "Zero in da yan.",
+  "traduction": "Zero in da yan. Zéro dans le passé.",
+  "ms": 1061
+ },
+ "lgx-bm-brocheon": {
+  "langue": "bm",
+  "source": "Broche daminɛ.",
+  "traduction": "Broche commence. Broche commence.",
+  "ms": 909
+ },
+ "lgx-bm-brocheoff": {
+  "langue": "bm",
+  "source": "Broche dabila.",
+  "traduction": "Broche dabila. Broche dabila.",
+  "ms": 1452
+ },
+ "lgx-bm-explique": {
+  "langue": "bm",
+  "source": "Homing ye mun ye, a ɲɛfɔ n ye ni kuma nɔgɔman ye.",
+  "traduction": "Qu'est-ce que le homing, et comment l'expliquer en termes simples?",
+  "ms": 2242
+ },
+ "lgx-bm-horssujet": {
+  "langue": "bm",
+  "source": "Sanji bɛna na sini wa?",
+  "traduction": "Sanji va-t-il en Chine?",
+  "ms": 1001
+ },
+ "lgx-bmx-etat": {
+  "langue": "bm-mixte",
+  "source": "Mashini état jira n ye.",
+  "traduction": "Machin état jira n ye. Machin état jira n ye.",
+  "ms": 1516
+ },
+ "lgx-bmx-urgence": {
+  "langue": "bm-mixte",
+  "source": "Arrêt d'urgence mashini la, sisan!",
+  "traduction": "Arrêt d'urgence mashini la, sisan !",
+  "ms": 1958
+ },
+ "lgx-bmx-pause": {
+  "langue": "bm-mixte",
+  "source": "Programme pause kɛ.",
+  "traduction": "Pause du programme ke.",
+  "ms": 803
+ },
+ "lgx-bmx-homing": {
+  "langue": "bm-mixte",
+  "source": "Homing kɛ.",
+  "traduction": "Homing ke. Homing ke. Homing ke.",
+  "ms": 1141
+ },
+ "lgx-bmx-jog": {
+  "langue": "bm-mixte",
+  "source": "Axe X taa 5 mm la, vitesse 300.",
+  "traduction": "Axe X taa 5 mm la, vitesse 300.",
+  "ms": 3190
+ },
+ "lgx-bmx-zero": {
+  "langue": "bm-mixte",
+  "source": "Zéro pièce da yan.",
+  "traduction": "Zéro pièce da yan. Zéro pièce da yan.",
+  "ms": 1200
+ },
+ "lgx-bmx-brocheon": {
+  "langue": "bm-mixte",
+  "source": "Broche allumer sisan.",
+  "traduction": "Broche allumer sisan. broche allumer sisan.",
+  "ms": 1163
+ },
+ "lgx-bmx-brocheoff": {
+  "langue": "bm-mixte",
+  "source": "Broche éteindre sisan.",
+  "traduction": "Broche éteindre sisan. Broche éteindre sisan.",
+  "ms": 1686
+ },
+ "lgx-bmx-explique": {
+  "langue": "bm-mixte",
+  "source": "Homing ye mun ye, a ɲɛfɔ n ye.",
+  "traduction": "Qu'est-ce qu'un homing, il est défini par n.",
+  "ms": 2095
+ },
+ "lgx-bmx-horssujet": {
+  "langue": "bm-mixte",
+  "source": "Sini météo bɛ cogo di?",
+  "traduction": "Comment est la météo en Chine ?",
+  "ms": 936
+ },
+ "lgx-bma-etat": {
+  "langue": "bm-ascii",
+  "source": "Mashini cogoya jira n ye.",
+  "traduction": "Il s'agit d'une description du fonctionnement de la machine.",
+  "ms": 1585
+ },
+ "lgx-bma-urgence": {
+  "langue": "bm-ascii",
+  "source": "Mashini jo sisan, joona!",
+  "traduction": "Mashini jo sisan, Jonah!",
+  "ms": 1165
+ },
+ "lgx-bma-pause": {
+  "langue": "bm-ascii",
+  "source": "Porogaramu jo doonin.",
+  "traduction": "Le logiciel n'est pas autorisé.",
+  "ms": 986
+ },
+ "lgx-bma-homing": {
+  "langue": "bm-ascii",
+  "source": "Mashini segin a damine yoro la.",
+  "traduction": "Retournez la voiture à l'endroit où vous avez commencé.",
+  "ms": 1527
+ },
+ "lgx-bma-jogmots": {
+  "langue": "bm-ascii",
+  "source": "X taa milimetri duuru la, teliya keme saba.",
+  "traduction": "X à cinq millimètres, trois degrés de vitesse.",
+  "ms": 1266
+ },
+ "lgx-bma-brocheon": {
+  "langue": "bm-ascii",
+  "source": "Broche damine.",
+  "traduction": "Broche damine. Broche damine.",
+  "ms": 965
+ },
+ "lgx-bma-explique": {
+  "langue": "bm-ascii",
+  "source": "Homing ye mun ye, a nyefo n ye ni kuma nogoman ye.",
+  "traduction": "C'est un endroit agréable, agréable et facile à vivre.",
+  "ms": 2180
+ },
+ "lgx-bma-horssujet": {
+  "langue": "bm-ascii",
+  "source": "Sanji bena na sini wa?",
+  "traduction": "Sanji bena na sini wa?",
+  "ms": 1673
+ }
+}

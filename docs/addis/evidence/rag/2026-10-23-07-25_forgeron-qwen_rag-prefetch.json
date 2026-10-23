@@ -1,0 +1,874 @@
+{
+ "meta": {
+  "backend": "local",
+  "model": "forgeron-qwen",
+  "model_digest": "fa1d9250af60",
+  "server_version": "Ollama 0.40.9",
+  "context_tokens": 16384,
+  "date": "2026-10-23T07:25:37.093377",
+  "repeat": 5,
+  "prompt_fingerprint": "b134c3d31a68f9a3",
+  "base_prompt_fingerprint": "7e1e94edf7b1d434",
+  "tools_fingerprint": "e9d3981db29f15d9",
+  "scenarios_fingerprint": "0ffdf258fa86fb2a",
+  "tool_count": 39,
+  "git_commit": "a5b761e+modifications",
+  "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU, 8192 MiB",
+  "tag": "rag-prefetch",
+  "options": {
+   "chemin_rapide_arret_urgence": true,
+   "routage_outils": false,
+   "scenarios": "tool/eval/scenarios_docs"
+  }
+ },
+ "headline": {
+  "runs": 50,
+  "passed": 31,
+  "rate": 0.62,
+  "ci95": [
+   0.4815019502239357,
+   0.7413740415742278
+  ],
+  "latency_p50_ms": 2768,
+  "latency_p95_ms": 8415,
+  "mean_tokens": 11457.9
+ },
+ "runs": [
+  {
+   "id": "pf-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 9257,
+   "tokens": 22964,
+   "turns": 2,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches. Cependant, pour l'alarme 9 « Prise d'origine — capteur introuvable », l'information vient de la fiche d'alarmes FluidNC (Alarm.h) que j'ai recherché"
+  },
+  {
+   "id": "pf-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 1343,
+   "tokens": 15201,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches. Pourtant, il semble qu'une recherche ait été effectuée. Pourriez-vous me fournir plus de détails sur la situation concernant l'alarme 9 que vous ren"
+  },
+  {
+   "id": "pf-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [],
+   "latency_ms": 1093,
+   "tokens": 7604,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches. Pour obtenir plus d'informations sur l'alarme 9, j'aurai besoin de rechercher davantage. Pourriez-vous me donner plus de contexte ou me faire savoir"
+  },
+  {
+   "id": "pf-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 4254,
+   "tokens": 15384,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches. Cependant, je peux vous fournir les détails sur l'alarme 9 basés sur les spécifications courantes et celles de votre machine :\n\nL'alarme 9 : Prise d"
+  },
+  {
+   "id": "pf-01",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « capteur »"
+   ],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9\"})"
+   ],
+   "latency_ms": 1849,
+   "tokens": 15232,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches. Pour plus d'informations sur l'alarme 9, je vous recommande de consulter la documentation de FluidNC ou le manuel du fabricant. Si vous avez plus de"
+  },
+  {
+   "id": "pf-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"M3 broche\"})"
+   ],
+   "latency_ms": 4581,
+   "tokens": 15745,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Pour allumer la broche en G-code sur cette machine, utilisez la commande suivante :\n\n```gcode\nM3 S1000\n```\n\nCela déclenchera la broche au régime de 1000 tours/minute dans le sens horaire. Notez que si"
+  },
+  {
+   "id": "pf-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « M3 S\\d+ »"
+   ],
+   "calls": [],
+   "latency_ms": 224,
+   "tokens": 7802,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"M3 broche\")"
+  },
+  {
+   "id": "pf-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"M3 broche\"})"
+   ],
+   "latency_ms": 2177,
+   "tokens": 15748,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "L'allumage de la broche s'effectue avec la commande suivante en G-code : `M3 S1000`. Notez que la valeur `S1000` est requise pour activer la broche, `M3` seul ne l'allume pas. Si vous souhaitez l'arrê"
+  },
+  {
+   "id": "pf-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « M3 S\\d+ »"
+   ],
+   "calls": [],
+   "latency_ms": 205,
+   "tokens": 7802,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"M3 broche\")"
+  },
+  {
+   "id": "pf-02",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2883,
+   "tokens": 7971,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nPourtant, je peux vous informer que sur cette machine, la commande G-code pour allumer la broche n'est pas comme dans certains autres systèmes. Voi"
+  },
+  {
+   "id": "pf-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « alimentation »"
+   ],
+   "calls": [],
+   "latency_ms": 2847,
+   "tokens": 7860,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Search_docs(query=\"alarme 9\")"
+  },
+  {
+   "id": "pf-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2702,
+   "tokens": 8015,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "L'alimentation de la broche est actuellement sous-dimensionnée. En effet, elle utilise un chargeur de PC 19,5 V / 3,3 A qui provoque des étincelles et de l'instabilité. Le correctif prévu est d'utilis"
+  },
+  {
+   "id": "pf-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"broche et étincelles\"})"
+   ],
+   "latency_ms": 5779,
+   "tokens": 16099,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je n'ai pas reçu de fiche spécifique à la broche et aux étincelles dans la réponse. Cependant, je peux t'informez que la broche utilisée sur cette machine est commandée par un relais 5V et est en tout"
+  },
+  {
+   "id": "pf-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 9 broche étincelles\"})"
+   ],
+   "latency_ms": 4371,
+   "tokens": 16007,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je n'ai pas reçu de réponse détaillée concernant les étincelles de la broche. Cependant, je vais vous signaler que l'alimentation de la broche est actuellement sous-dimensionnée. Selon les fiches de c"
+  },
+  {
+   "id": "pf-03",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2576,
+   "tokens": 8007,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nD'après les fiches que j'ai consultées, il semble que les étincelles soient dues à une alimentation sous-dimensionnée de la broche. L'alimentation "
+  },
+  {
+   "id": "pf-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse contient « (litre|millilitre| ml |vidange tous|étape 1|1\\.) »"
+   ],
+   "calls": [],
+   "latency_ms": 8608,
+   "tokens": 8235,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, je peux vous guider sur la procédure générale pour changer l'huile de la broche sur cette machine :\n\n1. **Arrêtez la broche** en utilisa"
+  },
+  {
+   "id": "pf-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse contient « (litre|millilitre| ml |vidange tous|étape 1|1\\.) »"
+   ],
+   "calls": [],
+   "latency_ms": 7516,
+   "tokens": 8322,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, voici une procédure générale basée sur mon savoir de la machine :\n\n1. **Arrêt de la broche** : Assurez-vous d'arrêter la broche en envoy"
+  },
+  {
+   "id": "pf-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse contient « (litre|millilitre| ml |vidange tous|étape 1|1\\.) »"
+   ],
+   "calls": [],
+   "latency_ms": 4728,
+   "tokens": 8147,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nEn revanche, je peux vous informer des règles générales pour la manipulation de la broche sur cette machine :\n\n1. Assurez-vous d'être déconnecté du"
+  },
+  {
+   "id": "pf-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3004,
+   "tokens": 8035,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nEn revanche, je peux vous fournir les informations techniques concernant la broche. Elle est commandée en tout-ou-rien par un relais 5 V, et pour l"
+  },
+  {
+   "id": "pf-04",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": false,
+   "reasons": [
+    "la réponse contient « (litre|millilitre| ml |vidange tous|étape 1|1\\.) »"
+   ],
+   "calls": [],
+   "latency_ms": 3676,
+   "tokens": 8076,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nComme la gestion de l'huile de la broche n'est pas gérée par l'assistant et n'est pas une opération de machine, je vais vous orienter sur les geste"
+  },
+  {
+   "id": "pf-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 3647,
+   "tokens": 15622,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm."
+  },
+  {
+   "id": "pf-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 706,
+   "tokens": 15622,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm."
+  },
+  {
+   "id": "pf-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 696,
+   "tokens": 15621,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "L'axe X a une course de 80 mm."
+  },
+  {
+   "id": "pf-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 736,
+   "tokens": 15624,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 millimètres."
+  },
+  {
+   "id": "pf-05",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 1108,
+   "tokens": 15647,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La course de l'axe X est de 80 mm. Vous pouvez trouver cette information dans la configuration réelle de la machine en utilisant l'outil get_axis_kinematics."
+  },
+  {
+   "id": "pf-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 1024,
+   "tokens": 7346,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis toujours disponible si vous avez des questions plus tard. Au revoir pour aujourd'hui! N'hésitez pas à revenir si vous avez besoin d'aide."
+  },
+  {
+   "id": "pf-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 693,
+   "tokens": 7345,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis là si vous avez des questions futures. Avez-vous besoin de sauvegarder ou de modifier quelque chose avant de partir? Sinon, bonne journée!"
+  },
+  {
+   "id": "pf-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 956,
+   "tokens": 7360,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis disponible si vous avez d'autres questions ou besoin d'aide à l'avenir. N'hésitez pas à me faire savoir si vous démarrez un nouveau projet ou avez besoin d'aider avant! Bonne journée"
+  },
+  {
+   "id": "pf-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 803,
+   "tokens": 7351,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis disponible si vous avez besoin de moi plus tard. N'hésitez pas à relancer la conversation si vous avez des questions ou des tâches à effectuer. Au revoir !"
+  },
+  {
+   "id": "pf-06",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 846,
+   "tokens": 7354,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "D'accord, je suis disponible si vous avez d'autres questions ou besoin d'aide à l'avenir. N'hésitez pas à me contacter si vous avez des concernances sur votre machine. Bonne journée!"
+  },
+  {
+   "id": "pf-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 3032,
+   "tokens": 7540,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs {\"query\": \"g10 l20\"}"
+  },
+  {
+   "id": "pf-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"G10 L20-piece origins (G54 to G59, G10 L20)\"})"
+   ],
+   "latency_ms": 4171,
+   "tokens": 15340,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La commande `G10 L20 P0 X0 Y0 Z0` définit la position actuelle de la machine comme zéro pièce (haut de la pièce) dans le système de coordonnées actif sans effectuer de mouvement.\n\nAucune fiche documen"
+  },
+  {
+   "id": "pf-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 3410,
+   "tokens": 7718,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nPour répondre à ta question, G10 L20 est utilisé pour poser la position actuelle de la machine comme zéro pièce dans le système de coordonnées acti"
+  },
+  {
+   "id": "pf-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 1830,
+   "tokens": 7627,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Search docs pour la réponse.\n\n```gcode\nG10 L20 P0 X0 Y0 Z0\n```\n\nCela pose la position actuelle comme zéro pièce dans le système actif **sans** aucun mouvement de la machine. Ce n'est pas un homing, qu"
+  },
+  {
+   "id": "pf-07",
+   "category": "DOC",
+   "language": "en",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (work|zero|origin) »"
+   ],
+   "calls": [],
+   "latency_ms": 251,
+   "tokens": 7537,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"G10 L20\")"
+  },
+  {
+   "id": "pf-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"ESP32 planté broche continue\"})"
+   ],
+   "latency_ms": 7565,
+   "tokens": 16222,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, d'après les fiches trouvées, vous devriez prendre les mesures suivantes en raison d'un problème connu avec l'ESP32 planté :\n\n1. Vérifiez"
+  },
+  {
+   "id": "pf-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"ESP32 planté broche toujours allumée\"})"
+   ],
+   "latency_ms": 4889,
+   "tokens": 16228,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La machine semble avoir un problème d'arrêt d'urgence. Selon les fiches de documentation, l'arrêt d'urgence n'est fonctionnel que par le logiciel (bouton vers GPIO15 vers FluidNC). Cependant, il exist"
+  },
+  {
+   "id": "pf-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"estop-defaut-materiel\"})"
+   ],
+   "latency_ms": 8415,
+   "tokens": 24246,
+   "turns": 2,
+   "notes": [
+    "langue:nouvelle_tentative"
+   ],
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, basé sur la spécificité technique de votre machine, je vous recommande de procéder comme suit :\n\n1. **Déconnectez immédiatement l'alimen"
+  },
+  {
+   "id": "pf-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (aliment|coup|couper) »"
+   ],
+   "calls": [],
+   "latency_ms": 278,
+   "tokens": 7973,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(query=\"estop-defaut-materiel\")"
+  },
+  {
+   "id": "pf-08",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (aliment|coup|couper) »"
+   ],
+   "calls": [],
+   "latency_ms": 260,
+   "tokens": 7972,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"estop-defaut-materiel\")"
+  },
+  {
+   "id": "pf-09",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"pas par millimètre axes\"})"
+   ],
+   "latency_ms": 6431,
+   "tokens": 15850,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, la cinématique de cette machine indique que l'axe X a un pas de 3 mm, tandis que Y et Z ont un pas de 2 mm. Cette différence est probabl"
+  },
+  {
+   "id": "pf-09",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (3 mm|pas de 3|vis) »"
+   ],
+   "calls": [],
+   "latency_ms": 4200,
+   "tokens": 8039,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, je peux te donner des détails sur la configuration des axes :\n\n- **X :** course 80 mm, 264 pas/mm, F max 1000 mm/min, accél. 100 mm/s²\n-"
+  },
+  {
+   "id": "pf-09",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (3 mm|pas de 3|vis) »"
+   ],
+   "calls": [
+    "get_axis_kinematics({})",
+    "get_axis_kinematics({})",
+    "get_axis_kinematics({})"
+   ],
+   "latency_ms": 6213,
+   "tokens": 24164,
+   "turns": 3,
+   "declared_tools": 39,
+   "excerpt": "L'appel de l'outil `get_axis_kinematics` a réussi, mais il semble qu'aucune information spécifique ne soit renvoyée. Nous allons tenter de récupérer cette information directement pour vérifier la ciné"
+  },
+  {
+   "id": "pf-09",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3389,
+   "tokens": 7992,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, je peux vous informer que l'axe X a bien une vis et un pas différent de Y et Z, comme cela est décrit dans la fiche \"axes-vis-pas\". L'ax"
+  },
+  {
+   "id": "pf-09",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": false,
+   "reasons": [
+    "la réponse finale ne correspond pas à « (3 mm|pas de 3|vis) »"
+   ],
+   "calls": [],
+   "latency_ms": 308,
+   "tokens": 7816,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs({\n  \"query\": \"pas X différent\"\n})"
+  },
+  {
+   "id": "pf-10",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 1,
+   "pass": true,
+   "reasons": [],
+   "calls": [
+    "search_docs({\"query\":\"alarme 10\"})"
+   ],
+   "latency_ms": 8012,
+   "tokens": 15970,
+   "turns": 2,
+   "declared_tools": 39,
+   "excerpt": "La commande `$X` déverrouille la machine après une éventuelle alarme concernant l'état de la broche. Cela permet de reprendre les opérations lorsque la machine est immobilisée en raison d'un défaut de"
+  },
+  {
+   "id": "pf-10",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 2,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 233,
+   "tokens": 7800,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"alarme-10\")"
+  },
+  {
+   "id": "pf-10",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 3,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 3453,
+   "tokens": 7969,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nLa commande `$X` est liée à la récupération d'une alarme. Selon les fiches d'alarmes FluidNC (`alarme-10`), elle permet de déverrouiller la machine"
+  },
+  {
+   "id": "pf-10",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 4,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 2768,
+   "tokens": 7944,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "Je ne trouve pas cette information dans mes fiches.\n\nCependant, la commande `$X` est connue pour servir à déverrouiller la machine après une alarme. Une fois que vous avez vérifié physiquement que l'a"
+  },
+  {
+   "id": "pf-10",
+   "category": "DOC",
+   "language": "fr",
+   "validation": "brouillon",
+   "rep": 5,
+   "pass": true,
+   "reasons": [],
+   "calls": [],
+   "latency_ms": 237,
+   "tokens": 7800,
+   "turns": 1,
+   "declared_tools": 39,
+   "excerpt": "search_docs(\"alarme-10\")"
+  }
+ ]
+}
