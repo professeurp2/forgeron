@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "note": "Lexique de commandes de l'assistant. Un mot n'a de sens ici que parce qu'une personne a dit qu'il l'a. Statut `brouillon` = écrit sans relecteur nommé (par l'assistant de code, avec les sources citées dans `sources`) : l'application DEMANDE confirmation avant d'agir sur ces mots. Une langue ne passe à `relu` qu'avec le nom d'un locuteur et la date (voir docs/lexique-gouvernance.md). Toute modification : changer `version`, relancer `dart run tool/lexicon/lock.dart`, committer le fichier .lock avec le changement. Les mots sont écrits dans leur orthographe naturelle (ɛ, ɔ, ɲ…) ; le moteur les plie lui-même (ɛ→e, ɔ→o, ɲ→ny) pour que la saisie sans ces lettres marche aussi.",
 
   "intents": [
@@ -27,6 +27,7 @@
         "home": ["homing", "prise d'origine", "origine machine", "origine de tous les axes", "origine des axes", "retour à l'origine", "position de départ", "position initiale", "position d'origine"],
         "move": ["avance", "avancer", "déplace", "déplacer", "bouge", "bouger", "jog"]
       },
+      "polite": ["peux tu", "tu peux", "pouvez vous", "vous pouvez", "pourrais tu", "tu pourrais", "pourriez vous", "vous pourriez", "veux tu", "voulez vous", "voudrais tu", "est ce que tu peux", "est ce que vous pouvez", "est ce que tu pourrais", "est ce que vous pourriez"],
       "light": ["fais", "faire", "mets", "met", "mettre", "pose", "poser", "définis", "règle", "fixe"],
       "objects": {
         "machine": ["machine"],
@@ -67,6 +68,7 @@
         "home": ["homing", "home all", "home", "go home", "return home", "return to home", "back to home", "return to origin", "go to origin", "machine origin", "home position", "starting position"],
         "move": ["move", "jog", "shift", "displace"]
       },
+      "polite": ["can you", "could you", "would you", "will you", "can you please", "could you please", "would you please", "please can you", "please could you"],
       "light": ["do", "make", "put", "set"],
       "objects": {
         "machine": ["machine"],

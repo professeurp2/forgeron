@@ -64,6 +64,12 @@ class AiAgentSettings {
   /// Nom du modèle servi à cette adresse, tel que le serveur le connaît.
   final String localModel;
 
+  /// Modèle local qui LIT LES IMAGES (photo jointe, caméra), vide = aucun. Souvent un
+  /// autre que [localModel] : un modèle qui voit (gemma3n) n'appelle pas d\'outils, un
+  /// modèle qui pilote la machine (forgeron-qwen) ne voit pas. Les tours qui portent
+  /// une image vont au premier, sans outils ; tous les autres au second.
+  final String localVisionModel;
+
   /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
   /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
   /// toutes les langues du lexique, restriction à la lecture sur les questions
@@ -75,6 +81,7 @@ class AiAgentSettings {
     this.enabled = false,
     this.localBaseUrl = '',
     this.localModel = defaultLocalModel,
+    this.localVisionModel = '',
     this.lexiconEnabled = true,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
@@ -93,6 +100,7 @@ class AiAgentSettings {
     Map<AiActionCategory, AiAutonomyLevel>? autonomy,
     String? localBaseUrl,
     String? localModel,
+    String? localVisionModel,
     bool? lexiconEnabled,
   }) {
     return AiAgentSettings(
@@ -100,6 +108,7 @@ class AiAgentSettings {
       autonomy: autonomy ?? this.autonomy,
       localBaseUrl: localBaseUrl ?? this.localBaseUrl,
       localModel: localModel ?? this.localModel,
+      localVisionModel: localVisionModel ?? this.localVisionModel,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
     );
   }
@@ -109,6 +118,7 @@ class AiAgentSettings {
         'autonomy': autonomy.map((k, v) => MapEntry(k.name, v.name)),
         'localBaseUrl': localBaseUrl,
         'localModel': localModel,
+        'localVisionModel': localVisionModel,
         'lexiconEnabled': lexiconEnabled,
       };
 
@@ -128,6 +138,7 @@ class AiAgentSettings {
       autonomy: autonomy,
       localBaseUrl: json['localBaseUrl'] as String? ?? '',
       localModel: json['localModel'] as String? ?? defaultLocalModel,
+      localVisionModel: json['localVisionModel'] as String? ?? '',
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
     );
@@ -169,6 +180,12 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   void setLocalBaseUrl(String value) {
     state = state.copyWith(
         localBaseUrl: LocalAiAgentService.normalizeBaseUrl(value));
+    _persist();
+  }
+
+  /// Modèle local pour les images ; vide = aucun.
+  void setLocalVisionModel(String value) {
+    state = state.copyWith(localVisionModel: value.trim());
     _persist();
   }
 

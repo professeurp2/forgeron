@@ -167,12 +167,35 @@ void main() {
 
   group('refus : une question n\'est pas un ordre', () {
     refused('Pourquoi l\'arrêt d\'urgence ne marche pas ?');
-    refused('Est-ce que tu peux arrêter tout ?', 'question');
+    // Une demande polie n'est pas une question : voir le groupe suivant.
+    refused('Peux-tu m\'expliquer le homing ?', 'question');
+    // Sans ordre reconnaissable, le modèle reprend (il explique, ses outils d'action restent confirmés).
+    refused('Peux-tu me dire pourquoi la broche fait du bruit ?');
+    refused('Can you explain what homing is?', 'question');
     refused('Allume la broche ?', 'question');
     refused('Explique-moi le homing', 'question');
     refused('What is homing?', 'question');
     refused('Why does the emergency stop not work?');
     refused('Homing ye mun ye, a ɲɛfɔ n ye.');
+  });
+
+  group('une demande polie est un ordre, pas une question', () {
+    ok('Peux-tu allumer la broche ?', 'set_spindle', {'state': 'cw'});
+    ok('Tu peux faire le homing stp ?', 'home');
+    ok('Pouvez-vous mettre le programme en pause ?', 'pause');
+    ok('Est-ce que tu peux arrêter tout ?', 'emergency_stop');
+    ok('Peux-tu afficher l\'état de la machine ?', 'get_machine_state');
+    ok('Peux-tu déplacer X de 5 mm à la vitesse 300 ?', 'jog_axis',
+        {'axis': 'X', 'distance': 5, 'feedrate': 300});
+    ok('Can you turn on the spindle?', 'set_spindle', {'state': 'cw'});
+    ok('Could you please move X by 5 mm at speed 300?', 'jog_axis',
+        {'axis': 'X', 'distance': 5, 'feedrate': 300});
+    // La politesse ne désarme aucun refus.
+    refused('Peux-tu ne pas démarrer la broche ?', 'negation');
+    refused('Peux-tu démarrer la broche après le homing ?', 'condition');
+    refused('Peux-tu reculer X de 5 mm à 300 ?', 'direction');
+    // Sans formule de politesse, le point d interrogation garde son sens.
+    refused('Allume la broche ?', 'question');
   });
 
   group('refus : ce que le lexique ne sait pas', () {

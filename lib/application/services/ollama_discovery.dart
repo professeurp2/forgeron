@@ -10,7 +10,8 @@ import 'local_ai_agent_service.dart';
 /// Un modèle servi par Ollama, avec ce qu'il faut pour dire à un opérateur s'il
 /// convient — sans qu'il ait à connaître un nom de modèle.
 class OllamaModel {
-  const OllamaModel(this.name, {this.supportsTools, this.contextTokens});
+  const OllamaModel(this.name,
+      {this.supportsTools, this.contextTokens, this.supportsVision = false});
 
   final String name;
 
@@ -18,6 +19,9 @@ class OllamaModel {
   /// serveur ne l'a pas dit. Sans cela, l'agent répondrait mais n'agirait jamais.
   final bool? supportsTools;
   final int? contextTokens;
+
+  /// Le modèle lit les images (capacité « vision » d'Ollama).
+  final bool supportsVision;
 
   /// Pourquoi l'agent ne peut pas s'en servir (`null` s'il le peut). N'est écarté
   /// que ce qui est CONNU pour ne pas convenir : ne sait pas appeler d'outils, ou
@@ -175,8 +179,9 @@ class OllamaDiscovery {
           m.name,
           // Les versions d'Ollama qui ne listent pas les capacités ne disent
           // rien : on ne déclare pas « incapable » ce qu'on ne sait pas.
-          supportsTools: caps == null ? null : caps.contains('tools'),
+          supportsTools: caps?.contains('tools'),
           contextTokens: info.contextTokens,
+          supportsVision: caps?.contains('vision') ?? false,
         );
       } catch (_) {
         return m;
@@ -205,6 +210,17 @@ class OllamaDiscovery {
 
     usable.sort((a, b) => rank(a).compareTo(rank(b)));
     return usable.first;
+  }
+
+  /// Le modèle à proposer pour LES IMAGES : un modèle qui voit, et qui n'est pas déjà
+  /// le modèle principal (celui-ci, s'il voit, s'en charge seul). `null` si aucun.
+  static OllamaModel? recommendVision(List<OllamaModel> models, {String? main}) {
+    final seeing =
+        models.where((m) => m.supportsVision && m.name != main).toList();
+    if (seeing.isEmpty) return null;
+    // Contexte le plus long d'abord : une image pèse lourd.
+    seeing.sort((a, b) => (b.contextTokens ?? 0).compareTo(a.contextTokens ?? 0));
+    return seeing.first;
   }
 
   /// Vérifie une adresse (saisie ou enregistrée) et dit, en phrases simples,

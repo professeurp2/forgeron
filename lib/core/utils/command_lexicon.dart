@@ -427,6 +427,7 @@ class CommandLexicon {
         add(lang, 'action', '${e.key}', e.value as List);
       }
       add(lang, 'light', '', l['light'] as List?);
+      add(lang, 'polite', '', l['polite'] as List?);
       for (final e in ((l['objects'] as Map?) ?? const {}).entries) {
         add(lang, 'object', '${e.key}', e.value as List);
       }
@@ -722,6 +723,20 @@ class CommandLexicon {
     return langs;
   }
 
+  /// Longueur (en mots) de la formule de politesse qui OUVRE la phrase, 0 s'il n'y
+  /// en a pas. Mots exacts : une politesse ne se devine pas.
+  int _politePrefix(List<_Tok> toks) {
+    for (final e in _entries) {
+      if (e.role != 'polite' || e.toks.length >= toks.length) continue;
+      var same = true;
+      for (var k = 0; k < e.toks.length && same; k++) {
+        same = toks[k].word == e.toks[k];
+      }
+      if (same) return e.toks.length;
+    }
+    return 0;
+  }
+
   /// Comprend [raw]. Avec [relaxed], l'appariement des mots est plus souple (voir
   /// `_similar`) et tout résultat est une SUGGESTION ([LexiconMatch.relaxed]) :
   /// les refus (négation, condition, direction, question, nombre ambigu,
@@ -729,9 +744,15 @@ class CommandLexicon {
   LexiconResult interpret(String raw, {bool relaxed = false}) {
     final text = raw.trim();
     if (text.isEmpty) return const LexiconResult.refused('vide');
-    final isQuestion =
-        text.contains('?') || text.contains('？') || text.contains('؟');
-    final toks = _tokenize(text);
+    final all = _tokenize(text);
+    // « Peux-tu allumer la broche ? » est une DEMANDE, pas une question : la forme
+    // polie en tête de phrase (déclarée par chaque langue, `polite`) est retirée
+    // et le point d'interrogation ne compte plus. Une vraie question reste
+    // refusée par ses propres mots (« pourquoi », « explique »…).
+    final politeLen = _politePrefix(all);
+    final toks = politeLen == 0 ? all : all.sublist(politeLen);
+    final isQuestion = politeLen == 0 &&
+        (text.contains('?') || text.contains('？') || text.contains('؟'));
     if (toks.isEmpty) return const LexiconResult.refused('vide');
     if (toks.length > _maxTokens) return const LexiconResult.refused('trop_long');
 
@@ -760,7 +781,12 @@ class CommandLexicon {
     if (has('dir')) return const LexiconResult.refused('direction');
 
     final actions = {for (final m in marks) if (m.role == 'action') m.value};
-    if (actions.length > 1) return const LexiconResult.refused('actions_multiples');
+    // Plusieurs verbes ET un mot interrogatif : c'est une question (« peux-tu
+    // expliquer ce que fait le homing ? »), pas un enchaînement d'ordres.
+    if (actions.length > 1) {
+      return LexiconResult.refused(
+          (isQuestion || has('question')) ? 'question' : 'actions_multiples');
+    }
     final objects = {for (final m in marks) if (m.role == 'object') m.value};
     final unknown = marks.where((m) => m.role == 'unknown').length;
     final asks = isQuestion || has('question');

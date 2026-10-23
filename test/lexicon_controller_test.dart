@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -155,6 +156,35 @@ void main() {
     addTearDown(c.dispose);
     expect((await c.read(lexiconLoadProvider.future)).available, isFalse);
     expect(c.read(lexiconUsableProvider), isFalse);
+  });
+
+  group('modèle pour les images', () {
+    test('réglage : enregistré et relu', () {
+      const s = AiAgentSettings(localVisionModel: 'gemma3n:latest');
+      expect(AiAgentSettings.fromJson(s.toJson()).localVisionModel, 'gemma3n:latest');
+      expect(AiAgentSettings.fromJson(const {}).localVisionModel, isEmpty);
+    });
+
+    test('un message avec image va au modèle d\'images, sans outils ; le texte, au principal', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(parts: [{'text': 'Je vois une pièce.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Que vois-tu sur cette photo ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      expect(vision.declared, hasLength(1));
+      expect(vision.declared.single, isEmpty, reason: 'il décrit, il n\'agit pas');
+      expect(main.declared, isEmpty);
+      expect(lastAssistant(), 'Je vois une pièce.');
+
+      await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
+      expect(main.declared, hasLength(1));
+      expect(main.declared.single, contains('set_spindle'));
+      expect(vision.declared, hasLength(1), reason: 'pas de nouvel appel au modèle d\'images');
+    });
   });
 
   group('avec un modèle', () {

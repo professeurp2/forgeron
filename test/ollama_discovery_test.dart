@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forgeron/application/providers/ai_agent_settings_provider.dart';
 import 'package:forgeron/application/services/ollama_discovery.dart';
 import 'package:forgeron/presentation/widgets/local_server_assistant.dart';
 import 'package:http/http.dart' as http;
@@ -28,7 +29,7 @@ http.Client _fakeNetwork({String host = '192.168.0.42', bool tools = true}) =>
         final model = jsonDecode(req.body)['model'] as String;
         return http.Response(
             jsonEncode({
-              'capabilities': model.startsWith('gemma') ? ['completion'] : ['completion', 'tools'],
+              'capabilities': model.startsWith('gemma') ? ['completion', 'vision'] : ['completion', 'tools'],
               'parameters': 'num_ctx 12288',
             }),
             200);
@@ -107,6 +108,25 @@ void main() {
     });
   });
 
+  group('modèle pour les images', () {
+    test('gemma3n lit les images mais ne pilote pas la machine', () async {
+      final d = _discovery(_fakeNetwork());
+      final s = await d.describe((await d.scan()).single);
+      final g = s.models.firstWhere((m) => m.name.startsWith('gemma'));
+      expect(g.supportsVision, isTrue);
+      expect(g.usable, isFalse);
+      expect(OllamaDiscovery.recommend(s.models)!.name, 'forgeron-qwen:latest');
+      expect(OllamaDiscovery.recommendVision(s.models, main: 'forgeron-qwen:latest')!.name, 'gemma3n:latest');
+    });
+    test('pas de modèle d\'images quand le principal voit déjà', () {
+      const both = OllamaModel('seul', supportsTools: true, supportsVision: true);
+      expect(OllamaDiscovery.recommendVision([both], main: 'seul'), isNull);
+    });
+    test('aucun modèle qui voit : aucune proposition', () {
+      expect(OllamaDiscovery.recommendVision([const OllamaModel('a', supportsTools: true)], main: 'a'), isNull);
+    });
+  });
+
   group('diagnostic en phrases simples', () {
     test('serveur introuvable : on dit quoi vérifier', () async {
       final d = await _discovery(_fakeNetwork()).diagnose('192.168.0.99');
@@ -151,12 +171,37 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 2));
       expect(find.textContaining('192.168.0.42'), findsWidgets);
       expect(find.text('recommandé'), findsOneWidget);
-      expect(find.text('ne sait pas piloter la machine'), findsOneWidget);
+      expect(find.text('lit les images, ne pilote pas la machine'), findsOneWidget);
 
       await tester.tap(find.text('UTILISER CE SERVEUR'));
       await tester.pumpAndSettle(const Duration(seconds: 2));
       expect(saved, 1);
       expect(find.textContaining('Connecté à 192.168.0.42'), findsOneWidget);
+    });
+
+    testWidgets('modèle d\'images proposé et enregistré avec le modèle principal', (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: LocalServerAssistant(discovery: _discovery(_fakeNetwork())),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('CHERCHER MON SERVEUR'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(find.text('lit les images, ne pilote pas la machine'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility), findsOneWidget, reason: 'proposé d\'office');
+      await tester.tap(find.text('UTILISER CE SERVEUR'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      final s = container.read(aiAgentSettingsProvider);
+      expect(s.localModel, 'forgeron-qwen:latest');
+      expect(s.localVisionModel, 'gemma3n:latest');
+      expect(find.textContaining('images lues par'), findsOneWidget);
     });
 
     testWidgets('rien trouvé : l\'aide s\'ouvre toute seule', (tester) async {

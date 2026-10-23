@@ -1108,6 +1108,43 @@ class AiAgentController extends StateNotifier<AiChatState> {
   @visibleForTesting
   void debugUseBackend(AiBackend backend) => _service = backend;
 
+  // ── Modèle pour les images ────────────────────────────────────────────────
+
+  AiBackend? _visionService;
+
+  /// Pose un faux modèle d'images (tests du contrôleur).
+  @visibleForTesting
+  void debugUseVisionBackend(AiBackend backend) => _visionService = backend;
+
+  /// Modèle local qui lit les images, s'il est réglé ET différent du principal ;
+  /// `null` sinon (le principal s'en charge, ou aucune image n'est lisible).
+  Future<AiBackend?> _ensureVisionService() async {
+    final settings = _ref.read(aiAgentSettingsProvider);
+    final url = settings.localBaseUrl;
+    final name = settings.localVisionModel;
+    if (_visionService != null && (url.isEmpty || name.isEmpty)) {
+      // Un faux posé par un test reste ; un vrai service dont le réglage a été
+      // vidé est abandonné.
+      if (_visionService is! LocalAiAgentService) return _visionService;
+      _visionService!.dispose();
+      _visionService = null;
+      return null;
+    }
+    if (url.isEmpty || name.isEmpty || name == settings.localModel) return null;
+    if (_visionService != null && _visionService!.model == name) return _visionService;
+    _visionService?.dispose();
+    final info = await LocalAiAgentService.probe(url, name);
+    return _visionService = LocalAiAgentService(baseUrl: url, model: name, info: info);
+  }
+
+  /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
+  /// rendue par un outil comme la caméra) ?
+  bool _lastTurnHasImage() {
+    if (_contents.isEmpty) return false;
+    final parts = _contents.last['parts'];
+    return parts is List && parts.any((p) => p is Map && p.containsKey('inlineData'));
+  }
+
   Future<AiBackend?> _ensureService() async {
     // Une adresse de serveur local renseignée l'emporte : l'agent tourne alors
     // entièrement sur le réseau de l'atelier, sans Internet ni clé API.
@@ -1455,8 +1492,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
   }
 
-  Future<void> _runTurn(AiBackend service) async {
+  Future<void> _runTurn(AiBackend baseService) async {
     final epoch = _epoch;
+    // Un tour qui porte une image va au modèle d'images (s'il y en a un), SANS
+    // outils : il décrit, il n'agit pas. Les tours de texte restent au modèle
+    // principal, qui pilote la machine.
+    final vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
+    final service = vision ?? baseService;
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
     compactGeminiContents(_contents, maxChars: service.historyBudgetChars);
@@ -1471,7 +1513,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     try {
       final response = await service.streamMessages(
         contents: _contents,
-        functionDeclarations: _declarationsFor(service),
+        functionDeclarations: vision != null ? const <Map<String, dynamic>>[] : _declarationsFor(service),
         systemPrompt: _buildSystemPrompt(),
         // Aperçu live : le texte s'affiche au fur et à mesure.
         onDelta: (partial) {
@@ -1501,7 +1543,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         _ref
             .read(aiUsageProvider.notifier)
             .recordRequest(service.model, tokens: response.totalTokens);
-        _retry = () => _runTurn(service);
+        _retry = () => _runTurn(baseService);
         _retryProbe = null;
         state = state.copyWith(
           clearStreamingText: true,
@@ -1542,7 +1584,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       if (response.functionCalls.isNotEmpty) {
         _pendingToolQueue = List.of(response.functionCalls);
-        await _processNextToolCall(service, epoch);
+        await _processNextToolCall(baseService, epoch);
       } else {
         _clearRetry();
         state = state.copyWith(isProcessing: false, clearTurnStartedAt: true);
@@ -1580,7 +1622,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         }
         final auto = _ref.read(aiModelProvider).auto;
         _armRetry(
-          () => _runTurn(service),
+          () => _runTurn(baseService),
           auto
               ? 'Quota gratuit atteint sur tous les modèles disponibles. '
                   'Réessaie plus tard (remise à zéro quotidienne) ou active la '
@@ -1596,7 +1638,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // message utilisateur est déjà dans _contents), et on tente une reprise
       // automatique dès que la connexion revient.
       _armRetry(
-        () => _runTurn(service),
+        () => _runTurn(baseService),
         _friendlyError(e, service),
         probe: service.usesCellular ? null : service.isReachable,
       );

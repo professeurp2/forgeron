@@ -33,6 +33,9 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
   List<OllamaServer>? _found;
   OllamaServer? _selected;
   String? _model;
+
+  /// Modèle choisi pour lire les images (`null` = aucun).
+  String? _visionModel;
   String? _message;
   bool _messageOk = false;
   bool _showHelp = false;
@@ -88,6 +91,16 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
   void _pick(OllamaServer s) {
     _selected = s;
     _model = OllamaDiscovery.recommend(s.models)?.name;
+    _visionModel = OllamaDiscovery.recommendVision(s.models, main: _model)?.name;
+  }
+
+  /// Le modèle principal change : le modèle d'images ne peut pas être lui-même
+  /// (s'il voit, il s'en charge seul).
+  void _pickMain(String name) {
+    _model = name;
+    if (_visionModel == name) _visionModel = null;
+    final seeing = _selected?.models.where((m) => m.name == name && m.supportsVision);
+    if (seeing != null && seeing.isNotEmpty) _visionModel = null;
   }
 
   Future<void> _use() async {
@@ -97,6 +110,7 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
     final n = ref.read(aiAgentSettingsProvider.notifier);
     n.setLocalBaseUrl(s.url);
     n.setLocalModel(m);
+    n.setLocalVisionModel(_visionModel ?? '');
     widget.onSaved?.call();
     final d = await _discovery.diagnose(s.url, wantedModel: m);
     if (!mounted) return;
@@ -104,7 +118,9 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
       _found = null;
       _messageOk = d.ok;
       _message = d.ok
-          ? tr('Connecté à {} · modèle « {} ». L\'assistant fonctionne sans Internet.', [s.host, m])
+          ? (_visionModel == null
+              ? tr('Connecté à {} · modèle « {} ». L\'assistant fonctionne sans Internet.', [s.host, m])
+              : tr('Connecté à {} · modèle « {} », images lues par « {} ». L\'assistant fonctionne sans Internet.', [s.host, m, _visionModel]))
           : d.message;
     });
   }
@@ -269,15 +285,20 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
   Widget _modelRow(ForgeronColorPalette fc, OllamaModel m) {
     final chosen = _model == m.name;
     final recommended = OllamaDiscovery.recommend(_selected!.models)?.name == m.name;
-    final note = !m.usable
-        ? (m.unusableReason == 'context'
-            ? tr('contexte trop court')
-            : tr('ne sait pas piloter la machine'))
-        : recommended
-            ? tr('recommandé')
-            : null;
+    final seesOnly = !m.usable && m.supportsVision && m.unusableReason == 'tools';
+    final note = seesOnly
+        ? tr('lit les images, ne pilote pas la machine')
+        : !m.usable
+            ? (m.unusableReason == 'context'
+                ? tr('contexte trop court')
+                : tr('ne sait pas piloter la machine'))
+            : recommended
+                ? tr('recommandé')
+                : null;
+    final canWatch = m.supportsVision && m.name != _model;
+    final watching = _visionModel == m.name;
     return InkWell(
-      onTap: m.usable ? () => setState(() => _model = m.name) : null,
+      onTap: m.usable ? () => setState(() => _pickMain(m.name)) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
@@ -298,9 +319,24 @@ class _LocalServerAssistantState extends ConsumerState<LocalServerAssistant> {
                       fontFamily: 'JetBrains Mono')),
             ),
             if (note != null)
-              Text(note,
-                  style: TextStyle(
-                      color: m.usable ? fc.success : fc.warning, fontSize: 10.5)),
+              Flexible(
+                child: Text(note,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                        color: (m.usable || seesOnly) ? fc.success : fc.warning,
+                        fontSize: 10.5)),
+              ),
+            if (canWatch)
+              IconButton(
+                tooltip: tr('Pour lire les images'),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+                padding: EdgeInsets.zero,
+                iconSize: 20,
+                onPressed: () => setState(() => _visionModel = watching ? null : m.name),
+                icon: Icon(watching ? Icons.visibility : Icons.visibility_outlined,
+                    color: watching ? fc.primary : fc.textSecondary),
+              ),
           ],
         ),
       ),

@@ -42,6 +42,7 @@ Toute modification : incrémenter `version` (MAJEUR.MINEUR.CORRECTIF), puis `dar
 |---|---|
 | 0.1.0 | prototype d'étude (fr, en, bm brouillons) |
 | 0.2.0 | branché sur l'assistant ; bambara revérifié mot à mot dans le dictionnaire An ka taa (machine = *mansin*, gauche = *numan*, dizaines en un mot, unités retirées) |
+| 0.2.1 | demandes polies (« peux-tu allumer la broche ? ») comprises comme des ordres : formules `polite` par langue ; elles étaient prises pour des questions et privaient le modèle des outils d'action |
 
 ## 5. Questions ouvertes
 

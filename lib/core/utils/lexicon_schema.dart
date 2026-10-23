@@ -92,12 +92,12 @@ const kLexiconReplyKeys = <String>{
 
 const _languageKeys = <String>{
   'name', 'status', 'reviewed_by', 'reviewed_on', 'script', 'sources',
-  'notes', 'actions', 'light', 'objects', 'urgent', 'alarm', 'fillers',
+  'notes', 'actions', 'light', 'polite', 'objects', 'urgent', 'alarm', 'fillers',
   'negations', 'conditions', 'directions', 'questions', 'feed', 'units',
   'numbers', 'replies',
 };
 const _wordListRoles = <String>[
-  'light', 'urgent', 'alarm', 'fillers', 'negations', 'conditions',
+  'light', 'polite', 'urgent', 'alarm', 'fillers', 'negations', 'conditions',
   'directions', 'questions', 'feed',
 ];
 const _wordMapRoles = <String>['actions', 'objects', 'units'];
