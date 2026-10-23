@@ -208,15 +208,32 @@ class AppSettingsScreen extends ConsumerWidget {
                         Icon(Icons.translate, color: fc.warning, size: 16),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            tr('Langue peu dotée : contrôle la qualité des '
-                                'réponses avant de t\'y fier en atelier, et '
-                                'préfère Gemini Flash à Flash Lite. La dictée '
-                                'et la voix peuvent être absentes de '
-                                'l\'appareil — le chat écrit, lui, fonctionne '
-                                'toujours.'),
-                            style:
-                                TextStyle(color: fc.warning, fontSize: 11),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tr('Langue peu dotée : contrôle la qualité des '
+                                    'réponses avant de t\'y fier en atelier, et '
+                                    'préfère Gemini Flash à Flash Lite. La dictée '
+                                    'et la voix peuvent être absentes de '
+                                    'l\'appareil — le chat écrit, lui, fonctionne '
+                                    'toujours.'),
+                                style:
+                                    TextStyle(color: fc.warning, fontSize: 11),
+                              ),
+                              // Réserve propre à la langue : ce qui reste
+                              // volontairement en français, et pourquoi.
+                              if (language.note != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  tr(language.note!),
+                                  style: TextStyle(
+                                      color: fc.warning,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

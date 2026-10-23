@@ -97,7 +97,7 @@ void main() {
     test('les langues peu dotées sont bien signalées comme telles', () {
       // L'avertissement de l'écran de réglages dépend de ce drapeau : s'il
       // saute, l'opérateur ne sait plus quelles langues sont approximatives.
-      for (final id in ['wo', 'ln', 'rw', 'sn', 'mg']) {
+      for (final id in ['wo', 'ln', 'rw', 'sn', 'mg', 'bm']) {
         expect(appLanguageById(id).lowResource, isTrue, reason: id);
       }
       for (final id in ['fr', 'en', 'ar', 'sw', 'af']) {
@@ -138,7 +138,7 @@ void main() {
     /// found » — c'est-à-dire que l'app tomberait au choix de la langue.
     testWidgets("une langue absente de Flutter ne fait pas tomber l'app",
         (tester) async {
-      for (final code in ['wo', 'ln', 'rw', 'sn']) {
+      for (final code in ['wo', 'ln', 'rw', 'sn', 'bm']) {
         await tester.pumpWidget(app(Locale(code)));
         expect(tester.takeException(), isNull, reason: code);
         expect(find.byType(Text), findsOneWidget, reason: code);

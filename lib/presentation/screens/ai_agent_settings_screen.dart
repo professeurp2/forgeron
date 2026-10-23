@@ -9,6 +9,7 @@ import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
 import '../../application/providers/lexicon_provider.dart';
+import '../widgets/local_server_assistant.dart';
 import '../../application/services/command_understanding.dart' show lexiconLanguageLabel;
 import '../../application/services/local_ai_agent_service.dart';
 import '../../core/i18n/app_localizations.dart';
@@ -358,6 +359,24 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                               fontSize: 11),
                         ),
                         const SizedBox(height: 12),
+                        LocalServerAssistant(
+                          onSaved: () {
+                            final st = ref.read(aiAgentSettingsProvider);
+                            setState(() {
+                              _localUrlCtrl.text = st.localBaseUrl;
+                              _localModelCtrl.text = st.localModel;
+                            });
+                          },
+                        ),
+                        Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding: EdgeInsets.zero,
+                            title: Text(tr('Réglage manuel (avancé)'),
+                                style: TextStyle(color: fc.textSecondary, fontSize: 12)),
+                            children: [
+                        const SizedBox(height: 12),
                         TextField(
                           controller: _localUrlCtrl,
                           style: TextStyle(
@@ -467,6 +486,9 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                             ],
                           ),
                         ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

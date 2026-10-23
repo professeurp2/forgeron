@@ -20,6 +20,9 @@ import 'package:forgeron/application/services/ai_agent_tools.dart';
 import 'package:forgeron/application/services/local_ai_agent_service.dart';
 import 'package:forgeron/application/services/tool_router.dart';
 import 'package:forgeron/application/services/command_understanding.dart' show isReadOnlyToolName;
+import 'package:forgeron/application/providers/docs_provider.dart' show buildCorpus;
+import 'package:forgeron/application/services/docs_prefetch.dart';
+import 'package:forgeron/core/utils/doc_search.dart' show DocIndex;
 import 'package:forgeron/core/utils/command_lexicon.dart';
 import 'package:forgeron/core/utils/emergency_intent.dart';
 import 'package:http/http.dart' as http;
@@ -177,6 +180,11 @@ void main() {
       : (jsonDecode(File(env['BENCH_PIVOT']!).readAsStringSync(encoding: utf8))
               as Map)
           .cast<String, dynamic>();
+  // Récupération avant la réponse : l'application cherche dans les fiches et les
+  // met dans le prompt (docs_prefetch.dart), comme dans le produit.
+  final DocIndex? docs = env['BENCH_PREFETCH'] == '1'
+      ? buildCorpus(File('assets/docs/fiches.json').readAsStringSync(encoding: utf8)).index
+      : null;
   final CommandLexicon? lexicon = env['BENCH_FRONT'] == 'lexique'
       ? CommandLexicon.fromJson(jsonDecode(
               File('assets/lexicon/lexique.json').readAsStringSync(encoding: utf8))
@@ -264,6 +272,7 @@ void main() {
             router: routing ? const ToolRouter() : null,
             lexicon: lexicon,
             gate: gate,
+            docs: docs,
             pivot: pivot);
         final v = evaluate(sc.expect, tr);
         if (v.pass) passed++;
@@ -373,6 +382,7 @@ Future<BenchTrace> _runScenario(
   CommandLexicon? lexicon,
   bool gate = false,
   Map<String, dynamic>? pivot,
+  DocIndex? docs,
 }) async {
   // Chemin rapide : l'application déclenche l'arrêt d'urgence SANS passer par
   // le modèle quand le message est, en entier, un ordre d'arrêt (voir
@@ -432,13 +442,22 @@ Future<BenchTrace> _runScenario(
 
   // Outils déclarés pour ce tour : tous, ou ceux que le routeur retient. Les
   // groupes déjà sollicités (historique du scénario + appels faits) restent.
+  // Récupération avant la réponse (BENCH_PREFETCH=1) : même bloc que le produit.
+  final docsPart = (docs == null || user == null) ? null : docsBlock(user, docs);
+  final promptForTurn =
+      docsPart == null ? systemPrompt : '$systemPrompt\n\n$docsPart';
+
+  // Les fiches sont déjà dans le prompt : search_docs n'est plus déclaré (comme le produit).
+  final decls = docsPart == null
+      ? declarations
+      : declarations.where((d) => d['name'] != 'search_docs').toList();
   List<Map<String, dynamic>> declarationsForTurn() {
     if (readOnlyOnly) {
       // Même règle que le produit (command_understanding.dart).
-      return declarations.where((d) => isReadOnlyToolName('${d['name']}')).toList();
+      return decls.where((d) => isReadOnlyToolName('${d['name']}')).toList();
     }
-    if (router == null) return declarations;
-    final names = declarations.map((d) => '${d['name']}').toList();
+    if (router == null) return decls;
+    final names = decls.map((d) => '${d['name']}').toList();
     final used = <String>{
       for (final c in sc.history)
         for (final p in (c['parts'] as List? ?? const []).whereType<Map>())
@@ -451,8 +470,9 @@ Future<BenchTrace> _runScenario(
     };
     final routing =
         router.route(text: user ?? '', allTools: names, recentGroups: recent);
-    return declarations.where((d) => routing.tools.contains('${d['name']}')).toList();
+    return decls.where((d) => routing.tools.contains('${d['name']}')).toList();
   }
+
 
   try {
     while (turns < sc.maxTurns) {
@@ -462,11 +482,13 @@ Future<BenchTrace> _runScenario(
       final r = await service.sendMessages(
         contents: contents,
         functionDeclarations: turnDeclarations,
-        systemPrompt: systemPrompt,
+        systemPrompt: promptForTurn,
       );
       tokens += r.totalTokens;
       notes.addAll(r.notes);
-      if (r.text.trim().isNotEmpty) texts.add(r.text.trim());
+      if (r.text.trim().isNotEmpty) {
+        texts.add(docsPart != null ? enforceNoFicheReply(r.text.trim(), block: docsPart) : r.text.trim());
+      }
 
       final fcs = r.parts.where((p) => p.containsKey('functionCall')).toList();
       if (fcs.isEmpty) break;
@@ -481,7 +503,9 @@ Future<BenchTrace> _runScenario(
         answers.add({
           'functionResponse': {
             'name': name,
-            'response': {'result': sc.toolResults[name] ?? '{"ok":true}'},
+            'response': {'result': (name == 'search_docs' && docs != null)
+                ? searchDocsResult(docs, '${args['query'] ?? ''}')
+                : (sc.toolResults[name] ?? '{"ok":true}')},
           },
         });
       }

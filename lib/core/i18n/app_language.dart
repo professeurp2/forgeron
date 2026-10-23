@@ -27,12 +27,21 @@ class AppLanguage {
   /// un avertissement honnête plutôt qu'à bloquer le choix.
   final bool lowResource;
 
+  /// Réserve propre à cette langue, affichée sous l'avertissement général.
+  ///
+  /// Sert à dire ce qui N'EST PAS traduit, et pourquoi. Une interface en
+  /// bambara dont les alarmes restent en français n'est pas un bogue, c'est
+  /// une décision — mais l'opérateur doit l'apprendre de l'écran de réglages,
+  /// pas au moment où la machine se met en défaut.
+  final String? note;
+
   const AppLanguage(
     this.id,
     this.label,
     this.promptName,
     this.voiceTag, {
     this.lowResource = false,
+    this.note,
   });
 
   bool get isAuto => promptName == null;
@@ -82,6 +91,17 @@ const kAppLanguages = <AppLanguage>[
   AppLanguage('auto', 'Automatique (langue de l\'opérateur)', null, ''),
   AppLanguage('fr', 'Français', 'français', 'fr-FR'),
   AppLanguage('en', 'English', 'anglais', 'en-US'),
+  // Bambara : langue de l'atelier visé, donc placée en tête malgré sa
+  // couverture partielle. Les libellés viennent de MADLAD-400 (hors ligne,
+  // Apache-2.0) ; les chaînes de sécurité restent volontairement en français
+  // tant qu'un locuteur ne les a pas relues — voir
+  // docs/addis/langues-locales/feuille-bambara.md.
+  AppLanguage('bm', 'Bamanankan (bambara)', 'bambara', 'bm-ML',
+      lowResource: true,
+      note: 'Les messages d\'alarme, d\'arrêt d\'urgence et de fin de course '
+          'restent en français : un traducteur automatique s\'y trompe, et '
+          'une alarme fausse est un danger. Ils passeront au bambara quand un '
+          'locuteur les aura relus.'),
   AppLanguage('ar', 'العربية (arabe)', 'arabe', 'ar-MA'),
   AppLanguage('sw', 'Kiswahili (swahili)', 'swahili', 'sw-KE'),
   AppLanguage('af', 'Afrikaans', 'afrikaans', 'af-ZA'),

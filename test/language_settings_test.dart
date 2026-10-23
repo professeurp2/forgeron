@@ -44,7 +44,7 @@ void main() {
     expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
   });
 
-  testWidgets('les 17 langues du catalogue sont proposées', (tester) async {
+  testWidgets('toutes les langues du catalogue sont proposées', (tester) async {
     await tester.pumpWidget(harness());
     await tester.pump();
 

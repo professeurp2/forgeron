@@ -13,10 +13,13 @@ import '../providers/firmware_provider.dart';
 import '../providers/network_stats_provider.dart';
 import '../providers/config_provider.dart';
 import '../providers/docs_provider.dart';
+import 'docs_prefetch.dart';
 import '../providers/machine_params_provider.dart';
 import '../providers/activity_log_provider.dart';
 import '../providers/jog_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../../core/i18n/app_language.dart';
+import '../../core/i18n/translations/translations.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_adapter.dart';
 import '../../core/utils/gcode_command_guard.dart';
@@ -166,13 +169,15 @@ class AiToolCatalog {
     AiTool(
       name: 'search_docs',
       description:
-          'Cherche dans les fiches de connaissance de Forgeron (codes d\'alarme, G-code et M-code, broche, homing, fins de course, câblage de la carte, consignes de sécurité). À appeler AVANT de répondre à une question technique. Retourne au plus 3 fiches avec leur identifiant et leur source : cite l\'identifiant. Si la liste est vide, dis que tu ne trouves pas — n\'invente rien. Les VALEURS de cette machine (courses, pas/mm) viennent de get_axis_kinematics ou get_config, pas des fiches.',
+          'Cherche dans les fiches (alarmes, G-code, broche, câblage, sécurité). '
+          'Au plus 3 fiches avec identifiant et source : cite l\'identifiant. Liste vide = '
+          'tu ne sais pas, n\'invente rien.',
       inputSchema: const {
         'type': 'object',
         'properties': {
           'query': {
             'type': 'string',
-            'description': 'Mots-clés en français, par exemple : alarme 9 ; M3 broche ; homing Z.'
+            'description': 'Mots-clés français (ex. alarme 9)'
           },
         },
         'required': ['query'],
@@ -182,31 +187,7 @@ class AiToolCatalog {
         final query = ('${input['query'] ?? ''}').trim();
         if (query.isEmpty) return 'ERREUR: « query » obligatoire (mots-clés).';
         final corpus = await ref.read(docCorpusProvider.future);
-        final hits = corpus.index.search(query);
-        if (hits.isEmpty) {
-          return jsonEncode({
-            'resultats': <Object>[],
-            'note': 'Aucune fiche ne correspond. Dis que tu ne trouves pas '
-                'cette information ; n\'invente rien.',
-          });
-        }
-        var budget = 1800; // le contexte d'un modèle local est fini
-        final results = <Map<String, Object>>[];
-        for (final h in hits) {
-          final text = h.chunk.text.length > 600
-              ? '${h.chunk.text.substring(0, 600)}…'
-              : h.chunk.text;
-          if (budget - text.length < 0 && results.isNotEmpty) break;
-          budget -= text.length;
-          results.add({
-            'id': h.chunk.id,
-            'titre': h.chunk.title,
-            'source': h.chunk.source,
-            'statut': h.chunk.status,
-            'extrait': text,
-          });
-        }
-        return jsonEncode({'resultats': results});
+        return searchDocsResult(corpus.index, query);
       },
     ),
     AiTool(
@@ -1040,7 +1021,7 @@ class AiToolCatalog {
     AiTool(
       name: 'run_step_pipeline',
       description:
-          'Lit un fichier STEP et génère le G-code. Essaie d\'abord le pipeline de révolution (axe détecté, profil exact — ébauche 3 axes + finition 5 axes) ; si la pièce n\'est pas une révolution, retombe automatiquement sur FreeCAD CAM (contour extérieur, perçages détectés automatiquement, poches détectées par une heuristique — pas une reconnaissance de formes générale). Le rapport retourné indique quel pipeline a servi (\'pipeline\': \'revolution\' ou \'freecad_prismatique\'). Refuse proprement si le fichier ne contient ni l\'un ni l\'autre cas géré. Le rapport indique aussi \'duree_a_vide_min\' : le temps d\'ébauche passé à tourner dans le vide faute de connaître le barreau. S\'il est non nul, le dire à l\'opérateur et proposer de relancer avec stockRadius.',
+          'Lit un fichier STEP et génère le G-code : pipeline de révolution d\'abord (ébauche 3 axes + finition 5 axes), sinon FreeCAD CAM (contour, perçages, poches par heuristique). Le rapport donne (\'pipeline\' : \'revolution\' ou \'freecad_prismatique\') et \'duree_a_vide_min\' (temps d\'ébauche passé à tourner dans le vide faute de connaître le barreau) : s\'il est non nul, le dire à l\'opérateur et proposer de relancer avec stockRadius. Refuse si le fichier ne correspond à aucun cas géré.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -1207,6 +1188,78 @@ class AiToolCatalog {
           title: input['title'] as String,
           content: input['content'] as String,
         );
+      },
+    ),
+    AiTool(
+      name: 'set_app_language',
+      description:
+          'Change la langue de TOUTE l\'interface, de tes réponses, de la dictée et '
+          'de la voix, tout de suite et durablement. À utiliser quand l\'opérateur le '
+          'demande, ou UNE SEULE FOIS quand il t\'écrit dans une langue de la liste '
+          'alors que l\'interface est dans une autre (dis-le-lui dans sa langue, avec '
+          'Paramètres > Langue pour revenir). Pas pour un mot étranger isolé, une '
+          'langue absente, ni pendant un usinage. Codes : auto, fr, en, ar, sw, af, '
+          'am, ha, yo, ig, zu, so, rw, sn, ln, wo, mg, bm (« auto » = langue du '
+          'téléphone) ; tout autre code est refusé. La réponse donne le nombre de '
+          'libellés traduits : si c\'est partiel, le reste reste en français — dis-le.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'language': {
+            'type': 'string',
+            'description':
+                'Code de langue ISO 639-1 (« bm », « sw »…) ou « auto ».',
+          },
+        },
+        'required': ['language'],
+      },
+      // Pas de catégorie : changer une langue ne fait pas bouger la machine et
+      // se défait en deux touches. Le geste est tout de même journalisé, pour
+      // qu'un pupitre qui change de langue tout seul soit traçable.
+      category: null,
+      execute: (input, ref) async {
+        final brut = (input['language'] as String? ?? '').trim().toLowerCase();
+        // « fr-FR », « fr_FR » → « fr » : les modèles donnent souvent la
+        // forme régionale.
+        final code = brut.split(RegExp(r'[-_]')).first;
+
+        final connue = kAppLanguages.any((l) => l.id == code);
+        if (code.isEmpty || !connue) {
+          return jsonEncode({
+            'ok': false,
+            'raison': 'Code de langue inconnu : « $brut ». Aucun changement.',
+            'codes_acceptes': kAppLanguages.map((l) => l.id).toList(),
+          });
+        }
+
+        final avant = ref.read(appLanguageProvider);
+        if (avant.id == code) {
+          return jsonEncode({
+            'ok': true,
+            'change': false,
+            'langue': avant.id,
+            'libelle': avant.label,
+            'note': 'L\'interface est déjà dans cette langue.',
+          });
+        }
+
+        final apres = appLanguageById(code);
+        await ref.read(appLanguageProvider.notifier).select(apres);
+        ref.read(activityLogProvider.notifier).log(
+            'Agent IA : langue de l\'interface ${avant.id} → ${apres.id}');
+
+        final traduites = kAppTranslations[apres.id]?.length ?? 0;
+        return jsonEncode({
+          'ok': true,
+          'change': true,
+          'precedente': avant.id,
+          'langue': apres.id,
+          'libelle': apres.label,
+          // Le français est la langue source : il n'a pas de dictionnaire.
+          'libelles_traduits': apres.id == 'fr' ? 'source' : traduites,
+          'relu_par_un_locuteur': false,
+          'retour_arriere': 'Paramètres > Langue',
+        });
       },
     ),
   ];

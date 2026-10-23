@@ -16,24 +16,25 @@ import 'zu.dart';
 
 /// Dictionnaires de l'interface, par code de langue ISO 639-1.
 ///
-/// Le français n'y figure pas : c'est la langue source, celle des clés. Une
-/// langue absente de cette table, ou une clé absente d'un dictionnaire,
-/// affiche le français.
+/// Genere par tool/i18n_gen.py : la liste suit les fichiers presents
+/// dans tool/translations/. Le francais ne figure pas ici, c'est la
+/// langue source, celle des cles. Une langue absente de cette table,
+/// ou une cle absente d'un dictionnaire, affiche le francais.
 const Map<String, Map<String, String>> kAppTranslations =
     <String, Map<String, String>>{
-  'en': kEn,
-  'ar': kAr,
-  'sw': kSw,
   'af': kAf,
   'am': kAm,
+  'ar': kAr,
+  'en': kEn,
   'ha': kHa,
-  'yo': kYo,
   'ig': kIg,
-  'zu': kZu,
-  'so': kSo,
+  'ln': kLn,
+  'mg': kMg,
   'rw': kRw,
   'sn': kSn,
-  'ln': kLn,
+  'so': kSo,
+  'sw': kSw,
   'wo': kWo,
-  'mg': kMg,
+  'yo': kYo,
+  'zu': kZu,
 };

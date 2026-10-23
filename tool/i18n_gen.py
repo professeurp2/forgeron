@@ -57,9 +57,39 @@ def normalize():
     print('cles normalisees :', len(keys))
 
 
+def write_index(codes):
+    """Reecrit translations.dart depuis les langues reellement generees.
+
+    Sans ca, un dictionnaire pouvait etre produit sans jamais etre enregistre
+    dans kAppTranslations : la langue s'affichait alors entierement en
+    francais, sans erreur ni avertissement nulle part.
+    """
+    lines = ["import '%s.dart';" % c for c in codes]
+    lines += [
+        '',
+        "/// Dictionnaires de l'interface, par code de langue ISO 639-1.",
+        '///',
+        '/// Genere par tool/i18n_gen.py : la liste suit les fichiers presents',
+        '/// dans tool/translations/. Le francais ne figure pas ici, c'
+        "'est la",
+        '/// langue source, celle des cles. Une langue absente de cette table,',
+        "/// ou une cle absente d'un dictionnaire, affiche le francais.",
+        'const Map<String, Map<String, String>> kAppTranslations =',
+        '    <String, Map<String, String>>{',
+    ]
+    for c in codes:
+        lines.append("  '%s': k%s," % (c, c.capitalize()))
+    lines.append('};')
+    lines.append('')
+    io.open(os.path.join(OUT_DIR, 'translations.dart'), 'w',
+            encoding='utf-8', newline='').write('\n'.join(lines))
+    print('index   : %d langues enregistrees' % len(codes))
+
+
 def generate():
     keys = set(json.load(io.open('tool/i18n_keys.json', encoding='utf-8')))
     total = 0
+    codes = []
     for name in sorted(os.listdir(SRC_DIR)):
         if not name.endswith('.json'):
             continue
@@ -91,6 +121,8 @@ def generate():
             flag = '  (%d cle(s) inconnue(s) ignoree(s))' % len(unknown)
         print('  %-4s %4d / %d entrees%s' % (code, len(kept), len(keys), flag))
         total += len(kept)
+        codes.append(code)
+    write_index(codes)
     print('total :', total, 'traductions')
 
 

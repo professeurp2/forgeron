@@ -24,12 +24,20 @@ class ToolRouter {
   const ToolRouter();
 
   /// Toujours déclarés : de quoi arrêter, regarder, suspendre, reprendre.
+  ///
+  /// `set_app_language` s'y ajoute pour une raison différente des autres : son
+  /// déclencheur est la LANGUE du message, pas un mot qu'il contient. Aucune
+  /// liste de mots-clés ne peut l'attraper — un opérateur qui écrit en bambara
+  /// n'écrit pas le mot « langue ». Le routeur laisse déjà passer tous les
+  /// outils quand il ne reconnaît rien, mais un message en swahili contenant
+  /// « sogeza » part dans le groupe « mouvement » et perdrait celui-ci.
   static const core = {
     'emergency_stop',
     'get_machine_state',
     'pause',
     'resume',
     'stop_program',
+    'set_app_language',
   };
 
   static const groups = <String, ToolGroup>{

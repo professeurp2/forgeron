@@ -60,7 +60,7 @@ const _stop = {
   'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'd', 'et', 'ou', 'a',
   'au', 'aux', 'en', 'est', 'sont', 'ce', 'cet', 'cette', 'ces', 'que', 'qu',
   'qui', 'quoi', 'pour', 'par', 'sur', 'dans', 'avec', 'sans', 'il', 'elle',
-  'je', 'tu', 'on', 'me', 'te', 'se', 'ne', 'pas', 'plus', 'mon', 'ma', 'mes',
+  'je', 'tu', 'on', 'me', 'te', 'se', 'ne', 'plus', 'mon', 'ma', 'mes',
   'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'y', 'c', 's', 'n', 'm', 't',
   'comment', 'pourquoi', 'quel', 'quelle', 'quels', 'quelles', 'faire',
   'peut', 'peux', 'dois', 'faut', 'the', 'is', 'are', 'of', 'to', 'and', 'in',

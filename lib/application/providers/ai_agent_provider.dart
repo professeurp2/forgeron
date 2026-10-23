@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../domain/models/machine_state.dart' show MachineStatus;
 import '../services/ai_agent_service.dart';
 import '../services/command_understanding.dart';
+import '../services/docs_prefetch.dart';
 import '../services/live_state_block.dart';
 import '../services/ai_turn_journal.dart';
 import '../services/local_ai_agent_service.dart';
@@ -27,6 +28,7 @@ import '../../core/i18n/app_language.dart';
 import '../../core/i18n/app_localizations.dart';
 import 'activity_log_provider.dart';
 import 'ai_artifacts_provider.dart';
+import 'docs_provider.dart';
 import 'lexicon_provider.dart';
 import 'machine_params_provider.dart';
 
@@ -509,10 +511,27 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Outils déclarés au modèle pour ce tour : tous, ou — modèle local avec le
   /// routage activé — ceux que [ToolRouter] retient.
+  /// Bloc de fiches de ce tour (voir docs_prefetch.dart), `null` si ce n'est pas
+  /// une question de connaissance ou si le corpus n'est pas chargé.
+  String? _docsBlockOrNull() {
+    try {
+      final corpus = _ref.read(docCorpusProvider).valueOrNull;
+      return corpus == null ? null : docsBlock(_lastUserText(), corpus.index);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<Map<String, dynamic>> _declarationsFor(AiBackend service) {
-    final all = AiToolCatalog.tools
+    var all = AiToolCatalog.tools
         .map((t) => t.toGeminiFunctionDeclaration())
         .toList();
+    // Les fiches sont déjà dans le prompt : déclarer aussi search_docs poussait
+    // le modèle à les rechercher une seconde fois (et à écrire l'appel en
+    // texte au lieu de répondre) — mesuré au banc.
+    if (_docsBlockOrNull() != null) {
+      all = all.where((d) => d['name'] != 'search_docs').toList();
+    }
     // Question ou négation reconnue par le lexique : lecture seule, quel que
     // soit le fournisseur (c'est une règle de sécurité, pas d'économie de jetons).
     if (_readOnlyTurn) {
@@ -964,13 +983,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
       'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
       'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
-      'relancer. '
-      'QUESTION TECHNIQUE (code d\'alarme, G-code, M-code, réglage, câblage, '
-      'consigne de sécurité) : appelle search_docs AVANT de répondre et cite '
-      'l\'identifiant de la fiche utilisée (ex. alarme-9). Si search_docs ne '
-      'trouve rien, dis-le : n\'invente ni code, ni valeur, ni procédure. Pour '
-      'une VALEUR de cette machine (course, pas/mm), la configuration en '
-      'direct (get_axis_kinematics, get_config) prime sur toute fiche.';
+      'relancer.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -1000,13 +1013,26 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'RÉCUPÉRATION d\'une alarme fin de course : « \$X » pour déverrouiller, '
       'puis jog DOUX pour éloigner l\'axe du switch (voir écran Récupération).';
 
+  /// Règle des questions techniques, placée EN FIN de prompt (le modèle local
+  /// pèse davantage les dernières consignes) : mesuré (banc DOC, 5 répétitions),
+  /// la même règle noyée au milieu du prompt n'était suivie qu'une fois sur deux,
+  /// et le reste inventait une procédure (y compris avec des outils d'action).
+  static const _docsRule =
+      '=== QUESTIONS TECHNIQUES ===\n'
+      'Section « FICHES TROUVÉES » ou « AUCUNE FICHE » plus bas = résultat de la '
+      'recherche : réponds avec elle, cite (identifiant), sans search_docs. Sinon, '
+      'question technique : search_docs d\'abord, jamais de mémoire. Rien trouvé : '
+      'UNE phrase « Je ne trouve pas cette information dans mes fiches. ». Valeurs '
+      'machine : get_axis_kinematics ou get_config. Une question n\'est pas un ordre.';
+
   /// La partie FIXE du prompt système (identité, règles, spécificités machine),
   /// sans les blocs injectés à chaque tour. Publique pour qu'un test mesure la
   /// charge utile RÉELLE envoyée à un modèle local — son contexte est fini, et
   /// un prompt qui le déborde est tronqué en silence par le début (voir
   /// `LocalAiAgentService.historyBudgetChars`).
   @visibleForTesting
-  static const baseSystemPrompt = '$_systemPrompt\n\n$_machineSpecs';
+  static const baseSystemPrompt =
+      '$_systemPrompt\n\n$_machineSpecs\n\n$_docsRule';
 
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
   /// Injectée à chaque tour pour que l'agent cite les VRAIES courses et pas/mm
@@ -1059,10 +1085,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
     } catch (_) {
       liveState = liveStateBlock(state: null, offline: true, now: DateTime.now());
     }
+    // Question de connaissance : les fiches pertinentes sont cherchées par
+    // l'application et mises ici (voir docs_prefetch.dart) — on ne compte pas
+    // sur le modèle pour penser à appeler search_docs.
+    final block = _docsBlockOrNull();
+    final docs = block == null ? '' : '\n\n$block';
     return '$baseSystemPrompt\n\n'
         '${_kinematicsBlock()}\n\n'
         '${_ref.read(appLanguageProvider).promptDirective}\n\n'
-        '$liveState\n\n'
+        '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity';
   }
@@ -1217,6 +1248,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
 
     _cancelled = false;
+    try {
+      await _ref.read(docCorpusProvider.future);
+    } catch (_) {/* pas de fiches : le modèle répond comme avant */}
 
     // Construit les parts au format Gemini : texte + éventuelle image inline.
     final parts = <Map<String, dynamic>>[];
@@ -1494,9 +1528,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
           turnTokens: state.turnTokens + response.totalTokens);
 
       if (response.text.isNotEmpty) {
+        // Après une recherche (fiches trouvées ou non), un refus est un refus :
+        // sans « cependant » ni procédure tirée de la mémoire du modèle.
+        final block = _docsBlockOrNull();
         _addMessage(AiChatMessage(
           role: 'assistant',
-          text: response.text,
+          text: block != null ? enforceNoFicheReply(response.text, block: block) : response.text,
           timestamp: DateTime.now(),
         ));
         // Badge le bouton IA si l'écran n'est pas ouvert (info à présenter).
