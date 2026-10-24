@@ -21,6 +21,7 @@ import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
 import 'app_settings_screen.dart';
+import 'scan3d_screen.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import 'connection_settings_screen.dart';
 import 'mobile_dashboard_screen.dart';
@@ -305,6 +306,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.camera_enhance_rounded, color: fc.primary, size: 20),
+            tooltip: tr('Scan 3D (Photo vers Usinage)'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+              );
+            },
+          ),
           // Paramètres de l'app (remplace l'ancienne bascule de thème, qui a
           // déménagé dans Paramètres → Apparence).
           IconButton(
@@ -1052,6 +1063,14 @@ class _HeaderBar extends ConsumerWidget {
                 color: context.fc.textSecondary, size: 20),
             tooltip: tr('Tutoriel interactif'),
             onPressed: () => ref.read(tutorialProvider.notifier).start(),
+          ),
+          IconButton(
+            icon: Icon(Icons.camera_enhance_rounded,
+                color: context.fc.primary, size: 20),
+            tooltip: tr('Scan 3D (Photo vers Usinage)'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+            ),
           ),
           // Paramètres de l'application. Sans cette entrée, l'assistant de
           // mise en route, la calibration machine, le test des fins de course

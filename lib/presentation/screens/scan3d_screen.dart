@@ -153,7 +153,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                 ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: context.fc.accent,
+                  backgroundColor: context.fc.primary,
                 ),
               ),
 
@@ -425,7 +425,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           LinearProgressIndicator(
             value: scanState.progressPercent / 100.0,
             backgroundColor: Colors.white12,
-            valueColor: AlwaysStoppedAnimation<Color>(context.fc.accent),
+            valueColor: AlwaysStoppedAnimation<Color>(context.fc.primary),
           ),
           const SizedBox(height: 10),
           Text(scanState.message, style: const TextStyle(fontSize: 13)),

@@ -11,6 +11,7 @@ import 'limit_switch_test_screen.dart';
 import 'limit_config_screen.dart';
 import 'connection_settings_screen.dart';
 import 'ai_agent_settings_screen.dart';
+import 'scan3d_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/i18n/app_language.dart';
 
@@ -317,6 +318,15 @@ class AppSettingsScreen extends ConsumerWidget {
             title: tr('Agent IA'),
             subtitle: tr('Clé API, modèle, permissions, voix'),
             screen: const AiAgentSettingsScreen(),
+          ),
+          _navTile(
+            context,
+            fc,
+            icon: Icons.camera_enhance_rounded,
+            color: fc.primary,
+            title: tr('Scan 3D — Photo vers Usinage'),
+            subtitle: tr('Reconstruction 3D locale sur PC GPU, métrique ou générative'),
+            screen: const Scan3dScreen(),
           ),
         ],
         ),
