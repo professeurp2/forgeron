@@ -1,0 +1,24 @@
+{
+  "spike": "phase 0 — STEP facetté vs maillage direct",
+  "statut": "PARTIEL — verdict suspendu à la mesure du STEP facetté",
+  "maillage_direct": {
+    "source": "vase.stl",
+    "nature_source": "maillage CAO propre (pas un scan)",
+    "sommets": 36000,
+    "revolution": true,
+    "ecart_max_mm": 0.0,
+    "points_profil": 200,
+    "lignes_gcode": 29852,
+    "duree_calcul_s": 0.178,
+    "duree_usinage_estimee_min": 1905.6
+  },
+  "step_facette": {
+    "mesure": "NON EFFECTUÉE",
+    "outils": {
+      "OCP": false,
+      "FreeCAD": false
+    },
+    "hypothese_lecture_code": "step_profile.detect_axis ne lit que les faces analytiques (cylindre, cône, sphère, tore). Un solide facetté n'a que des faces planes : l'adaptateur de révolution devrait donc refuser. À CONFIRMER par la mesure.",
+    "pour_mesurer": "installer pipeline/.venv312 (requirements-step.txt) ou FreeCAD portable, convertir vase.stl en STEP facetté, passer step_to_gcode.py et prismatic_to_gcode.py dessus."
+  }
+}

@@ -62,3 +62,7 @@ pipeline/*.stp
 
 # Rapports de Forgeron-Bench (copier les rapports retenus dans docs/addis/evidence/)
 /eval_reports/
+
+# Service reco3d : images et résultats des jobs
+tool/reco3d/storage/
+
