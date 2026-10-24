@@ -130,6 +130,49 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
       return;
     }
 
+    // Avertissement sur le nombre de photos pour la photogrammétrie
+    if (_selectedMode == 'photo' && _selectedPhotos.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          backgroundColor: Colors.amber.shade900,
+          content: Text(
+            tr('Pour la pièce réelle (photogrammétrie), prévoyez 20 à 40 photos tout autour. Pour 1 à 4 photos de concept, utilisez l\'onglet "Forme concept (Génératif)".'),
+          ),
+        ),
+      );
+    }
+
+    // Vérifier la présence du moteur sur le serveur avant de soumettre
+    final health = ref.read(reco3dHealthProvider).valueOrNull;
+    if (health != null) {
+      final engineMsg = health.engines[_selectedMode];
+      if (engineMsg != null && engineMsg.startsWith('moteur(s) absent(s)')) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.construction, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(tr('Moteur 3D non configuré')),
+              ],
+            ),
+            content: Text(
+              '${tr("Le service Reco3D est bien connecté au GPU, mais le moteur de calcul requis n'est pas installé sur le PC hôte")} :\n\n• $engineMsg\n\n${tr("Conformément aux règles du projet, aucun maillage fictif n'est inventé tant que le moteur n'est pas prêt.")}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(tr('Compris')),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
     final scaleMm = double.tryParse(_scaleController.text);
     if (_selectedScaleType != 'none' && (scaleMm == null || scaleMm <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -261,24 +304,55 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           ),
           const SizedBox(height: 8),
           healthAsync.when(
-            data: (health) => Row(
-              children: [
-                Icon(
-                  health.status == 'ready' ? Icons.check_circle : Icons.warning,
-                  color: health.status == 'ready' ? Colors.green : Colors.orange,
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    health.gpuName != null
-                        ? '${health.gpuName} (${health.gpuVramFreeMb ?? 0} Mo VRAM libre)'
-                        : tr('GPU non détecté ou indisponible'),
-                    style: const TextStyle(fontSize: 12),
+            data: (health) {
+              final engineMsg = health.engines[_selectedMode];
+              final hasEngine = engineMsg == 'moteurs présents';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        health.status == 'ready' ? Icons.check_circle : Icons.warning,
+                        color: health.status == 'ready' ? Colors.green : Colors.orange,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          health.gpuName != null
+                              ? '${health.gpuName} (${health.gpuVramFreeMb ?? 0} Mo VRAM libre)'
+                              : tr('GPU non détecté ou indisponible'),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
+                  if (engineMsg != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          hasEngine ? Icons.verified : Icons.construction,
+                          color: hasEngine ? Colors.green : Colors.amber,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            hasEngine ? tr('Moteur 3D : prêt') : engineMsg,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: hasEngine ? Colors.green : Colors.amber,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
             loading: () => const Text('Vérification du service...', style: TextStyle(fontSize: 12)),
             error: (err, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
