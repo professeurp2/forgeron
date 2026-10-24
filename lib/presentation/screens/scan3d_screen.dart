@@ -31,6 +31,17 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
     _urlController.text = ref.read(reco3dServerUrlProvider);
   }
 
+  void _updateServerUrl([String? explicitUrl]) {
+    final target = (explicitUrl ?? _urlController.text).trim();
+    if (target.isNotEmpty) {
+      if (explicitUrl != null) {
+        _urlController.text = explicitUrl;
+      }
+      ref.read(reco3dServerUrlProvider.notifier).state = target;
+      ref.invalidate(reco3dHealthProvider);
+    }
+  }
+
   @override
   void dispose() {
     _scaleController.dispose();
@@ -183,13 +194,17 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                   controller: _urlController,
                   decoration: InputDecoration(
                     labelText: tr('Adresse PC de calcul (Reco3D)'),
+                    hintText: 'http://192.168.0.104:8765',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.check, size: 18),
+                      tooltip: tr('Tester cette adresse'),
+                      onPressed: () => _updateServerUrl(),
+                    ),
                   ),
-                  onSubmitted: (val) {
-                    ref.read(reco3dServerUrlProvider.notifier).state = val.trim();
-                    ref.invalidate(reco3dHealthProvider);
-                  },
+                  onSubmitted: (val) => _updateServerUrl(val),
                 ),
               ),
             ],
@@ -215,9 +230,24 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
               ],
             ),
             loading: () => const Text('Vérification du service...', style: TextStyle(fontSize: 12)),
-            error: (err, _) => Text(
-              '${tr("Service hors ligne")} : $err',
-              style: const TextStyle(fontSize: 12, color: Colors.red),
+            error: (err, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${tr("Service hors ligne")} : $err',
+                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                ),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => _updateServerUrl('http://192.168.0.104:8765'),
+                  icon: const Icon(Icons.wifi, size: 14),
+                  label: const Text('Tester http://192.168.0.104:8765', style: TextStyle(fontSize: 11)),
+                ),
+              ],
             ),
           ),
         ],
