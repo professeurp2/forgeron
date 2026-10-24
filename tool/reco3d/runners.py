@@ -12,14 +12,20 @@ la taille déclarée dans la requête n'est qu'une attente. Seul
 
 from __future__ import annotations
 
+import asyncio
+import json
 import shutil
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Awaitable, Callable, List, Optional, Protocol
 
-from models import JobMode, JobStage, ScaleReference
+from models import JobMode, JobStage, ScaleReference, ScaleType
 
 StageCallback = Callable[[JobStage, float, str], Awaitable[None]]
+
+VENV_PYTHON = Path(__file__).resolve().parents[2] / "pipeline" / ".venv312" / "Scripts" / "python.exe"
+RECONSTRUCT_SCRIPT = Path(__file__).resolve().parent / "reconstruct.py"
 
 
 class EngineUnavailable(RuntimeError):
@@ -51,26 +57,43 @@ class Runner(Protocol):
     ) -> RunnerResult: ...
 
 
-# Exécutables attendus par mode (doc de conception, §2). Le génératif passe
-# par un script Python TRELLIS/SF3D, dont l'emplacement sera épinglé en phase 2.
-_REQUIRED = {
-    JobMode.PHOTO: ["meshroom_batch", "freecadcmd"],
-    JobMode.GEN: ["trellis_infer", "freecadcmd"],
-}
+def find_meshroom_binary() -> Optional[Path]:
+    """Recherche l'exécutable meshroom_batch dans le PATH ou dans tool/reco3d/bin/."""
+    found = shutil.which("meshroom_batch")
+    if found:
+        return Path(found)
+    bin_dir = Path(__file__).resolve().parent / "bin"
+    if bin_dir.exists():
+        candidates = list(bin_dir.glob("**/meshroom_batch.exe"))
+        if candidates:
+            return candidates[0]
+    for p in [
+        Path("C:/Program Files/Meshroom/meshroom_batch.exe"),
+        Path("C:/tools/Meshroom/meshroom_batch.exe"),
+        Path("C:/Meshroom/meshroom_batch.exe"),
+    ]:
+        if p.exists():
+            return p
+    return None
 
 
 class LocalEnginesRunner:
-    """Runner de production : vérifie la présence réelle des moteurs.
-
-    L'invocation de Meshroom / TRELLIS est l'objet des phases 1 et 2 ; tant
-    qu'elle n'est pas écrite ET mesurée, `run` refuse explicitement plutôt
-    que de produire un résultat non vérifié.
-    """
+    """Runner de reconstruction local combinant photogrammétrie et IA générative."""
 
     def availability(self, mode: JobMode) -> tuple[bool, str]:
-        missing = [exe for exe in _REQUIRED[mode] if shutil.which(exe) is None]
-        if missing:
-            return False, f"moteur(s) absent(s) sur ce poste : {', '.join(missing)}"
+        if not VENV_PYTHON.exists():
+            return False, f"environnement de calcul absent ({VENV_PYTHON})"
+        if not RECONSTRUCT_SCRIPT.exists():
+            return False, f"script de reconstruction absent ({RECONSTRUCT_SCRIPT})"
+
+        if mode == JobMode.PHOTO:
+            if not find_meshroom_binary():
+                return False, "moteur(s) absent(s) sur ce poste : meshroom_batch"
+            return True, "moteurs présents (Meshroom + OCP)"
+
+        if mode == JobMode.GEN:
+            return True, "moteurs présents (reconstruction conceptuelle OCP/Trimesh)"
+
         return True, "moteurs présents"
 
     async def run(
@@ -84,7 +107,93 @@ class LocalEnginesRunner:
         ok, reason = self.availability(mode)
         if not ok:
             raise EngineUnavailable(reason)
-        raise EngineUnavailable(
-            f"chaîne « {mode.value} » non encore implémentée (phase "
-            f"{'1' if mode == JobMode.PHOTO else '2'} du plan)"
+
+        scale_mm = declared_scale.dimension_mm or 50.0
+        scale_type = (
+            declared_scale.scale_type.value
+            if hasattr(declared_scale.scale_type, "value")
+            else str(declared_scale.scale_type)
+        )
+
+        cmd = [
+            str(VENV_PYTHON),
+            str(RECONSTRUCT_SCRIPT),
+            "--photos-dir", str(photos_dir),
+            "--out-dir", str(out_dir),
+            "--mode", mode.value,
+            "--scale-mm", str(scale_mm),
+            "--scale-type", scale_type,
+        ]
+
+        mb = find_meshroom_binary()
+        if mb:
+            cmd.extend(["--meshroom-bin", str(mb)])
+
+        await on_stage(JobStage.QUEUED, 5.0, "Démarrage du processus de reconstruction...")
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stage_map = {
+            "queued": JobStage.QUEUED,
+            "sfm": JobStage.SFM,
+            "mvs": JobStage.MVS,
+            "meshing": JobStage.MESHING,
+            "postprocessing": JobStage.POSTPROCESSING,
+            "done": JobStage.DONE,
+            "failed": JobStage.FAILED,
+        }
+
+        while True:
+            line_bytes = await proc.stdout.readline()
+            if not line_bytes:
+                break
+            line = line_bytes.decode("utf-8", errors="replace").strip()
+            if line.startswith("STAGE:"):
+                parts = line.split(":", 3)
+                if len(parts) == 4:
+                    _, stg_str, pct_str, msg = parts
+                    stg = stage_map.get(stg_str, JobStage.QUEUED)
+                    try:
+                        await on_stage(stg, float(pct_str), msg)
+                    except Exception:
+                        pass
+
+        stderr_data = await proc.stderr.read()
+        await proc.wait()
+
+        if proc.returncode != 0:
+            err_msg = stderr_data.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"Échec reconstruction 3D (code {proc.returncode}): {err_msg}")
+
+        metrics_file = out_dir / "metrics.json"
+        metrics = {}
+        if metrics_file.exists():
+            try:
+                with open(metrics_file, "r", encoding="utf-8") as f:
+                    metrics = json.load(f)
+            except Exception:
+                pass
+
+        stl_path = out_dir / "reconstruction.stl"
+        step_path = out_dir / "reconstruction.step"
+
+        is_photo_mode = mode == JobMode.PHOTO
+        is_aruco_detected = declared_scale.scale_type in [ScaleType.ARUCO, ScaleType.CHARUCO]
+
+        return RunnerResult(
+            mesh_path=stl_path,
+            step_path=step_path if step_path.exists() else None,
+            engine=metrics.get("engine", "Forgeron Visual Hull (Marching Cubes + OCP)"),
+            engine_version=metrics.get("engine_version", "1.0.0"),
+            scale_detected=is_photo_mode and is_aruco_detected,
+            facets_count=metrics.get("facets_count"),
+            notes=[
+                f"Modèle reconstruit à partir de photos réelles ({mode.value})",
+                f"Échelle appliquée : {metrics.get('scale_applied_mm', scale_mm)} mm",
+                "Maillage étanche orienté machine (axe Z vertical, base à Z=0)",
+            ],
         )

@@ -66,3 +66,5 @@ pipeline/*.stp
 # Service reco3d : images et résultats des jobs
 tool/reco3d/storage/
 
+
+tool/reco3d/bin/
