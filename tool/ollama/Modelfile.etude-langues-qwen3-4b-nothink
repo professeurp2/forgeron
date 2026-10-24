@@ -1,0 +1,78 @@
+# ollama create forgeron-qwen3-4b-nothink -f tool/ollama/Modelfile.etude-langues-qwen3-4b-nothink
+# Voir Modelfile.etude-langues pour le contexte.
+#
+# qwen3:4b est livré avec un gabarit qui OUVRE la réflexion (`<think>` sans le refermer) :
+# il écrit ~1 000 tokens de raisonnement avant chaque réponse, soit 12 à 15 s par requête
+# sur la RTX 3070 Laptop (mesuré). `/no_think` dans le message ou dans le prompt système,
+# `think:false` et `reasoning_effort:none` sur l'API /v1 d'Ollama 0.34.2 n'y changent rien
+# (mesuré). Ce gabarit referme la réflexion d'avance (un bloc think vide, deux sauts de
+# ligne), comme le fait `enable_thinking=False` chez Qwen : c'est le seul changement par
+# rapport au gabarit d'origine (voir la fin du gabarit).
+#
+# RÉSULTAT : ÇA NE MARCHE PAS pour cette build. Le modèle raisonne alors quand même, en clair
+# dans `content` (≈ 2 300 tokens, « Okay, let me try to figure out… »), au lieu de ~1 000 dans
+# `reasoning` : qwen3:4b est une variante entraînée à réfléchir, sans mode sans-réflexion.
+# Fichier gardé comme preuve de l'essai ; le banc mesure qwen3:4b en réflexion native.
+FROM qwen3:4b
+TEMPLATE """{{- $lastUserIdx := -1 -}}
+{{- range $idx, $msg := .Messages -}}
+{{- if eq $msg.Role "user" }}{{ $lastUserIdx = $idx }}{{ end -}}
+{{- end }}
+{{- if or .System .Tools }}<|im_start|>system
+{{ if .System }}{{ .System }}
+
+{{ end }}
+{{- if .Tools }}# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+{{- end -}}
+<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ if (and $.IsThinkSet (and .Thinking (or $last (gt $i $lastUserIdx)))) -}}
+<think>{{ .Thinking }}</think>
+{{ end -}}
+{{ if .Content }}{{ .Content }}{{ end }}
+{{- if .ToolCalls }}
+{{- range .ToolCalls }}
+<tool_call>
+{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+</tool_call>
+{{- end }}
+{{- end }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- else if eq .Role "tool" }}<|im_start|>user
+<tool_response>
+{{ .Content }}
+</tool_response><|im_end|>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+<think>
+
+</think>
+
+{{ end }}
+{{- end }}"""
+PARAMETER stop <|im_start|>
+PARAMETER stop <|im_end|>
+PARAMETER top_k 20
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2

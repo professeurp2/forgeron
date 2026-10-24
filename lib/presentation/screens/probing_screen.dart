@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
-import '../widgets/dashboard/cnc_panel_widgets.dart';
 import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/machine_provider.dart';
+import '../widgets/wcs_offset_dialog.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/probing_provider.dart';
 import '../../core/widgets/split_view.dart';
 import '../widgets/calibration_wizard.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../../application/providers/gcode_provider.dart';
-import '../screens/dashboard_screen.dart' show showVectorsProvider;
 import '../../core/widgets/responsive_layout.dart';
 import '../tutorial/tutorial_keys.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../widgets/dashboard/mode_selector_widget.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class ProbingScreen extends ConsumerStatefulWidget {
   const ProbingScreen({super.key});
@@ -26,7 +26,6 @@ class ProbingScreen extends ConsumerStatefulWidget {
 
 class _ProbingScreenState extends ConsumerState<ProbingScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedWCS = 0;
   late TabController _tabCtrl;
 
   @override
@@ -44,9 +43,9 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
   static const _wcsLabels = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59'];
   static const _emptyOffset = [0.0, 0.0, 0.0, 0.0, 0.0];
   static const _axisLabels = ['X', 'Y', 'Z', 'A', 'C'];
-  static final _axisColors = [
-    AppColors.axisX, AppColors.axisY, AppColors.axisZ,
-    AppColors.axisA, AppColors.axisC
+  List<Color> get _axisColors => [
+    context.fc.axisX, context.fc.axisY, context.fc.axisZ,
+    context.fc.axisA, context.fc.axisC
   ];
 
   @override
@@ -63,7 +62,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const ModeSelectorWidget(),
         SizedBox(height: 24),
-        Text('SYSTÈMES DE COORDONNÉES (WCS)',
+        Text(tr('SYSTÈMES DE COORDONNÉES (WCS)'),
             style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
         SizedBox(height: 12),
         for (final label in _wcsLabels)
@@ -73,7 +72,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
             state.valueOrNull?.activeWCS ?? 'G54',
           ),
         SizedBox(height: 24),
-        Text('DRO EN DIRECT',
+        Text(tr('DRO EN DIRECT'),
             style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
         SizedBox(height: 12),
         for (int i = 0; i < 5; i++)
@@ -87,8 +86,8 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
               width: double.infinity, height: 40,
               child: OutlinedButton(
                 onPressed: () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: AppColors.textDisabled)),
-                child: Text('ALLER AU ZÉRO', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: context.fc.textDisabled)),
+                child: Text(tr('ALLER AU ZÉRO'), style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
               ),
             ),
             SizedBox(height: 8),
@@ -96,8 +95,8 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
               width: double.infinity, height: 40,
               child: OutlinedButton(
                 onPressed: () => ref.read(secureJogProvider.notifier).homeAll(),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: AppColors.axisZ)),
-                child: Text('ORIGINES (TOUS)', style: TextStyle(color: AppColors.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: context.fc.axisZ)),
+                child: Text(tr('ORIGINES (TOUS)'), style: TextStyle(color: context.fc.axisZ, fontSize: 10, fontWeight: FontWeight.w900)),
               ),
             ),
           ]),
@@ -110,7 +109,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.surfaceBorder, width: 2),
+        border: Border.all(color: context.fc.surfaceBorder, width: 2),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -129,14 +128,14 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       Container(
         margin: const EdgeInsets.only(top: 16, right: 16),
         decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder))),
+            color: context.fc.surface,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
         child: TabBar(
           controller: _tabCtrl,
           isScrollable: true,
           indicatorColor: Colors.deepOrange,
           labelColor: Colors.deepOrange,
-          unselectedLabelColor: AppColors.textDisabled,
+          unselectedLabelColor: context.fc.textDisabled,
           tabs: [
             Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG'),
             Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE'),
@@ -198,7 +197,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       onTap: () {
         ref.read(machineRepositoryProvider).sendGCode(label);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('WCS actif défini sur $label'),
+          content: Text(tr('WCS actif défini sur {}', [label])),
           backgroundColor: Colors.deepOrange,
           duration: const Duration(seconds: 2),
         ));
@@ -207,15 +206,15 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.fc.surface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: sel ? Colors.deepOrange : AppColors.surfaceBorder, width: sel ? 2 : 1),
+          border: Border.all(color: sel ? Colors.deepOrange : context.fc.surfaceBorder, width: sel ? 2 : 1),
         ),
         child: Row(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: sel ? Colors.deepOrange.withValues(alpha: 0.15) : AppColors.surfaceBright,
+              color: sel ? Colors.deepOrange.withValues(alpha: 0.15) : context.fc.surfaceBright,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(label,
@@ -229,6 +228,27 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
                     style: TextStyle(color: _axisColors[j], fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
             ]),
           ),
+          // Saisie du décalage au clavier (G10 L2), en complément du « zéro
+          // ici » (G10 L20) : quand la cote du montage est connue, l'écrire
+          // vaut mieux que d'aller chercher le point au jog. Le bouton est sur
+          // la ligne du WCS visé — aucune ambiguïté sur la cible.
+          IconButton(
+            icon: Icon(Icons.edit_outlined,
+                color: context.fc.textDisabled, size: 16),
+            tooltip: tr('Saisir le décalage de {}', [label]),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.only(left: 8),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => WcsOffsetDialog(
+                wcs: label,
+                current: offset,
+                axisLabels: _axisLabels,
+                axisColors: _axisColors,
+              ),
+            ),
+          ),
         ]),
       ),
     );
@@ -239,20 +259,20 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.fc.surface,
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Row(children: [
         Text(axis, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
         SizedBox(width: 6),
-        Text(unit, style: TextStyle(color: AppColors.textDisabled, fontSize: 9)),
+        Text(unit, style: TextStyle(color: context.fc.textDisabled, fontSize: 9)),
         SizedBox(width: 6),
         Expanded(
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,
             child: Text(val.toStringAsFixed(axis == 'A' || axis == 'C' ? 2 : 3),
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+                style: TextStyle(color: context.fc.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
           ),
         ),
       ]),
@@ -282,8 +302,8 @@ class _JogPanel5AxesState extends ConsumerState<_JogPanel5Axes> {
           width: double.infinity, height: 52,
           child: ElevatedButton.icon(
             icon: Icon(Icons.stop, size: 20),
-            label: Text('JOG STOP  (0x85)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
+            label: Text(tr('JOG STOP  (0x85)'), style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
+            style: ElevatedButton.styleFrom(backgroundColor: context.fc.danger, foregroundColor: Colors.white),
             onPressed: () => jogN.stopJog(),
           ),
         ),
@@ -297,16 +317,16 @@ class _HomingSequencePanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final jogN = ref.read(secureJogProvider.notifier);
     return GlassPanel(
-      title: 'HOMING TRUNNION',
+      title: tr('HOMING TRUNNION'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Séquence recommandée : Z → X → Y → A → C', style: TextStyle(color: AppColors.textDisabled, fontSize: 9, height: 1.5)),
+        Text(tr('Séquence recommandée : Z → X → Y → A → C'), style: TextStyle(color: context.fc.textDisabled, fontSize: 9, height: 1.5)),
         SizedBox(height: 16),
         for (final e in [
-          ('HOME Z', 'Dégager broche', AppColors.axisZ, () => jogN.homeAxis('Z')),
-          ('HOME X', 'Axe horizontal', AppColors.axisX, () => jogN.homeAxis('X')),
-          ('HOME Y', 'Axe frontal', AppColors.axisY, () => jogN.homeAxis('Y')),
-          ('HOME A', 'Basculement', AppColors.axisA, () => jogN.homeAxis('A')),
-          ('HOME C', 'Rotation plateau', AppColors.axisC, () => jogN.homeAxis('C')),
+          ('HOME Z', 'Dégager broche', context.fc.axisZ, () => jogN.homeAxis('Z')),
+          ('HOME X', 'Axe horizontal', context.fc.axisX, () => jogN.homeAxis('X')),
+          ('HOME Y', 'Axe frontal', context.fc.axisY, () => jogN.homeAxis('Y')),
+          ('HOME A', 'Basculement', context.fc.axisA, () => jogN.homeAxis('A')),
+          ('HOME C', 'Rotation plateau', context.fc.axisC, () => jogN.homeAxis('C')),
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -315,12 +335,12 @@ class _HomingSequencePanel extends ConsumerWidget {
               child: OutlinedButton(
                 onPressed: e.$4,
                 style: OutlinedButton.styleFrom(side: BorderSide(color: e.$3.withValues(alpha: 0.5)), foregroundColor: e.$3, alignment: Alignment.centerLeft, padding: const EdgeInsets.symmetric(horizontal: 12)),
-                child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontWeight: FontWeight.w900, fontSize: 11, fontFamily: 'JetBrains Mono')), SizedBox(width: 12), Text(e.$2, style: TextStyle(color: AppColors.textDisabled, fontSize: 9))]),
+                child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontWeight: FontWeight.w900, fontSize: 11, fontFamily: 'JetBrains Mono')), SizedBox(width: 12), Text(e.$2, style: TextStyle(color: context.fc.textDisabled, fontSize: 9))]),
               ),
             ),
           ),
         SizedBox(height: 8),
-        SizedBox(width: double.infinity, height: 44, child: ElevatedButton.icon(icon: Icon(Icons.home, size: 16), label: Text('HOME ALL (\$H)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.axisZ, foregroundColor: Colors.white), onPressed: () => jogN.homeAll())),
+        SizedBox(width: double.infinity, height: 44, child: ElevatedButton.icon(icon: Icon(Icons.home, size: 16), label: Text(tr('HOME ALL (\$H)'), style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: context.fc.axisZ, foregroundColor: Colors.white), onPressed: () => jogN.homeAll())),
       ]),
     );
   }
@@ -337,28 +357,28 @@ class _ProbingWizardTab extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         GlassPanel(
-          title: 'ASSISTANT PALPAGE INDUSTRIEL',
+          title: tr('ASSISTANT PALPAGE INDUSTRIEL'),
           child: Column(children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: probing.step == ProbingStep.error ? AppColors.danger.withValues(alpha: 0.1) : Colors.deepOrange.withValues(alpha: 0.05),
+                color: probing.step == ProbingStep.error ? context.fc.danger.withValues(alpha: 0.1) : Colors.deepOrange.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: probing.step == ProbingStep.error ? AppColors.danger : Colors.deepOrange, width: 0.5),
+                border: Border.all(color: probing.step == ProbingStep.error ? context.fc.danger : Colors.deepOrange, width: 0.5),
               ),
               child: Row(children: [
                 Icon(probing.step == ProbingStep.error ? Icons.error : Icons.info, 
-                     color: probing.step == ProbingStep.error ? AppColors.danger : Colors.deepOrange, size: 16),
+                     color: probing.step == ProbingStep.error ? context.fc.danger : Colors.deepOrange, size: 16),
                 SizedBox(width: 10),
                 Expanded(child: Text(probing.statusMessage, 
-                  style: TextStyle(color: probing.step == ProbingStep.error ? AppColors.danger : AppColors.textPrimary, 
+                  style: TextStyle(color: probing.step == ProbingStep.error ? context.fc.danger : context.fc.textPrimary, 
                   fontSize: 12, fontWeight: FontWeight.bold))),
               ]),
             ),
             if (probing.step != ProbingStep.idle && probing.step != ProbingStep.finished)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: LinearProgressIndicator(color: Colors.deepOrange, backgroundColor: AppColors.surfaceBright),
+                child: LinearProgressIndicator(color: Colors.deepOrange, backgroundColor: context.fc.surfaceBright),
               ),
           ]),
         ),
@@ -366,6 +386,7 @@ class _ProbingWizardTab extends ConsumerWidget {
         Row(children: [
           Expanded(
             child: _routineCard(
+              context,
               'HAUTEUR Z', 
               'Palpage simple G38.2 sur l\'axe Z.', 
               Icons.vertical_align_bottom,
@@ -375,6 +396,7 @@ class _ProbingWizardTab extends ConsumerWidget {
           SizedBox(width: 12),
           Expanded(
             child: _routineCard(
+              context,
               'CENTRE TROU', 
               'Routine 4 points pour trouver le centre.', 
               Icons.adjust,
@@ -386,6 +408,7 @@ class _ProbingWizardTab extends ConsumerWidget {
         Row(children: [
           Expanded(
             child: _routineCard(
+              context,
               'ANGLE X', 
               'Détecte l\'inclinaison de la pièce en X.', 
               Icons.architecture,
@@ -395,6 +418,7 @@ class _ProbingWizardTab extends ConsumerWidget {
           SizedBox(width: 12),
           Expanded(
             child: _routineCard(
+              context,
               'ANGLE Y', 
               'Détecte l\'inclinaison de la pièce en Y.', 
               Icons.architecture,
@@ -410,7 +434,7 @@ class _ProbingWizardTab extends ConsumerWidget {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white),
               onPressed: () => _confirmZero(context, ref),
               icon: Icon(Icons.my_location),
-              label: Text('ZÉRER LE WCS ICI', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+              label: Text(tr('ZÉRER LE WCS ICI'), style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
             ),
           ),
         ],
@@ -419,9 +443,9 @@ class _ProbingWizardTab extends ConsumerWidget {
           SizedBox(
             width: double.infinity, height: 50,
             child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: context.fc.danger, foregroundColor: Colors.white),
               onPressed: () => probingN.cancel(),
-              child: Text('ANNULER LE PALPAGE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+              child: Text(tr('ANNULER LE PALPAGE'), style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
             ),
           ),
       ]),
@@ -434,17 +458,15 @@ class _ProbingWizardTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Color(0xFF1A1A2E),
-        title: Text('Zérer $activeWcs ici ?', style: TextStyle(color: Colors.white)),
+        title: Text(tr('Zérer {} ici ?', [activeWcs]), style: TextStyle(color: Colors.white)),
         content: Text(
-          'La machine va se déplacer au point calculé par le palpage, puis '
-          'redéfinir l\'origine du système de coordonnées $activeWcs à cette '
-          'position (G10 L20). Cette action modifie l\'origine pièce active.',
+          tr('La machine va se déplacer au point calculé par le palpage, puis redéfinir l\'origine du système de coordonnées {} à cette position (G10 L20). Cette action modifie l\'origine pièce active.', [activeWcs]),
           style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Annuler'),
+            child: Text(tr('Annuler')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
@@ -452,14 +474,14 @@ class _ProbingWizardTab extends ConsumerWidget {
               ref.read(probingProvider.notifier).confirmZeroWcs(activeWcs);
               Navigator.pop(ctx);
             },
-            child: Text('Confirmer le zérotage'),
+            child: Text(tr('Confirmer le zérotage')),
           ),
         ],
       ),
     );
   }
 
-  Widget _routineCard(String title, String desc, IconData icon, VoidCallback? onTap) {
+  Widget _routineCard(BuildContext context, String title, String desc, IconData icon, VoidCallback? onTap) {
     return InkWell(
       onTap: onTap,
       child: GlassPanel(
@@ -468,14 +490,14 @@ class _ProbingWizardTab extends ConsumerWidget {
           child: Column(children: [
             Icon(icon, color: Colors.deepOrange, size: 32),
             SizedBox(height: 12),
-            Text(title, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13)),
+            Text(title, style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.w900, fontSize: 13)),
             SizedBox(height: 6),
-            Text(desc, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textDisabled, fontSize: 10, height: 1.4)),
+            Text(desc, textAlign: TextAlign.center, style: TextStyle(color: context.fc.textDisabled, fontSize: 10, height: 1.4)),
             SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(color: Colors.deepOrange, borderRadius: BorderRadius.circular(4)),
-              child: Text('LANCER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+              child: Text(tr('LANCER'), style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
             ),
           ]),
         ),
@@ -498,7 +520,7 @@ class _AlignementTabState extends ConsumerState<_AlignementTab> {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: GlassPanel(
-          title: 'ASSISTANT DE CALIBRATION',
+          title: tr('ASSISTANT DE CALIBRATION'),
           titleTrailing: IconButton(icon: Icon(Icons.close, size: 14), onPressed: () => setState(() => _showWizard = false)),
           child: const CalibrationWizard(),
         ),
@@ -512,12 +534,12 @@ class _AlignementTabState extends ConsumerState<_AlignementTab> {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: GlassPanel(
-        title: 'Alignement des axes rotatifs',
+        title: tr('Alignement des axes rotatifs'),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final e in [('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', AppColors.axisA), ('AXE C (Rotation plateau)', '${cPos.toStringAsFixed(3)}°', AppColors.axisC)])
-            Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontSize: 11, fontWeight: FontWeight.w900)), const Spacer(), Text(e.$2, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900))])),
+          for (final e in [('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', context.fc.axisA), ('AXE C (Rotation plateau)', '${cPos.toStringAsFixed(3)}°', context.fc.axisC)])
+            Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontSize: 11, fontWeight: FontWeight.w900)), const Spacer(), Text(e.$2, style: TextStyle(color: context.fc.textPrimary, fontSize: 18, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900))])),
           SizedBox(height: 24),
-          SizedBox(width: double.infinity, height: 48, child: ElevatedButton.icon(onPressed: () => setState(() => _showWizard = true), icon: Icon(Icons.rotate_right), label: Text('LANCER L\'ASSISTANT DE CALIBRATION', style: TextStyle(fontWeight: FontWeight.w900)))),
+          SizedBox(width: double.infinity, height: 48, child: ElevatedButton.icon(onPressed: () => setState(() => _showWizard = true), icon: Icon(Icons.rotate_right), label: Text(tr('LANCER L\'ASSISTANT DE CALIBRATION'), style: TextStyle(fontWeight: FontWeight.w900)))),
         ]),
       ),
     );

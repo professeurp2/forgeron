@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../application/services/audio_service.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORGERON GAUGE WIDGETS — Jauges premium pour axes rotatifs A et C
@@ -107,7 +108,7 @@ class _ArcGaugeState extends State<ArcGauge>
                 ),
               ),
               Text(
-                'AXE ${widget.axisLabel}',
+                tr('AXE {}', [widget.axisLabel]),
                 style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: widget.size * 0.065,
@@ -349,7 +350,7 @@ class _RingGaugeState extends State<RingGauge>
                 ),
               ),
               Text(
-                'AXE ${widget.axisLabel}',
+                tr('AXE {}', [widget.axisLabel]),
                 style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: widget.size * 0.065,

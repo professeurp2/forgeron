@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../core/theme/forgeron_colors.dart';
+import 'viewer_scene.dart';
+import 'viewer_theme_payload.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Android / iOS** (`webview_flutter`).
 ///
@@ -19,7 +23,15 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
-  final List<double> machineLimits;
+  /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
+  final List<double>? machineLimits;
+
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
+  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  final Map<String, dynamic>? partMesh;
+
+  /// Ce que la scène montre — voir [ViewerScene].
+  final ViewerScene scene;
 
   const MobileTrunnionVisualizer({
     super.key,
@@ -28,7 +40,9 @@ class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
     this.toolpath,
     this.activeIndex = 0,
     this.showVectors = false,
-    this.machineLimits = const [200.0, 300.0, 150.0],
+    this.machineLimits,
+    this.partMesh,
+    this.scene = const ViewerScene(),
   });
 
   @override
@@ -55,7 +69,13 @@ class _MobileTrunnionVisualizerState
           try {
             final data = jsonDecode(msg.message);
             if (data['type'] == 'viewer_ready') {
-              if (mounted) setState(() => _isReady = true);
+              // La page répète son annonce quelques fois (l'hôte peut
+              // s'abonner après le premier tour) : on ne pousse l'état
+              // complet qu'une seule fois.
+              if (_isReady || !mounted) return;
+              setState(() => _isReady = true);
+              _sendScene();
+              _sendMesh();
               _sendToolpath();
               _updateMachine();
               _toggleVectors();
@@ -103,10 +123,24 @@ class _MobileTrunnionVisualizerState
     super.didUpdateWidget(oldWidget);
     if (!_isReady) return;
 
+    if (oldWidget.scene != widget.scene) _sendScene();
+    if (!identical(oldWidget.partMesh, widget.partMesh)) _sendMesh();
     if (oldWidget.toolpath != widget.toolpath) _sendToolpath();
     if (oldWidget.showVectors != widget.showVectors) _toggleVectors();
     if (oldWidget.machineLimits != widget.machineLimits) _sendLimits();
     _updateMachine();
+  }
+
+  void _sendScene() =>
+      _post({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendMesh() {
+    final mesh = widget.partMesh;
+    if (mesh == null) {
+      _post({'type': 'clear_mesh'});
+      return;
+    }
+    _post({'type': 'load_mesh', 'payload': mesh});
   }
 
   void _sendToolpath() {
@@ -133,14 +167,13 @@ class _MobileTrunnionVisualizerState
   void _toggleVectors() =>
       _post({'type': 'toggle_vectors', 'payload': widget.showVectors});
 
-  void _sendLimits() => _post({
-        'type': 'set_limits',
-        'payload': {
-          'x': widget.machineLimits[0],
-          'y': widget.machineLimits[1],
-          'z': widget.machineLimits[2],
-        },
-      });
+  void _sendLimits() {
+    final l = widget.machineLimits;
+    _post({
+      'type': 'set_limits',
+      'payload': l == null ? null : {'x': l[0], 'y': l[1], 'z': l[2]},
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +182,7 @@ class _MobileTrunnionVisualizerState
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            'Simulateur 3D indisponible\n$_error',
+            tr('Simulateur 3D indisponible\n{}', [_error]),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11),
           ),
@@ -157,11 +190,11 @@ class _MobileTrunnionVisualizerState
       );
     }
 
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+    final isDark = isDarkTheme(context, ref.watch(themeModeProvider));
     if (_isReady) {
       _post({
         'type': 'set_theme',
-        'payload': {'isDark': isDark},
+        'payload': viewerThemePayload(context.fc, isDark),
       });
     }
 

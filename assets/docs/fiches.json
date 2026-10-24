@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "version": "0.1.0",
+  "note": "Fiches de connaissance de l'assistant (outil search_docs). Chaque fiche dit d'où elle vient. Statut `brouillon` = écrite d'après les notes du projet, pas encore relue par une personne nommée. Les codes d'alarme ne sont PAS ici : ils sont générés depuis le catalogue de l'application (une seule source). Les valeurs chiffrées de la machine (courses, pas/mm) ne sont pas ici non plus : la configuration en direct (get_config, get_axis_kinematics) fait foi.",
+  "fiches": [
+    {
+      "id": "broche-relais",
+      "titre": "Broche : marche et arrêt (relais tout-ou-rien)",
+      "mots_cles": ["broche", "spindle", "m3", "m5", "relais", "vitesse", "s1000", "allumer", "eteindre"],
+      "texte": "La broche est un moteur à courant continu commandé en tout-ou-rien par un relais 5 V (FluidNC, type Relay, gpio.21). Pour la démarrer il faut une vitesse supérieure à 0 : « M3 S1000 ». « M3 » seul (S0) ne l'allume pas. « M5 » l'arrête. La valeur S ne change pas le régime : il n'y a pas de vitesse variable, et l'ajustement de vitesse de broche n'a aucun effet réel.",
+      "source": "prompt système de l'assistant ; hardware/README.md",
+      "statut": "brouillon"
+    },
+    {
+      "id": "broche-alimentation",
+      "titre": "Broche : étincelles et ratés (alimentation)",
+      "mots_cles": ["broche", "etincelles", "rate", "instable", "alimentation", "chargeur", "mosfet"],
+      "texte": "L'alimentation de la broche est aujourd'hui sous-dimensionnée (chargeur de PC 19,5 V / 3,3 A) : elle provoque des étincelles et de l'instabilité. Le correctif matériel est en attente : alimentation plus forte et étage MOSFET (carte Rev 2.0, fusible 20 A, diode de roue libre). À signaler si l'opérateur décrit des ratés de broche.",
+      "source": "prompt système ; hardware/README.md (défaut 4 de la Rev 1.0)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "estop-defaut-materiel",
+      "titre": "Arrêt d'urgence : défaut connu tant que la Rev 2.0 n'est pas câblée",
+      "mots_cles": ["arret", "urgence", "estop", "coup-de-poing", "esp32", "plante", "broche", "tourne", "securite", "contact", "nf"],
+      "texte": "Constaté en atelier le 2026-08-21 : quand l'ESP32 se bloque, la broche continue de tourner et le coup-de-poing ne l'arrête plus. Cause : l'arrêt d'urgence n'existe que par le logiciel (bouton vers GPIO15 vers FluidNC). Correctif : mettre un contact NF du coup-de-poing en série avec l'alimentation de la broche (coupure mécanique, indépendante de tout logiciel), ajouter une résistance de rappel de 10 kΩ sur l'entrée du relais, et ne pas laisser la machine tourner sans surveillance. Un arrêt d'urgence qui passe par un microcontrôleur n'en est pas un.",
+      "source": "hardware/README.md (section « Tant que la Rev 2.0 n'est pas câblée »)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "axes-vis-pas",
+      "titre": "Axes : vis et pas différents",
+      "mots_cles": ["axe", "vis", "pas", "x", "y", "z", "a", "c", "rotatif", "course", "mm"],
+      "texte": "L'axe X a une vis au pas de 3 mm, différente de Y et Z (pas de 2 mm) : leurs pas par millimètre ne sont pas interchangeables. A et C sont des axes rotatifs (en degrés) sans fin de course. Les valeurs chiffrées (courses, pas/mm, vitesses maximales) se lisent dans la configuration réelle : appeler get_axis_kinematics ou get_config, ne pas les citer de mémoire.",
+      "source": "prompt système de l'assistant",
+      "statut": "brouillon"
+    },
+    {
+      "id": "fins-de-course",
+      "titre": "Fins de course et limites",
+      "mots_cles": ["fin", "course", "limit", "limites", "capteur", "nc", "gpio", "soft", "hard"],
+      "texte": "Les fins de course X, Y et Z sont sur les entrées gpio.4, gpio.13 et gpio.14, câblées en NC (normalement fermé, sûr en cas de fil coupé). Les limites logicielles (soft_limits) et matérielles (hard_limits) sont actives sur X, Y et Z. Il n'y a pas de homing possible sur A et C.",
+      "source": "prompt système de l'assistant",
+      "statut": "brouillon"
+    },
+    {
+      "id": "homing-procedure",
+      "titre": "Homing : sens et dégagement de Z",
+      "mots_cles": ["homing", "home", "origine", "machine", "z", "haut", "demarrage", "soft", "limites", "$h"],
+      "texte": "Le capteur Z est en haut : Z se home vers le haut puis se dégage (retrait de l'outil). Le zéro machine de Z est en haut, la course utile va vers le bas (Z négatif). Le zéro pièce (haut du brut) est donc à un Z machine négatif, et l'usinage descend en Z négatif, comme dans un CAO standard. Faire le homing à chaque démarrage pour activer les limites logicielles. Le homing déplace la machine : il se lance depuis la commande « $H » ou l'outil home, jamais pour poser le zéro pièce.",
+      "source": "prompt système de l'assistant",
+      "statut": "brouillon"
+    },
+    {
+      "id": "recuperation-fin-de-course",
+      "titre": "Récupérer après une alarme de fin de course",
+      "mots_cles": ["alarme", "fin", "course", "deverrouiller", "$x", "jog", "recuperation", "switch"],
+      "texte": "Pour sortir d'une alarme de fin de course : envoyer « $X » pour déverrouiller, puis faire un déplacement doux (jog) pour éloigner l'axe du capteur, puis refaire la prise d'origine. Voir aussi la fiche de l'alarme concernée : certaines font perdre la position machine.",
+      "source": "prompt système ; écran Récupération de l'application",
+      "statut": "brouillon"
+    },
+    {
+      "id": "avance-5-axes",
+      "titre": "Avance F en 5 axes : mm et degrés mélangés",
+      "mots_cles": ["avance", "feed", "f", "g94", "5", "axes", "degres", "vitesse", "rotatif"],
+      "texte": "En G94, un F constant ne donne pas une avance constante quand un axe rotatif bouge : GRBL mélange les millimètres et les degrés dans le calcul de la vitesse. Mesuré : F600 donne environ 200 mm/min réels sur un parcours 5 axes. Ne pas annoncer l'avance réelle d'un parcours 5 axes à partir de F seul.",
+      "source": "notes du projet (avance G94 en 5 axes)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "redemarrage-thermique",
+      "titre": "Redémarrages de l'ESP32 en usinage long",
+      "mots_cles": ["redemarrage", "reboot", "esp32", "chaleur", "thermique", "armoire", "tb6600", "long", "usinage"],
+      "texte": "Les redémarrages de l'ESP32 pendant les usinages longs sont d'origine thermique (armoire fermée, drivers TB6600), pas électrique : trois heures trente ont été tenues en environnement refroidi. Piste : ventiler l'armoire et surveiller la température avant de chercher un défaut d'alimentation.",
+      "source": "notes du projet (reboot ESP32 thermique)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "carte-rev2",
+      "titre": "Carte d'interface Rev 2.0 : ce qu'elle corrige",
+      "mots_cles": ["carte", "rev", "pcb", "tb6600", "ahct", "mosfet", "esp32", "74ahct125", "niveau", "logique"],
+      "texte": "Carte de 100 × 100 mm, deux couches, entre l'ESP32 (FluidNC) et la puissance. Les cinq TB6600 sont externes (la carte les pilote par PUL+, DIR+, ENA+, GND). Le circuit de niveau logique est un SN74AHCT125 (pas AHC : en AHC sous 5 V le seuil haut dépasse les 3,3 V de l'ESP32). La broche a un étage MOSFET logic-level avec diode de roue libre et fusible 20 A. L'alimentation moteurs (ATX 12 V / ~38 A) ne passe pas par la carte.",
+      "source": "hardware/README.md",
+      "statut": "brouillon"
+    },
+    {
+      "id": "gcode-broche-arrosage",
+      "titre": "G-code : broche et arrosage (M3, M4, M5, M7, M8, M9)",
+      "mots_cles": ["m3", "m4", "m5", "m7", "m8", "m9", "broche", "arrosage", "gcode", "sens"],
+      "texte": "M3 : broche sens horaire (avec S). M4 : sens anti-horaire. M5 : arrêt de la broche. M7 : arrosage brouillard. M8 : arrosage liquide. M9 : arrosage coupé. Sur cette machine la broche est tout-ou-rien : voir la fiche broche-relais.",
+      "source": "référence G-code standard (GRBL / FluidNC)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "gcode-deplacements",
+      "titre": "G-code : déplacements (G0, G1, G90, G91, G38.2)",
+      "mots_cles": ["g0", "g1", "g90", "g91", "g38.2", "rapide", "travail", "absolu", "relatif", "palpage", "gcode"],
+      "texte": "G0 : déplacement rapide. G1 : déplacement de travail à la vitesse F. G90 : coordonnées absolues. G91 : coordonnées relatives. G38.2 : palpage, avance jusqu'au contact du palpeur et enregistre la position ; erreur si aucun contact.",
+      "source": "référence G-code standard (GRBL / FluidNC)",
+      "statut": "brouillon"
+    },
+    {
+      "id": "gcode-origines",
+      "titre": "G-code : origines pièce (G54 à G59, G10 L20)",
+      "mots_cles": ["g54", "g55", "g56", "g57", "g58", "g59", "g10", "l20", "wcs", "zero", "origine", "piece"],
+      "texte": "G54 à G59 choisissent le système de coordonnées pièce actif. « G10 L20 P0 X0 Y0 Z0 » pose la position actuelle comme zéro pièce dans le système actif, sans aucun mouvement. Ne pas confondre avec le homing, qui déplace la machine vers ses capteurs.",
+      "source": "référence G-code standard (GRBL / FluidNC) ; outil set_work_zero",
+      "statut": "brouillon"
+    },
+    {
+      "id": "commandes-temps-reel",
+      "titre": "Commandes spéciales FluidNC ($X, $H, !, ~, Ctrl-X)",
+      "mots_cles": ["$x", "$h", "pause", "reprise", "reset", "ctrl-x", "deverrouiller", "hold", "cycle", "start"],
+      "texte": "« $X » déverrouille après une alarme. « $H » lance la prise d'origine. « ! » met en pause (feed hold). « ~ » reprend (cycle start). Ctrl-X est une réinitialisation logicielle (soft reset) : ce n'est pas un arrêt d'urgence fiable tant que la broche n'est pas coupée par le matériel.",
+      "source": "référence GRBL / FluidNC ; hardware/README.md",
+      "statut": "brouillon"
+    },
+    {
+      "id": "assistant-commandes-simples",
+      "titre": "Ce que l'assistant comprend sans modèle",
+      "mots_cles": ["assistant", "commandes", "lexique", "que", "sais", "faire", "langue", "bambara", "arrete", "etat"],
+      "texte": "Sans modèle ni réseau, l'assistant comprend des ordres courts : arrêt d'urgence, état de la machine, pause, homing, allumer ou éteindre la broche, poser le zéro pièce, déplacer un axe de N mm à une vitesse. Ils fonctionnent en français, en anglais et en bambara (brouillon, à relire). Tout ce qui agit sur la machine demande une confirmation tant que la langue n'a pas été relue par un locuteur nommé.",
+      "source": "docs/lexique-gouvernance.md",
+      "statut": "brouillon"
+    }
+  ]
+}

@@ -2,19 +2,75 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../core/net/cellular_http_client.dart';
+import '../../core/utils/gemini_context.dart' show kMaxContextChars;
+
+/// Contrat commun aux fournisseurs de l'agent : Gemini distant
+/// ([AiAgentService]) ou modèle local sur le réseau de l'atelier
+/// ([LocalAiAgentService]).
+///
+/// Le **format d'échange reste celui de Gemini** (`contents` / `parts` /
+/// `functionCall` / `functionResponse`) : c'est celui que manipule
+/// `AiAgentNotifier` sur plus de mille lignes, et le refondre pour accueillir
+/// un second fournisseur coûterait bien plus cher que de traduire. Un
+/// fournisseur qui parle un autre protocole traduit donc chez lui, à l'aller
+/// comme au retour — le reste de l'application ignore qui répond.
+abstract class AiBackend {
+  /// Identifiant du modèle actif. Sert au cache de service : le fournisseur
+  /// est recréé quand cette valeur change.
+  String get model;
+
+  /// Taille maximale de l'historique, en caractères de JSON, que l'agent
+  /// envoie à chaque tour (voir `compactGeminiContents`).
+  ///
+  /// Dépend du fournisseur parce que la contrainte n'est pas la même : Gemini
+  /// a une fenêtre immense et c'est le QUOTA gratuit qui borne l'historique ;
+  /// un modèle local a une fenêtre finie, que dépasse en silence — par le
+  /// début, donc en perdant le prompt système — tout ce qui ne tient pas.
+  int get historyBudgetChars;
+
+  /// Vrai si les appels de ce fournisseur doivent passer par le réseau mobile
+  /// (4G/5G). Seul Gemini : le WiFi de l'ESP32 n'a pas d'Internet. Un modèle
+  /// local est joint par le WiFi de l'atelier — lui demander la 4G
+  /// contredirait tout l'intérêt du mode hors-ligne.
+  bool get usesCellular;
+
+  /// Le fournisseur répond-il en ce moment ? Sert à relancer tout seul un tour
+  /// resté en attente.
+  Future<bool> isReachable();
+
+  /// Ce qu'on dit à l'opérateur quand le fournisseur ne répond pas.
+  String get unreachableMessage;
+
+  Future<AiApiResponse> sendMessages({
+    required List<Map<String, dynamic>> contents,
+    required List<Map<String, dynamic>> functionDeclarations,
+    String? systemPrompt,
+  });
+
+  Future<AiApiResponse> streamMessages({
+    required List<Map<String, dynamic>> contents,
+    required List<Map<String, dynamic>> functionDeclarations,
+    String? systemPrompt,
+    void Function(String partialText)? onDelta,
+    bool Function()? shouldCancel,
+  });
+
+  void dispose();
+}
 
 /// Client HTTP pour l'API Gemini (Google Generative Language API), avec
 /// function calling.
 ///
 /// Suit le même schéma que [FluidNcHttpClient] : client injectable, timeout
 /// explicite, exceptions sur statut HTTP non-200, `dispose()`.
-class AiAgentService {
+class AiAgentService implements AiBackend {
   static const _apiVersion = 'v1beta';
 
   final String apiKey;
 
   /// Alias "roulant" du modèle (ex. `gemini-flash-lite-latest`) : évite de se
   /// refaire piéger quand Google retire un modèle daté aux nouveaux comptes.
+  @override
   final String model;
 
   final http.Client _client;
@@ -24,6 +80,20 @@ class AiAgentService {
     this.model = 'gemini-flash-lite-latest',
     http.Client? client,
   }) : _client = client ?? http.Client();
+
+  @override
+  int get historyBudgetChars => kMaxContextChars;
+
+  @override
+  bool get usesCellular => true;
+
+  @override
+  Future<bool> isReachable() => CellularNetwork.isAvailable();
+
+  @override
+  String get unreachableMessage =>
+      'Connexion perdue avec le service IA. L\'envoi reprendra dès que le '
+      'réseau (4G/5G) sera de nouveau disponible.';
 
   Uri get _endpoint => Uri.parse(
       'https://generativelanguage.googleapis.com/$_apiVersion/models/$model:generateContent');
@@ -58,6 +128,7 @@ class AiAgentService {
   /// Envoie l'historique de conversation (`contents`, format Gemini) + le
   /// catalogue d'outils à Gemini et retourne sa réponse (texte et/ou
   /// demandes d'appel de fonction).
+  @override
   Future<AiApiResponse> sendMessages({
     required List<Map<String, dynamic>> contents,
     required List<Map<String, dynamic>> functionDeclarations,
@@ -87,11 +158,17 @@ class AiAgentService {
   /// (texte agrégé courant) et retourne la réponse complète agrégée pour la
   /// logique d'outils. Replie automatiquement sur [sendMessages] si le flux
   /// n'est pas disponible.
+  ///
+  /// [shouldCancel] est consulté à chaque fragment reçu : dès qu'il retourne
+  /// `true`, on quitte la boucle — ce qui annule l'abonnement au flux — et on
+  /// retourne ce qui a déjà été reçu (bouton « Stop » de l'écran de chat).
+  @override
   Future<AiApiResponse> streamMessages({
     required List<Map<String, dynamic>> contents,
     required List<Map<String, dynamic>> functionDeclarations,
     String? systemPrompt,
     void Function(String partialText)? onDelta,
+    bool Function()? shouldCancel,
   }) async {
     final body = _requestBody(
       contents: contents,
@@ -112,9 +189,14 @@ class AiAgentService {
     var finishReason = '';
     var totalTokens = 0;
     var gotAny = false;
+    var cancelled = false;
 
     try {
       await for (final payload in source) {
+        if (shouldCancel?.call() ?? false) {
+          cancelled = true;
+          break; // quitter la boucle annule l'abonnement → requête coupée
+        }
         Map<String, dynamic> chunk;
         try {
           chunk = jsonDecode(payload) as Map<String, dynamic>;
@@ -146,8 +228,9 @@ class AiAgentService {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
-    if (!gotAny) {
-      // Flux vide → repli non-streamé (plus sûr que rendre une réponse vide).
+    // Repli seulement sur un vrai flux vide : après une annulation, relancer un
+    // appel non-streamé referait exactement ce qu'on vient d'interrompre.
+    if (!gotAny && !cancelled) {
       return _fallback(contents, functionDeclarations, systemPrompt, onDelta);
     }
 
@@ -156,7 +239,10 @@ class AiAgentService {
       ...otherParts,
     ];
     return AiApiResponse(
-        parts: parts, finishReason: finishReason, totalTokens: totalTokens);
+      parts: parts,
+      finishReason: cancelled ? 'CANCELLED' : finishReason,
+      totalTokens: totalTokens,
+    );
   }
 
   Future<AiApiResponse> _fallback(
@@ -195,6 +281,7 @@ class AiAgentService {
     }
   }
 
+  @override
   void dispose() => _client.close();
 }
 
@@ -207,10 +294,18 @@ class AiApiResponse {
   /// Tokens totaux de l'échange (`usageMetadata.totalTokenCount`), 0 si absent.
   final int totalTokens;
 
+  /// Ce que les garde-fous de l'adaptateur ont dû corriger pour produire cette
+  /// réponse (`langue:nouvelle_tentative`, `appel_en_texte:recupere`…). Vide
+  /// pour une réponse livrée telle quelle. Sert à MESURER ce que chaque
+  /// garde-fou rattrape : un garde-fou qu'on ne compte pas, on ne sait pas
+  /// s'il sert.
+  final List<String> notes;
+
   const AiApiResponse({
     required this.parts,
     required this.finishReason,
     this.totalTokens = 0,
+    this.notes = const [],
   });
 
   factory AiApiResponse.fromJson(Map<String, dynamic> json) {

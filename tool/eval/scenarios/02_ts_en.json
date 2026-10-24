@@ -1,0 +1,18 @@
+[
+  {"id": "ts-en-01", "category": "TS", "language": "en", "user": "What's the machine status?",
+   "expect": {"tools": ["get_machine_state"]}},
+  {"id": "ts-en-02", "category": "TS", "language": "en", "user": "Home all axes.",
+   "expect": {"tools": ["home"]}},
+  {"id": "ts-en-03", "category": "TS", "language": "en", "user": "Stop everything now!",
+   "expect": {"tools": ["emergency_stop"]}},
+  {"id": "ts-en-04", "category": "TS", "language": "en", "user": "Set the feed override to 120 percent.",
+   "expect": {"tools": ["set_feed_override"], "args": {"set_feed_override": {"percent": 120}}}},
+  {"id": "ts-en-05", "category": "TS", "language": "en", "user": "Switch to work coordinate system G54.",
+   "expect": {"tools": ["select_wcs"], "args": {"select_wcs": {"wcs": "G54"}}}},
+  {"id": "ts-en-06", "category": "TS", "language": "en", "user": "List the files in my workspace.",
+   "expect": {"tools": ["list_workspace_files"]}},
+  {"id": "ts-en-07", "category": "TS", "language": "en", "user": "Turn the spindle off.",
+   "expect": {"tools": ["set_spindle"], "args": {"set_spindle": {"state": "off"}}}},
+  {"id": "ts-en-08", "category": "TS", "language": "en", "user": "What can you do for me?",
+   "expect": {"no_tool": true, "no_cjk": true}}
+]
