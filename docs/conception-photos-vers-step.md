@@ -164,3 +164,18 @@ File d'attente : **un seul job GPU à la fois** (les reconstructions saturent la
 - **Tolérance de l'adaptateur au STEP facetté** : nombre de facettes acceptable avant explosion des parcours (jalon 0).
 - **Mire** : format exact (ArUco seul, ou planche ChArUco), taille imprimée, procédure de pose.
 - **Pièces fonctionnelles à cote serrée** : la chaîne facettée suffit-elle, ou faut-il une reprise manuelle de surfaces dans FreeCAD pour ces cas ? (à décider après le jalon 1, sur mesure réelle).
+
+---
+
+## 11. Verdict du Jalon 0 — Spike anti-risque (Mesuré le 24/10/2026)
+
+Le spike prévu au §8 a été instrumenté et exécuté sur machine réelle via `tool/reco3d/measure_faceted_step.py` avec `pipeline/.venv312` (OpenCASCADE 8.0 / OCP) :
+
+| Testé | Mesure réelle | Verdict |
+|---|---|---|
+| **Maillage direct (STL, 36 000 sommets)** | Extraction du profil en **0,18 s**, génération de **29 852 lignes G-code** via `mesh_profile` + `gen_revolution`. | **SUCCÈS IMMÉDIAT** : rapide, robuste, insensible aux facettes discrètes. |
+| **STEP facetté (144 facettes planes)** | Taille : **312 Ko** (inflation ×44 p/r au STL équivalent). Lecture OpenCASCADE : 144 faces planes, 0 face analytique. | **REFUS CATÉGORIQUE** : `step_to_gcode` lève `ValueError` (« aucune face cylindrique/conique/sphérique/torique : pas de révolution détectable »). |
+
+### Décision d'architecture arrêtée (Jalon 0 validé) :
+1. **Flux interne Forgeron (fabrication) :** Le service `reco3d` transmet en priorité le **maillage nettoyé natif (STL/OBJ)** directement aux générateurs CAM (`mesh_profile` pour les révolutions, `dropcutter` / `gen_surface5` pour les formes libres).
+2. **Export STEP :** Le fichier `.step` tessellé reste produit en sortie secondaire pour l'exportation vers des logiciels de CAO externes (FreeCAD, SolidWorks), mais **n'est pas le pivot du calcul machine**.
