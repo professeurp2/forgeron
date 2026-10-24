@@ -5,7 +5,7 @@ import '../../domain/models/reco3d_models.dart';
 import '../services/reco3d_client.dart';
 
 /// URL par défaut du service de calcul reco3d sur le PC local (IP Wi-Fi actuelle).
-const kDefaultReco3dUrl = 'http://192.168.0.104:8765';
+const kDefaultReco3dUrl = 'http://192.168.54.35:8765';
 
 final reco3dServerUrlProvider = StateProvider<String>((ref) => kDefaultReco3dUrl);
 

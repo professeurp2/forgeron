@@ -40,6 +40,60 @@ class Reco3dClient {
     }
   }
 
+  /// Recherche automatique du serveur reco3d sur le réseau local (port 8765).
+  Future<String?> discoverServer({
+    Duration timeout = const Duration(milliseconds: 600),
+    int concurrency = 25,
+  }) async {
+    try {
+      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (ip.startsWith('127.') || ip.startsWith('169.254.')) continue;
+          final parts = ip.split('.');
+          if (parts.length != 4) continue;
+          final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+
+          // Priorités rapides : localhost, IP de la machine, gateway, cibles fréquentes
+          final candidates = <String>[
+            'http://127.0.0.1:8765',
+            'http://$ip:8765',
+            'http://$prefix.35:8765',
+            'http://$prefix.104:8765',
+            'http://$prefix.1:8765',
+            'http://$prefix.179:8765',
+          ];
+
+          for (int i = 1; i <= 254; i++) {
+            final candidate = 'http://$prefix.$i:8765';
+            if (!candidates.contains(candidate)) {
+              candidates.add(candidate);
+            }
+          }
+
+          for (int i = 0; i < candidates.length; i += concurrency) {
+            final batch = candidates.sublist(i, (i + concurrency).clamp(0, candidates.length));
+            final futures = batch.map((url) async {
+              try {
+                final resp = await _client.get(Uri.parse('$url/health')).timeout(timeout);
+                if (resp.statusCode == 200 && resp.body.contains('"status":"ready"')) {
+                  return url;
+                }
+              } catch (_) {}
+              return null;
+            });
+            final results = await Future.wait(futures);
+            for (final res in results) {
+              if (res != null) return res;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Soumet un lot de photos ou une image conceptuelle.
   Future<Reco3dJobCreated> createJob({
     required Uri baseUri,

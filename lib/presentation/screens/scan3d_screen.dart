@@ -25,6 +25,8 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
   final TextEditingController _urlController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
+  bool _isDiscovering = false;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +41,45 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
       }
       ref.read(reco3dServerUrlProvider.notifier).state = target;
       ref.invalidate(reco3dHealthProvider);
+    }
+  }
+
+  Future<void> _autoDiscoverServer() async {
+    setState(() => _isDiscovering = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr('Recherche automatique du PC sur le réseau...'))),
+    );
+    try {
+      final client = ref.read(reco3dClientProvider);
+      final foundUrl = await client.discoverServer();
+      if (foundUrl != null) {
+        _updateServerUrl(foundUrl);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.green.shade800,
+              content: Text('${tr("PC de calcul détecté :")} $foundUrl'),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.orange.shade800,
+              content: Text(tr('Aucun PC trouvé. Vérifiez que le PC et le téléphone sont sur le même Wi-Fi.')),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${tr("Erreur détection :")} $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDiscovering = false);
     }
   }
 
@@ -194,15 +235,24 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                   controller: _urlController,
                   decoration: InputDecoration(
                     labelText: tr('Adresse PC de calcul (Reco3D)'),
-                    hintText: 'http://192.168.0.104:8765',
+                    hintText: 'http://192.168.54.35:8765',
                     isDense: true,
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.check, size: 18),
-                      tooltip: tr('Tester cette adresse'),
-                      onPressed: () => _updateServerUrl(),
-                    ),
+                    suffixIcon: _isDiscovering
+                        ? const Padding(
+                            padding: EdgeInsets.all(10.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.check, size: 18),
+                            tooltip: tr('Tester cette adresse'),
+                            onPressed: () => _updateServerUrl(),
+                          ),
                   ),
                   onSubmitted: (val) => _updateServerUrl(val),
                 ),
@@ -237,15 +287,34 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                   '${tr("Service hors ligne")} : $err',
                   style: const TextStyle(fontSize: 12, color: Colors.red),
                 ),
-                const SizedBox(height: 6),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => _updateServerUrl('http://192.168.0.104:8765'),
-                  icon: const Icon(Icons.wifi, size: 14),
-                  label: const Text('Tester http://192.168.0.104:8765', style: TextStyle(fontSize: 11)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: context.fc.primary,
+                      ),
+                      onPressed: _isDiscovering ? null : _autoDiscoverServer,
+                      icon: const Icon(Icons.search, size: 15),
+                      label: Text(
+                        tr('Détecter le PC automatiquement'),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => _updateServerUrl('http://192.168.54.35:8765'),
+                      icon: const Icon(Icons.wifi, size: 14),
+                      label: const Text('Tester 192.168.54.35:8765', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
                 ),
               ],
             ),
