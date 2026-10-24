@@ -27,6 +27,14 @@ class AppLanguage {
   /// un avertissement honnête plutôt qu'à bloquer le choix.
   final bool lowResource;
 
+  /// Le modèle COMPREND cette langue mais l'ÉCRIT mal : ses réponses y sont
+  /// incompréhensibles (mesuré sur le bambara : compréhension des ordres 19 %,
+  /// et un opérateur a jugé les réponses illisibles). On lui demande donc de
+  /// répondre en français simple. Les phrases en cette langue viendront de
+  /// textes fixes relus par un locuteur (voir `CommandLexicon.reply`), jamais
+  /// du modèle.
+  final bool writesPoorly;
+
   /// Réserve propre à cette langue, affichée sous l'avertissement général.
   ///
   /// Sert à dire ce qui N'EST PAS traduit, et pourquoi. Une interface en
@@ -41,6 +49,7 @@ class AppLanguage {
     this.promptName,
     this.voiceTag, {
     this.lowResource = false,
+    this.writesPoorly = false,
     this.note,
   });
 
@@ -59,10 +68,20 @@ class AppLanguage {
         ? 'Réponds TOUJOURS dans la langue du dernier message de '
             "l'opérateur. S'il change de langue en cours de conversation, "
             'change avec lui. Si la langue est indécidable (message très '
-            'court, G-code seul), réponds en français.'
-        : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
-            "langue dans laquelle l'opérateur écrit — y compris pour les "
-            "avertissements de sécurité et les confirmations d'action.";
+            'court, G-code seul), réponds en français. Exception : si '
+            "l'opérateur écrit en bambara (bamanankan), tu le comprends mais "
+            "tu l'écris mal : réponds en français simple, phrases courtes, "
+            'sans jamais écrire de bambara.'
+        : writesPoorly
+            ? "L'opérateur a choisi le $promptName. Tu le COMPRENDS, mais tu "
+                "l'écris mal : une réponse en $promptName serait "
+                'incompréhensible, et dangereuse pour une consigne de sécurité. '
+                'Réponds donc en FRANÇAIS SIMPLE : phrases courtes, mots de '
+                "tous les jours, une idée par phrase, sans jargon. N'écris "
+                "jamais de $promptName."
+            : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
+                "langue dans laquelle l'opérateur écrit — y compris pour les "
+                "avertissements de sécurité et les confirmations d'action.";
 
     return '=== LANGUE DE RÉPONSE ===\n'
         '$head\n'
@@ -98,10 +117,13 @@ const kAppLanguages = <AppLanguage>[
   // docs/addis/langues-locales/feuille-bambara.md.
   AppLanguage('bm', 'Bamanankan (bambara)', 'bambara', 'bm-ML',
       lowResource: true,
-      note: 'Les messages d\'alarme, d\'arrêt d\'urgence et de fin de course '
-          'restent en français : un traducteur automatique s\'y trompe, et '
-          'une alarme fausse est un danger. Ils passeront au bambara quand un '
-          'locuteur les aura relus.'),
+      writesPoorly: true,
+      note: 'L\'assistant te comprend en bambara, mais il te répond en français '
+          'simple : il écrit mal le bambara, et ses réponses étaient '
+          'incompréhensibles. Les messages d\'alarme, d\'arrêt d\'urgence et de fin de '
+          'course restent aussi en français : une alarme fausse est un danger. '
+          'Le bambara viendra de phrases fixes quand un locuteur les aura '
+          'relues.'),
   AppLanguage('ar', 'العربية (arabe)', 'arabe', 'ar-MA'),
   AppLanguage('sw', 'Kiswahili (swahili)', 'swahili', 'sw-KE'),
   AppLanguage('af', 'Afrikaans', 'afrikaans', 'af-ZA'),
