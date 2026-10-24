@@ -48,7 +48,7 @@ class DiagnosticsScreen extends ConsumerWidget {
     final leftPanel = SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label(context, 'GPIO & CAPTEURS (LIVE)'),
+        _label(context, tr('GPIO & CAPTEURS (LIVE)')),
         SizedBox(height: 12),
         for (final e in _endstops(fc).asMap().entries)
           _endstopCard(context, e.value.$1, e.value.$2, limSw[e.key], e.value.$3),
@@ -56,11 +56,11 @@ class DiagnosticsScreen extends ConsumerWidget {
           Expanded(child: _sensorMini(context, 'PALPEUR', 'GPIO 36',
               machineState?.probeTriggered ?? false, fc.secondary)),
           SizedBox(width: 6),
-          Expanded(child: _sensorMini(context, 'E-STOP', 'GPIO 27',
+          Expanded(child: _sensorMini(context, tr('E-STOP'), 'GPIO 27',
               machineState?.emergencyTriggered ?? false, fc.danger)),
         ]),
         SizedBox(height: 24),
-        _label(context, 'TÉLÉMÉTRIE RÉSEAU'),
+        _label(context, tr('TÉLÉMÉTRIE RÉSEAU')),
         SizedBox(height: 12),
         GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
           Center(child: Column(children: [
@@ -83,9 +83,9 @@ class DiagnosticsScreen extends ConsumerWidget {
           ]),
           SizedBox(height: 12),
           for (final e in [
-            ('PAQUETS TX', '${net.txCount}'),
-            ('PAQUETS RX', '${net.rxCount}'),
-            ('UPTIME CONN.', formatUptime(net.uptime)),
+            (tr('PAQUETS TX'), '${net.txCount}'),
+            (tr('PAQUETS RX'), '${net.rxCount}'),
+            (tr('UPTIME CONN.'), formatUptime(net.uptime)),
           ])
             Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [
               Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
@@ -103,13 +103,13 @@ class DiagnosticsScreen extends ConsumerWidget {
             // RAM / Uptime / RSSI : non rapportés par FluidNC standard → « — »
             // tant que le firmware n'envoie pas de [MSG:] custom. Afficher des
             // valeurs inventées ferait passer l'écran pour du live.
-            _healthCard(context, 'USAGE RAM', '—', Icons.memory, fc.textDisabled),
+            _healthCard(context, tr('USAGE RAM'), '—', Icons.memory, fc.textDisabled),
             _healthCard(context, 'UPTIME', '—', Icons.schedule, fc.textDisabled),
-            _healthCard(context, 'WiFi RSSI', '—', Icons.wifi, fc.textDisabled),
+            _healthCard(context, tr('WiFi RSSI'), '—', Icons.wifi, fc.textDisabled),
           ]),
         ),
         SizedBox(height: 24),
-        _label(context, 'AMDEC & MAINT. PRÉVENTIVE'),
+        _label(context, tr('AMDEC & MAINT. PRÉVENTIVE')),
         SizedBox(height: 12),
         _AmdecRiskPanel(singularityRisk: singularityRisk, temp: temp, latencyMs: net.latencyMs),
         SizedBox(height: 12),
@@ -163,7 +163,7 @@ class DiagnosticsScreen extends ConsumerWidget {
     final paramsPanel = SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label(context, 'CINÉMATIQUE DES AXES'),
+        _label(context, tr('CINÉMATIQUE DES AXES')),
         SizedBox(height: 12),
         // Table éditable branchée sur le config.yaml réel de la carte. Les
         // valeurs étaient auparavant codées en dur ici et avaient dérivé de la
@@ -378,10 +378,10 @@ class _AmdecRiskPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final fc = context.fc;
     final risks = [
-      ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
-      ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
-      ('Latence UDP', (latencyMs / 200).clamp(0.0, 1.0), 'Faible'),
-      ('Perte de Pas (Open Loop)', 0.05, 'Faible'),
+      (tr('Gimbal Lock (A≈0°)'), singularityRisk, 'Critique'),
+      (tr('Surchauffe ESP32'), (temp - 30) / 40, 'Moyen'),
+      (tr('Latence UDP'), (latencyMs / 200).clamp(0.0, 1.0), 'Faible'),
+      (tr('Perte de Pas (Open Loop)'), 0.05, 'Faible'),
     ];
 
     return GlassPanel(
@@ -430,9 +430,9 @@ class _MaintenanceForecastCard extends StatelessWidget {
           Text(tr('PRÉVISION MAINTENANCE'), style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900)),
         ]),
         SizedBox(height: 12),
-        _maintRow(context, 'Graissage Vis à Billes', 85, '12j'),
-        _maintRow(context, 'Tension Courroies', 42, '45j'),
-        _maintRow(context, 'Calibration Trunnion', 95, '2j'),
+        _maintRow(context, tr('Graissage Vis à Billes'), 85, '12j'),
+        _maintRow(context, tr('Tension Courroies'), 42, '45j'),
+        _maintRow(context, tr('Calibration Trunnion'), 95, '2j'),
       ]),
     );
   }

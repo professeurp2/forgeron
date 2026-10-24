@@ -525,7 +525,7 @@ class _AiAssistantPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr('AGENT IA'),
+                  Text('AGENT IA',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textPrimary,
@@ -551,7 +551,7 @@ class _AiAssistantPage extends ConsumerWidget {
             return IconButton(
               icon: Icon(ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                   color: ttsOn ? fc.primary : fc.textSecondary, size: 20),
-              tooltip: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
+              tooltip: ttsOn ? tr('Lecture vocale activée') : tr('Lecture vocale'),
               onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
             );
           }),
@@ -1187,7 +1187,7 @@ class _StatusBadgeState extends State<_StatusBadge>
             },
           ),
           const SizedBox(width: 8),
-          Text(widget.label,
+          Text(tr(widget.label),
               style: TextStyle(
                   color: widget.color,
                   fontWeight: FontWeight.w900,

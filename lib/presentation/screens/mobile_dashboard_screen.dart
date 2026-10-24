@@ -422,7 +422,7 @@ class _ExecutionProgressPanel extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(children: [
                       _stat(Icons.tag, 'LIGNE', '${p.currentLine}/${p.totalLines}'),
-                      _stat(Icons.timer_outlined, 'ÉCOULÉ',
+                      _stat(Icons.timer_outlined, tr('ÉCOULÉ'),
                           formatDuration(p.elapsed)),
                       _stat(Icons.hourglass_bottom_rounded, 'RESTANT',
                           eta != null ? formatDuration(eta) : '—'),

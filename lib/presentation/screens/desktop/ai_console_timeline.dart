@@ -7,6 +7,7 @@ import 'package:flutter/material.dart' show Colors, Icons, SelectableText;
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Le fil de la console IA : bulles, étapes d'outils et indicateurs vivants.
 ///
@@ -106,9 +107,12 @@ const _toolLabels = <String, String>{
   'open_gcode_window': 'Ouverture du G-code dans une fenêtre',
 };
 
+/// La table ci-dessus est `const` : la traduction se fait ici, au moment de
+/// lire le libellé, sinon elle serait figée à la compilation.
 String friendlyToolLabel(String toolName) =>
-    _toolLabels[toolName] ??
-    toolName
+    _toolLabels[toolName] != null
+        ? tr(_toolLabels[toolName]!)
+        : toolName
         .replaceAll('_', ' ')
         .replaceFirstMapped(RegExp('^.'), (m) => m.group(0)!.toUpperCase());
 
@@ -256,7 +260,7 @@ class _LiveStatusLineState extends State<LiveStatusLine>
             Text(' · ', style: style),
           ],
           if (widget.tokens > 0) ...[
-            Text('${formatTokens(widget.tokens)} jetons', style: style),
+            Text(tr('{} jetons', [formatTokens(widget.tokens)]), style: style),
             Text(' · ', style: style),
           ],
           Flexible(
@@ -540,7 +544,7 @@ class _StepRowState extends State<StepRow> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'durée : ${formatDuration(step.toolDuration!)}',
+                      tr('durée : {}', [formatDuration(step.toolDuration!)]),
                       style: TextStyle(color: fc.textDisabled, fontSize: 10),
                     ),
                   ),

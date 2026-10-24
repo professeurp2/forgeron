@@ -10,6 +10,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
 import 'ai_sub_window_content.dart';
 import 'ai_viewer_windows.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Racine Dart d'une fenêtre ouverte par `AiWindowLauncher` — un second
 /// moteur Flutter, indépendant de [ForgeronApp] (voir main.dart). Elle ne
@@ -135,8 +136,8 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
       case 'toolpath':
         return ToolpathWindow(payload: _payload);
       default:
-        return const ScaffoldPage(
-          content: Center(child: Text('Fenêtre inconnue.')),
+        return ScaffoldPage(
+          content: Center(child: Text(tr('Fenêtre inconnue.'))),
         );
     }
   }

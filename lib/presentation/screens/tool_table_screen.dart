@@ -153,7 +153,7 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen> {
           ),
           const SizedBox(width: 8),
         ],
-        Text(tr(count > 1 ? '{} outils' : '{} outil', [count]),
+        Text(tr(count > 1 ? tr('{} outils') : tr('{} outil'), [count]),
             style: TextStyle(
                 color: fc.textDisabled,
                 fontSize: 11,
@@ -461,7 +461,7 @@ class _ToolDetailPanel extends ConsumerWidget {
                       if (tool.flutes != null)
                         _paramCard(context, 'TAILLES', '${tool.flutes}', ''),
                       if (tool.material != null)
-                        _paramCard(context, 'MATIÈRE', tool.material!, ''),
+                        _paramCard(context, tr('MATIÈRE'), tool.material!, ''),
                     ],
                   ),
                 ],
@@ -473,7 +473,7 @@ class _ToolDetailPanel extends ConsumerWidget {
                 // Numérotation du FICHIER SOURCE, pas du programme affiché
                 // dans l'espace de travail : celui-ci est la version adaptée,
                 // dont les lignes ont été renumérotées.
-                _row(fc, 'Ligne (fichier d\'origine)',
+                _row(fc, tr('Ligne (fichier d\'origine)'),
                     '${tool.firstChangeLine + 1}'),
 
                 if (tool.spindleSpeed != null) ...[

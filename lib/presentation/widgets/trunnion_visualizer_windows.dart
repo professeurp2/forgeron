@@ -10,6 +10,7 @@ import '../../application/providers/theme_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Windows** (`webview_windows` / WebView2).
 ///
@@ -216,7 +217,7 @@ class _WindowsTrunnionVisualizerState
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            'Simulateur 3D indisponible\n$_error',
+            tr('Simulateur 3D indisponible\n{}', [_error]),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11),
           ),

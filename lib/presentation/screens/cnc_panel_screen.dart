@@ -42,7 +42,7 @@ extension CncOperatingModeExt on CncOperatingMode {
       case CncOperatingMode.auto: return 'AUTO';
       case CncOperatingMode.mdi: return 'MDI';
       case CncOperatingMode.mem: return 'MEM';
-      case CncOperatingMode.jog: return 'JOG';
+      case CncOperatingMode.jog: return tr('JOG');
       case CncOperatingMode.handle: return 'HANDLE';
     }
   }
@@ -382,9 +382,9 @@ class _LcdDisplayColumn extends StatelessWidget {
                             children: [
                               _modalRow(context, 'WCS', state?.activeWCS ?? 'G54'),
                               _modalRow(context, 'OUTIL', 'T${state?.activeToolNum ?? 0}'),
-                              _modalRow(context, 'F réel',
+                              _modalRow(context, tr('F réel'),
                                   '${state?.feedrate.toInt() ?? 0}', unit: 'mm/min'),
-                              _modalRow(context, 'S réel',
+                              _modalRow(context, tr('S réel'),
                                   '${state?.spindleSpeed.toInt() ?? 0}', unit: 'RPM'),
                               Divider(color: context.fc.lcdBorder, height: 6),
                               _overrideRow(context, 'F%', state?.overrides != null ? state!.overrides[0] : 100, context.fc.primary),
@@ -735,10 +735,10 @@ class _OverridePanelState extends ConsumerState<_OverridePanel> {
       title: tr('CORRECTIONS (OVERRIDES)'),
       child: Column(
         children: [
-          _overrideRow('AVANCE  F%', _feedOverride, context.fc.primary,
+          _overrideRow(tr('AVANCE  F%'), _feedOverride, context.fc.primary,
               () => _adjustFeed(10), () => _adjustFeed(-10), () => _adjustFeed(1), () => _adjustFeed(-1)),
           SizedBox(height: 6),
-          _overrideRow('BROCHE  S%', _spindleOverride, context.fc.secondary,
+          _overrideRow(tr('BROCHE  S%'), _spindleOverride, context.fc.secondary,
               () => _adjustSpindle(10), () => _adjustSpindle(-10), () => _adjustSpindle(1), () => _adjustSpindle(-1)),
         ],
       ),

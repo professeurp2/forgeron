@@ -30,6 +30,7 @@ import '../../widgets/trunnion_visualizer.dart';
 import '../../widgets/viewer_scene.dart';
 import '../ai_agent_settings_screen.dart';
 import 'ai_console_timeline.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Console de l'agent IA — desktop.
 ///
@@ -132,8 +133,8 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
           },
         );
     if (!ok) {
-      await _warn('Reconnaissance vocale indisponible',
-          'Aucun micro détecté sur cet appareil.');
+      await _warn(tr('Reconnaissance vocale indisponible'),
+          tr('Aucun micro détecté sur cet appareil.'));
       return;
     }
     setState(() => _listening = true);
@@ -171,7 +172,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
 
   Future<void> _speak(String text) async {
     final clean = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), ' bloc de code ')
+        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
         .replaceAll(RegExp(r'[*_`#>]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -218,7 +219,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (file == null) return;
       final bytes = await file.readAsBytes();
       if (bytes.length > 8 * 1024 * 1024) {
-        await _warn('Image trop lourde', '8 Mo maximum.');
+        await _warn(tr('Image trop lourde'), tr('8 Mo maximum.'));
         return;
       }
       if (!mounted) return;
@@ -248,7 +249,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['step', 'stp'],
-      dialogTitle: 'Charger une pièce (STEP)',
+      dialogTitle: tr('Charger une pièce (STEP)'),
     );
     final path = result?.files.single.path;
     if (path == null) return; // annulé
@@ -286,18 +287,17 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     final ok = await fluent.showDialog<bool>(
       context: context,
       builder: (ctx) => fluent.ContentDialog(
-        title: const Text('Effacer la discussion ?'),
-        content: const Text(
-            'Les messages et les étapes de cette discussion seront perdus. '
-            'Les autres discussions ne sont pas touchées.'),
+        title: Text(tr('Effacer la discussion ?')),
+        content: Text(
+            tr('Les messages et les étapes de cette discussion seront perdus. Les autres discussions ne sont pas touchées.')),
         actions: [
           fluent.Button(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
+            child: Text(tr('Annuler')),
           ),
           fluent.FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Effacer'),
+            child: Text(tr('Effacer')),
           ),
         ],
       ),
@@ -452,7 +452,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
                 tokens: chat.turnTokens,
                 activity: chat.runningTool != null
                     ? friendlyToolLabel(chat.runningTool!)
-                    : (streaming ? 'Rédaction de la réponse…' : 'Réflexion…'),
+                    : (streaming ? tr('Rédaction de la réponse…') : tr('Réflexion…')),
               );
             }
             final item = items[i];
@@ -466,7 +466,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
             right: 18,
             bottom: 12,
             child: Tooltip(
-              message: 'Revenir en bas',
+              message: tr('Revenir en bas'),
               child: fluent.IconButton(
                 icon: Container(
                   padding: const EdgeInsets.all(7),
@@ -585,7 +585,7 @@ class _ConversationRail extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'DISCUSSIONS',
+                    tr('DISCUSSIONS'),
                     style: TextStyle(
                       color: fc.textDisabled,
                       fontSize: 10,
@@ -595,7 +595,7 @@ class _ConversationRail extends ConsumerWidget {
                   ),
                 ),
                 Tooltip(
-                  message: 'Masquer le panneau',
+                  message: tr('Masquer le panneau'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.chevron_left_rounded,
                         size: 18, color: fc.textSecondary),
@@ -609,14 +609,14 @@ class _ConversationRail extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: fluent.Button(
               onPressed: controller.newConversation,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(fluent.FluentIcons.add, size: 12),
                     SizedBox(width: 8),
-                    Text('Nouvelle discussion'),
+                    Text(tr('Nouvelle discussion')),
                   ],
                 ),
               ),
@@ -673,7 +673,7 @@ class _ConversationRail extends ConsumerWidget {
                           ),
                         ),
                         Tooltip(
-                          message: 'Supprimer',
+                          message: tr('Supprimer'),
                           child: fluent.IconButton(
                             icon: Icon(Icons.close_rounded,
                                 size: 13, color: fc.textDisabled),
@@ -696,7 +696,7 @@ class _ConversationRail extends ConsumerWidget {
               children: [
                 Expanded(child: _QuotaStrip(fc: fc)),
                 Tooltip(
-                  message: 'Effacer cette discussion',
+                  message: tr('Effacer cette discussion'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.delete_outline_rounded,
                         size: 16, color: fc.textSecondary),
@@ -704,7 +704,7 @@ class _ConversationRail extends ConsumerWidget {
                   ),
                 ),
                 Tooltip(
-                  message: 'Paramètres de l\'agent',
+                  message: tr('Paramètres de l\'agent'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.settings_outlined,
                         size: 16, color: fc.textSecondary),
@@ -781,7 +781,7 @@ class _Header extends ConsumerWidget {
         children: [
           if (!railOpen)
             Tooltip(
-              message: 'Afficher les discussions',
+              message: tr('Afficher les discussions'),
               child: fluent.IconButton(
                 icon: Icon(Icons.menu_rounded, size: 17, color: fc.textSecondary),
                 onPressed: onToggleRail,
@@ -816,7 +816,7 @@ class _Header extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                       fontSize: 13.5),
                 ),
-                Text('pipeline CAM · outils machine',
+                Text(tr('pipeline CAM · outils machine'),
                     style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
               ],
             ),
@@ -954,7 +954,7 @@ class _MessageBubble extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'Réponse interrompue.',
+                      tr('Réponse interrompue.'),
                       style: TextStyle(color: fc.warning, fontSize: 11),
                     ),
                   ),
@@ -1039,7 +1039,7 @@ class _CodeBlock extends StatelessWidget {
                 ),
                 const Spacer(),
                 Tooltip(
-                  message: 'Copier',
+                  message: tr('Copier'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.copy_rounded, size: 14, color: fc.textSecondary),
                     onPressed: () =>
@@ -1048,7 +1048,7 @@ class _CodeBlock extends StatelessWidget {
                 ),
                 if (isGcode) ...[
                   Tooltip(
-                    message: 'Enregistrer sous…',
+                    message: tr('Enregistrer sous…'),
                     child: fluent.IconButton(
                       icon: Icon(Icons.save_alt_rounded,
                           size: 14, color: fc.textSecondary),
@@ -1056,12 +1056,12 @@ class _CodeBlock extends StatelessWidget {
                     ),
                   ),
                   Tooltip(
-                    message: 'Ouvrir dans une fenêtre',
+                    message: tr('Ouvrir dans une fenêtre'),
                     child: fluent.IconButton(
                       icon: Icon(Icons.open_in_new_rounded,
                           size: 14, color: fc.textSecondary),
                       onPressed: () => AiWindowLauncher.openGcode(
-                        title: 'Programme de l\'agent',
+                        title: tr('Programme de l\'agent'),
                         content: block.text,
                       ),
                     ),
@@ -1101,7 +1101,7 @@ class _CodeBlock extends StatelessWidget {
     final suggested = 'agent_${now.year}${two(now.month)}${two(now.day)}_'
         '${two(now.hour)}${two(now.minute)}.nc';
     final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Enregistrer le programme',
+      dialogTitle: tr('Enregistrer le programme'),
       fileName: suggested,
       type: FileType.custom,
       allowedExtensions: ['nc', 'gcode', 'ngc', 'tap'],
@@ -1113,7 +1113,7 @@ class _CodeBlock extends StatelessWidget {
       if (!context.mounted) return;
       await fluent.displayInfoBar(context, builder: (ctx, close) {
         return fluent.InfoBar(
-          title: const Text('Écriture impossible'),
+          title: Text(tr('Écriture impossible')),
           content: Text('$e'),
           severity: fluent.InfoBarSeverity.error,
           onClose: close,
@@ -1180,7 +1180,7 @@ class _ConfirmationBar extends ConsumerWidget {
                             fontFamily: 'JetBrainsMono')),
                 ] else ...[
                 Text(
-                  'Confirmation requise : ${friendlyToolLabel(pending.toolName)}',
+                  tr('Confirmation requise : {}', [friendlyToolLabel(pending.toolName)]),
                   style: TextStyle(
                       color: fc.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -1204,12 +1204,12 @@ class _ConfirmationBar extends ConsumerWidget {
           const SizedBox(width: 10),
           fluent.Button(
             onPressed: controller.rejectPendingAction,
-            child: const Text('Refuser'),
+            child: Text(tr('Refuser')),
           ),
           const SizedBox(width: 8),
           fluent.FilledButton(
             onPressed: controller.confirmPendingAction,
-            child: const Text('Confirmer'),
+            child: Text(tr('Confirmer')),
           ),
         ],
       ),
@@ -1244,7 +1244,7 @@ class _ErrorBar extends ConsumerWidget {
           if (chat.awaitingNetwork)
             Padding(
               padding: const EdgeInsets.only(left: 10),
-              child: Text('reprise automatique armée',
+              child: Text(tr('reprise automatique armée'),
                   style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
             ),
           if (chat.retryable) ...[
@@ -1252,7 +1252,7 @@ class _ErrorBar extends ConsumerWidget {
             fluent.Button(
               onPressed: () =>
                   ref.read(aiAgentControllerProvider.notifier).retryNow(),
-              child: const Text('Réessayer'),
+              child: Text(tr('Réessayer')),
             ),
           ],
         ],
@@ -1320,7 +1320,7 @@ class _Composer extends StatelessWidget {
                           width: 44, height: 44, fit: BoxFit.cover),
                     ),
                     const SizedBox(width: 10),
-                    Text('Image jointe',
+                    Text(tr('Image jointe'),
                         style: TextStyle(color: fc.textSecondary, fontSize: 12)),
                     const SizedBox(width: 4),
                     fluent.IconButton(
@@ -1349,7 +1349,7 @@ class _Composer extends StatelessWidget {
             Row(
               children: [
                 Tooltip(
-                  message: 'Charger une pièce (fichier STEP)',
+                  message: tr('Charger une pièce (fichier STEP)'),
                   child: fluent.IconButton(
                     icon: Icon(fluent.FluentIcons.attach,
                         color: fc.textSecondary, size: 16),
@@ -1357,7 +1357,7 @@ class _Composer extends StatelessWidget {
                   ),
                 ),
                 Tooltip(
-                  message: 'Joindre une image',
+                  message: tr('Joindre une image'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.image_outlined, color: fc.textSecondary, size: 17),
                     onPressed: onAttachImage,
@@ -1377,7 +1377,7 @@ class _Composer extends StatelessWidget {
                 const Spacer(),
                 busy
                     ? Tooltip(
-                        message: 'Interrompre',
+                        message: tr('Interrompre'),
                         child: fluent.IconButton(
                           icon: Icon(Icons.stop_circle_outlined,
                               color: fc.danger, size: 20),
@@ -1435,7 +1435,7 @@ class _ArtifactsSidebar extends ConsumerWidget {
                 Icon(Icons.view_in_ar_rounded, size: 15, color: fc.secondary),
                 const SizedBox(width: 8),
                 Text(
-                  'APERÇUS 3D',
+                  tr('APERÇUS 3D'),
                   style: TextStyle(
                     color: fc.textPrimary,
                     fontSize: 10.5,
@@ -1589,7 +1589,7 @@ class _PaneCell extends ConsumerWidget {
     final artifacts = ref.watch(aiArtifactsProvider);
     final isStep = kind == AiDockedViewer.step;
     final title = switch (kind) {
-      AiDockedViewer.step => artifacts.step?.fileName ?? 'Pièce',
+      AiDockedViewer.step => artifacts.step?.fileName ?? tr('Pièce'),
       AiDockedViewer.toolpath => artifacts.gcode?.fileName ?? 'Parcours d\'outil',
       _ => 'Optimisation',
     };
@@ -1623,7 +1623,7 @@ class _PaneCell extends ConsumerWidget {
               ),
               if (kind == AiDockedViewer.step || kind == AiDockedViewer.toolpath)
                 Tooltip(
-                  message: 'Détacher dans une fenêtre',
+                  message: tr('Détacher dans une fenêtre'),
                   child: fluent.IconButton(
                     icon: Icon(Icons.open_in_new_rounded,
                         size: 14, color: fc.textSecondary),
@@ -1635,7 +1635,7 @@ class _PaneCell extends ConsumerWidget {
                         final preview = artifacts.step?.preview;
                         if (preview == null) return;
                         AiWindowLauncher.openStepPreview(
-                          title: 'Aperçu — ${artifacts.step!.fileName}',
+                          title: tr('Aperçu — {}', [artifacts.step!.fileName]),
                           mesh: preview.mesh,
                           info: {
                             'encombrement': preview.sizeLabel,
@@ -1647,7 +1647,7 @@ class _PaneCell extends ConsumerWidget {
                         final gcode = artifacts.gcode;
                         if (gcode == null) return;
                         AiWindowLauncher.openToolpath(
-                          title: 'Parcours — ${gcode.fileName}',
+                          title: tr('Parcours — {}', [gcode.fileName]),
                           gcodePath: gcode.path,
                         );
                       }
@@ -1655,7 +1655,7 @@ class _PaneCell extends ConsumerWidget {
                   ),
                 ),
               Tooltip(
-                message: 'Fermer ce panneau',
+                message: tr('Fermer ce panneau'),
                 child: fluent.IconButton(
                   icon: Icon(Icons.close_rounded, size: 14, color: fc.textDisabled),
                   onPressed: () => notifier.undock(kind),
@@ -1678,7 +1678,7 @@ class _PaneCell extends ConsumerWidget {
               // Emplacement réservé : aucun outil n'ouvre encore ce panneau, il
               // n'apparaît donc jamais — la grille sait déjà l'accueillir.
               _ => Center(
-                  child: Text('Optimisation — bientôt disponible',
+                  child: Text(tr('Optimisation — bientôt disponible'),
                       style: TextStyle(color: fc.textDisabled, fontSize: 11.5)),
                 ),
             },
@@ -1739,7 +1739,7 @@ class _DockedToolpathState extends ConsumerState<_DockedToolpath> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Text('Parcours illisible : $_error',
+          child: Text(tr('Parcours illisible : {}', [_error]),
               textAlign: TextAlign.center,
               style: TextStyle(color: widget.fc.danger, fontSize: 11.5)),
         ),
@@ -1816,18 +1816,18 @@ class _StepCard extends ConsumerWidget {
     final s = step;
     return _ArtifactCard(
       fc: fc,
-      title: 'Pièce',
+      title: tr('Pièce'),
       icon: Icons.category_outlined,
       children: [
         if (s == null) ...[
           Text(
-            'Aucune pièce chargée.',
+            tr('Aucune pièce chargée.'),
             style: TextStyle(color: fc.textDisabled, fontSize: 11.5),
           ),
           const SizedBox(height: 10),
           fluent.Button(
             onPressed: onPickStep,
-            child: const Text('Charger un STEP'),
+            child: Text(tr('Charger un STEP')),
           ),
         ] else ...[
           Text(
@@ -1845,7 +1845,7 @@ class _StepCard extends ConsumerWidget {
                     height: 12,
                     child: fluent.ProgressRing(strokeWidth: 1.6)),
                 const SizedBox(width: 8),
-                Text('Préparation de l\'aperçu…',
+                Text(tr('Préparation de l\'aperçu…'),
                     style: TextStyle(color: fc.textDisabled, fontSize: 11)),
               ],
             )
@@ -1864,7 +1864,7 @@ class _StepCard extends ConsumerWidget {
               onDock: () =>
                   ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step),
               onDetach: () => AiWindowLauncher.openStepPreview(
-                title: 'Aperçu — ${s.fileName}',
+                title: tr('Aperçu — {}', [s.fileName]),
                 mesh: s.preview!.mesh,
                 info: {
                   'encombrement': s.preview!.sizeLabel,
@@ -1891,12 +1891,12 @@ class _ToolpathCard extends ConsumerWidget {
     final g = gcode;
     return _ArtifactCard(
       fc: fc,
-      title: 'Parcours d\'outil',
+      title: tr('Parcours d\'outil'),
       icon: Icons.timeline_rounded,
       children: [
         if (g == null)
           Text(
-            'Disponible dès que l\'agent aura généré un programme.',
+            tr('Disponible dès que l\'agent aura généré un programme.'),
             style: TextStyle(color: fc.textDisabled, fontSize: 11.5, height: 1.4),
           )
         else ...[
@@ -1908,14 +1908,14 @@ class _ToolpathCard extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
-          if (g.operations != null) _kv(fc, 'opérations', '${g.operations}'),
+          if (g.operations != null) _kv(fc, tr('opérations'), '${g.operations}'),
           const SizedBox(height: 10),
           _ViewerActions(
             fc: fc,
             onDock: () =>
                 ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath),
             onDetach: () => AiWindowLauncher.openToolpath(
-              title: 'Parcours — ${g.fileName}',
+              title: tr('Parcours — {}', [g.fileName]),
               gcodePath: g.path,
             ),
           ),
@@ -1949,12 +1949,12 @@ class _ViewerActions extends StatelessWidget {
         Expanded(
           child: fluent.FilledButton(
             onPressed: onDock,
-            child: const Text('Afficher ici', style: TextStyle(fontSize: 12)),
+            child: Text(tr('Afficher ici'), style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(width: 6),
         Tooltip(
-          message: 'Ouvrir dans une fenêtre séparée',
+          message: tr('Ouvrir dans une fenêtre séparée'),
           child: fluent.Button(
             onPressed: onDetach,
             style: const fluent.ButtonStyle(
@@ -2032,30 +2032,28 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Du fichier STEP au G-code',
+                tr('Du fichier STEP au G-code'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
               ),
               const SizedBox(height: 8),
               Text(
-                'Charge une pièce : l\'agent l\'analyse, génère le programme et '
-                'ouvre l\'aperçu 3D. Chaque étape s\'affiche ici pendant qu\'elle '
-                'se fait.',
+                tr('Charge une pièce : l\'agent l\'analyse, génère le programme et ouvre l\'aperçu 3D. Chaque étape s\'affiche ici pendant qu\'elle se fait.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: fc.textSecondary, fontSize: 12.5, height: 1.6),
               ),
               const SizedBox(height: 20),
               fluent.FilledButton(
                 onPressed: onPickStep,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text('Charger un fichier STEP'),
+                  child: Text(tr('Charger un fichier STEP')),
                 ),
               ),
               const SizedBox(height: 22),
               Text(
-                'OU DEMANDE-LUI',
+                tr('OU DEMANDE-LUI'),
                 style: TextStyle(
                   color: fc.textDisabled,
                   fontSize: 9.5,
