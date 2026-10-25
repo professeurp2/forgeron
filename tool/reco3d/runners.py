@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Awaitable, Callable, List, Optional, Protocol
 
-from models import JobMode, JobStage, ScaleReference, ScaleType
+from models import JobMode, JobStage, ScaleReference
 
 StageCallback = Callable[[JobStage, float, str], Awaitable[None]]
 
@@ -187,19 +187,35 @@ class LocalEnginesRunner:
         stl_path = out_dir / "reconstruction.stl"
         step_path = out_dir / "reconstruction.step"
 
-        is_photo_mode = mode == JobMode.PHOTO
-        is_aruco_detected = declared_scale.scale_type in [ScaleType.ARUCO, ScaleType.CHARUCO]
+        # La détection d'échelle vient du MOTEUR (metrics.json), JAMAIS du type
+        # déclaré par l'opérateur : déclarer « aruco » ne vaut pas détecter une
+        # mire. Tant que la détection de mire n'est pas implémentée dans
+        # reconstruct.py, la clé "scale_detected" est absente => False, et la
+        # pièce reste « approximative » (cote non garantie) — exigence de
+        # docs/conception-photos-vers-step.md.
+        scale_detected = bool(metrics.get("scale_detected", False))
+        is_watertight = metrics.get("is_watertight")
+        applied_mm = metrics.get("scale_applied_mm", scale_mm)
+
+        notes: List[str] = []
+        if is_watertight is True:
+            notes.append("Maillage étanche, orienté machine (Z vertical, base à Z=0).")
+        elif is_watertight is False:
+            notes.append("Maillage NON étanche (trous non reconstruits) — à vérifier avant usinage.")
+        if scale_detected:
+            notes.append(f"Échelle mesurée par le moteur : {applied_mm} mm.")
+        else:
+            notes.append(
+                f"Échelle de normalisation appliquée par défaut (non mesurée) : {applied_mm} mm "
+                "— cote NON garantie."
+            )
 
         return RunnerResult(
             mesh_path=stl_path,
             step_path=step_path if step_path.exists() else None,
             engine=metrics.get("engine", "Forgeron Visual Hull (Marching Cubes + OCP)"),
             engine_version=metrics.get("engine_version", "1.0.0"),
-            scale_detected=is_photo_mode and is_aruco_detected,
+            scale_detected=scale_detected,
             facets_count=metrics.get("facets_count"),
-            notes=[
-                f"Modèle reconstruit à partir de photos réelles ({mode.value})",
-                f"Échelle appliquée : {metrics.get('scale_applied_mm', scale_mm)} mm",
-                "Maillage étanche orienté machine (axe Z vertical, base à Z=0)",
-            ],
+            notes=notes,
         )
