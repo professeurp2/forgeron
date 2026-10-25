@@ -45,6 +45,32 @@ class Reco3dClient {
     Duration timeout = const Duration(milliseconds: 600),
     int concurrency = 25,
   }) async {
+    // 1. Cibles rapides et fiables (mDNS, IP active du PC, hotspot Windows, localhost)
+    final fastCandidates = [
+      'http://192.168.88.94:8765',
+      'http://DESKTOP-24IDAFU.local:8765',
+      'http://desktop-24idafu:8765',
+      'http://192.168.137.1:8765',
+      'http://127.0.0.1:8765',
+      'http://10.0.2.2:8765',
+    ];
+
+    for (final url in fastCandidates) {
+      try {
+        final resp = await _client.get(Uri.parse('$url/health')).timeout(const Duration(milliseconds: 500));
+        if (resp.statusCode == 200 && resp.body.contains('"status":"ready"')) {
+          return url;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Découverte instantanée via Broadcast UDP (port 8766)
+    try {
+      final udpResult = await _discoverViaUdp();
+      if (udpResult != null) return udpResult;
+    } catch (_) {}
+
+    // 3. Balayage des sous-réseaux locaux IPv4
     try {
       final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
       for (final iface in interfaces) {
@@ -55,14 +81,12 @@ class Reco3dClient {
           if (parts.length != 4) continue;
           final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
 
-          // Priorités rapides : localhost, IP de la machine, gateway, cibles fréquentes
           final candidates = <String>[
-            'http://127.0.0.1:8765',
-            'http://$ip:8765',
+            'http://$prefix.94:8765',
             'http://$prefix.35:8765',
             'http://$prefix.104:8765',
             'http://$prefix.1:8765',
-            'http://$prefix.179:8765',
+            'http://$ip:8765',
           ];
 
           for (int i = 1; i <= 254; i++) {
@@ -92,6 +116,37 @@ class Reco3dClient {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<String?> _discoverViaUdp() async {
+    try {
+      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      socket.broadcastEnabled = true;
+      final data = utf8.encode('FORGERON_DISCOVER');
+      socket.send(data, InternetAddress('255.255.255.255'), 8766);
+
+      final completer = Completer<String?>();
+      final sub = socket.listen((event) {
+        if (event == RawSocketEvent.read) {
+          final dg = socket.receive();
+          if (dg != null) {
+            final msg = utf8.decode(dg.data, allowMalformed: true);
+            if (msg.contains('FORGERON_RECO3D')) {
+              if (!completer.isCompleted) {
+                completer.complete('http://${dg.address.address}:8765');
+              }
+            }
+          }
+        }
+      });
+
+      final res = await completer.future.timeout(const Duration(milliseconds: 800), onTimeout: () => null);
+      await sub.cancel();
+      socket.close();
+      return res;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Soumet un lot de photos ou une image conceptuelle.

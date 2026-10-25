@@ -138,15 +138,44 @@ async def gpu_worker() -> None:
             q.task_done()
 
 
+class DiscoveryProtocol(asyncio.DatagramProtocol):
+    """Répond aux paquets de découverte automatique UDP envoyés par l'application mobile."""
+
+    def connection_made(self, transport: asyncio.DatagramTransport):
+        self.transport = transport
+
+    def datagram_received(self, data: bytes, addr: tuple[str, int]):
+        msg = data.decode("utf-8", errors="ignore").strip()
+        if "FORGERON" in msg or "DISCOVER" in msg:
+            try:
+                self.transport.sendto(b"FORGERON_RECO3D:8765", addr)
+            except Exception:
+                pass
+
+
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
     global _queue
     _queue = asyncio.Queue()  # lié à la boucle d'événements du serveur
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     task = asyncio.create_task(gpu_worker())
+
+    udp_transport = None
+    try:
+        loop = asyncio.get_running_loop()
+        udp_transport, _ = await loop.create_datagram_endpoint(
+            lambda: DiscoveryProtocol(),
+            local_addr=("0.0.0.0", 8766),
+            allow_broadcast=True,
+        )
+    except Exception as e:
+        print(f"Discovery UDP port 8766 désactivé : {e}", file=sys.stderr)
+
     try:
         yield
     finally:
+        if udp_transport:
+            udp_transport.close()
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
