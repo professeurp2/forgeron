@@ -145,6 +145,7 @@ File d'attente : **un seul job GPU à la fois** (les reconstructions saturent la
 | **2 — Chaîne générative** | TRELLIS/SF3D ajouté comme 2ᵉ mode (GLB → même sortie), marquage « approximative » | Service à deux modes | Non |
 | **3 — Intégration Forgeron** | Écran de capture + client API + progression + remise à l'adaptateur | Chaîne mobile de bout en bout | Oui |
 | **4 — Durcissement** | Validation d'échelle sur étalon, cache des jobs, gestion du métal brillant, tolérances | Preuves chiffrées | Oui |
+| **5 — Scan en machine** | Caméras embarquées + rotation des axes A/C (tourne-table calibré) pour scanner un maître bridé, reconstruire en repère machine, puis usiner la repro. Voir §12. **Priorité : bring-up en simulation sur 1 ESP32 + 1 caméra ESP, sans câblage.** | Boucle de capture calibrée validée, puis gréement 5 caméras | Oui |
 
 **On commence par la phase 0** : c'est rapide, ça ne touche pas l'application, et ça lève la seule vraie inconnue avant de construire dessus.
 
@@ -157,6 +158,7 @@ File d'attente : **un seul job GPU à la fois** (les reconstructions saturent la
 | Phase 0 | Un STEP issu de photos est **ouvert et transformé en parcours** par l'adaptateur existant, OU l'échec est documenté et le chemin mesh→CAM décidé. Verdict écrit, avec la pièce test. |
 | Phase 1 | Sur une pièce étalon avec mire : écart dimensionnel **mesuré** (mm) ; le STEP porte son facteur d'échelle. |
 | Phase 3 | De bout en bout depuis le téléphone, sans ligne de commande, en moins de N minutes (N mesuré). |
+| Phase 5.0 (sim) | Sur 1 ESP32 + 1 caméra ESP, sans câblage : N poses (A,C) planifiées → N vues étiquetées {cam, A, C} capturées par HTTP → job reco3d → `reconstruct.py` ingère le jeu. Provenance marquée « simulation ». Aucun moteur, aucune broche. |
 | Toutes | Chaque STEP porte sa fiche de provenance ; aucune cote affichée comme sûre sans mire. |
 
 ---
@@ -182,3 +184,59 @@ Le spike prévu au §8 a été instrumenté et exécuté sur machine réelle via
 ### Décision d'architecture arrêtée (Jalon 0 validé) :
 1. **Flux interne Forgeron (fabrication) :** Le service `reco3d` transmet en priorité le **maillage nettoyé natif (STL/OBJ)** directement aux générateurs CAM (`mesh_profile` pour les révolutions, `dropcutter` / `gen_surface5` pour les formes libres).
 2. **Export STEP :** Le fichier `.step` tessellé reste produit en sortie secondaire pour l'exportation vers des logiciels de CAO externes (FreeCAD, SolidWorks), mais **n'est pas le pivot du calcul machine**.
+
+---
+
+## 12. Phase 5 — Scan en machine (caméras embarquées + axes A/C)
+
+Le maître à reproduire est **bridé sur la machine** ; on le scanne en tournant les axes **A et C** (et d'autres si besoin) **par angles connus**. L'idée est forte parce qu'elle règle d'un coup trois faiblesses :
+
+1. **Angles connus** : chaque vue a une pose exacte (encodeurs de la machine) → **photogrammétrie multi-vues calibrée**, pas du freehand. C'est ce qui manquait au Visual Hull / aux photos téléphone (angles inconnus → géométrie fausse).
+2. **Échelle** : la géométrie A/C + le montage caméra donnent une référence métrique.
+3. **Repère machine** : scanner le maître *déjà bridé* reconstruit la forme **dans le repère machine** → le **zéro pièce se dérive**, au lieu d'être deviné.
+
+> **Constat du 25/10/2026 (préalable à lever).** Le test de bout en bout a montré que le seul chemin maillage→G-code automatique est la **révolution** (`mesh_profile` + `gen_revolution`), qui **refuse les pièces scannées réelles** (3 essais, écarts 17–43 mm) ; `gen_surface5` prend une surface paramétrique et non un maillage, `dropcutter` n'a pas de pilote, et **rien ne relie un maillage scanné à un générateur 5 axes**. La Phase 5 suppose ce chaînon résolu (question ouverte §10.4). Aujourd'hui, aucune vérification X/Y/Z ni ajustement à l'enveloppe X80/Y150/Z110 ; seule la course de l'axe A est signalée, en commentaire.
+
+### 12.1 Priorité — bring-up en SIMULATION (1 ESP32 + 1 caméra ESP, zéro câblage)
+
+Objectif : valider la **boucle d'orchestration** sans machine réelle. **Aucun moteur, aucun driver, aucune broche.** Seulement un ESP32 sous FluidNC et une **ESP32-CAM sur le même AP** (cf. caméra existante, polling HTTP).
+
+Boucle, pour chaque pose `(A, C)` du plan :
+1. **Commander** le mouvement via WebSocket FluidNC.
+2. **Lire** la position rapportée (`?` → `MPos`/`WPos`, axes A/C). En simulation (pas de moteurs), FluidNC rapporte la position **commandée** (boucle ouverte) : c'est cet angle qui étiquette la vue.
+3. **Capturer** une image depuis l'ESP32-CAM (HTTP `/capture`).
+4. **Étiqueter** la vue `{cam_id, A, C, t}` et la stocker dans un job `reco3d`.
+
+Ce que la simulation **prouve** : réseau/AP joignable, capture HTTP, commande + relecture d'angle, format du jeu de vues calibrées (`views.json`), suivi de progression, ingestion par `reconstruct.py`.
+Ce qu'elle **ne prouve pas** : la qualité de reconstruction — une seule caméra et pas de vraie rotation → vues quasi identiques. La provenance porte explicitement **« simulation : 1 caméra, rotation non réelle »**.
+
+### 12.2 Infrastructure des caméras (abstraction extensible 1 → 5)
+
+- **`cameras.json`** : liste `{id, url (ex. http://192.168.0.51/capture), pose_extrinseque (R,t) vs zéro machine, intrinseques}` + flag `simulation`. **Un seul format** : 1 caméra en sim, 5 en production.
+- **`CameraSource`** : récupère un JPEG d'une caméra par HTTP (polling, comme l'ESP32-CAM actuelle ; alimentation séparée).
+- **`ControllerLink`** : parle à FluidNC (WebSocket sur l'AP) : commander A/C, lire la position. En sim, angle commandé = angle étiqueté.
+- **`CapturePlan`** : liste de poses `(A, C)` [+ autres axes si besoin] ; pour chaque → *move → settle → capturer toutes les caméras → étiqueter*.
+- **Sortie** : job `reco3d` avec `photos/` étiquetées `(cam, A, C)` + `views.json` (poses connues) → alimente la reconstruction en **multi-vues calibrées**.
+
+### 12.3 Reconstruction en repère machine → zéro pièce dérivé
+
+Poses connues + maître bridé ⇒ reconstruction directement en repère machine ⇒ le **zéro pièce se calcule** (plus de convention `X/Y plateau, Z sommet`). C'est ce qui rend sûr l'usinage de la reproduction. Précision bornée par le scan → toujours marqué **« approximative »**.
+
+### 12.4 Sécurité (reprend §4 et l'E-STOP matériel)
+
+- Scan **broche à l'arrêt**, machine **propre** (ni copeaux ni huile), **avant** tout usinage.
+- **Occlusion par les brides** : les faces serrées ne sont pas vues → trous **signalés**, jamais comblés.
+- **Métal brillant** → matifier (§4.3).
+- **Calibration caméras** (poses + intrinsèques) stable dans le temps — sensible à la dérive thermique.
+- L'usinage de la repro reste soumis aux garde-fous : **ajustement à l'enveloppe X80/Y150/Z110**, vérification X/Y/Z comme l'axe A, zéro **validé**, pause **M0**.
+
+### 12.5 Jalons de la Phase 5
+
+| Jalon | Contenu | Matériel |
+|---|---|---|
+| **5.0 (priorité)** | Boucle de capture en **simulation** : commande-angle → capture → étiquette → job → `reconstruct.py` ingère. | 1 ESP32 (FluidNC) + 1 ESP32-CAM, **sans câblage** |
+| **5.1** | Multi-caméras via l'abstraction (1 → 5), capture synchronisée. | 1 ESP32 + jusqu'à 5 ESP32-CAM |
+| **5.2** | **Calibration extrinsèque** (poses caméras vs zéro machine) + reconstruction **en repère machine**. | Machine montée |
+| **5.3** | **Zéro pièce dérivé** + enchaînement reconstruction → **CAM 5 axes** (dépend du chaînon maillage→`gen_surface5`, §10.4). | Machine complète |
+
+Le gréement caméras est la partie facile ; le dur est le logiciel des jalons 5.2–5.3 et le chaînon maillage→5 axes manquant.
