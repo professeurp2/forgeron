@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/camera_provider.dart';
@@ -103,6 +104,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
       // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
       ref.read(discoveryProvider.notifier).scan(autoConnect: true);
+
+      // 3. Si l'activité Android a été recréée pendant la prise de photo Scan 3D, rouvrir l'écran
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('on_scan3d_screen') == true && mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+          );
+        }
+      } catch (_) {}
     });
   }
 

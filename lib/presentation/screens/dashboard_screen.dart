@@ -24,6 +24,7 @@ import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/gcode_editor_dialog.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../application/providers/ai_artifacts_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -224,6 +225,7 @@ class _CenterZone extends ConsumerWidget {
                           .resolveToolpathIndex(state?.activeLineIndex ?? 0),
                       showVectors: ref.watch(showVectorsProvider),
                       machineLimits: ref.watch(machineTravelProvider),
+                      partMesh: ref.watch(aiArtifactsProvider).step?.preview?.mesh,
                     ),
                   // Sélecteur CAM / 3D quand une caméra est configurée ;
                   // sinon le simple libellé de la vue.

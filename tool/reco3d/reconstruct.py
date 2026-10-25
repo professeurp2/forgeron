@@ -116,20 +116,27 @@ def build_3d_volume(masks: list[np.ndarray], grid_size: int = 64) -> np.ndarray:
     return vol
 
 
-def export_step_from_mesh(mesh: trimesh.Trimesh, step_path: Path) -> None:
-    """Exporte un maillage triangulé vers un STEP solide facetté via OCP."""
+def export_step_from_mesh(mesh: trimesh.Trimesh, step_path: Path, max_faces: int = 1500) -> None:
+    """Exporte un maillage triangulé vers un STEP solide facetté continu via OCP."""
     try:
         from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon, BRepBuilderAPI_Sewing
         from OCP.gp import gp_Pnt
         from step_io import write_step
 
-        sewing = BRepBuilderAPI_Sewing(1e-2)
-        # Échantillonner pour garder un STEP fluide et léger (< 800 faces)
-        stride = max(1, len(mesh.faces) // 600)
-        sample_faces = mesh.faces[::stride]
+        # Simplification continue de surface (Quadric Decimation) pour préserver
+        # la topologie fermée et connexe sans discontinuités ni trous.
         verts = mesh.vertices
+        faces = mesh.faces
+        if len(faces) > max_faces:
+            try:
+                import fast_simplification
+                reduction = 1.0 - (max_faces / len(faces))
+                verts, faces = fast_simplification.simplify(verts, faces, target_reduction=reduction)
+            except Exception as e_simp:
+                print(f"Avertissement décimation fast_simplification : {e_simp}", file=sys.stderr)
 
-        for face in sample_faces:
+        sewing = BRepBuilderAPI_Sewing(1e-2)
+        for face in faces:
             p1 = gp_Pnt(float(verts[face[0]][0]), float(verts[face[0]][1]), float(verts[face[0]][2]))
             p2 = gp_Pnt(float(verts[face[1]][0]), float(verts[face[1]][1]), float(verts[face[1]][2]))
             p3 = gp_Pnt(float(verts[face[2]][0]), float(verts[face[2]][1]), float(verts[face[2]][2]))

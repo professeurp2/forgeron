@@ -46,7 +46,7 @@ flowchart LR
 | Besoin | Moteur | Pourquoi ce choix |
 |---|---|---|
 | **Pièce réelle (métrique)** | **Meshroom** (AliceVision, CLI `meshroom_batch`) + CUDA | 100 % mesure, n'invente aucune géométrie cachée → conforme à *« jamais de données inventées »*. Repli scriptable : **COLMAP + OpenMVS**. |
-| **Forme depuis images concept** | **TRELLIS** (Microsoft) en primaire · **SF3D** (Stability) en mode rapide | TRELLIS = meilleure géométrie locale sur peu d'images ; SF3D quasi instantané pour les essais. Les deux tiennent dans 8 Go. |
+| **Forme depuis images concept** | **TRELLIS** (Microsoft) en primaire · **SF3D** (Stability) en mode rapide | Modèle **IA génératif** obligatoire. TRELLIS = meilleure géométrie locale sur peu d'images ; SF3D quasi instantané pour les essais. Les deux tiennent dans 8 Go. **Interdit de substituer une méthode conventionnelle** (Visual Hull / découpe de silhouettes / Marching Cubes sur silhouettes) : c'est précisément ce qu'on ne veut pas. |
 | **Nettoyage du maillage** | **Open3D** / **MeshLab** (CLI) | Décimation, bouchage de trous, lissage, suppression des îlots avant la CAO. |
 | **Maillage → STEP** | **FreeCAD 1.0 headless** (`freecadcmd` + script Python) | *shape-from-mesh* → solide → export STEP, sans interface. |
 | **Service** | **FastAPI** (Python) sur le PC | API HTTP, file de jobs, un seul job GPU à la fois. |
@@ -79,8 +79,11 @@ images ─▶ TRELLIS (ou SF3D) ─▶ maillage .glb
        ─▶ Open3D (nettoyage) ─▶ FreeCAD headless ─▶ .step
 ```
 
+- **Moteur = modèle IA uniquement** (TRELLIS en primaire, SF3D en repli rapide). **Aucune méthode conventionnelle de substitution** : ni Visual Hull, ni découpe de silhouettes, ni Marching Cubes sur silhouettes. Si le modèle IA n'est pas disponible, le mode concept est désactivé avec un message — on ne le remplace pas par du classique.
 - **Rapide**, utile pour l'exploration de forme (usage forgeron : pièces organiques, ornements).
 - **Forme inventée, sans échelle fiable** : la pièce est marquée **« forme approximative »**. L'opérateur fixe la cote réelle d'une arête dans Forgeron avant tout usinage. À ne pas utiliser pour une pièce fonctionnelle à cote.
+
+> **Écart constaté le 25/10/2026.** La première implémentation (`tool/reco3d/reconstruct.py`, mode `gen`) utilise un **Visual Hull conventionnel** (silhouettes + Marching Cubes), **pas** un modèle IA. C'est contraire à la décision. **À remplacer par TRELLIS (primaire) / SF3D (repli).** Le mode `photo` (Meshroom, photogrammétrie métrique) est conservé tel quel : la pièce réelle à cote ne doit pas passer par un modèle IA qui invente la géométrie.
 
 ---
 

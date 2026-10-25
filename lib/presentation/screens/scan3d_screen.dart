@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../application/providers/ai_agent_provider.dart';
+import '../../application/providers/ai_artifacts_provider.dart';
 import '../../application/providers/reco3d_provider.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
+import 'ai_assistant_screen.dart';
+import 'main_scaffold.dart' show selectedNavIndexProvider;
 
 class Scan3dScreen extends ConsumerStatefulWidget {
   const Scan3dScreen({super.key});
@@ -33,6 +38,18 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
     super.initState();
     _urlController.text = ref.read(reco3dServerUrlProvider);
     _checkLostData();
+    _markScreenActive(true);
+  }
+
+  Future<void> _markScreenActive(bool active) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (active) {
+        await prefs.setBool('on_scan3d_screen', true);
+      } else {
+        await prefs.remove('on_scan3d_screen');
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkLostData() async {
@@ -116,6 +133,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
 
   @override
   void dispose() {
+    _markScreenActive(false);
     _scaleController.dispose();
     _urlController.dispose();
     super.dispose();
@@ -123,6 +141,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
 
   Future<void> _pickPhotos(ImageSource source) async {
     try {
+      await _markScreenActive(true);
       if (source == ImageSource.camera) {
         final photo = await _picker.pickImage(
           source: source,
@@ -617,12 +636,60 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          if (_selectedMode == 'photo') ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tr('Conseil Pièce réelle : Prenez 20 à 40 photos avec votre appareil photo habituel, puis touchez « Importer galerie » pour tout sélectionner en un clic.'),
+                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickPhotos(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt, size: 16),
+                  label: Text(tr('Prendre photo'), style: const TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _pickPhotos(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library, size: 16),
+                  label: Text(tr('Importer galerie'), style: const TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.fc.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           if (_selectedPhotos.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  tr('Aucune photo. Cliquez sur l\'appareil pour démarrer la capture.'),
+                  tr('Aucune photo ajoutée.'),
                   style: const TextStyle(fontSize: 13, color: Colors.white54),
                 ),
               ),
@@ -810,20 +877,71 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           const SizedBox(height: 16),
           // Bouton d'action directe vers l'adaptateur de fabrication
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    tr('Maillage {} transmis au visualiseur et au CAM.', [scanState.downloadedMeshFile?.path.split('/').last ?? '']),
-                  ),
-                ),
+            onPressed: () async {
+              final stepFile = scanState.downloadedStepFile;
+              final meshFile = scanState.downloadedMeshFile;
+              final targetFile = stepFile ?? meshFile;
+              if (targetFile == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(tr('Aucun fichier 3D disponible.'))),
+                );
+                return;
+              }
+
+              // 1. Charger la pièce dans le magasin d'artefacts et ouvrir l'aperçu 3D
+              if (stepFile != null) {
+                await ref.read(aiArtifactsProvider.notifier).loadStep(stepFile.path);
+                ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
+              }
+
+              if (!mounted) return;
+
+              // 2. Transmettre à l'agent IA CAM
+              final prompt = tr(
+                'Charge ce fichier STEP et prépare le G-code de finition.\n\nFichier : {}',
+                [targetFile.path],
               );
+              ref.read(aiAgentControllerProvider.notifier).sendUserMessage(prompt);
+
+              // 3. Basculer vers l'écran CAM / Agent IA
+              final isDesktop = MediaQuery.of(context).size.width >= 900;
+              if (isDesktop) {
+                ref.read(selectedNavIndexProvider.notifier).state = 6; // Onglet Agent IA (AiConsoleScreen)
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: SafeArea(child: AiAssistantScreen(embedded: false)),
+                    ),
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.precision_manufacturing),
             label: Text(tr('Ouvrir dans l\'adaptateur d\'usinage (CAM)')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade700,
               padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final stepFile = scanState.downloadedStepFile;
+              if (stepFile != null) {
+                await ref.read(aiArtifactsProvider.notifier).loadStep(stepFile.path);
+                ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
+              }
+              if (!mounted) return;
+              ref.read(selectedNavIndexProvider.notifier).state = 0; // Tableau de bord 3D
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.view_in_ar),
+            label: Text(tr('Voir sur le plateau 3D (Tableau de bord)')),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
         ],

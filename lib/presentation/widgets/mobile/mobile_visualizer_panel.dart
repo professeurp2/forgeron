@@ -11,6 +11,7 @@ import '../trunnion_visualizer.dart';
 import '../camera_view.dart';
 import '../visualizer_mode_toggle.dart';
 import '../../../core/i18n/app_localizations.dart';
+import '../../../application/providers/ai_artifacts_provider.dart';
 
 /// Panneau du visualiseur pour mobile. Il porte deux vues qui occupent le même
 /// emplacement : la **caméra** (ESP32-CAM, vue par défaut dès qu'elle est
@@ -105,6 +106,7 @@ Widget buildTrunnionView(WidgetRef ref, bool showVectors) {
     activeIndex: gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
     showVectors: showVectors,
     machineLimits: ref.watch(machineTravelProvider),
+    partMesh: ref.watch(aiArtifactsProvider).step?.preview?.mesh,
   );
 }
 
