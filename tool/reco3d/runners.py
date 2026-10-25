@@ -157,8 +157,14 @@ class LocalEnginesRunner:
                 if len(parts) == 4:
                     _, stg_str, pct_str, msg = parts
                     stg = stage_map.get(stg_str, JobStage.QUEUED)
+                    # Ne pas publier DONE prématurément tant que les fichiers ne sont pas enregistrés dans service.py
+                    if stg == JobStage.DONE:
+                        stg = JobStage.POSTPROCESSING
+                        pct_val = min(float(pct_str), 99.0)
+                    else:
+                        pct_val = float(pct_str)
                     try:
-                        await on_stage(stg, float(pct_str), msg)
+                        await on_stage(stg, pct_val, msg)
                     except Exception:
                         pass
 

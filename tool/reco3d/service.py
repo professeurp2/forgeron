@@ -234,11 +234,18 @@ async def job_status(job_id: str) -> JobStatusResponse:
 @app.get("/jobs/{job_id}/result")
 async def job_result(job_id: str, format: str = "mesh"):
     job = _job_or_404(job_id)
-    if job.stage != JobStage.DONE:
-        raise HTTPException(409, f"Job non terminé (état : {job.stage.value}).")
     key = "step" if format.lower() == "step" else "mesh"
     path = job.output_files.get(key)
     if not path or not path.exists():
+        candidate_filename = "reconstruction.step" if key == "step" else "reconstruction.stl"
+        candidate_path = job.job_dir / "outputs" / candidate_filename
+        if candidate_path.exists():
+            path = candidate_path
+            job.output_files[key] = path
+
+    if not path or not path.exists():
+        if job.stage != JobStage.DONE:
+            raise HTTPException(409, f"Job non terminé (état : {job.stage.value}).")
         raise HTTPException(404, f"Aucune sortie « {key} » pour ce job.")
     media = "application/step" if key == "step" else "application/octet-stream"
     return FileResponse(str(path), filename=path.name, media_type=media)
@@ -247,6 +254,15 @@ async def job_result(job_id: str, format: str = "mesh"):
 @app.get("/jobs/{job_id}/provenance", response_model=ProvenanceInfo)
 async def job_provenance(job_id: str) -> ProvenanceInfo:
     job = _job_or_404(job_id)
+    if not job.provenance:
+        prov_file = job.job_dir / "outputs" / f"{job.job_id}_provenance.json"
+        if prov_file.exists():
+            try:
+                import json
+                data = json.loads(prov_file.read_text(encoding="utf-8"))
+                job.provenance = ProvenanceInfo(**data)
+            except Exception:
+                pass
     if not job.provenance:
         raise HTTPException(409, "Provenance disponible seulement une fois le job terminé.")
     return job.provenance

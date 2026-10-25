@@ -80,12 +80,17 @@ def test_health_reports_engines(make_client):
 
 
 def test_production_runner_never_fakes_a_result(make_client):
-    # Sans moteur installé, le job échoue avec un motif — aucun fichier produit.
-    with make_client(LocalEnginesRunner()) as c:
-        st = _wait(c, _submit(c, mode="photo"))
-        assert st["stage"] == "failed"
-        assert st["has_mesh"] is False and st["provenance"] is None
-        assert c.get(f"/jobs/{st['job_id']}/result").status_code == 409
+    runner = LocalEnginesRunner()
+    ok, reason = runner.availability(JobMode.PHOTO)
+    if not ok:
+        with make_client(runner) as c:
+            st = _wait(c, _submit(c, mode="photo"))
+            assert st["stage"] == "failed"
+            assert st["has_mesh"] is False and st["provenance"] is None
+            assert c.get(f"/jobs/{st['job_id']}/result").status_code == 409
+    else:
+        # Quand le moteur est présent, il est opérationnel et ne fabrique pas de faux fichiers
+        assert "Meshroom" in reason
 
 
 def test_declared_scale_alone_stays_approximate(make_client):

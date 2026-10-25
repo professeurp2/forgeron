@@ -137,25 +137,41 @@ class Reco3dScanNotifier extends StateNotifier<Reco3dScanState> {
         },
       );
 
-      // Récupération de la fiche de provenance
-      Reco3dProvenance? prov;
-      try {
-        prov = await client.getProvenance(uri, jobCreated.jobId);
-      } catch (_) {
-        prov = finalStatus.provenance;
+      // Récupération de la fiche de provenance (avec retentative)
+      Reco3dProvenance? prov = finalStatus.provenance;
+      for (int i = 0; i < 3; i++) {
+        try {
+          prov = await client.getProvenance(uri, jobCreated.jobId);
+          break;
+        } catch (_) {
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+        }
       }
 
       // Téléchargement du maillage natif (flux de fabrication direct validé au Jalon 0)
       final destMesh = File('${storageDir.path}/${jobCreated.jobId}.stl');
-      await client.downloadResult(uri, jobCreated.jobId, format: 'mesh', destination: destMesh);
+      for (int i = 0; i < 4; i++) {
+        try {
+          await client.downloadResult(uri, jobCreated.jobId, format: 'mesh', destination: destMesh);
+          break;
+        } catch (e) {
+          if (i == 3) rethrow;
+          await Future<void>.delayed(const Duration(milliseconds: 700));
+        }
+      }
 
       // Téléchargement optionnel du STEP s'il est produit
       File? destStep;
       if (finalStatus.hasStep) {
-        try {
-          destStep = File('${storageDir.path}/${jobCreated.jobId}.step');
-          await client.downloadResult(uri, jobCreated.jobId, format: 'step', destination: destStep);
-        } catch (_) {}
+        for (int i = 0; i < 3; i++) {
+          try {
+            destStep = File('${storageDir.path}/${jobCreated.jobId}.step');
+            await client.downloadResult(uri, jobCreated.jobId, format: 'step', destination: destStep);
+            break;
+          } catch (_) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+          }
+        }
       }
 
       state = state.copyWith(

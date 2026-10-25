@@ -192,7 +192,13 @@ def run_meshroom_pipeline(meshroom_bin: Path, photos_dir: Path, out_dir: Path) -
 
     proc.wait()
     if proc.returncode != 0:
-        raise RuntimeError(f"Échec de l'exécution Meshroom (code {proc.returncode})")
+        photos_count = len([p for p in photos_dir.iterdir() if p.suffix.lower() in [".jpg", ".jpeg", ".png"]])
+        raise RuntimeError(
+            f"Échec photogrammétrie (Meshroom code {proc.returncode}) : "
+            f"Nombre de photos ({photos_count}) ou recouvrement insuffisant pour trianguler l'objet (échec StructureFromMotion). "
+            f"Pour la 'Pièce réelle', prévoyez 20 à 40 photos tout autour de l'objet avec 60% de recouvrement. "
+            f"Pour 1 à 4 photos, sélectionnez l'onglet 'Forme concept (Génératif)'."
+        )
 
     # Recherche du maillage produit (OBJ)
     obj_candidates = list(meshroom_out.glob("**/texturedMesh.obj")) + list(meshroom_out.glob("**/*.obj"))

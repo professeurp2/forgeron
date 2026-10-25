@@ -176,17 +176,42 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
       return;
     }
 
-    // Avertissement sur le nombre de photos pour la photogrammétrie
-    if (_selectedMode == 'photo' && _selectedPhotos.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 4),
-          backgroundColor: Colors.amber.shade900,
-          content: Text(
-            tr('Pour la pièce réelle (photogrammétrie), prévoyez 20 à 40 photos tout autour. Pour 1 à 4 photos de concept, utilisez l\'onglet "Forme concept (Génératif)".'),
+    // Avertissement interactif sur le nombre de photos pour la photogrammétrie dense
+    if (_selectedMode == 'photo' && _selectedPhotos.length < 15) {
+      final shouldSwitch = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.amber),
+              const SizedBox(width: 8),
+              Expanded(child: Text(tr('Photogrammétrie : photos insuffisantes'))),
+            ],
           ),
+          content: Text(
+            '${tr("Le mode Pièce réelle (Meshroom) exige au moins 20 à 40 photos tout autour de l'objet avec 60% de recouvrement pour trianguler les caméras dans l'espace.")}\n\n'
+            '${tr("Avec vos")} ${_selectedPhotos.length} ${tr("photo(s), utilisez l'onglet « Forme concept (Génératif) » qui reconstruit la forme 3D en 2 secondes.")}\n\n'
+            '${tr("Voulez-vous basculer automatiquement sur « Forme concept » ?")}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(tr('Forcer Pièce réelle')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: context.fc.primary),
+              child: Text(tr('Basculer en Forme concept')),
+            ),
+          ],
         ),
       );
+
+      if (shouldSwitch == true) {
+        ref.read(reco3dSelectedModeProvider.notifier).state = 'gen';
+      } else if (shouldSwitch == null) {
+        return; // L'utilisateur a fermé la boîte de dialogue
+      }
     }
 
     // Vérifier la présence du moteur sur le serveur avant de soumettre
