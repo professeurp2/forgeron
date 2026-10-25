@@ -9,6 +9,12 @@ const kDefaultReco3dUrl = 'http://192.168.54.35:8765';
 
 final reco3dServerUrlProvider = StateProvider<String>((ref) => kDefaultReco3dUrl);
 
+/// Liste des photos sélectionnées/capturées (conservée en mémoire même lors du passage au premier plan de l'appareil photo Android).
+final reco3dPhotosProvider = StateProvider<List<File>>((ref) => []);
+
+/// Mode de reconstruction actif ('photo' pour pièce réelle 20-40 photos, 'gen' pour concept 1-4 photos).
+final reco3dSelectedModeProvider = StateProvider<String>((ref) => 'photo');
+
 final reco3dClientProvider = Provider<Reco3dClient>((ref) {
   final client = Reco3dClient();
   ref.onDispose(client.close);

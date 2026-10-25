@@ -18,8 +18,9 @@ class Scan3dScreen extends ConsumerStatefulWidget {
 }
 
 class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
-  final List<File> _selectedPhotos = [];
-  String _selectedMode = 'photo'; // 'photo' ou 'gen'
+  List<File> get _selectedPhotos => ref.watch(reco3dPhotosProvider);
+  String get _selectedMode => ref.watch(reco3dSelectedModeProvider);
+
   String _selectedScaleType = 'aruco'; // 'aruco', 'ruler', 'manual_edge', 'none'
   final TextEditingController _scaleController = TextEditingController(text: '50.0');
   final TextEditingController _urlController = TextEditingController();
@@ -31,6 +32,36 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
   void initState() {
     super.initState();
     _urlController.text = ref.read(reco3dServerUrlProvider);
+    _checkLostData();
+  }
+
+  Future<void> _checkLostData() async {
+    try {
+      final LostDataResponse response = await _picker.retrieveLostData();
+      if (response.isEmpty) return;
+      if (response.file != null) {
+        final file = File(response.file!.path);
+        ref.read(reco3dPhotosProvider.notifier).update((list) {
+          if (!list.any((f) => f.path == file.path)) {
+            return [...list, file];
+          }
+          return list;
+        });
+      } else if (response.files != null) {
+        final files = response.files!.map((f) => File(f.path)).toList();
+        ref.read(reco3dPhotosProvider.notifier).update((list) {
+          final updated = List<File>.from(list);
+          for (final f in files) {
+            if (!updated.any((existing) => existing.path == f.path)) {
+              updated.add(f);
+            }
+          }
+          return updated;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Scan3D] Récupération photos perdues : $e');
+    }
   }
 
   void _updateServerUrl([String? explicitUrl]) {
@@ -93,18 +124,25 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
   Future<void> _pickPhotos(ImageSource source) async {
     try {
       if (source == ImageSource.camera) {
-        final photo = await _picker.pickImage(source: source);
+        final photo = await _picker.pickImage(
+          source: source,
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
         if (photo != null) {
-          setState(() {
-            _selectedPhotos.add(File(photo.path));
-          });
+          final file = File(photo.path);
+          ref.read(reco3dPhotosProvider.notifier).update((list) => [...list, file]);
         }
       } else {
-        final photos = await _picker.pickMultiImage();
+        final photos = await _picker.pickMultiImage(
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
         if (photos.isNotEmpty) {
-          setState(() {
-            _selectedPhotos.addAll(photos.map((p) => File(p.path)));
-          });
+          final files = photos.map((p) => File(p.path)).toList();
+          ref.read(reco3dPhotosProvider.notifier).update((list) => [...list, ...files]);
         }
       }
     } catch (e) {
@@ -117,9 +155,17 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
   }
 
   void _removePhoto(int index) {
-    setState(() {
-      _selectedPhotos.removeAt(index);
+    ref.read(reco3dPhotosProvider.notifier).update((list) {
+      final updated = List<File>.from(list);
+      if (index >= 0 && index < updated.length) {
+        updated.removeAt(index);
+      }
+      return updated;
     });
+  }
+
+  void _clearPhotos() {
+    ref.read(reco3dPhotosProvider.notifier).state = [];
   }
 
   Future<void> _startScan() async {
@@ -421,9 +467,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
             ],
             selected: {_selectedMode},
             onSelectionChanged: (set) {
-              setState(() {
-                _selectedMode = set.first;
-              });
+              ref.read(reco3dSelectedModeProvider.notifier).state = set.first;
             },
           ),
           const SizedBox(height: 10),
@@ -519,6 +563,12 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                     tooltip: tr('Importer galerie'),
                     onPressed: () => _pickPhotos(ImageSource.gallery),
                   ),
+                  if (_selectedPhotos.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
+                      tooltip: tr('Tout effacer'),
+                      onPressed: _clearPhotos,
+                    ),
                 ],
               ),
             ],
@@ -550,6 +600,8 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                           _selectedPhotos[index],
                           width: 100,
                           height: 100,
+                          cacheWidth: 200,
+                          cacheHeight: 200,
                           fit: BoxFit.cover,
                         ),
                       ),
