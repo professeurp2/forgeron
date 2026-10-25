@@ -754,6 +754,38 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                   for (final note in prov.notes)
                     Text('• $note', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                 ],
+                if (scanState.downloadedStepFile != null) ...[
+                  const Divider(height: 14),
+                  Row(
+                    children: [
+                      const Icon(Icons.folder_outlined, size: 14, color: Colors.lightBlueAccent),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'STEP : ${scanState.downloadedStepFile!.path}',
+                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (scanState.downloadedMeshFile != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.folder_outlined, size: 14, color: Colors.lightGreenAccent),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'STL : ${scanState.downloadedMeshFile!.path}',
+                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
