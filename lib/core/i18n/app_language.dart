@@ -68,10 +68,7 @@ class AppLanguage {
         ? 'Réponds TOUJOURS dans la langue du dernier message de '
             "l'opérateur. S'il change de langue en cours de conversation, "
             'change avec lui. Si la langue est indécidable (message très '
-            'court, G-code seul), réponds en français. Exception : si '
-            "l'opérateur écrit en bambara (bamanankan), tu le comprends mais "
-            "tu l'écris mal : réponds en français simple, phrases courtes, "
-            'sans jamais écrire de bambara.'
+            'court, G-code seul), réponds en français.'
         : writesPoorly
             ? "L'opérateur a choisi le $promptName. Tu le COMPRENDS, mais tu "
                 "l'écris mal : une réponse en $promptName serait "
@@ -100,8 +97,27 @@ class AppLanguage {
         "Si un terme technique CNC n'a pas d'équivalent courant dans la "
         'langue de réponse, garde le terme français ou anglais et explique-le '
         'une fois entre parenthèses plutôt que de forger une traduction que '
-        "l'opérateur ne reconnaîtra pas.";
+        "l'opérateur ne reconnaîtra pas."
+        '$_atelierRule';
   }
+
+  /// Règle du parler d'atelier, pour les langues peu dotées.
+  ///
+  /// Mesuré dans l'étude (§4.1) : en bambara pur le modèle ne comprend que
+  /// 19 % des ordres, mais **83 %** dès que les mots d'atelier sont en
+  /// français — « Homing kɛ », « Broche allumer sisan ». C'est ainsi qu'on
+  /// parle réellement devant la machine. Lui dire de s'y attendre vaut mieux
+  /// que lui faire deviner, et lui dire de garder ces mots en français
+  /// l'empêche d'inventer un vocabulaire technique que personne n'emploie.
+  String get _atelierRule => !lowResource
+      ? ''
+      : "\nPARLER D'ATELIER : en $promptName, les mots techniques se disent "
+          'en français — broche, jog, homing, origine, palpage, avance, '
+          'arrosage, programme, fichier, outil, axe, alarme, offset. '
+          "Attends-toi à les recevoir en français au milieu d'une phrase en "
+          '$promptName, et garde-les en français dans ta réponse : '
+          "c'est ce que l'opérateur reconnaît. Ne forge jamais de mot "
+          'technique en $promptName.';
 }
 
 /// Langues proposées : automatique, français, anglais, puis les langues
@@ -115,15 +131,22 @@ const kAppLanguages = <AppLanguage>[
   // Apache-2.0) ; les chaînes de sécurité restent volontairement en français
   // tant qu'un locuteur ne les a pas relues — voir
   // docs/addis/langues-locales/feuille-bambara.md.
+  // `writesPoorly` a été retiré du bambara le 27/10/2026, sur décision de
+  // l'utilisateur : il veut que l'assistant RÉPONDE en bambara. Le drapeau
+  // reste dans la classe — la raison qui l'avait motivé (des réponses
+  // incompréhensibles, constatées en atelier) est réelle et resservira si
+  // une mesure la confirme pour un modèle donné. Trois garde-fous
+  // remplacent l'interdiction : le glossaire sourcé injecté dans le prompt,
+  // la règle du parler d'atelier (mots techniques en français), et les
+  // chaînes de sécurité qui restent françaises.
   AppLanguage('bm', 'Bamanankan (bambara)', 'bambara', 'bm-ML',
       lowResource: true,
-      writesPoorly: true,
-      note: 'L\'assistant te comprend en bambara, mais il te répond en français '
-          'simple : il écrit mal le bambara, et ses réponses étaient '
-          'incompréhensibles. Les messages d\'alarme, d\'arrêt d\'urgence et de fin de '
-          'course restent aussi en français : une alarme fausse est un danger. '
-          'Le bambara viendra de phrases fixes quand un locuteur les aura '
-          'relues.'),
+      note: 'L\'assistant répond en bambara, avec les mots d\'atelier en '
+          'français — c\'est ainsi qu\'on parle devant la machine. Son '
+          'bambara n\'a pas encore été relu par un locuteur : signale ce que '
+          'tu ne comprends pas. Les messages d\'alarme, d\'arrêt d\'urgence '
+          'et de fin de course restent en français : une alarme fausse est '
+          'un danger.'),
   AppLanguage('ar', 'العربية (arabe)', 'arabe', 'ar-MA'),
   AppLanguage('sw', 'Kiswahili (swahili)', 'swahili', 'sw-KE'),
   AppLanguage('af', 'Afrikaans', 'afrikaans', 'af-ZA'),

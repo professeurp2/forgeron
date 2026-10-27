@@ -983,7 +983,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
       'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
       'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
-      'relancer.';
+      'relancer. '
+      'SCAN 3D & NUMÉRISATION EN MACHINE : quand l\'opérateur veut numériser une pièce '
+      'ou un maître bridé sur la machine, utilise start_machine_scan pour piloter la rotation '
+      'calibrée des axes A et C et capturer les vues multi-angles. Vérifie d\'abord que '
+      'le poste de calcul est joignable (get_reco3d_status, ou discover_reco3d_server si besoin). '
+      'Suis l\'avancement avec get_scan_job_status, et une fois terminé, télécharge le résultat '
+      'avec download_scan_result (format "step" ou "mesh") pour afficher immédiatement la pièce '
+      'dans le visualiseur 3D. Rappelle honnêtement que la géométrie est approximative tant que '
+      'l\'échelle n\'est pas certifiée par mire.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -1037,6 +1045,22 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
   /// Injectée à chaque tour pour que l'agent cite les VRAIES courses et pas/mm
   /// — des constantes figées dans le code dérivent au premier recalibrage.
+  /// Glossaire sourcé de la langue active, ajouté au prompt pour les langues
+  /// peu dotées seulement.
+  ///
+  /// Le modèle écrit mal ces langues parce qu'il improvise le vocabulaire.
+  /// Lui donner les mots déjà vérifiés (An ka taa pour le bambara) coûte
+  /// ~200 jetons et lui évite d'en forger. Rien n'est ajouté pour le
+  /// français, l'anglais, ni une langue sans sources : un glossaire sans
+  /// provenance ne vaut pas mieux que l'improvisation.
+  String _glossaireBlockOrEmpty() {
+    final langue = _ref.read(appLanguageProvider);
+    if (!langue.lowResource) return '';
+    final glossaire =
+        _ref.read(lexiconLoadProvider).valueOrNull?.glossaries[langue.id];
+    return glossaire == null ? '' : '\n\n$glossaire';
+  }
+
   String _kinematicsBlock() {
     final axes = _ref.read(axisKinematicsProvider).asData?.value ?? const [];
     if (axes.isEmpty) {
@@ -1092,7 +1116,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final docs = block == null ? '' : '\n\n$block';
     return '$baseSystemPrompt\n\n'
         '${_kinematicsBlock()}\n\n'
-        '${_ref.read(appLanguageProvider).promptDirective}\n\n'
+        '${_ref.read(appLanguageProvider).promptDirective}'
+        '${_glossaireBlockOrEmpty()}\n\n'
         '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity';
