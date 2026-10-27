@@ -195,6 +195,51 @@ class Reco3dClient {
     }
   }
 
+  /// Démarre un scan EN MACHINE : le serveur commande la rotation des axes
+  /// A/C par angles connus et capture via les caméras embarquées (doc §12,
+  /// jalon 5). Renvoie un job suivi comme les autres (getJobStatus / pollUntilDone
+  /// / downloadResult).
+  ///
+  /// Le backend `/scan` reste à implémenter côté serveur reco3d : en son absence
+  /// le serveur répond 404 et on le signale explicitement plutôt que d'échouer
+  /// en silence.
+  Future<Reco3dJobCreated> startMachineScan({
+    required Uri baseUri,
+    required int poses,
+    required double aDeg,
+    String? cameraUrl,
+  }) async {
+    final url = baseUri.replace(path: '/scan');
+    try {
+      final res = await _client
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'poses': poses,
+              'a_deg': aDeg,
+              if (cameraUrl != null && cameraUrl.isNotEmpty) 'camera_url': cameraUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 404) {
+        throw const Reco3dClientException(
+          'Endpoint /scan absent : le backend de scan en machine (jalon 5) '
+          'n\'est pas encore branché sur ce serveur reco3d.',
+          404,
+        );
+      }
+      if (res.statusCode != 202) {
+        throw Reco3dClientException('Échec du démarrage du scan : ${res.body}', res.statusCode);
+      }
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return Reco3dJobCreated.fromJson(json);
+    } catch (e) {
+      if (e is Reco3dClientException) rethrow;
+      throw Reco3dClientException('Erreur réseau au démarrage du scan en machine : $e');
+    }
+  }
+
   /// Récupère l'état et la progression d'un job.
   Future<Reco3dJobStatus> getJobStatus(Uri baseUri, String jobId) async {
     final url = baseUri.replace(path: '/jobs/$jobId');

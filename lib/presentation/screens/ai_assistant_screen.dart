@@ -19,6 +19,7 @@ import '../../application/providers/lexicon_provider.dart';
 import '../../application/providers/workspace_provider.dart';
 import '../widgets/special_chars_row.dart';
 import 'ai_agent_settings_screen.dart';
+import 'machine_scan_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de chat avec l'agent IA — reprend le pattern visuel du terminal MDI
@@ -758,6 +759,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MachineScanScreen()),
+            ),
+            tooltip: tr('Scan en machine (caméras + axes A/C)'),
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.threed_rotation, color: fc.textSecondary),
           ),
           IconButton(
             onPressed: () =>
