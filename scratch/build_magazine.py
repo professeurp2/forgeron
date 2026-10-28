@@ -15,9 +15,11 @@ A = {}
 
 A["Name, country, UniPod"] = """Lamine SACKO, Mali. I'm a Cohort 1 innovator in the METI UniPods AI Innovation Programme, based at UniPod Mali, hosted by the École Nationale d'Ingénieurs Abderhamane Baba Touré (ENI-ABT) in Bamako. I'm the founder and engineer of Forgeron: I designed the machine and built the control software, the mobile app and the AI agent. Aboubacar Diamouténé is our electronics and assembly technician — he builds and wires the machine, and he finds the faults I can't see from behind a screen. We are two people. The commercial role is still open, and this programme has taught me that it's our biggest gap."""
 
-A["What did you study or do before"] = """I studied mechatronics engineering at the École Nationale d'Ingénieurs Abderhamane Baba Touré (ENI-ABT) in Bamako.
+A["What did you study or do before"] = """I studied mechatronics engineering at the École Nationale d'Ingénieurs Abderhamane Baba Touré (ENI-ABT) in Bamako. But the real beginning came long before that, and it has a name.
 
-[[À COMPLÉTER — 3 ou 4 phrases, en ton nom. Ce qui t'a amené à construire des choses : un souvenir d'enfance (démonter, réparer), un atelier que tu fréquentais, la première machine que tu as faite marcher. Regarde la réponse d'Alumbwe : il raconte ses produits précédents puis conclut par une phrase simple sur le déclic. Une scène concrète vaut mieux qu'une déclaration.]]"""
+In our communities, the forgeron — the blacksmith — is the maker. He is the one who produces whatever the community needs, out of metal and his own hands. I'm not a blacksmith myself, but one lived close to our house, and he made parts for the farmers around us: tools, spares, whatever anyone brought him. Every morning I would go and watch him work. I was a child and I found it extraordinary — not the fire or the noise, but the sheer capability of it. Whatever was asked of him, he could make it.
+
+That never left me. When I finished my studies I didn't want to design machines on paper; I wanted to make things, the way he did. It's also where our name comes from. We called the company Forgeron because that is exactly what we are trying to put back into the workshop: the ability to make whatever is asked for, here."""
 
 A["Describe yourself as an innovator"] = """An engineer who would rather build the machine his country imports than explain why it can't be built here."""
 
