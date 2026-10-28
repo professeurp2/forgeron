@@ -63,13 +63,11 @@ When I applied, the AI agent only worked with a cloud model — which is useless
 
 And we learned to measure. We built a benchmark that replays fixed scenarios, so when we say the agent has improved, we can prove it instead of claiming it."""
 
-A["14. What was your hardest moment"] = """The machine has broken down three times in ways that took days to find — not a loose wire, but faults where the symptom was nowhere near the cause. Each time I had to stop building features and go back to the hardware, with deadlines getting closer.
+A["14. What was your hardest moment"] = """Money. I started this just as I was moving from being a student to being an engineer, and students in Mali don't have money. Technically the machine was never the hard part — I knew how to build it. Paying for it was another matter. Every component came out of my own pocket, and for a long time what held the project back wasn't what I could design, it was what I could afford that month.
 
-What got me through it was writing down every failure: what triggered it, how we detected it, what guard we added afterwards. That file is now part of the project. Later, when the AI model started misbehaving — inventing machine code, drifting into another language mid-sentence — we added those to the same list. The failures became the safety rules.
+Looking back, that constraint shaped the product. Because I couldn't afford expensive components, I had to find the cheapest honest way to build a machine that still works properly. That is exactly why ours costs around fifteen thousand dollars instead of forty thousand. The limitation became the design.
 
-I don't think I would trust the machine today if it had never broken.
-
-[[Si tu préfères un moment plus personnel — le financement, la fatigue, un moment de doute — dis-le-moi et je réécris. Celui-ci est vrai et documenté, mais c'est toi qui choisis ce que tu racontes.]]"""
+The second hard thing is still in front of me: customers. We can build the machine; we have not yet found the people who will buy it and let us produce it at scale. That one isn't solved. We are working on it right now, and I would rather say so than pretend otherwise."""
 
 A["18. How many people have used"] = """None outside our own team yet, and I would rather say that plainly than inflate it. The machine works; it has not yet been in a customer's hands.
 
