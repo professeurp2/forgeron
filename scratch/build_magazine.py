@@ -51,7 +51,9 @@ Right now a user can connect to the machine, see the live position of all five a
 
 What a user cannot do yet is buy one. We have no paying customer. That is the next step."""
 
-A["11. What do you like about the MIT"] = """[[À COMPLÉTER sur MIT — une phrase ou deux : ce que le cours t'a apporté concrètement. Si tu ne l'as pas terminé, dis-le simplement, c'est mieux qu'un compliment vague.]]
+A["11. What do you like about the MIT"] = """I completed the MIT Universal AI course. It gave me real depth in artificial intelligence — not just how to use the tools, but how they actually work underneath — and that is what allowed me to take our own AI agent to a much higher level.
+
+What mattered most to me, though, was being able to put the two things together: artificial intelligence and manufacturing. I never wanted to build a general-purpose AI product. I wanted AI that makes metal parts, and the course gave me the foundation to do that properly.
 
 From Wadhwani, the concept I now use constantly is describing the customer's problem without ever mentioning your own solution. The first time I tried it I couldn't do it — every sentence came back to my machine. It sounds like a writing exercise, but it changed the way I talk to workshop owners: I ask them about the orders they turned down last month, instead of telling them what my machine can do. The conversations are completely different now."""
 
