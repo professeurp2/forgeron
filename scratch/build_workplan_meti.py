@@ -47,7 +47,7 @@ ROWS = [
     15, "trips", 8, "No", "Dec 2026", EST),
  (1, "Run 10 structured customer interviews and select 2 pilot shops",
     "Technical expertise / Mentorship", "Mentor on customer discovery and institutional selling",
-    4, "sessions", 50, "Partly", "Dec 2026", EST),
+    4, "sessions", 50, "No", "Dec 2026", EST),
 
  (2, "Make the machine safe to run outside our own workshop",
     "Materials / Consumables",
@@ -56,7 +56,7 @@ ROWS = [
     "Prerequisite before the machine leaves the workshop — a crashed ESP32 must not leave the spindle running"),
  (2, "Make the machine safe to run outside our own workshop",
     "Technical expertise / Mentorship", "Machine-safety review by a qualified engineer",
-    2, "sessions", 75, "Partly", "Nov 2026", EST),
+    2, "sessions", 75, "No", "Nov 2026", EST),
  (2, "Make the machine safe to run outside our own workshop",
     "Materials / Consumables", "Spare parts kit: TB6600 drivers, ESP32 boards, belts, limit switches",
     1, "kit", 150, "No", "Dec 2026", EST),
@@ -82,6 +82,15 @@ ROWS = [
     "Equipment / Hardware", "UPS / backup power for the machine and the PC",
     1, "unit", 250, "No", "Dec 2026", "Power cuts are routine in Bamako — " + EST.lower()),
  (4, "Run the AI agent fully offline inside the pilot shop",
+    "Equipment / Hardware", "Android tablets (8 GB RAM) as the operator interface, one per pilot shop",
+    2, "units", 250, "No", "Jan 2027",
+    "This is how the operator talks to the machine — " + EST.lower()),
+ (4, "Run the AI agent fully offline inside the pilot shop",
+    "Equipment / Hardware",
+    "Headsets with noise-cancelling microphone for voice commands on the shop floor",
+    2, "units", 120, "No", "Jan 2027",
+    "A machine shop is loud; voice input needs a directional mic — " + EST.lower()),
+ (4, "Run the AI agent fully offline inside the pilot shop",
     "Software / Digital tools", "Ollama, FreeCAD, Meshroom (open source)",
     5, "months", 0, "No", "Dec 2026", "Already in use, no licence cost"),
 
@@ -91,7 +100,7 @@ ROWS = [
  (5, "Train the shop operator to run the machine in plain language",
     "Technical expertise / Mentorship",
     "Native Bambara speakers to review the closed command lexicon and the safety labels",
-    3, "sessions", 30, "Partly", "Jan 2027",
+    3, "sessions", 30, "No", "Jan 2027",
     "Shop operators speak Bambara; emergency-stop and alarm labels must be verified by a native speaker"),
 
  (6, "Produce at least 5 real customer parts in each shop",
@@ -102,14 +111,14 @@ ROWS = [
     12, "tools", 25, "No", "Feb 2027", EST),
  (6, "Produce at least 5 real customer parts in each shop",
     "Equipment / Hardware", "Metrology set: digital calliper, dial indicator, surface plate",
-    1, "set", 250, "Partly", "Feb 2027", "Needed to prove the parts are within tolerance"),
+    1, "set", 250, "No", "Feb 2027", "Needed to prove the parts are within tolerance"),
  (6, "Produce at least 5 real customer parts in each shop",
     "Testing / User access", "Access to the pilot shops and to their real customer orders",
     5, "months", 0, "No", "Jan 2027", "This is the core of the pilot"),
 
  (7, "Validate the price and build the unit-economics model",
     "Technical expertise / Mentorship", "Mentor on pricing and unit economics for hardware ventures",
-    4, "sessions", 50, "Partly", "Mar 2027", EST),
+    4, "sessions", 50, "No", "Mar 2027", EST),
  (7, "Validate the price and build the unit-economics model",
     "Other", "Costed bill of materials: supplier quotes for mechanical and electronic parts",
     1, "exercise", 0, "No", "Mar 2027",
@@ -135,13 +144,17 @@ for row in ROWS:
     r += 1
 
 # ---------------------------------------------------------------- partie 3
-ws["B66"] = ("A laptop with an 8 GB VRAM GPU, so the AI agent runs fully offline inside workshops "
-             "that have no reliable internet (~USD 1,200).")
-ws["B67"] = ("Introductions to machine shops and industrial SMEs in Bamako, plus mentorship on "
-             "institutional selling. We have a working machine and no customer pipeline — this is "
-             "our weakest point.")
-ws["B68"] = ("Material, cutting tools and metrology to produce and verify the pilot parts "
-             "(~USD 910), and the safety/certification work needed before we can sell (~USD 850).")
+ws["B66"] = ("The hardware that lets the AI agent run offline inside a workshop with no reliable "
+             "internet and no stable power: a laptop with an 8 GB VRAM GPU, two Android tablets "
+             "as operator interfaces, two noise-cancelling headsets for voice commands on a loud "
+             "shop floor, and a UPS (~USD 2,190 in total).")
+ws["B67"] = ("Introductions to machine shops and industrial SMEs in Bamako, plus paid mentorship "
+             "on customer discovery, institutional selling and pricing (~USD 640). We have a "
+             "working machine and no customer pipeline — this is our weakest point, and the "
+             "mentors we need are not available to us free of charge.")
+ws["B68"] = ("Material, cutting tools and metrology equipment to produce and verify the pilot "
+             "parts (~USD 910 — we do not own measuring equipment today), plus the safety and "
+             "certification work required before we can sell (~USD 850).")
 
 wb.save(OUT)
 
