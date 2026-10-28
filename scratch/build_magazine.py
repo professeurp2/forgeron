@@ -79,7 +79,9 @@ A["19. Share one story"] = """I don't have one yet, and I won't invent one.
 
 The closest thing I have is my own. The first time the machine made a part from a sentence, I asked for a dome in plain language, read back what the agent proposed, confirmed it, and three and a half hours later I was holding it. What changed that day is that the project stopped being an argument about whether it was possible.
 
-[[Facultatif — une phrase sur ce que tu as ressenti ce jour-là, ou sur la réaction d'Aboubacar. Une ligne suffit.]]"""
+What I felt most, holding it, was relief. All the money I had put in, all the nights and the physical work — it had meant something after all. Aboubacar was just as happy; most of what was moving in front of us had passed through his hands.
+
+And it gave me hope. We didn't build this for a laboratory. We built it for workshops like the ones around us, and for the first time I could picture it in all of them."""
 
 A["20. Where do you want this"] = """In 12 months: machines in a handful of Bamako workshops, paid for, with owners taking on precision orders they used to turn away. By then I want to know our real cost of production and have a price that customers have actually agreed to pay — not an estimate.
 
