@@ -25,7 +25,13 @@ A["Describe yourself as an innovator"] = """An engineer who would rather build t
 
 A["4. What problem are you solving"] = """Small machine shops and manufacturing SMEs in West Africa can't produce complex, high-precision parts. A five-axis machine — the kind that can cut a curved surface out of a solid block — costs around $40,000 imported, and running one needs a CNC programmer: a specialist who writes thousands of lines of machine code by hand. Those people are rare in Mali, and expensive. So when a customer walks into a workshop with a complicated part, the owner turns it over in his hand and says he can't make it. The customer imports it instead: three weeks of waiting, three times the price. The people who feel this most are the workshop owners and machinists who lose the work, and their customers — mechanics, equipment repairers, mould makers — who need a part that simply isn't available locally."""
 
-A["5. When did you first notice"] = """[[À COMPLÉTER — c'est la question la plus personnelle du magazine, et celle que les lecteurs retiennent. Raconte UN moment précis : un atelier où tu as vu refuser une pièce, une réparation impossible dans ta famille, un stage. Quand, où, qui était là, ce qui s'est dit. Si tu me donnes la scène en français, même en vrac, je la rédige.]]"""
+A["5. When did you first notice"] = """During my engineering studies I did internships in several companies. One of them was Kouratechnique, a workshop here in Bamako, where I worked as a student engineer on design: I modelled parts on the computer.
+
+That is where I saw it clearly. I would finish a part, and then we would find that we could not make it here. Not because the design was wrong, but because no workshop in the country had the machine for it. So the drawings were sent abroad, to manufacturers in India, who made the parts and shipped them back to us.
+
+I was designing things my own country could not build. That is a strange feeling for a young engineer. The gap wasn't knowledge — we had the drawings and we had the skill. The gap was one machine. That is when I decided to build it.
+
+Kouratechnique is also the first workshop we are now talking to about a pilot. I would like the machine to go back to where the problem started."""
 
 A["6. Explain your solution"] = """Think of a machine that carves a metal part out of a solid block, following a drawing. Normally, to tell it what to do, someone has to write thousands of lines of coordinates by hand. That's a trained specialist's job, and in Mali those specialists barely exist.
 
