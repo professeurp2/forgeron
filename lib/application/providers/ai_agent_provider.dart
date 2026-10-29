@@ -1162,6 +1162,23 @@ class AiAgentController extends StateNotifier<AiChatState> {
     return _visionService = LocalAiAgentService(baseUrl: url, model: name, info: info);
   }
 
+  /// Joint à l'image ce qu'en a dit le modèle d'images, pour les tours
+  /// suivants : le modèle principal ne voit pas l'image, mais il lira cette
+  /// fiche (voir `LocalAiAgentService.imageFicheNote`). Appelé juste après
+  /// l'ajout de la réponse : le message qui porte l'image est l'avant-dernier.
+  void _attachImageFiche(String description, String model) {
+    if (_contents.length < 2) return;
+    final i = _contents.length - 2;
+    final parts = _contents[i]['parts'];
+    if (parts is! List || !parts.any((p) => p is Map && p.containsKey('inlineData'))) {
+      return;
+    }
+    _contents[i] = {
+      ..._contents[i],
+      'parts': [...parts, LocalAiAgentService.imageFichePart(description, model)],
+    };
+  }
+
   /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
   /// rendue par un outil comme la caméra) ?
   bool _lastTurnHasImage() {
@@ -1593,6 +1610,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Fin du streaming : on efface l'aperçu et on fige le message.
       state = state.copyWith(clearStreamingText: true);
       _contents.add({'role': 'model', 'parts': response.parts});
+      if (vision != null && response.text.isNotEmpty) {
+        _attachImageFiche(response.text, vision.model);
+      }
       unawaited(_persist());
       // Comptabilise l'appel abouti (quotas du jour, par modèle).
       _ref

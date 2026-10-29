@@ -5,7 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart'
     show Colors, Icons, MaterialPageRoute, SelectableText, Tooltip;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +22,7 @@ import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
 import '../../../application/services/ai_window_launcher.dart';
 import '../../../core/i18n/app_language.dart';
+import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
@@ -130,27 +131,34 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
               setState(() => _listening = false);
             }
           },
-          onError: (_) {
-            if (mounted) setState(() => _listening = false);
+          onError: (e) {
+            if (!mounted) return;
+            setState(() => _listening = false);
+            _warn(tr('Dictée vocale'), speechErrorMessage(e.errorMsg));
           },
         );
     if (!ok) {
       await _warn(tr('Reconnaissance vocale indisponible'),
-          tr('Aucun micro détecté sur cet appareil.'));
+          speechInitFailedMessage(windows: Platform.isWindows));
       return;
     }
     setState(() => _listening = true);
-    _sttLocaleId ??= bestVoiceLocale(
-      _wantedVoiceTag,
-      (await _speech.locales()).map((l) => l.localeId),
-      fallbacks: const ['fr-FR', 'en-US'],
-    );
-    await _speech.listen(
-      onResult: (SpeechRecognitionResult r) {
-        if (mounted) setState(() => _input.text = r.recognizedWords);
-      },
-      listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
-    );
+    try {
+      _sttLocaleId ??= bestVoiceLocale(
+        _wantedVoiceTag,
+        (await _speech.locales()).map((l) => l.localeId),
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
+      await _speech.listen(
+        onResult: (SpeechRecognitionResult r) {
+          if (mounted) setState(() => _input.text = r.recognizedWords);
+        },
+        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+      );
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _listening = false);
+      await _warn(tr('Dictée vocale'), speechErrorMessage(e.code));
+    }
   }
 
   String get _wantedVoiceTag {

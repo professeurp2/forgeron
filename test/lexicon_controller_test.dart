@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -10,6 +11,7 @@ import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/providers/lexicon_provider.dart';
 import 'package:forgeron/application/services/ai_agent_service.dart';
 import 'package:forgeron/application/services/command_understanding.dart' show isReadOnlyToolName;
+import 'package:forgeron/application/services/local_ai_agent_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_machine_repository.dart';
@@ -20,6 +22,10 @@ class _FakeBackend implements AiBackend {
   final String modelId;
   final List<AiApiResponse> script;
   final List<List<String>> declared = [];
+
+  /// Historique reçu au dernier appel (copie profonde : le contrôleur le
+  /// modifie ensuite).
+  List<Map<String, dynamic>> lastContents = const [];
 
   @override
   String get model => modelId;
@@ -58,8 +64,11 @@ class _FakeBackend implements AiBackend {
           required List<Map<String, dynamic>> functionDeclarations,
           String? systemPrompt,
           void Function(String partialText)? onDelta,
-          bool Function()? shouldCancel}) async =>
-      _next(functionDeclarations);
+          bool Function()? shouldCancel}) async {
+    lastContents = (jsonDecode(jsonEncode(contents)) as List)
+        .cast<Map<String, dynamic>>();
+    return _next(functionDeclarations);
+  }
 }
 
 void main() {
@@ -184,6 +193,44 @@ void main() {
       expect(main.declared, hasLength(1));
       expect(main.declared.single, contains('set_spindle'));
       expect(vision.declared, hasLength(1), reason: 'pas de nouvel appel au modèle d\'images');
+    });
+
+    test('au tour suivant, le modèle principal reçoit la fiche d\'image', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(
+            parts: [{'text': 'Une pièce cylindrique bridée.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Que vois-tu ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      await ctl().sendUserMessage('Peux-tu l\'usiner ?');
+
+      final imageTurn = main.lastContents.firstWhere((c) =>
+          (c['parts'] as List).any((p) => (p as Map).containsKey('inlineData')));
+      final texts = [
+        for (final p in imageTurn['parts'] as List)
+          if ((p as Map)['text'] is String) p['text'] as String,
+      ];
+      expect(texts.last, startsWith(LocalAiAgentService.imageFichePrefix));
+      expect(texts.last, contains('gemma3n:latest'));
+      expect(texts.last, contains('Une pièce cylindrique bridée.'));
+    });
+
+    test('sans modèle d\'images, aucune fiche n\'est inventée', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, [
+        const AiApiResponse(parts: [{'text': 'Je ne vois pas l\'image.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+
+      await ctl().sendUserMessage('Que vois-tu ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      await ctl().sendUserMessage('Et maintenant ?');
+
+      expect(jsonEncode(main.lastContents),
+          isNot(contains(LocalAiAgentService.imageFichePrefix)));
     });
   });
 
