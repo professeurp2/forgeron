@@ -1472,7 +1472,8 @@ class _NavItemState extends State<_NavItem> {
                   ),
                 ),
               ),
-              Row(
+              Positioned.fill(
+                child: Row(
                 mainAxisAlignment: widget.showLabel
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
@@ -1503,6 +1504,7 @@ class _NavItemState extends State<_NavItem> {
                     ),
                   ],
                 ],
+                ),
               ),
             ],
           ),
