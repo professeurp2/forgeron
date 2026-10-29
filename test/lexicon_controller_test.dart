@@ -28,6 +28,9 @@ class _FakeBackend implements AiBackend {
   /// modifie ensuite).
   List<Map<String, dynamic>> lastContents = const [];
 
+  /// Prompt système reçu au dernier appel.
+  String? lastSystemPrompt;
+
   @override
   String get model => modelId;
   @override
@@ -68,6 +71,7 @@ class _FakeBackend implements AiBackend {
           bool Function()? shouldCancel}) async {
     lastContents = (jsonDecode(jsonEncode(contents)) as List)
         .cast<Map<String, dynamic>>();
+    lastSystemPrompt = systemPrompt;
     return _next(functionDeclarations);
   }
 }
@@ -244,6 +248,27 @@ void main() {
       expect(text, contains('lance le scan'));
       expect(chat().messages.where((m) => m.text.contains(AiAgentController.kImageRelayPrefix)),
           isEmpty, reason: 'le relais n\'apparaît pas dans le chat');
+    });
+
+    test('une question sur une photo ne reçoit pas la consigne des fiches', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(parts: [{'text': 'Trois téléphones et une machine.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      // Témoin : sans image, une question technique reçoit bien les fiches.
+      await ctl().sendUserMessage('Comment faire le homing de la broche ?');
+      expect(main.lastSystemPrompt, anyOf(contains('=== FICHES TROUVÉES'), contains('=== AUCUNE FICHE')),
+          reason: 'le corpus de fiches doit être chargé, sinon ce test ne prouve rien');
+
+      await ctl().sendUserMessage("qu'est-ce que tu vois ?",
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      expect(vision.lastSystemPrompt, isNot(contains('=== FICHES TROUVÉES')));
+      expect(vision.lastSystemPrompt, isNot(contains('=== AUCUNE FICHE')));
+      expect(lastAssistant(), 'Trois téléphones et une machine.',
+          reason: "la description n'est pas tronquée en refus");
     });
 
     test('photo + simple question : pas de relais au pilote', () async {

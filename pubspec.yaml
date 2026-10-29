@@ -105,6 +105,9 @@ dependencies:
 dependency_overrides:
   webview_windows:
     path: third_party/webview_windows
+  # Dictée Windows : copie corrigée (résultats perdus, voir son README-FORGERON.md).
+  speech_to_text_windows:
+    path: third_party/speech_to_text_windows
 
 dev_dependencies:
   flutter_test:

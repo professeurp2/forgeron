@@ -523,6 +523,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// Bloc de fiches de ce tour (voir docs_prefetch.dart), `null` si ce n'est pas
   /// une question de connaissance ou si le corpus n'est pas chargé.
   String? _docsBlockOrNull() {
+    // Une question posée sur une image porte sur l'image, pas sur les fiches.
+    // Sans ce garde, « qu'est-ce que tu vois ? » (un « ? » suffit) recevait la
+    // consigne « réponds UNIQUEMENT avec les fiches, sinon dis "Je ne trouve
+    // pas cette information" » : le modèle d'images comme Gemini refusaient
+    // de décrire la photo, et la réponse était tronquée à ce refus (vu dans
+    // l'app, en local comme en ligne).
+    if (_imageInPlay()) return null;
     try {
       final corpus = _ref.read(docCorpusProvider).valueOrNull;
       return corpus == null ? null : docsBlock(_lastUserText(), corpus.index);
@@ -1292,6 +1299,22 @@ class AiAgentController extends StateNotifier<AiChatState> {
       ],
     });
     return true;
+  }
+
+  /// Le message de l'opérateur en cours porte-t-il sur une image : photo
+  /// jointe, image rendue par un outil (caméra), ou relais d'une photo vers le
+  /// modèle principal ?
+  bool _imageInPlay() {
+    if (_lastTurnHasImage()) return true;
+    for (final c in _contents.reversed) {
+      if (c['role'] != 'user') continue;
+      final parts = (c['parts'] as List? ?? const []).whereType<Map>().toList();
+      if (parts.any((p) => p.containsKey('functionResponse'))) continue;
+      if (parts.any((p) => p.containsKey('inlineData'))) return true;
+      return parts.any((p) =>
+          p['text'] is String && (p['text'] as String).startsWith(kImageRelayPrefix));
+    }
+    return false;
   }
 
   /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
