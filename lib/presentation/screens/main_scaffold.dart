@@ -1472,10 +1472,13 @@ class _NavItemState extends State<_NavItem> {
           height: widget.height,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
+            // Fond neutre : l'orange de la marque en transparence donnait un
+            // brun-rouge sur le fond sombre, pris pour une tache (signalé à
+            // l'écran). La sélection se lit au liseré, à l'icône et au gras.
             color: selected
-                ? fc.primary.withValues(alpha: 0.14)
+                ? fc.textPrimary.withValues(alpha: 0.08)
                 : _hover
-                    ? fc.textPrimary.withValues(alpha: 0.06)
+                    ? fc.textPrimary.withValues(alpha: 0.05)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
