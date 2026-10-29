@@ -12,6 +12,7 @@ import 'package:forgeron/application/providers/lexicon_provider.dart';
 import 'package:forgeron/application/services/ai_agent_service.dart';
 import 'package:forgeron/application/services/command_understanding.dart' show isReadOnlyToolName;
 import 'package:forgeron/application/services/local_ai_agent_service.dart';
+import 'package:forgeron/application/services/tool_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_machine_repository.dart';
@@ -191,7 +192,9 @@ void main() {
 
       await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
       expect(main.declared, hasLength(1));
-      expect(main.declared.single, contains('set_spindle'));
+      // Le principal, lui, reçoit des outils (ceux que le routage retient,
+      // noyau de sécurité compris).
+      expect(main.declared.single, containsAll(ToolRouter.core));
       expect(vision.declared, hasLength(1), reason: 'pas de nouvel appel au modèle d\'images');
     });
 
@@ -262,10 +265,16 @@ void main() {
           reason: 'l\'appel interdit n\'arrive même pas à la confirmation');
     });
 
-    test('message ordinaire : le modèle garde tous ses outils', () async {
+    // Depuis l'activation du routage, le modèle local ne reçoit plus TOUS ses
+    // outils mais ceux du groupe reconnu (ici « fichiers ») plus le noyau de
+    // sécurité. Ce que ce test protège reste vrai : un message ordinaire n'est
+    // pas réduit à la lecture seule comme une question ou une négation.
+    test('message ordinaire : pas réduit à la lecture seule', () async {
       final b = backend([]);
       await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
-      expect(b.declared.first, contains('set_spindle'));
+      expect(b.declared.first, contains('write_workspace_file'));
+      expect(b.declared.first.every(isReadOnlyToolName), isFalse);
+      expect(b.declared.first, containsAll(ToolRouter.core));
     });
 
     test('ordre compris : le modèle n\'est pas appelé', () async {
