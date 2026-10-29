@@ -1490,9 +1490,13 @@ class _NavItemState extends State<_NavItem> {
                 top: 0,
                 bottom: 0,
                 child: Center(
+                  // Courbe SANS dépassement : easeOutBack faisait passer la
+                  // hauteur sous zéro en rétrécissant (28 → 0), et l'entrée
+                  // quittée s'affichait en écran d'erreur rouge le temps de
+                  // l'animation (signalé et capturé à l'écran).
                   child: AnimatedContainer(
                     duration: d,
-                    curve: Curves.easeOutBack,
+                    curve: Curves.easeOutCubic,
                     width: 3,
                     height: selected ? 28 : 0,
                     decoration: BoxDecoration(
