@@ -20,6 +20,7 @@ import '../../../application/providers/gcode_provider.dart';
 import '../../../application/providers/ai_model_provider.dart';
 import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
+import '../../../application/services/chat_relay.dart';
 import '../../../application/services/ai_window_launcher.dart';
 import '../../../application/services/tool_router.dart';
 import '../../../core/i18n/app_language.dart';
@@ -845,6 +846,7 @@ class _Header extends ConsumerWidget {
           ),
           const _ModelBadge(),
           const SizedBox(width: 8),
+          _PhoneLinkButton(fc: fc),
           Consumer(
             builder: (context, ref, _) {
               final simOpen = ref.watch(aiArtifactsProvider
@@ -884,6 +886,67 @@ class _Header extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Liaison avec le téléphone (chat synchronisé, voir chat_relay.dart) :
+/// éteinte, le bouton l'active ; allumée, il montre le code à saisir sur le
+/// téléphone et le nombre d'appareils reliés, et un clic la coupe.
+class _PhoneLinkButton extends ConsumerWidget {
+  const _PhoneLinkButton({required this.fc});
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final link = ref.watch(chatRelayHostProvider);
+    final host = ref.read(chatRelayHostProvider.notifier);
+    if (!link.running) {
+      return Tooltip(
+        message: link.error ??
+            tr('Relier un téléphone : le même chat, en direct, sur les deux appareils'),
+        child: fluent.IconButton(
+          icon: Icon(Icons.phonelink_rounded,
+              size: 16, color: link.error != null ? fc.warning : fc.textSecondary),
+          onPressed: host.start,
+        ),
+      );
+    }
+    return Tooltip(
+      message: tr('Saisir ce code sur le téléphone (Agent IA → Chat du PC). '
+          'Clic : couper la liaison.'),
+      child: GestureDetector(
+        onTap: host.stop,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: fc.primary.withValues(alpha: 0.12),
+              border: Border.all(color: fc.primary.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.phonelink_ring_rounded, size: 14, color: fc.primary),
+              const SizedBox(width: 6),
+              Text(link.code ?? '',
+                  style: TextStyle(
+                      color: fc.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontFamily: 'JetBrains Mono')),
+              if (link.clients > 0) ...[
+                const SizedBox(width: 6),
+                Text('· ${tr('{} relié(s)', [link.clients])}',
+                    style: TextStyle(color: fc.textSecondary, fontSize: 10.5)),
+              ],
+            ]),
+          ),
+        ),
       ),
     );
   }
