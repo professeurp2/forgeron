@@ -86,3 +86,13 @@ class HealthResponse(BaseModel):
     active_job_id: Optional[str] = None
     queue_length: int = 0
     engines: Dict[str, str] = Field(default_factory=dict)
+
+
+class MachineScanRequest(BaseModel):
+    """Requête de scan 3D en machine (doc §12, Jalon 5.0)."""
+    poses: int = Field(default=12, ge=1, le=72)
+    a_deg: float = Field(default=0.0, ge=-88.0, le=90.0)
+    camera_url: Optional[str] = None
+    synthetic: bool = False
+    mode: JobMode = JobMode.GEN
+

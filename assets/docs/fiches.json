@@ -122,6 +122,14 @@
       "texte": "Sans modèle ni réseau, l'assistant comprend des ordres courts : arrêt d'urgence, état de la machine, pause, homing, allumer ou éteindre la broche, poser le zéro pièce, déplacer un axe de N mm à une vitesse. Ils fonctionnent en français, en anglais et en bambara (brouillon, à relire). Tout ce qui agit sur la machine demande une confirmation tant que la langue n'a pas été relue par un locuteur nommé.",
       "source": "docs/lexique-gouvernance.md",
       "statut": "brouillon"
+    },
+    {
+      "id": "documentation-generale-forgeron",
+      "titre": "Documentation Générale & Architecture Technique Forgeron",
+      "mots_cles": ["documentation", "architecture", "forgeron", "fluidnc", "websocket", "streaming", "buffer", "gcode", "5axes", "trunnion", "tb6600", "esp32", "cam", "gemini", "scan3d"],
+      "texte": "Forgeron est un contrôleur CNC 5-axes (Trunnion X,Y,Z,A,C) basé sur Flutter (Clean Architecture + Riverpod). Il communique en WebSocket Binaire avec FluidNC v4.0 sur le port 80 (URL ws://IP:80/). Le streaming G-Code utilise un algorithme Character-Counting limité au buffer RX de 127 octets de l'ESP32. L'adaptateur CAM filtre les RTCP non supportés (G43.4, M128), développe les cycles fixes G81-G83, et valide les butées A [-90°, +90°] et C [0°, 360°]. Les entrées fins de course (GPIO 4, 13, 14) et l'E-STOP (GPIO 15) sont câblées en Normalement Fermé (NC) fail-safe. L'alimentation moteurs est un bloc ATX HP Delta 12V/38A. L'IHM propose un pupitre FANUC avec écran LCD cathodique, volant MPG virtuel et agent IA Gemini multimodal.",
+      "source": "DOCS.md (Documentation officielle du projet)",
+      "statut": "valide"
     }
   ]
 }

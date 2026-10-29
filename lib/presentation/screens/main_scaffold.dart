@@ -148,24 +148,19 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final machineState = ref.watch(machineStateProvider);
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
     return TutorialOverlay(
       child: ResponsiveLayout(
-        mobile: _buildMobileScaffold(machineState, selectedIndex),
-        tablet: _buildDesktopScaffold(machineState, selectedIndex, false),
-        desktop: _buildDesktopScaffold(machineState, selectedIndex, _isSidebarExpanded),
+        mobile: _buildMobileScaffold(selectedIndex),
+        tablet: _buildDesktopScaffold(selectedIndex, false),
+        desktop: _buildDesktopScaffold(selectedIndex, _isSidebarExpanded),
       ),
     );
   }
 
-  Widget _buildDesktopScaffold(AsyncValue<MachineState> machineState, int selectedIndex, bool isExpanded) {
+  Widget _buildDesktopScaffold(int selectedIndex, bool isExpanded) {
     // ── Mode atelier : pupitre plein écran, sans barre latérale ni en-tête ──
-    // Le drapeau n'était lu que par le tableau de bord : depuis n'importe
-    // quelle autre page, le réglage se refermait sans rien changer, et quand
-    // il prenait enfin effet le pupitre restait enfermé dans le chrome de
-    // navigation — alors qu'il est annoncé « plein écran ».
     if (ref.watch(isWorkshopModeProvider)) {
       return Scaffold(
         backgroundColor: context.fc.background,
@@ -180,7 +175,6 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       backgroundColor: context.fc.background,
       bottomNavigationBar: _StatusFooter(
         key: TutorialKeys.statusFooter,
-        machineState: machineState,
       ),
       body: Column(
         children: [
@@ -189,10 +183,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
             key: TutorialKeys.headerBar,
             isSidebarExpanded: isExpanded,
             onMenuToggle: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
-            machineState: machineState,
             onEmergencyStop: () {
-              // Passe par le contrôleur : il purge le flux ET vérifie que la
-              // commande est réellement partie (sinon SafetyBanner alerte).
               ref.read(streamingProvider.notifier).stopStream();
             },
             onSettingsPressed: () {
@@ -248,20 +239,17 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     'TABLEAU', 'PALPAGE', 'OUTILS', 'TRAVAIL', 'MDI', 'DIAG',
   ];
 
-  Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
+  Widget _buildMobileScaffold(int selectedIndex) {
     // ── Mode atelier : pupitre plein écran, sans barre de navigation ───────
-    // Le drapeau est levé depuis Paramètres → Mode atelier. Seul le tableau de
-    // bord *desktop* le lisait : sur mobile, le réglage se refermait sans rien
-    // changer. Le pupitre remplace tout le chrome — il porte sa propre sortie.
     if (ref.watch(isWorkshopModeProvider)) return const MobileWorkshopScreen();
 
     final fc = context.fc;
     final aiInbox = ref.watch(aiInboxProvider);
-    final state = machineState.valueOrNull;
+    final status = ref.watch(machineStateProvider.select((s) => s.valueOrNull?.status));
     final statusColor =
-        _getMachineStatusColor(context, state?.status ?? MachineStatus.offline);
-    final statusLabel = state?.status.name.toUpperCase() ?? 'OFFLINE';
-    final isOnline = state?.status != null && state?.status != MachineStatus.offline;
+        _getMachineStatusColor(context, status ?? MachineStatus.offline);
+    final statusLabel = status?.name.toUpperCase() ?? 'OFFLINE';
+    final isOnline = status != null && status != MachineStatus.offline;
 
     final destinations = [
       for (int i = 0; i < _mobileNavLabels.length; i++)
@@ -470,32 +458,34 @@ class _EstopFabState extends State<_EstopFab>
   @override
   Widget build(BuildContext context) {
     final danger = context.fc.danger;
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (context, child) {
-        final t = _pulse.value;
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: danger.withValues(alpha: 0.35 + 0.35 * t),
-                blurRadius: 12 + 12 * t,
-                spreadRadius: 1 + 3 * t,
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: FloatingActionButton(
-        onPressed: widget.onPressed,
-        backgroundColor: danger,
-        foregroundColor: Colors.white,
-        elevation: 6,
-        shape: const CircleBorder(),
-        tooltip: tr('Arrêt d\'urgence'),
-        child: const Icon(Icons.warning_amber_rounded, size: 26),
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, child) {
+          final t = _pulse.value;
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: danger.withValues(alpha: 0.35 + 0.35 * t),
+                  blurRadius: 12 + 12 * t,
+                  spreadRadius: 1 + 3 * t,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: FloatingActionButton(
+          onPressed: widget.onPressed,
+          backgroundColor: danger,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shape: const CircleBorder(),
+          tooltip: tr('Arrêt d\'urgence'),
+          child: const Icon(Icons.warning_amber_rounded, size: 26),
+        ),
       ),
     );
   }
@@ -815,82 +805,77 @@ class _FloatingAiButtonState extends State<_FloatingAiButton>
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final t = _ctrl.value; // 0 → 1
-        // Ondulation verticale douce + léger balancement.
-        final bob = sin(t * 2 * pi) * 4.0;
-        final tilt = sin(t * 2 * pi) * 0.06;
-        return Transform.translate(
-          offset: Offset(0, bob),
-          child: Transform.rotate(angle: tilt, child: child),
-        );
-      },
-      child: _buildButton(fc),
-    );
-  }
-
-  Widget _buildButton(ForgeronColorPalette fc) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.88 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            final glow = 0.35 + 0.35 * (0.5 + 0.5 * sin(_ctrl.value * 4 * pi));
-            return Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    fc.primary,
-                    fc.primary.withValues(alpha: 0.75),
-                  ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: fc.primary.withValues(alpha: glow),
-                    blurRadius: 16,
-                    spreadRadius: 1,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.88 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, badge) {
+              final t = _ctrl.value;
+              final bob = sin(t * 2 * pi) * 4.0;
+              final tilt = sin(t * 2 * pi) * 0.06;
+              final glow = 0.35 + 0.35 * (0.5 + 0.5 * sin(t * 4 * pi));
+              return Transform.translate(
+                offset: Offset(0, bob),
+                child: Transform.rotate(
+                  angle: tilt,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              fc.primary,
+                              fc.primary.withValues(alpha: 0.75),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: fc.primary.withValues(alpha: glow),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.30),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text('🤖', style: TextStyle(fontSize: 28)),
+                      ),
+                      if (badge != null) badge,
+                    ],
                   ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.30),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Text('🤖', style: TextStyle(fontSize: 28)),
-            );
-          },
-            ),
-            // Badge d'alerte : « ? » (info) ou « ! » (problème).
-            if (widget.alert)
-              Positioned(
-                right: -2,
-                top: -2,
-                child: _AiBadge(problem: widget.problem, fc: fc),
-              ),
-          ],
+                ),
+              );
+            },
+            child: widget.alert
+                ? Positioned(
+                    right: -2,
+                    top: -2,
+                    child: _AiBadge(problem: widget.problem, fc: fc),
+                  )
+                : null,
+          ),
         ),
       ),
     );
@@ -930,40 +915,42 @@ class _AiBadgeState extends State<_AiBadge>
   Widget build(BuildContext context) {
     final fc = widget.fc;
     final color = widget.problem ? fc.danger : fc.warning;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final t = _ctrl.value;
-        return Container(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) {
+          final t = _ctrl.value;
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4 + 0.4 * t),
+                  blurRadius: 6 + 4 * t,
+                  spreadRadius: 0.5 + t,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: Container(
+          width: 21,
+          height: 21,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
+            color: color,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.4 + 0.4 * t),
-                blurRadius: 6 + 4 * t,
-                spreadRadius: 0.5 + t,
-              ),
-            ],
+            border: Border.all(color: fc.background, width: 2),
           ),
-          child: child,
-        );
-      },
-      child: Container(
-        width: 21,
-        height: 21,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: fc.background, width: 2),
-        ),
-        child: Text(
-          widget.problem ? '!' : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            height: 1.0,
+          child: Text(
+            widget.problem ? '!' : '?',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
           ),
         ),
       ),
@@ -980,7 +967,6 @@ class _NavDef {
 class _HeaderBar extends ConsumerWidget {
   final bool isSidebarExpanded;
   final VoidCallback onMenuToggle;
-  final AsyncValue<MachineState> machineState;
   final VoidCallback onEmergencyStop;
   final VoidCallback onSettingsPressed;
 
@@ -988,19 +974,16 @@ class _HeaderBar extends ConsumerWidget {
     super.key,
     required this.isSidebarExpanded,
     required this.onMenuToggle,
-    required this.machineState,
     required this.onEmergencyStop,
     required this.onSettingsPressed,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = machineState.valueOrNull;
-    final isOnline = state?.status != null &&
-        state?.status != MachineStatus.offline;
-    final statusLabel =
-        state?.status.name.toUpperCase() ?? 'HORS LIGNE';
-    final statusColor = _statusColor(context, state?.status ?? MachineStatus.offline);
+    final status = ref.watch(machineStateProvider.select((s) => s.valueOrNull?.status));
+    final isOnline = status != null && status != MachineStatus.offline;
+    final statusLabel = status?.name.toUpperCase() ?? 'HORS LIGNE';
+    final statusColor = _statusColor(context, status ?? MachineStatus.offline);
     final ip = ref.watch(espIpProvider);
 
     return Container(
@@ -1173,8 +1156,24 @@ class _StatusBadgeState extends State<_StatusBadge>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
+    if (widget.isActive) {
+      _ctrl.repeat(reverse: true);
+    }
     _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void didUpdateWidget(_StatusBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _ctrl.repeat(reverse: true);
+      } else {
+        _ctrl.stop();
+        _ctrl.value = 0.0;
+      }
+    }
   }
 
   @override
@@ -1185,45 +1184,47 @@ class _StatusBadgeState extends State<_StatusBadge>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: widget.color.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _pulse,
-            builder: (context, _) {
-              final t = widget.isActive ? _pulse.value : 0.0;
-              return Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.isActive ? widget.color : context.fc.textDisabled,
-                  boxShadow: widget.isActive
-                      ? [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.6 + 0.4 * t),
-                            blurRadius: 5 + 6 * t,
-                            spreadRadius: 0.5 * t,
-                          ),
-                        ]
-                      : null,
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          Text(tr(widget.label),
-              style: TextStyle(
-                  color: widget.color,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 10,
-                  letterSpacing: 1.0)),
-        ],
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: widget.color.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            AnimatedBuilder(
+              animation: _pulse,
+              builder: (context, _) {
+                final t = widget.isActive ? _pulse.value : 0.0;
+                return Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.isActive ? widget.color : context.fc.textDisabled,
+                    boxShadow: widget.isActive
+                        ? [
+                            BoxShadow(
+                              color: widget.color.withValues(alpha: 0.6 + 0.4 * t),
+                              blurRadius: 5 + 6 * t,
+                              spreadRadius: 0.5 * t,
+                            ),
+                          ]
+                        : null,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(tr(widget.label),
+                style: TextStyle(
+                    color: widget.color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 1.0)),
+          ],
+        ),
       ),
     );
   }
@@ -1414,13 +1415,12 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _StatusFooter extends StatelessWidget {
-  final AsyncValue<MachineState> machineState;
-  const _StatusFooter({super.key, required this.machineState});
+class _StatusFooter extends ConsumerWidget {
+  const _StatusFooter({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final state = machineState.valueOrNull;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(machineStateProvider).valueOrNull;
     final mPos = state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
     final feed = state?.feedrate.toStringAsFixed(0) ?? '0';
     final spindle = state?.spindleSpeed.toStringAsFixed(0) ?? '0';

@@ -155,16 +155,23 @@ def export_step_from_mesh(mesh: trimesh.Trimesh, step_path: Path, max_faces: int
 def run_meshroom_pipeline(meshroom_bin: Path, photos_dir: Path, out_dir: Path) -> Path:
     """Exécute meshroom_batch pour reconstruire un maillage dense photogrammétrique."""
     import subprocess
-    import re
+    import shutil
+    import tempfile
 
     meshroom_out = out_dir / "meshroom_out"
     meshroom_out.mkdir(parents=True, exist_ok=True)
 
     log_stage("sfm", 10.0, "Démarrage du pipeline photogrammétrique AliceVision Meshroom...")
+    # Pour la fabrication CNC/CAM, le maillage géométrique volumique filtré (MeshFiltering)
+    # est la cible finale. Nous arrêtons à MeshFiltering (--toNode MeshFiltering) pour éviter
+    # l'étape Texturing qui consomme plusieurs Go de RAM pour plaquer une texture 8K inutile
+    # à l'usinage. Nous désactivons aussi estimateSpaceFromSfM qui échoue sur les petits objets.
     cmd = [
         str(meshroom_bin),
         "--input", str(photos_dir),
         "--output", str(meshroom_out),
+        "--toNode", "MeshFiltering",
+        "--paramOverrides", "Meshing.estimateSpaceFromSfM=False",
     ]
 
     proc = subprocess.Popen(
@@ -185,12 +192,16 @@ def run_meshroom_pipeline(meshroom_bin: Path, photos_dir: Path, out_dir: Path) -
         "depthmapfilter": ("mvs", 75.0, "Filtrage des cartes de profondeur..."),
         "meshing": ("meshing", 80.0, "Génération du maillage volumique triangulé..."),
         "meshfiltering": ("meshing", 85.0, "Nettoyage et fermeture du maillage..."),
-        "texturing": ("postprocessing", 90.0, "Projection des textures..."),
     }
 
+    last_lines = []
     if proc.stdout:
         for raw_line in proc.stdout:
             line = raw_line.strip()
+            if line:
+                last_lines.append(line)
+                if len(last_lines) > 20:
+                    last_lines.pop(0)
             line_lower = line.lower()
             for key, (stg, pct, msg) in stage_pcts.items():
                 if f"[{key}]" in line_lower or f"node '{key}'" in line_lower:
@@ -198,17 +209,43 @@ def run_meshroom_pipeline(meshroom_bin: Path, photos_dir: Path, out_dir: Path) -
                     break
 
     proc.wait()
-    if proc.returncode != 0:
+
+    # Recherche du maillage produit (OBJ) : d'abord dans meshroom_out, puis dans le cache Meshroom
+    obj_candidates = (
+        list(meshroom_out.glob("**/texturedMesh.obj"))
+        + list(meshroom_out.glob("**/mesh.obj"))
+        + list(meshroom_out.glob("**/*.obj"))
+    )
+
+    if not obj_candidates:
+        temp_cache = Path(tempfile.gettempdir()) / "MeshroomCache"
+        if temp_cache.exists():
+            filtered_meshes = sorted(
+                temp_cache.glob("MeshFiltering/**/mesh.obj"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if not filtered_meshes:
+                filtered_meshes = sorted(
+                    temp_cache.glob("Meshing/**/mesh.obj"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+            if filtered_meshes:
+                dest_obj = meshroom_out / "reconstructed_mesh.obj"
+                shutil.copy2(filtered_meshes[0], dest_obj)
+                obj_candidates = [dest_obj]
+
+    if not obj_candidates and proc.returncode != 0:
         photos_count = len([p for p in photos_dir.iterdir() if p.suffix.lower() in [".jpg", ".jpeg", ".png"]])
+        err_tail = "\n".join(last_lines[-6:])
         raise RuntimeError(
-            f"Échec photogrammétrie (Meshroom code {proc.returncode}) : "
-            f"Nombre de photos ({photos_count}) ou recouvrement insuffisant pour trianguler l'objet (échec StructureFromMotion). "
-            f"Pour la 'Pièce réelle', prévoyez 20 à 40 photos tout autour de l'objet avec 60% de recouvrement. "
-            f"Pour 1 à 4 photos, sélectionnez l'onglet 'Forme concept (Génératif)'."
+            f"Échec photogrammétrie (Meshroom code {proc.returncode}) pour {photos_count} photo(s) :\n"
+            f"{err_tail}\n\n"
+            f"Conseil : Vérifiez que l'objet présente suffisamment de motifs/textures contrastés "
+            f"et un bon recouvrement angulaire entre chaque prise de vue."
         )
 
-    # Recherche du maillage produit (OBJ)
-    obj_candidates = list(meshroom_out.glob("**/texturedMesh.obj")) + list(meshroom_out.glob("**/*.obj"))
     if not obj_candidates:
         raise RuntimeError("Meshroom s'est terminé sans produire de fichier .obj")
 

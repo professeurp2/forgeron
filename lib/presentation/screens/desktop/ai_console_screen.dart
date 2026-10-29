@@ -26,6 +26,7 @@ import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
+import '../../widgets/simulation_control_panel.dart';
 import '../../widgets/trunnion_visualizer.dart';
 import '../../widgets/viewer_scene.dart';
 import '../ai_agent_settings_screen.dart';
@@ -80,6 +81,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   /// génération longue le ramènerait de force à chaque mot pendant qu'il
   /// relit une étape plus haut.
   bool _atBottom = true;
+  DateTime? _lastAutoScroll;
 
   // Voix — dictée et lecture des réponses, comme sur mobile. Mêmes paquets,
   // même logique de correspondance de locale : pas un second système.
@@ -323,10 +325,17 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     ref.listen(aiAgentControllerProvider, (previous, next) {
       // Le fil bouge : nouvelle étape, étape terminée, nouveau message. On ne
       // suit que si l'opérateur était déjà en bas (voir _atBottom).
-      if (previous?.messages.length != next.messages.length ||
-          previous?.streamingText != next.streamingText) {
+      final msgChanged = previous?.messages.length != next.messages.length;
+      final streamChanged = previous?.streamingText != next.streamingText;
+      if (msgChanged || streamChanged) {
         if (_atBottom) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+          final now = DateTime.now();
+          if (msgChanged ||
+              _lastAutoScroll == null ||
+              now.difference(_lastAutoScroll!).inMilliseconds >= 100) {
+            _lastAutoScroll = now;
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+          }
         }
       }
       final grew = (previous?.messages.length ?? 0) < next.messages.length;
@@ -823,6 +832,32 @@ class _Header extends ConsumerWidget {
           ),
           const _ModelBadge(),
           const SizedBox(width: 8),
+          Consumer(
+            builder: (context, ref, _) {
+              final simOpen = ref.watch(aiArtifactsProvider
+                  .select((a) => a.openPanes.contains(AiDockedViewer.toolpath)));
+              return Tooltip(
+                message: simOpen
+                    ? tr('Fermer le panneau Simulateur / Caméra')
+                    : tr('Ouvrir le panneau Simulateur / Caméra'),
+                child: fluent.IconButton(
+                  icon: Icon(
+                    Icons.precision_manufacturing_rounded,
+                    color: simOpen ? fc.primary : fc.textSecondary,
+                    size: 16,
+                  ),
+                  onPressed: () {
+                    final notifier = ref.read(aiArtifactsProvider.notifier);
+                    if (simOpen) {
+                      notifier.undock(AiDockedViewer.toolpath);
+                    } else {
+                      notifier.dock(AiDockedViewer.toolpath);
+                    }
+                  },
+                ),
+              );
+            },
+          ),
           Tooltip(
             message: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
             child: fluent.IconButton(
@@ -1450,6 +1485,29 @@ class _ArtifactsSidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(14),
               children: [
+                const ActerisJobSummaryCard(compact: true),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: fluent.FilledButton(
+                    onPressed: () => ref
+                        .read(aiArtifactsProvider.notifier)
+                        .dock(AiDockedViewer.toolpath),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.precision_manufacturing_rounded,
+                              size: 14),
+                          const SizedBox(width: 8),
+                          Text(tr('Simulateur 3D & Caméra')),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _StepCard(fc: fc, step: artifacts.step, onPickStep: onPickStep),
                 const SizedBox(height: 12),
                 _ToolpathCard(fc: fc, gcode: artifacts.gcode),
@@ -1745,14 +1803,10 @@ class _DockedToolpathState extends ConsumerState<_DockedToolpath> {
         ),
       );
     }
-    if (_loaded == null) {
+    if (widget.path != null && _loaded == null) {
       return const Center(child: fluent.ProgressRing());
     }
-    return TrunnionVisualizer(
-      mPos: const [0, 0, 0, 0, 0],
-      toolpath: ref.watch(renderToolpathProvider),
-      scene: ViewerScene.toolpathOnly,
-    );
+    return const ActerisSimulatorCameraPanel();
   }
 }
 

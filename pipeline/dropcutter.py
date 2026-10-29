@@ -152,24 +152,35 @@ def height_map(
     ys = np.arange(lo[1], hi[1] + step, step)
     Z = np.full((len(ys), len(xs)), -np.inf)
 
-    for tri in tris:
-        # Seuls les points de grille sous l'influence de ce triangle.
-        tlo = tri.min(axis=0) - rho
-        thi = tri.max(axis=0) + rho
-        i0 = int(np.searchsorted(xs, tlo[0], "left"))
-        i1 = int(np.searchsorted(xs, thi[0], "right"))
-        j0 = int(np.searchsorted(ys, tlo[1], "left"))
-        j1 = int(np.searchsorted(ys, thi[1], "right"))
+    # Pré-calcul vectorisé des boîtes englobantes et indices de grille
+    tlo_all = tris.min(axis=1) - rho
+    thi_all = tris.max(axis=1) + rho
+    i0_all = np.searchsorted(xs, tlo_all[:, 0], "left")
+    i1_all = np.searchsorted(xs, thi_all[:, 0], "right")
+    j0_all = np.searchsorted(ys, tlo_all[:, 1], "left")
+    j1_all = np.searchsorted(ys, thi_all[:, 1], "right")
+
+    for idx, tri in enumerate(tris):
+        i0 = int(i0_all[idx])
+        i1 = int(i1_all[idx])
+        j0 = int(j0_all[idx])
+        j1 = int(j1_all[idx])
         if i0 >= i1 or j0 >= j1:
             continue
 
-        gx, gy = np.meshgrid(xs[i0:i1], ys[j0:j1])
+        # Élagage Z rapide : si le sommet le plus haut du triangle + ρ est
+        # déjà sous le minimum actuel de la sous-grille, il ne peut rien relever.
+        sub_z = Z[j0:j1, i0:i1]
+        if thi_all[idx, 2] <= sub_z.min():
+            continue
+
+        gx, gy = np.broadcast_arrays(xs[None, i0:i1], ys[j0:j1, None])
         best = _face_contact(tri, gx, gy, rho)
         for k in range(3):
             best = np.maximum(best, _vertex_contact(tri[k], gx, gy, rho))
             best = np.maximum(
                 best, _edge_contact(tri[k], tri[(k + 1) % 3], gx, gy, rho)
             )
-        Z[j0:j1, i0:i1] = np.maximum(Z[j0:j1, i0:i1], best)
+        Z[j0:j1, i0:i1] = np.maximum(sub_z, best)
 
     return xs, ys, Z

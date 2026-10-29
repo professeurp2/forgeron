@@ -114,22 +114,39 @@ def tool_path_points(profile: np.ndarray, rho: float) -> np.ndarray:
     """
     prof = np.asarray(profile, dtype=float)
     n = len(prof)
-    out = np.empty_like(prof)
-    for i in range(n):
-        a = prof[max(i - 1, 0)]
-        b = prof[min(i + 1, n - 1)]
-        tr, tz = b[0] - a[0], b[1] - a[1]
-        norm = math.hypot(tr, tz)
-        if norm == 0:
-            out[i] = prof[i]
-            continue
-        tr, tz = tr / norm, tz / norm
-        # Normale = tangente tournée de 90°, orientée VERS L'EXTÉRIEUR
-        # (r croissant) : c'est le côté où se trouve l'outil.
-        nr, nz = -tz, tr
-        if nr < 0:
-            nr, nz = -nr, -nz
-        out[i] = (prof[i][0] + rho * nr, prof[i][1] + rho * nz - rho)
+    if n == 0:
+        return prof.copy()
+    if n == 1:
+        return prof.copy()
+
+    idx_prev = np.maximum(np.arange(n) - 1, 0)
+    idx_next = np.minimum(np.arange(n) + 1, n - 1)
+    a = prof[idx_prev]
+    b = prof[idx_next]
+
+    tr = b[:, 0] - a[:, 0]
+    tz = b[:, 1] - a[:, 1]
+    norm = np.hypot(tr, tz)
+    valid = norm > 0
+
+    out = prof.copy()
+    if not np.any(valid):
+        return out
+
+    inv_norm = np.zeros_like(norm)
+    inv_norm[valid] = 1.0 / norm[valid]
+    tr_n = tr * inv_norm
+    tz_n = tz * inv_norm
+
+    # Normale = tangente tournée de 90°, orientée VERS L'EXTÉRIEUR (r croissant)
+    nr = -tz_n
+    nz = tr_n
+    flip = nr < 0
+    nr = np.where(flip, -nr, nr)
+    nz = np.where(flip, -nz, nz)
+
+    out[valid, 0] = prof[valid, 0] + rho * nr[valid]
+    out[valid, 1] = prof[valid, 1] + rho * nz[valid] - rho
     return out
 
 

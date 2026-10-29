@@ -105,10 +105,12 @@ class SyntheticCamera:
         c = pose.c_deg if pose else 0.0
         d.text((10, 10), f"SYNTHETIQUE {self.id}", fill=(230, 230, 230))
         d.text((10, 30), f"A={a:+.1f}  C={c:.1f}", fill=(120, 200, 255))
+        # Une pièce modèle (cylindre/bloc au centre du plateau)
+        cx, cy, r = self.size[0] / 2, self.size[1] / 2, 70
+        d.rectangle([cx - 30, cy - 40, cx + 30, cy + 40], fill=(210, 80, 50))
         # Un repère qui tourne avec C, pour que les vues diffèrent visiblement.
         import math
 
-        cx, cy, r = self.size[0] / 2, self.size[1] / 2, 70
         x = cx + r * math.cos(math.radians(c))
         y = cy + r * math.sin(math.radians(c))
         d.line((cx, cy, x, y), fill=(255, 160, 60), width=4)
@@ -207,12 +209,12 @@ class CapturePlan:
     settle_s: float = 0.5  # temps de stabilisation après un mouvement
 
     @staticmethod
-    def orbit_c(n: int = 8, a_deg: float = 0.0) -> "CapturePlan":
+    def orbit_c(n: int = 8, a_deg: float = 0.0, settle_s: float = 0.5) -> "CapturePlan":
         """Orbite simple : n pas réguliers de l'axe C, A fixe."""
         if n < 1:
             raise ValueError("n doit être >= 1")
         step = 360.0 / n
-        return CapturePlan([Pose(a_deg, i * step) for i in range(n)])
+        return CapturePlan([Pose(a_deg, i * step) for i in range(n)], settle_s=settle_s)
 
     def out_of_course(self) -> List[Pose]:
         """Poses dont l'angle A sort de la course machine (à ne pas commander)."""

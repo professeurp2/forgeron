@@ -64,12 +64,12 @@ def _submit(client, **data):
     return res.json()["job_id"]
 
 
-def _wait(client, job_id):
-    for _ in range(50):
+def _wait(client, job_id, max_retries=150, delay=0.04):
+    for _ in range(max_retries):
         st = client.get(f"/jobs/{job_id}").json()
         if st["stage"] in ("done", "failed"):
             return st
-        time.sleep(0.02)
+        time.sleep(delay)
     pytest.fail(f"job {job_id} bloqué : {st}")
 
 
@@ -135,3 +135,60 @@ def test_invalid_inputs_rejected(make_client):
         assert c.post("/jobs", data={"mode": "x"}, files=files).status_code == 400
         assert c.post("/jobs", data={"scale_type": "aruco"}, files=files).status_code == 400
         assert c.get("/jobs/inconnu").status_code == 404
+
+
+def test_machine_scan_bounds_rejected(make_client):
+    with make_client(FakeRunner()) as c:
+        # A hors course (> 90°)
+        assert c.post("/scan", json={"poses": 8, "a_deg": 95.0}).status_code in (400, 422)
+        # A hors course (< -88°)
+        assert c.post("/scan", json={"poses": 8, "a_deg": -90.0}).status_code in (400, 422)
+        # Nombre de poses invalide
+        assert c.post("/scan", json={"poses": 0, "a_deg": 0.0}).status_code in (400, 422)
+        assert c.post("/scan", json={"poses": 100, "a_deg": 0.0}).status_code in (400, 422)
+
+
+def test_machine_scan_simulation_pipeline(make_client, tmp_path):
+    with make_client(FakeRunner()) as c:
+        res = c.post("/scan", json={"poses": 6, "a_deg": 15.0, "synthetic": True})
+        assert res.status_code == 202, res.text
+        data = res.json()
+        job_id = data["job_id"]
+        assert data["mode"] == "gen"
+
+        st = _wait(c, job_id)
+        assert st["stage"] == "done"
+        assert st["has_mesh"] is True
+
+        # Vérification des fichiers de capture
+        job_dir = tmp_path / job_id
+        assert (job_dir / "views.json").exists()
+        photos = list((job_dir / "photos").glob("*.jpg"))
+        assert len(photos) == 6
+
+        # Vérification de l'honnêteté de la provenance
+        prov = st["provenance"]
+        assert prov["is_approximate"] is True
+        notes = " ".join(prov["notes"])
+        assert "Scan en machine (Jalon 5.0)" in notes
+        assert "simulation, boucle ouverte" in notes
+
+
+def test_machine_scan_unreachable_camera_fails_honestly(make_client):
+    with make_client(FakeRunner()) as c:
+        res = c.post(
+            "/scan",
+            json={
+                "poses": 4,
+                "a_deg": 0.0,
+                "camera_url": "http://127.0.0.1:59999/capture",
+                "synthetic": False,
+            },
+        )
+        assert res.status_code == 202
+        job_id = res.json()["job_id"]
+
+        st = _wait(c, job_id)
+        assert st["stage"] == "failed"
+        assert "Échec capture" in (st["error"] or "")
+

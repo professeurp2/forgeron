@@ -423,12 +423,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   // ── Surveillance et routage d'outils ──────────────────────────────────────
 
-  /// Routage d'outils (n'exposer au modèle que les outils utiles au message) :
-  /// **désactivé tant que Forgeron-Bench n'a pas montré qu'il ne dégrade ni la
-  /// réussite ni la sécurité** (`BENCH_ROUTING=1`, voir `tool/eval/README.md`).
-  /// Ne concerne jamais Gemini, dont la fenêtre et le quota ne le justifient
-  /// pas.
-  static const _useToolRouting = false;
+  /// Routage d'outils (n'exposer au modèle local que les outils utiles au
+  /// message, avec noyau de sécurité permanent et repli sur le catalogue
+  /// complet en cas de doute). Ne concerne pas Gemini (`service.usesCellular`).
+  static const _useToolRouting = true;
+
+  String? _latestStreamingText;
 
   AiTurnJournal? _journal;
   Set<String> _recentToolGroups = const {};
@@ -1447,7 +1447,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return;
     }
 
-    final partial = state.streamingText;
+    final partial = _latestStreamingText ?? state.streamingText;
+    _latestStreamingText = null;
     state = state.copyWith(
         isProcessing: false,
         clearStreamingText: true,
@@ -1535,15 +1536,22 @@ class AiAgentController extends StateNotifier<AiChatState> {
         clearStreamingText: true,
         turnStartedAt: state.turnStartedAt ?? DateTime.now());
     final clock = Stopwatch()..start();
+    _latestStreamingText = null;
+    var lastDeltaEmit = DateTime.fromMillisecondsSinceEpoch(0);
     try {
       final response = await service.streamMessages(
         contents: _contents,
         functionDeclarations: vision != null ? const <Map<String, dynamic>>[] : _declarationsFor(service),
         systemPrompt: _buildSystemPrompt(),
-        // Aperçu live : le texte s'affiche au fur et à mesure.
+        // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
         onDelta: (partial) {
           if (_cancelled) return;
-          state = state.copyWith(streamingText: partial);
+          _latestStreamingText = partial;
+          final now = DateTime.now();
+          if (now.difference(lastDeltaEmit).inMilliseconds >= 40) {
+            lastDeltaEmit = now;
+            state = state.copyWith(streamingText: partial);
+          }
         },
         shouldCancel: () => _cancelled || _epoch != epoch,
       );

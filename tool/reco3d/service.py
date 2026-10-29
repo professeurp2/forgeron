@@ -27,12 +27,14 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from capture import A_MAX_DEG, A_MIN_DEG
 from models import (
     HealthResponse,
     JobCreateResponse,
     JobMode,
     JobStage,
     JobStatusResponse,
+    MachineScanRequest,
     ProvenanceInfo,
     ScaleReference,
     ScaleType,
@@ -44,13 +46,23 @@ STORAGE_DIR = RECO3D_DIR / "storage"
 
 
 class JobState:
-    def __init__(self, job_id: str, mode: JobMode, scale_ref: ScaleReference,
-                 job_dir: Path, photo_count: int):
+    def __init__(
+        self,
+        job_id: str,
+        mode: JobMode,
+        scale_ref: ScaleReference,
+        job_dir: Path,
+        photo_count: int,
+        is_machine_scan: bool = False,
+        scan_request: Optional[MachineScanRequest] = None,
+    ):
         self.job_id = job_id
         self.mode = mode
         self.scale_ref = scale_ref
         self.job_dir = job_dir
         self.photo_count = photo_count
+        self.is_machine_scan = is_machine_scan
+        self.scan_request = scan_request
         self.stage = JobStage.QUEUED
         self.progress = 0.0
         self.message = "En attente dans la file GPU"
@@ -92,6 +104,70 @@ async def process_job(job: JobState) -> None:
 
     out_dir = job.job_dir / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
+    extra_notes: List[str] = []
+
+    # 1. Si scan en machine : exécuter la séquence de capture calibrée
+    if job.is_machine_scan and job.scan_request:
+        req = job.scan_request
+        await on_stage(JobStage.SFM, 5.0, f"Démarrage capture machine ({req.poses} poses, A={req.a_deg:+.1f}°)...")
+        try:
+            from capture import (
+                CapturePlan,
+                HttpCamera,
+                SimController,
+                SyntheticCamera,
+                run_capture,
+            )
+
+            use_sim = req.synthetic or not req.camera_url
+            cameras = []
+            if req.camera_url and not req.synthetic:
+                cameras.append(HttpCamera(id="esp32cam", url=req.camera_url, timeout_s=4.0))
+            else:
+                cameras.append(SyntheticCamera(id="simcam"))
+
+            controller = SimController()
+            plan = CapturePlan.orbit_c(n=req.poses, a_deg=req.a_deg, settle_s=0.0 if use_sim else 0.5)
+
+            loop = asyncio.get_running_loop()
+
+            def _on_capture_prog(step: int, total: int) -> None:
+                pct = 5.0 + (step / max(1, total)) * 15.0
+                asyncio.run_coroutine_threadsafe(
+                    on_stage(JobStage.SFM, pct, f"Capture machine {step}/{total} (A={req.a_deg:+.1f}°)..."),
+                    loop,
+                )
+
+            capture_doc = await asyncio.to_thread(
+                run_capture,
+                plan,
+                cameras,
+                controller,
+                job.job_dir,
+                simulation=use_sim,
+                on_progress=_on_capture_prog,
+            )
+            job.photo_count = capture_doc.get(
+                "view_count", len(list((job.job_dir / "photos").glob("*.*")))
+            )
+            note = (
+                f"Scan en machine (Jalon 5.0) : {req.poses} poses A/C en simulation, boucle ouverte."
+                if use_sim
+                else f"Scan en machine (Jalon 5.0) : {req.poses} poses A/C capturées via {req.camera_url}."
+            )
+            extra_notes.append(note)
+            await on_stage(
+                JobStage.SFM,
+                20.0,
+                f"Capture machine terminée ({job.photo_count} photos). Lancement reconstruction...",
+            )
+        except Exception as exc:
+            job.stage = JobStage.FAILED
+            job.error = f"Échec capture machine : {exc}"
+            job.message = f"Échec capture : {exc}"
+            return
+
+    # 2. Lancement du runner de reconstruction
     try:
         result = await runner.run(job.mode, job.job_dir / "photos", out_dir,
                                   job.scale_ref, on_stage)
@@ -101,7 +177,7 @@ async def process_job(job: JobState) -> None:
         job.message = f"Échec : {exc}"
         return
 
-    # La détection de mire vient du moteur, jamais de la seule déclaration.
+    # 3. La détection de mire vient du moteur, jamais de la seule déclaration.
     measured_scale = job.scale_ref.model_copy(update={"detected": result.scale_detected})
     prov = build_provenance(
         mode=job.mode,
@@ -111,7 +187,7 @@ async def process_job(job: JobState) -> None:
         scale_ref=measured_scale,
         unreconstructed_holes_count=result.holes_count,
         facets_count=result.facets_count,
-        extra_notes=result.notes,
+        extra_notes=result.notes + extra_notes,
     )
     job.output_files["mesh"] = result.mesh_path
     if result.step_path:
@@ -240,6 +316,46 @@ async def create_job(
     await q.put(job_id)
     return JobCreateResponse(job_id=job_id, mode=job_mode, queue_position=q.qsize(),
                              message="Images reçues, job placé dans la file GPU.")
+
+
+@app.post("/scan", response_model=JobCreateResponse, status_code=status.HTTP_202_ACCEPTED)
+async def start_machine_scan(req: MachineScanRequest) -> JobCreateResponse:
+    """Démarre un scan 3D en machine (doc §12, Jalon 5.0).
+
+    Parcourt les poses du plateau (rotation C, inclinaison A), capture via les
+    caméras embarquées (ou caméra synthétique en simulation), étiquette les vues
+    calibrées (views.json) et lance la reconstruction volumique 3D.
+    """
+    if not (A_MIN_DEG <= req.a_deg <= A_MAX_DEG):
+        raise HTTPException(
+            400,
+            f"Angle A ({req.a_deg:+.1f}°) hors course machine [{A_MIN_DEG:+.1f}, {A_MAX_DEG:+.1f}]°.",
+        )
+    if req.poses < 1 or req.poses > 72:
+        raise HTTPException(400, f"Nombre de poses ({req.poses}) invalide (attendu : 1 à 72).")
+
+    job_id = f"job_{uuid.uuid4().hex[:8]}"
+    job_dir = STORAGE_DIR / job_id
+    (job_dir / "photos").mkdir(parents=True, exist_ok=True)
+
+    declared = ScaleReference(scale_type=ScaleType.NONE, dimension_mm=None, detected=False)
+    jobs_db[job_id] = JobState(
+        job_id=job_id,
+        mode=req.mode,
+        scale_ref=declared,
+        job_dir=job_dir,
+        photo_count=0,
+        is_machine_scan=True,
+        scan_request=req,
+    )
+    q = _get_queue()
+    await q.put(job_id)
+    return JobCreateResponse(
+        job_id=job_id,
+        mode=req.mode,
+        queue_position=q.qsize(),
+        message=f"Scan en machine programmé ({req.poses} poses, A={req.a_deg:+.1f}°).",
+    )
 
 
 def _job_or_404(job_id: str) -> JobState:

@@ -109,6 +109,9 @@ class ToolRouter {
         'run_step_pipeline', 'preview_step_file', 'open_toolpath_window',
         'open_gcode_window', 'open_chart_window', 'show_popup',
         'list_workspace_files', 'analyze_gcode',
+        'get_reco3d_status', 'start_machine_scan', 'get_scan_job_status',
+        'download_scan_result',
+        'run_machining_simulation', 'control_simulation',
       },
       keywords: [
         'step', 'stp', 'apercu', 'preview', '3d', 'parcours', 'toolpath',
@@ -116,11 +119,41 @@ class ToolRouter {
         'graphique', 'chart', 'courbe', 'fenetre', 'window',
       ],
     ),
+    'simulation': ToolGroup(
+      tools: {
+        'run_machining_simulation',
+        'control_simulation',
+        'switch_simulator_camera_tab',
+        'analyze_gcode',
+      },
+      keywords: [
+        'simule', 'simuler', 'simulation', 'simulate', 'simulateur', 'simulator',
+        'jumeau', 'digital twin', 'viewcube', 'isometric', 'isometrique',
+        'brut', 'cuboid', 'cylindre', 'cylinder', 'collision', 'enlevement',
+      ],
+    ),
     'camera': ToolGroup(
-      tools: {'get_camera_snapshot'},
+      tools: {'get_camera_snapshot', 'switch_simulator_camera_tab'},
       keywords: [
         'camera', 'photo', 'image', 'zone de coupe', 'montre', 'vois', 'regarde',
         'snapshot', 'cutting area', 'show me',
+      ],
+    ),
+    'scan': ToolGroup(
+      tools: {
+        'get_reco3d_status',
+        'discover_reco3d_server',
+        'start_machine_scan',
+        'get_scan_job_status',
+        'download_scan_result',
+        'preview_step_file',
+        'show_popup',
+      },
+      keywords: [
+        'scan', 'scanner', 'scan3d', 'numériser', 'numeriser', 'numérisation',
+        'numerisation', 'reco3d', 'reconstruction', 'maillage', 'mesh', 'stl',
+        'photogrammétrie', 'photogrammetrie', 'meshroom', 'en machine',
+        'caméra embarquée', 'camera embarquee', 'plateau rotatif', 'poses',
       ],
     ),
   };

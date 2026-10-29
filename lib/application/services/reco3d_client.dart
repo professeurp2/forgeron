@@ -12,7 +12,8 @@ class Reco3dClientException implements Exception {
   final int? statusCode;
 
   @override
-  String toString() => 'Reco3dClientException: $message' + (statusCode != null ? ' (HTTP $statusCode)' : '');
+  String toString() =>
+      'Reco3dClientException: $message${statusCode != null ? ' (HTTP $statusCode)' : ''}';
 }
 
 /// Client HTTP pour communiquer avec le service local `reco3d` (FastAPI sur PC GPU).
@@ -47,6 +48,7 @@ class Reco3dClient {
   }) async {
     // 1. Cibles rapides et fiables (mDNS, IP active du PC, hotspot Windows, localhost)
     final fastCandidates = [
+      'http://192.168.88.58:8765',
       'http://192.168.88.94:8765',
       'http://DESKTOP-24IDAFU.local:8765',
       'http://desktop-24idafu:8765',
@@ -57,8 +59,11 @@ class Reco3dClient {
 
     for (final url in fastCandidates) {
       try {
-        final resp = await _client.get(Uri.parse('$url/health')).timeout(const Duration(milliseconds: 500));
-        if (resp.statusCode == 200 && resp.body.contains('"status":"ready"')) {
+        final resp = await _client
+            .get(Uri.parse('$url/health'))
+            .timeout(const Duration(milliseconds: 600));
+        if (resp.statusCode == 200 &&
+            (resp.body.contains('"status"') || resp.body.contains('"engines"'))) {
           return url;
         }
       } catch (_) {}
@@ -82,6 +87,7 @@ class Reco3dClient {
           final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
 
           final candidates = <String>[
+            'http://$prefix.58:8765',
             'http://$prefix.94:8765',
             'http://$prefix.35:8765',
             'http://$prefix.104:8765',
@@ -101,7 +107,8 @@ class Reco3dClient {
             final futures = batch.map((url) async {
               try {
                 final resp = await _client.get(Uri.parse('$url/health')).timeout(timeout);
-                if (resp.statusCode == 200 && resp.body.contains('"status":"ready"')) {
+                if (resp.statusCode == 200 &&
+                    (resp.body.contains('"status"') || resp.body.contains('"engines"'))) {
                   return url;
                 }
               } catch (_) {}
@@ -208,6 +215,7 @@ class Reco3dClient {
     required int poses,
     required double aDeg,
     String? cameraUrl,
+    bool synthetic = false,
   }) async {
     final url = baseUri.replace(path: '/scan');
     try {
@@ -219,6 +227,7 @@ class Reco3dClient {
               'poses': poses,
               'a_deg': aDeg,
               if (cameraUrl != null && cameraUrl.isNotEmpty) 'camera_url': cameraUrl,
+              if (synthetic) 'synthetic': true,
             }),
           )
           .timeout(const Duration(seconds: 15));

@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show File, Platform;
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../data/fluidnc/grbl_parser.dart';
+import '../providers/reco3d_provider.dart';
+import '../providers/simulation_provider.dart';
 import '../providers/ai_agent_settings_provider.dart';
 import '../providers/ai_artifacts_provider.dart';
 import '../providers/camera_provider.dart';
@@ -1259,6 +1263,464 @@ class AiToolCatalog {
           'libelles_traduits': apres.id == 'fr' ? 'source' : traduites,
           'relu_par_un_locuteur': false,
           'retour_arriere': 'Paramètres > Langue',
+        });
+      },
+    ),
+
+    // ── Scan 3D & Numérisation en machine (Jalon 5) ──────────────────────────
+    AiTool(
+      name: 'get_reco3d_status',
+      description:
+          'Interroge l\'état du poste de calcul de reconstruction 3D (reco3d) : '
+          'vérifie la connexion, le GPU disponible (nom, VRAM libre), la file d\'attente '
+          'et les moteurs installés (Meshroom photogrammétrie métrique, OCP/Trimesh '
+          'forme conceptuelle).',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {},
+      },
+      category: null,
+      execute: (input, ref) async {
+        final client = ref.read(reco3dClientProvider);
+        final rawUrl = ref.read(reco3dServerUrlProvider);
+        try {
+          final uri = Uri.parse(rawUrl);
+          final health = await client.checkHealth(uri);
+          return jsonEncode({
+            'ok': true,
+            'serveur_url': rawUrl,
+            'status': health.status,
+            'gpu': health.gpuName,
+            'vram_libre_mb': health.gpuVramFreeMb,
+            'queue_length': health.queueLength,
+            'job_actif': health.activeJobId,
+            'moteurs': health.engines,
+          });
+        } catch (e) {
+          return jsonEncode({
+            'ok': false,
+            'serveur_url': rawUrl,
+            'erreur': 'Poste de calcul injoignable : $e',
+            'action_conseillee':
+                'Vérifier que le serveur reco3d est démarré sur le PC (port 8765) '
+                'et que le téléphone et le PC sont sur le même réseau Wi-Fi.',
+          });
+        }
+      },
+    ),
+
+    AiTool(
+      name: 'discover_reco3d_server',
+      description:
+          'Lance la découverte automatique du poste de calcul Scan 3D / Reco3D sur le réseau local '
+          '(broadcast UDP + scan rapide des adresses IPv4) et met à jour l\'URL active.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {},
+      },
+      category: null,
+      execute: (input, ref) async {
+        final client = ref.read(reco3dClientProvider);
+        final found = await client.discoverServer();
+        if (found != null) {
+          ref.read(reco3dServerUrlProvider.notifier).state = found;
+          ref.invalidate(reco3dHealthProvider);
+          return jsonEncode({
+            'ok': true,
+            'serveur_url': found,
+            'message': 'Poste de calcul détecté et configuré avec succès : $found',
+          });
+        }
+        return jsonEncode({
+          'ok': false,
+          'message': 'Aucun poste de calcul détecté sur le réseau local. Vérifiez que le PC et le téléphone sont sur le même sous-réseau.',
+        });
+      },
+    ),
+
+    AiTool(
+      name: 'start_machine_scan',
+      description:
+          'Lance un scan 3D automatique en machine (doc §12, Jalon 5) : le maître à reproduire '
+          'est bridé sur le plateau. Le serveur reco3d commande la rotation des axes A/C par angles '
+          'connus et capture via les caméras embarquées pour reconstruire la pièce en '
+          'multi-vues calibrées. Course A autorisée : [-88.0, +90.0]°. Mouvement physique '
+          'du plateau : requiert confirmation de l\'opérateur.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'poses': {
+            'type': 'integer',
+            'description': 'Nombre de poses de rotation C (ex. 8, 12, 16, 24). Défaut : 12.'
+          },
+          'aDeg': {
+            'type': 'number',
+            'description': 'Angle d\'inclinaison A en degrés, borné entre -88.0 et +90.0. Défaut : 0.0.'
+          },
+          'cameraUrl': {
+            'type': 'string',
+            'description': 'URL HTTP de la caméra ESP32-CAM (ex. http://192.168.0.50/capture). Si omise, utilise le flux de capture réseau ou la simulation.'
+          },
+          'synthetic': {
+            'type': 'boolean',
+            'description': 'True pour exécuter en simulation pure (caméra synthétique, test de plomberie sans matériel).'
+          },
+        },
+      },
+      category: AiActionCategory.movement,
+      execute: (input, ref) async {
+        final client = ref.read(reco3dClientProvider);
+        final rawUrl = ref.read(reco3dServerUrlProvider);
+        final uri = Uri.parse(rawUrl);
+
+        final poses = (input['poses'] as num?)?.toInt() ?? 12;
+        final aDeg = (input['aDeg'] as num?)?.toDouble() ?? 0.0;
+        final cameraUrl = input['cameraUrl'] as String?;
+        final synthetic = (input['synthetic'] as bool?) ?? false;
+
+        if (aDeg < -88.0 || aDeg > 90.0) {
+          return jsonEncode({
+            'ok': false,
+            'erreur': 'Angle A (${aDeg.toStringAsFixed(1)}°) hors course machine [-88.0, +90.0]°.',
+          });
+        }
+
+        try {
+          final job = await client.startMachineScan(
+            baseUri: uri,
+            poses: poses,
+            aDeg: aDeg,
+            cameraUrl: cameraUrl,
+            synthetic: synthetic,
+          );
+          ref.read(activityLogProvider.notifier).log(
+              'Agent IA : scan en machine lancé (${job.jobId}, $poses poses, A=$aDeg°)');
+          return jsonEncode({
+            'ok': true,
+            'job_id': job.jobId,
+            'mode': job.mode,
+            'queue_position': job.queuePosition,
+            'message': job.message,
+            'notes': 'Job lancé. Utilise get_scan_job_status avec jobId: "${job.jobId}" pour suivre la reconstruction.',
+          });
+        } catch (e) {
+          return jsonEncode({
+            'ok': false,
+            'erreur': 'Échec du démarrage du scan en machine : $e',
+          });
+        }
+      },
+    ),
+
+    AiTool(
+      name: 'get_scan_job_status',
+      description:
+          'Récupère l\'état et la progression d\'un job de scan 3D / reconstruction sur le poste '
+          'de calcul reco3d (étape en cours, progression %, fichiers STL/STEP disponibles, '
+          'notes d\'honnêteté et de provenance géométrique).',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'jobId': {
+            'type': 'string',
+            'description': 'Identifiant du job retourné par start_machine_scan (ex. job_a1b2c3d4).'
+          },
+        },
+        'required': ['jobId'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final jobId = input['jobId'] as String;
+        final client = ref.read(reco3dClientProvider);
+        final rawUrl = ref.read(reco3dServerUrlProvider);
+        final uri = Uri.parse(rawUrl);
+
+        try {
+          final status = await client.getJobStatus(uri, jobId);
+          return jsonEncode({
+            'job_id': status.jobId,
+            'stage': status.stage,
+            'progress_percent': status.progressPercent,
+            'message': status.message,
+            'has_mesh': status.hasMesh,
+            'has_step': status.hasStep,
+            'error': status.error,
+            'provenance': status.provenance != null
+                ? {
+                    'mode': status.provenance!.mode,
+                    'is_approximate': status.provenance!.isApproximate,
+                    'notes': status.provenance!.notes,
+                  }
+                : null,
+          });
+        } catch (e) {
+          return jsonEncode({
+            'ok': false,
+            'erreur': 'Impossible de récupérer l\'état du job $jobId : $e',
+          });
+        }
+      },
+    ),
+
+    AiTool(
+      name: 'download_scan_result',
+      description:
+          'Télécharge le résultat 3D d\'un job terminé depuis le poste de calcul reco3d '
+          '(format "step" pour solide CAO OpenCASCADE ou "mesh" pour maillage triangulé STL). '
+          'Charge automatiquement le fichier STEP dans le visualiseur 3D de l\'agent.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'jobId': {
+            'type': 'string',
+            'description': 'Identifiant du job terminé (ex. job_a1b2c3d4).'
+          },
+          'format': {
+            'type': 'string',
+            'enum': ['step', 'mesh'],
+            'description': 'Format souhaité : "step" (.step solide) ou "mesh" (.stl).'
+          },
+        },
+        'required': ['jobId'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final jobId = input['jobId'] as String;
+        final format = (input['format'] as String? ?? 'step').toLowerCase();
+        final client = ref.read(reco3dClientProvider);
+        final rawUrl = ref.read(reco3dServerUrlProvider);
+        final uri = Uri.parse(rawUrl);
+
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          final ext = format == 'step' ? 'step' : 'stl';
+          final dest = File('${dir.path}${Platform.pathSeparator}${jobId}_result.$ext');
+
+          await client.downloadResult(uri, jobId, format: format, destination: dest);
+
+          if (format == 'step') {
+            final artifacts = ref.read(aiArtifactsProvider.notifier);
+            await artifacts.loadStep(dest.path);
+            artifacts.dock(AiDockedViewer.step);
+          }
+
+          ref.read(activityLogProvider.notifier).log(
+              'Agent IA : fichier 3D téléchargé (${dest.path.split(Platform.pathSeparator).last})');
+
+          return jsonEncode({
+            'ok': true,
+            'job_id': jobId,
+            'format': format,
+            'fichier_local': dest.path,
+            'taille_octets': dest.lengthSync(),
+            'message': 'Modèle 3D téléchargé avec succès${format == "step" ? " et affiché dans le panneau 3D de l'agent" : ""}.',
+          });
+        } catch (e) {
+          return jsonEncode({
+            'ok': false,
+            'erreur': 'Échec du téléchargement du résultat pour $jobId : $e',
+          });
+        }
+      },
+    ),
+
+    // ────────────────────────── SIMULATION 3D & CAMÉRA ─────────────────────
+    AiTool(
+      name: 'run_machining_simulation',
+      description:
+          'Configure le brut pré-usinage (cylindrique ou parallélépipédique/cuboid), '
+          'ouvre le Jumeau Numérique 3D dans le panneau Simulateur, lance la simulation '
+          'd\'enlèvement de matière en accéléré et retourne un rapport complet '
+          '(durée estimée, nombre de segments, détection de collisions G0 dans le brut '
+          'et dépassements de course machine). À utiliser avant l\'usinage réel ou quand '
+          'l\'opérateur demande de simuler le parcours.',
+      category: null,
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'stock_shape': {
+            'type': 'string',
+            'enum': ['cylinder', 'cuboid'],
+            'description': 'Forme du brut : "cylinder" (cylindre) ou "cuboid" (bloc parallélépipédique).',
+          },
+          'diameter_mm': {
+            'type': 'number',
+            'description': 'Diamètre du brut cylindrique en mm (défaut: 80).',
+          },
+          'width_mm': {
+            'type': 'number',
+            'description': 'Largeur X du brut parallélépipédique en mm (défaut: 80).',
+          },
+          'depth_mm': {
+            'type': 'number',
+            'description': 'Profondeur Y du brut parallélépipédique en mm (défaut: 80).',
+          },
+          'height_mm': {
+            'type': 'number',
+            'description': 'Hauteur Z du brut en mm (défaut: 50).',
+          },
+          'tool_diameter_mm': {
+            'type': 'number',
+            'description': 'Diamètre de l\'outil de coupe en mm (défaut: 6).',
+          },
+          'speed_multiplier': {
+            'type': 'number',
+            'description': 'Vitesse de lecture de la simulation (ex: 1, 5, 10, 20, 50 ; défaut: 10).',
+          },
+          'job_name': {
+            'type': 'string',
+            'description': 'Nom optionnel de la tâche d\'usinage (affiché dans Summary).',
+          },
+          'batch_size': {
+            'type': 'integer',
+            'description': 'Nombre de pièces du lot (Batch Size, défaut: 1).',
+          },
+        },
+      },
+      execute: (args, ref) async {
+        final sim = ref.read(simulationProvider.notifier);
+        final shapeStr = (args['stock_shape'] as String?)?.toLowerCase();
+        final shape = shapeStr == 'cuboid'
+            ? StockShape.cuboid
+            : (shapeStr == 'cylinder' ? StockShape.cylinder : null);
+
+        final currentDims = ref.read(simulationProvider).stockDimensions;
+        final diam = (args['diameter_mm'] as num?)?.toDouble();
+        final w = (args['width_mm'] as num?)?.toDouble() ?? diam ?? currentDims[0];
+        final d = (args['depth_mm'] as num?)?.toDouble() ?? diam ?? currentDims[1];
+        final h = (args['height_mm'] as num?)?.toDouble() ?? currentDims[2];
+        final hasDims = args['diameter_mm'] != null ||
+            args['width_mm'] != null ||
+            args['depth_mm'] != null ||
+            args['height_mm'] != null;
+
+        sim.configureJob(
+          jobName: args['job_name'] as String?,
+          batchSize: (args['batch_size'] as num?)?.toInt(),
+          stockShape: shape,
+          stockDimensions: hasDims ? <double>[w, d, h] : null,
+          toolDiameter: (args['tool_diameter_mm'] as num?)?.toDouble(),
+        );
+
+        // Ouvre le panneau Simulateur 3D à droite de la console IA.
+        ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+        ref.read(visualizerModeProvider.notifier).state =
+            VisualizerMode.simulation3d;
+
+        final speed = (args['speed_multiplier'] as num?)?.toDouble() ?? 10.0;
+        sim.play(speedMultiplier: speed);
+        final report = sim.analyzeCurrentProgram();
+        ref.read(activityLogProvider.notifier).log(
+              'Agent IA : simulation 3D lancée (×${speed.toStringAsFixed(0)})',
+            );
+        return jsonEncode(report);
+      },
+    ),
+
+    AiTool(
+      name: 'control_simulation',
+      description:
+          'Contrôle la lecture du simulateur d\'usinage 3D (play, pause, reset, '
+          'seek à un pourcentage, changement de vitesse ×1..×50) ou oriente la '
+          'caméra 3D via le ViewCube (ISOMETRIC, TOP, FRONT, RIGHT, LEFT, BACK).',
+      category: null,
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'action': {
+            'type': 'string',
+            'enum': ['play', 'pause', 'reset', 'seek', 'set_speed', 'set_view'],
+            'description': 'Action à exécuter sur le simulateur 3D.',
+          },
+          'progress': {
+            'type': 'number',
+            'description': 'Position temporelle entre 0.0 (début) et 1.0 (fin) pour "seek".',
+          },
+          'speed_multiplier': {
+            'type': 'number',
+            'description': 'Multiplicateur de vitesse (0.25 à 100) pour "set_speed" ou "play".',
+          },
+          'camera_preset': {
+            'type': 'string',
+            'enum': ['ISOMETRIC', 'TOP', 'FRONT', 'RIGHT', 'LEFT', 'BACK'],
+            'description': 'Vue caméra 3D (ViewCube) pour "set_view".',
+          },
+        },
+        'required': ['action'],
+      },
+      execute: (args, ref) async {
+        final action = (args['action'] as String?) ?? 'play';
+        final sim = ref.read(simulationProvider.notifier);
+        ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+
+        switch (action) {
+          case 'play':
+            if (args['speed_multiplier'] != null) {
+              sim.setSpeed((args['speed_multiplier'] as num).toDouble());
+            }
+            sim.play();
+            break;
+          case 'pause':
+            sim.pause();
+            break;
+          case 'reset':
+            sim.reset();
+            break;
+          case 'seek':
+            final p = (args['progress'] as num?)?.toDouble() ?? 0.0;
+            sim.seekPercent(p <= 1.0 ? p * 100.0 : p);
+            break;
+          case 'set_speed':
+            final s = (args['speed_multiplier'] as num?)?.toDouble() ?? 1.0;
+            sim.setSpeed(s);
+            break;
+          case 'set_view':
+            final preset = (args['camera_preset'] as String?) ?? 'ISOMETRIC';
+            sim.setCameraPreset(preset);
+            break;
+        }
+
+        final st = ref.read(simulationProvider);
+        return jsonEncode({
+          'ok': true,
+          'action': action,
+          'status': st.status.name,
+          'progress_percent': double.parse(st.progressPct.toStringAsFixed(1)),
+          'speed_multiplier': st.speedMultiplier,
+          'camera_preset': st.cameraPreset,
+        });
+      },
+    ),
+
+    AiTool(
+      name: 'switch_simulator_camera_tab',
+      description:
+          'Bascule l\'affichage du panneau droit entre le Simulateur 3D ("simulator") '
+          'et le flux vidéo en direct de la caméra ESP32-CAM ("camera").',
+      category: null,
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'tab': {
+            'type': 'string',
+            'enum': ['simulator', 'camera'],
+            'description': 'Onglet à afficher : "simulator" (Jumeau Numérique 3D) ou "camera" (ESP32-CAM).',
+          },
+        },
+        'required': ['tab'],
+      },
+      execute: (args, ref) async {
+        final tabStr = (args['tab'] as String?)?.toLowerCase() ?? 'simulator';
+        final isCam = tabStr == 'camera';
+        ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+        ref.read(simulationProvider.notifier).setActiveTab(
+              isCam ? ConsoleRightTab.camera : ConsoleRightTab.simulator,
+            );
+        ref.read(visualizerModeProvider.notifier).state =
+            isCam ? VisualizerMode.camera : VisualizerMode.simulation3d;
+        return jsonEncode({
+          'ok': true,
+          'active_tab': isCam ? 'camera' : 'simulator',
         });
       },
     ),

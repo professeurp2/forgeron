@@ -105,6 +105,14 @@ const _toolLabels = <String, String>{
   'show_popup': 'Message de l\'agent',
   'open_chart_window': 'Ouverture d\'un graphique',
   'open_gcode_window': 'Ouverture du G-code dans une fenêtre',
+  'get_reco3d_status': 'État du serveur de calcul Scan 3D',
+  'discover_reco3d_server': 'Recherche du serveur Scan 3D',
+  'start_machine_scan': 'Scan 3D en machine (axes A/C)',
+  'get_scan_job_status': 'Suivi de la reconstruction 3D',
+  'download_scan_result': 'Téléchargement du modèle 3D',
+  'run_machining_simulation': 'Simulation d\'usinage 3D & analyse de collisions',
+  'control_simulation': 'Pilotage du simulateur 3D / ViewCube',
+  'switch_simulator_camera_tab': 'Bascule Simulateur 3D / Caméra',
 };
 
 /// La table ci-dessus est `const` : la traduction se fait ici, au moment de
@@ -142,6 +150,25 @@ String resultSummary(String toolName, String result) {
           if (size != null) '$size mm',
           if (data['triangles'] != null) '${data['triangles']} triangles',
         ].join(' · ');
+      }
+      if (toolName == 'start_machine_scan') {
+        if (data['job_id'] != null) {
+          return 'Job ${data['job_id']} lancé · ${data['stage'] ?? ""}';
+        }
+      }
+      if (toolName == 'get_scan_job_status') {
+        final pct = data['progress_percent'];
+        final stage = data['stage'];
+        return 'Étape $stage (${pct != null ? (pct as num).toStringAsFixed(0) : 0}%) · ${data['message'] ?? ''}';
+      }
+      if (toolName == 'get_reco3d_status') {
+        final gpu = data['gpu'] ?? 'GPU';
+        final status = data['status'] ?? '';
+        return 'Serveur $status · $gpu';
+      }
+      if (toolName == 'download_scan_result') {
+        final fmt = data['format']?.toString().toUpperCase() ?? '';
+        return 'Modèle $fmt récupéré';
       }
     }
   } catch (_) {

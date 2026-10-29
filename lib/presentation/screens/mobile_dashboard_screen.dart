@@ -487,6 +487,7 @@ class _GCodeListView extends StatefulWidget {
 class _GCodeListViewState extends State<_GCodeListView> {
   final _ctrl = ScrollController();
   static const double _extent = 32.0;
+  DateTime? _lastScrollTime;
 
   @override
   void initState() {
@@ -527,9 +528,16 @@ class _GCodeListViewState extends State<_GCodeListView> {
       _ctrl.jumpTo(clamped);
       return;
     }
+    final now = DateTime.now();
+    if (_lastScrollTime != null &&
+        now.difference(_lastScrollTime!).inMilliseconds < 150) {
+      _ctrl.jumpTo(clamped);
+      return;
+    }
+    _lastScrollTime = now;
     _ctrl.animateTo(
       clamped,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
     );
   }

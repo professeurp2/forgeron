@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,6 +10,8 @@ import 'pipeline_locator.dart';
 /// restera nécessaire le jour où pipeline et app tournent sur des postes
 /// différents ; rien ici ne l'empêche.
 class StepPipelineService {
+  static final Map<String, Map<String, dynamic>> _reportCache = {};
+
   static Directory? _findPipelineDir() =>
       PipelineLocator.findDir(marker: 'step_to_gcode.py');
 
@@ -44,25 +47,47 @@ class StepPipelineService {
         '(pipeline/.venv312) — voir pipeline/requirements-step.txt.',
       );
     }
-    if (!File(stepPath).existsSync()) {
+    final stepFile = File(stepPath);
+    if (!stepFile.existsSync()) {
       throw StepPipelineException('Fichier introuvable : $stepPath');
     }
 
-    final result = await Process.run(
-      python,
-      [
-        'step_to_gcode.py',
-        stepPath,
-        '--outil', '$toolDia',
-        '--ap', '$ap',
-        '--ae', '$ae',
-        '--stepover', '$stepover',
-        // Sans rayon de brut, l'ébauche balaie toute l'enveloppe par
-        // sécurité — et coupe de l'air. Le rapport chiffre ce que ça coûte.
-        if (stockRadius != null) ...['--brut-rayon', '$stockRadius'],
-      ],
-      workingDirectory: pipelineDir.path,
-    );
+    final base = stepPath.contains('.')
+        ? stepPath.substring(0, stepPath.lastIndexOf('.'))
+        : stepPath;
+    final reportFile = File('${base}_rapport.json');
+    final gcodeFile = File('$base.nc');
+    final mtime = stepFile.lastModifiedSync().millisecondsSinceEpoch;
+    final cacheKey =
+        '$stepPath|$mtime|$toolDia|$ap|$ae|$stepover|${stockRadius ?? "none"}';
+
+    final cached = _reportCache[cacheKey];
+    if (cached != null && reportFile.existsSync() && gcodeFile.existsSync()) {
+      return Map<String, dynamic>.of(cached);
+    }
+
+    final ProcessResult result;
+    try {
+      result = await Process.run(
+        python,
+        [
+          'step_to_gcode.py',
+          stepPath,
+          '--outil', '$toolDia',
+          '--ap', '$ap',
+          '--ae', '$ae',
+          '--stepover', '$stepover',
+          // Sans rayon de brut, l'ébauche balaie toute l'enveloppe par
+          // sécurité — et coupe de l'air. Le rapport chiffre ce que ça coûte.
+          if (stockRadius != null) ...['--brut-rayon', '$stockRadius'],
+        ],
+        workingDirectory: pipelineDir.path,
+      ).timeout(const Duration(seconds: 120));
+    } on TimeoutException {
+      throw const StepPipelineException(
+        'Délai dépassé (120 s) lors de la génération CAM du fichier STEP.',
+      );
+    }
 
     if (result.exitCode != 0) {
       final stdoutText = (result.stdout as String).trim();
@@ -74,12 +99,13 @@ class StepPipelineService {
       );
     }
 
-    final base = stepPath.contains('.') ? stepPath.substring(0, stepPath.lastIndexOf('.')) : stepPath;
-    final reportFile = File('${base}_rapport.json');
     if (!reportFile.existsSync()) {
       throw const StepPipelineException('Le pipeline a réussi mais n\'a produit aucun rapport.');
     }
-    return jsonDecode(await reportFile.readAsString()) as Map<String, dynamic>;
+    final report =
+        jsonDecode(await reportFile.readAsString()) as Map<String, dynamic>;
+    _reportCache[cacheKey] = report;
+    return report;
   }
 }
 

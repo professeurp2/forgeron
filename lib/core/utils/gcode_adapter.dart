@@ -58,16 +58,7 @@ class GcodeAdapter {
   static final RegExp _toolLenComp = RegExp(r'G4[34](?![.\d])|G49(?![0-9])|H\d+');
   static final RegExp _toolChange = RegExp(r'M0?6(?![0-9])');
   static final RegExp _toolWord = RegExp(r'T\d+');
-  // Commentaire entre parenthèses. Il est mis de côté AVANT toute détection :
-  // son texte n'est pas du G-code, et le lire comme tel produit des faux
-  // positifs qui cassent le programme. Un en-tête aussi banal que
-  // « (OUTIL : FRAISE D6 - PAS DE M6) » déclenchait le traitement du
-  // changement d'outil et injectait une pause M0 : FluidNC passait en Hold
-  // dès l'en-tête, le streaming saturait son buffer et restait sans
-  // acquittement. Même piège avec G28, G41/G42 ou G43.4 cités en commentaire.
   static final RegExp _parenComment = RegExp(r'\([^)]*\)');
-  // Suivi de l'état broche pour encadrer les changements d'outil.
-  // `M0?[34](?![0-9])` accepte M3/M03/M4/M04 mais pas M30 (fin de programme).
   static final RegExp _spindleOn = RegExp(r'M0?[34](?![0-9])');
   static final RegExp _spindleOff = RegExp(r'M0?5(?![0-9])');
   static final RegExp _spindleSpeed = RegExp(r'S(\d+(?:\.\d+)?)');
@@ -77,10 +68,19 @@ class GcodeAdapter {
   /// l'outil ait sa vitesse.
   static const int kSpinUpSeconds = 3;
   static final RegExp _inch = RegExp(r'G20(?![0-9])');
-  // Retour à la référence machine (G28/G30). DANGEREUX sur cette machine : le
-  // zéro machine est à la position des capteurs (Z en bas), donc G28 Z0 ENVOIE
-  // l'axe dans son switch → hard limit. On retire ces lignes.
   static final RegExp _referenceReturn = RegExp(r'G(28|30)(?![.\d])');
+  static final RegExp _multiSpace = RegExp(r'\s+');
+  static final RegExp _g98 = RegExp(r'G98(?![0-9])');
+  static final RegExp _g99 = RegExp(r'G99(?![0-9])');
+  static final RegExp _g80 = RegExp(r'G80(?![0-9])');
+  static final RegExp _g80or81 = RegExp(r'G8[01](?![0-9])');
+  static final RegExp _g98or99 = RegExp(r'G9[89](?![0-9])');
+  static final RegExp _gmDigit = RegExp(r'[GM]\d');
+  static final RegExp _g0to3 = RegExp(r'G0?[0-3](?![0-9])');
+  static final Map<String, RegExp> _wordRegex = {
+    for (final k in const ['X', 'Y', 'Z', 'R', 'Q', 'P', 'F'])
+      k: RegExp('$k([-+]?[0-9]*\\.?[0-9]+)'),
+  };
 
   static GcodeAdaptResult adaptForFluidNC(String raw) {
     final warnings = <String>[];
@@ -88,8 +88,6 @@ class GcodeAdapter {
     var hasOrientTransform = false;
     var strippedProg = 0, strippedComp = 0, convertedM6 = 0, strippedRef = 0;
 
-    // État broche courant, suivi au fil des lignes pour pouvoir la relancer
-    // à l'identique après un changement d'outil : sens (M3/M4) et vitesse (S).
     String? spindleMode;
     String? spindleSpeed;
 
@@ -100,13 +98,11 @@ class GcodeAdapter {
       var code = (semi >= 0 ? rawLine.substring(0, semi) : rawLine).trim();
       final semiComment = semi >= 0 ? rawLine.substring(semi) : '';
 
-      // Parenthèses retirées du code avant analyse, puis remises telles quelles
-      // à la reconstruction (voir [_parenComment]).
       final parens = <String>[];
       code = code.replaceAllMapped(_parenComment, (m) {
         parens.add(m.group(0)!);
         return ' ';
-      }).replaceAll(RegExp(r'\s+'), ' ').trim();
+      }).replaceAll(_multiSpace, ' ').trim();
 
       final comment =
           [...parens, if (semiComment.isNotEmpty) semiComment].join(' ');
@@ -116,9 +112,6 @@ class GcodeAdapter {
         strippedProg++;
         continue;
       }
-      // Retour à la référence machine (G28/G30) → retiré : sur cette machine il
-      // enverrait l'axe dans son capteur (zéro machine = position des switches,
-      // Z en bas). Le retrait Z en coords pièce qui précède dégage déjà l'outil.
       if (_referenceReturn.hasMatch(code.toUpperCase())) {
         strippedRef++;
         continue;
@@ -126,9 +119,6 @@ class GcodeAdapter {
 
       final upper0 = code.toUpperCase();
 
-      // Suivi de la broche AVANT le traitement du changement d'outil : si le
-      // post-processeur a mis son propre M5 sur la même ligne que le M6, on
-      // doit le voir et ne pas relancer à sa place.
       final s = _spindleSpeed.firstMatch(upper0);
       if (s != null) spindleSpeed = s.group(1);
       if (_spindleOff.hasMatch(upper0)) {
@@ -146,15 +136,6 @@ class GcodeAdapter {
       code = code.replaceFirst(_sequence, '');
 
       // ── Changement d'outil ─────────────────────────────────────────────
-      //
-      // M6 devient une pause manuelle. Le point critique, et la raison d'être
-      // de tout ce bloc : **`M0` n'arrête PAS la broche** sur GRBL/FluidNC.
-      // Elle continue de tourner pendant toute la pause, et l'opérateur vient
-      // démonter la fraise à côté d'un outil en rotation.
-      //
-      // On encadre donc la pause : `M5` avant, relance après. La relance n'est
-      // pas un confort — sans elle le programme reprendrait sa passe suivante
-      // broche à l'arrêt, ce qui casse l'outil dans la matière.
       if (_toolChange.hasMatch(code.toUpperCase())) {
         final t = _toolWord.firstMatch(code.toUpperCase())?.group(0);
 
@@ -164,18 +145,9 @@ class GcodeAdapter {
             ' - MONTER OUTIL PUIS REPRENDRE)';
         cleaned.add(comment.isNotEmpty ? '$pause $comment' : pause);
 
-        // Relance seulement si la broche tournait avant la pause. Si le
-        // post-processeur a déjà émis son propre M5 avant le M6, on ne
-        // rajoute rien : il émettra aussi son M3 après.
         if (spindleMode != null) {
           final speed = spindleSpeed != null ? ' S$spindleSpeed' : '';
           cleaned.add('$spindleMode$speed (RELANCE BROCHE)');
-          // Fractionné en temporisations d'UNE seconde plutôt qu'un seul
-          // `G4 P3`. Pendant un dwell la carte n'acquitte rien et peut se
-          // déclarer `Idle` : un silence aussi long que le watchdog du
-          // streaming passait pour un blocage. Des tranches d'1 s renvoient
-          // chacune leur `ok`, qui réarme le watchdog — la pause totale est
-          // identique pour la broche.
           for (var i = 0; i < kSpinUpSeconds; i++) {
             cleaned.add('G4 P1 (MONTEE EN REGIME ${i + 1}/$kSpinUpSeconds)');
           }
@@ -187,11 +159,11 @@ class GcodeAdapter {
 
       {
         final before =
-            code.toUpperCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+            code.toUpperCase().replaceAll(_multiSpace, ' ').trim();
         code = code
             .toUpperCase()
             .replaceAll(_toolLenComp, '')
-            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAll(_multiSpace, ' ')
             .trim();
         if (code != before) strippedComp++;
       }
@@ -252,7 +224,10 @@ class GcodeAdapter {
 
   // ── Développeur de cycles fixes ──────────────────────────────────────────
   static double? _num(String line, String word) {
-    final m = RegExp('$word([-+]?[0-9]*\\.?[0-9]+)').firstMatch(line);
+    final reg = _wordRegex[word];
+    final m = reg != null
+        ? reg.firstMatch(line)
+        : RegExp('$word([-+]?[0-9]*\\.?[0-9]+)').firstMatch(line);
     return m == null ? null : double.tryParse(m.group(1)!);
   }
 
@@ -269,18 +244,18 @@ class GcodeAdapter {
     for (final line in lines) {
       final u = line.toUpperCase();
 
-      if (RegExp(r'G98(?![0-9])').hasMatch(u)) retractMode = 98;
-      if (RegExp(r'G99(?![0-9])').hasMatch(u)) retractMode = 99;
+      if (_g98.hasMatch(u)) retractMode = 98;
+      if (_g99.hasMatch(u)) retractMode = 99;
 
       // G80 : annule le cycle ; on garde un éventuel mouvement Z résiduel.
-      if (RegExp(r'G80(?![0-9])').hasMatch(u)) {
+      if (_g80.hasMatch(u)) {
         active = null;
         final z = _num(u, 'Z');
         if (z != null) curZ = z;
         final rem = u
-            .replaceAll(RegExp(r'G8[01](?![0-9])'), '')
-            .replaceAll(RegExp(r'G9[89](?![0-9])'), '')
-            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAll(_g80or81, '')
+            .replaceAll(_g98or99, '')
+            .replaceAll(_multiSpace, ' ')
             .trim();
         if (rem.isNotEmpty) out.add(rem);
         continue;
@@ -314,7 +289,7 @@ class GcodeAdapter {
 
       // Répétition modale : en cycle actif, une ligne de coordonnées seules
       // (X/Y, sans autre G/M) répète le perçage à la nouvelle position.
-      if (active != null && !RegExp(r'[GM]\d').hasMatch(u)) {
+      if (active != null && !_gmDigit.hasMatch(u)) {
         final x = _num(u, 'X');
         final y = _num(u, 'Y');
         if (x != null || y != null) {
@@ -328,7 +303,7 @@ class GcodeAdapter {
       }
 
       // Un mouvement du groupe 1 (G0..G3) annule le mode cycle.
-      if (RegExp(r'G0?[0-3](?![0-9])').hasMatch(u)) active = null;
+      if (_g0to3.hasMatch(u)) active = null;
 
       final x = _num(u, 'X');
       if (x != null) curX = x;
