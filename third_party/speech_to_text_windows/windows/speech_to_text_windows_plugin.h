@@ -2,10 +2,10 @@
 #define FLUTTER_PLUGIN_SPEECH_TO_TEXT_WINDOWS_PLUGIN_H_
 
 // Copie corrigée de speech_to_text_windows 1.0.1 pour Forgeron (voir
-// README-FORGERON.md). Le moteur SAPI vit sur son propre fil (COM initialisé
-// sur ce fil) et les résultats repassent par le fil principal de Flutter via
-// la boucle de messages de la fenêtre : l'original les envoyait directement
-// depuis un fil d'arrière-plan, et ils ne remontaient jamais jusqu'à Dart.
+// README-FORGERON.md). La dictée SAPI tourne dans un processus à part
+// (forgeron_dictation.exe, voir dictation_helper.cpp) et ses résultats
+// repassent par le fil principal de Flutter via la boucle de messages de la
+// fenêtre.
 
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
@@ -13,10 +13,8 @@
 
 #include <windows.h>
 
-#include <atomic>
 #include <condition_variable>
 #include <deque>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -41,8 +39,10 @@ class SpeechToTextWindowsPlugin : public flutter::Plugin {
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
-  // Fil du moteur : crée, possède et détruit tous les objets SAPI.
-  void EngineThread();
+  bool StartHelper();
+  void ReadHelper();
+  void HandleHelperLine(const std::string &line);
+  void SendCommand(const char *command);
 
   // Met un appel Dart en file et réveille le fil principal.
   void PostToPlatform(std::string method, std::string argument);
@@ -52,17 +52,18 @@ class SpeechToTextWindowsPlugin : public flutter::Plugin {
   int window_proc_id_ = -1;
   UINT dispatch_message_;
 
-  std::thread engine_;
+  HANDLE process_ = nullptr;
+  HANDLE to_helper_ = nullptr;    // écriture : commandes
+  HANDLE from_helper_ = nullptr;  // lecture : évènements
+  std::thread reader_;
+
   std::mutex mutex_;
-  std::condition_variable init_cv_;
-  bool init_done_ = false;
-  bool init_ok_ = false;
+  std::condition_variable ready_cv_;
+  bool ready_done_ = false;
+  bool ready_ok_ = false;
   std::string locale_ = "fr-FR";
   std::string locale_name_ = "Français";
-
-  std::atomic<bool> quit_{false};
-  std::atomic<bool> want_listening_{false};
-  HANDLE wake_ = nullptr;  // réveille le fil du moteur (écoute, arrêt, sortie)
+  std::string transcript_;  // phrases finales de l'écoute en cours
 
   std::mutex queue_mutex_;
   std::deque<std::pair<std::string, std::string>> queue_;

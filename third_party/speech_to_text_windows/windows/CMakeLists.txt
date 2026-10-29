@@ -41,6 +41,7 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE
 # Disable specific warnings that are treated as errors
 if(MSVC)
   target_compile_options(${PLUGIN_NAME} PRIVATE 
+    /utf-8
     /wd4996  # Disable 'function was declared deprecated' warnings
     /wd4245  # Disable signed/unsigned mismatch warnings
     /W3      # Use warning level 3 instead of 4
@@ -73,8 +74,17 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   sapi            # For Speech API
 )
 
-# List of absolute paths to libraries that should be bundled with the plugin
+# Forgeron : la dictée SAPI tourne dans ce petit programme séparé (voir
+# dictation_helper.cpp et README-FORGERON.md) ; dans le processus de
+# l'application, elle refusait de démarrer (0x88890008).
+add_executable(forgeron_dictation "dictation_helper.cpp")
+target_compile_definitions(forgeron_dictation PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+target_compile_options(forgeron_dictation PRIVATE /utf-8)
+target_link_libraries(forgeron_dictation PRIVATE ole32 oleaut32 uuid sapi)
+add_dependencies(${PLUGIN_NAME} forgeron_dictation)
+
+# Copié à côté de l'exécutable de l'application, où le plugin le cherche.
 set(speech_to_text_windows_bundled_libraries
-  ""
+  "$<TARGET_FILE:forgeron_dictation>"
   PARENT_SCOPE
 )

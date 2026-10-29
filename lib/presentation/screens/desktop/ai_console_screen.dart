@@ -285,12 +285,20 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
 
   Future<void> _warn(String title, String message) async {
     if (!mounted) return;
+    // Le bandeau s'affiche dans la couche d'overlay de l'application, HORS du
+    // FluentTheme de la console : sans thème joint ici, Flutter levait l'écran
+    // d'erreur rouge « A FluentTheme widget is necessary » (vu au clic sur le
+    // micro, quand l'erreur de dictée a enfin été signalée).
+    final theme = fluent.FluentTheme.of(context);
     await fluent.displayInfoBar(context, builder: (ctx, close) {
-      return fluent.InfoBar(
-        title: Text(title),
-        content: Text(message),
-        severity: fluent.InfoBarSeverity.warning,
-        onClose: close,
+      return fluent.FluentTheme(
+        data: theme,
+        child: fluent.InfoBar(
+          title: Text(title),
+          content: Text(message),
+          severity: fluent.InfoBarSeverity.warning,
+          onClose: close,
+        ),
       );
     });
   }
@@ -1260,12 +1268,17 @@ class _CodeBlock extends StatelessWidget {
       await File(path).writeAsString(block.text);
     } catch (e) {
       if (!context.mounted) return;
+      // Thème joint : l'overlay est hors du FluentTheme (voir _warn).
+      final theme = fluent.FluentTheme.of(context);
       await fluent.displayInfoBar(context, builder: (ctx, close) {
-        return fluent.InfoBar(
-          title: Text(tr('Écriture impossible')),
-          content: Text('$e'),
-          severity: fluent.InfoBarSeverity.error,
-          onClose: close,
+        return fluent.FluentTheme(
+          data: theme,
+          child: fluent.InfoBar(
+            title: Text(tr('Écriture impossible')),
+            content: Text('$e'),
+            severity: fluent.InfoBarSeverity.error,
+            onClose: close,
+          ),
         );
       });
     }
