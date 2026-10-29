@@ -207,6 +207,20 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
     }
 
+    // Taille minimale de la fenêtre principale : en dessous, les écrans
+    // desktop (barre latérale + panneaux) n'ont plus la place de s'afficher,
+    // et l'application ne bascule plus sur la mise en page du téléphone (voir
+    // lib/core/widgets/responsive_layout.dart). 960×600 en pixels logiques,
+    // mis à l'échelle de l'écran courant.
+    case WM_GETMINMAXINFO: {
+      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
+      const UINT dpi = FlutterDesktopGetDpiForHWND(hwnd);
+      const double scale = dpi / 96.0;
+      info->ptMinTrackSize.x = static_cast<LONG>(960 * scale);
+      info->ptMinTrackSize.y = static_cast<LONG>(600 * scale);
+      return 0;
+    }
+
     case WM_ACTIVATE:
       if (child_content_ != nullptr) {
         SetFocus(child_content_);
