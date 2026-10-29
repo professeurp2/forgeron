@@ -996,7 +996,13 @@ class _HeaderBar extends ConsumerWidget {
         color: context.fc.surface,
         border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
       ),
-      child: Row(
+      // Fenêtre étroite : on retire d'abord le décoratif (nom en toutes
+      // lettres, adresse IP, second badge), JAMAIS le bouton d'arrêt
+      // d'urgence — à 960 px il était coupé de 60 px (vu à l'écran).
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 1200;
+        final tight = constraints.maxWidth < 900;
+        return Row(
         children: [
           IconButton(
             key: TutorialKeys.menuToggleBtn,
@@ -1007,28 +1013,34 @@ class _HeaderBar extends ConsumerWidget {
           ),
           SizedBox(width: 8),
           const ForgeronLogoGlow(height: 32),
-          SizedBox(width: 12),
-          const ForgeronWordmark(fontSize: 22),
-          SizedBox(width: 24),
+          if (!compact) ...[
+            SizedBox(width: 12),
+            const ForgeronWordmark(fontSize: 22),
+          ],
+          SizedBox(width: compact ? 16 : 24),
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
             color: isOnline ? context.fc.success : context.fc.error,
             isActive: isOnline,
           ),
-          SizedBox(width: 12),
-          _StatusBadge(
-            label: statusLabel,
-            color: statusColor,
-            isActive: true,
-          ),
-          SizedBox(width: 12),
-          Text(
-            ip,
-            style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono'),
-          ),
+          if (!tight) ...[
+            SizedBox(width: 12),
+            _StatusBadge(
+              label: statusLabel,
+              color: statusColor,
+              isActive: true,
+            ),
+          ],
+          if (!compact) ...[
+            SizedBox(width: 12),
+            Text(
+              ip,
+              style: TextStyle(
+                  color: context.fc.textDisabled,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono'),
+            ),
+          ],
           const Spacer(),
           IconButton(
             icon: AnimatedSwitcher(
@@ -1102,8 +1114,8 @@ class _HeaderBar extends ConsumerWidget {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 14 : 24, vertical: 20),
               ),
               onPressed: onEmergencyStop,
               icon: const Icon(Icons.warning_amber, size: 18),
@@ -1115,7 +1127,8 @@ class _HeaderBar extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+      );
+      }),
     );
   }
 
@@ -1333,18 +1346,23 @@ class _Sidebar extends StatelessWidget {
                     )
                   : const ForgeronLogoGlow(height: 28),
             ),
-            const SizedBox(height: 8),
-            ...List.generate(items.length, (i) {
-              final item = items[i];
-              return _NavItem(
-                icon: item.icon,
-                title: item.title,
-                selected: i == selectedIndex,
-                showLabel: showLabels,
-                onTap: () => onItemSelected(i),
-              );
-            }),
-            const Spacer(),
+            // Fenêtre basse : les entrées défilent (elles débordaient de
+            // quelques pixels sous 600 de haut, vu à l'écran).
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(top: 8),
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    _NavItem(
+                      icon: items[i].icon,
+                      title: items[i].title,
+                      selected: i == selectedIndex,
+                      showLabel: showLabels,
+                      onTap: () => onItemSelected(i),
+                    ),
+                ],
+              ),
+            ),
             Container(
               padding:
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 12),

@@ -515,12 +515,16 @@ class _ForceStatTile extends StatelessWidget {
           Row(children: [
             Icon(icon, size: 12, color: accent),
             const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: fc.textDisabled,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    fontFamily: 'JetBrains Mono')),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: fc.textDisabled,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'JetBrains Mono')),
+            ),
           ]),
           const SizedBox(height: 4),
           Row(

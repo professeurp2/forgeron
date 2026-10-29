@@ -800,7 +800,9 @@ class _Header extends ConsumerWidget {
         color: fc.surfaceBright,
         border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
       ),
-      child: Row(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 640;
+        return Row(
         children: [
           if (!railOpen)
             Tooltip(
@@ -833,6 +835,7 @@ class _Header extends ConsumerWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       color: fc.textPrimary,
@@ -840,13 +843,20 @@ class _Header extends ConsumerWidget {
                       fontSize: 13.5),
                 ),
                 Text(tr('pipeline CAM · outils machine'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: fc.textDisabled, fontSize: 10.5)),
               ],
             ),
           ),
-          const _ModelBadge(),
-          const SizedBox(width: 8),
-          _PhoneLinkButton(fc: fc),
+          // Colonne de chat étroite (panneau simulateur ouvert) : le badge
+          // du modèle cède la place, sinon le titre tombait à zéro de large
+          // et s'écrivait lettre par lettre à la verticale (vu à l'écran).
+          if (!narrow) ...[
+            const _ModelBadge(),
+            const SizedBox(width: 8),
+          ],
+          _PhoneLinkButton(fc: fc, compact: narrow),
           Consumer(
             builder: (context, ref, _) {
               final simOpen = ref.watch(aiArtifactsProvider
@@ -886,7 +896,8 @@ class _Header extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+      );
+      }),
     );
   }
 }
@@ -895,8 +906,11 @@ class _Header extends ConsumerWidget {
 /// éteinte, le bouton l'active ; allumée, il montre le code à saisir sur le
 /// téléphone et le nombre d'appareils reliés, et un clic la coupe.
 class _PhoneLinkButton extends ConsumerWidget {
-  const _PhoneLinkButton({required this.fc});
+  const _PhoneLinkButton({required this.fc, this.compact = false});
   final ForgeronColorPalette fc;
+
+  /// En-tête étroit : le code seul, sans le nombre d'appareils reliés.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -939,7 +953,7 @@ class _PhoneLinkButton extends ConsumerWidget {
                       fontWeight: FontWeight.w800,
                       letterSpacing: 2,
                       fontFamily: 'JetBrains Mono')),
-              if (link.clients > 0) ...[
+              if (link.clients > 0 && !compact) ...[
                 const SizedBox(width: 6),
                 Text('· ${tr('{} relié(s)', [link.clients])}',
                     style: TextStyle(color: fc.textSecondary, fontSize: 10.5)),
