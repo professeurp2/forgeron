@@ -222,6 +222,43 @@ void main() {
       expect(texts.last, contains('Une pièce cylindrique bridée.'));
     });
 
+    test('photo + ordre : le modèle principal prend la main, avec ses outils', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(
+            parts: [{'text': 'Une pièce bridée sur le plateau.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Regarde cette pièce et lance le scan',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+
+      expect(vision.declared, hasLength(1));
+      expect(main.declared, hasLength(1), reason: 'le pilote est relancé une fois');
+      expect(main.declared.single, contains('start_machine_scan'));
+      final relay = main.lastContents.last;
+      final text = (relay['parts'] as List).first['text'] as String;
+      expect(relay['role'], 'user');
+      expect(text, startsWith(AiAgentController.kImageRelayPrefix));
+      expect(text, contains('lance le scan'));
+      expect(chat().messages.where((m) => m.text.contains(AiAgentController.kImageRelayPrefix)),
+          isEmpty, reason: 'le relais n\'apparaît pas dans le chat');
+    });
+
+    test('photo + simple question : pas de relais au pilote', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(parts: [{'text': 'Une fraise.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Que vois-tu sur cette photo ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      expect(main.declared, isEmpty);
+    });
+
     test('sans modèle d\'images, aucune fiche n\'est inventée', () async {
       final main = _FakeBackend(container.read(aiModelProvider).active.id, [
         const AiApiResponse(parts: [{'text': 'Je ne vois pas l\'image.'}], finishReason: 'STOP'),

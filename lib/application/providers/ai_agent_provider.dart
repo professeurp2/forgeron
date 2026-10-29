@@ -1179,6 +1179,54 @@ class AiAgentController extends StateNotifier<AiChatState> {
     };
   }
 
+  /// Groupes d'outils qui AGISSENT : une demande qui en relève, jointe à une
+  /// photo, doit être exécutée par le modèle principal après la description.
+  /// Ni « etat » ni « camera » : décrire suffit. Ni « fichiers » ni « cao » :
+  /// leurs mots (« analyse », « pièce », « 3d ») sont ceux d'une simple
+  /// question sur une photo, et relanceraient le pilote pour rien.
+  static const _actionGroups = {
+    'mouvement', 'broche', 'programme', 'scan', 'simulation',
+  };
+
+  /// Préfixe du message de relais (voir [_handOffImageRequestToPilot]).
+  static const kImageRelayPrefix = '[Relais du modèle d\'images]';
+
+  /// Si le message qui portait l'image demande une action, ajoute au fil un
+  /// relais qui la confie au modèle principal, et rend `true`.
+  ///
+  /// Le relais est un message « user » que l'opérateur ne voit pas : le fil
+  /// se termine sinon par la description du modèle d'images, et un modèle à
+  /// qui l'on rend la parole sur sa propre réponse n'a rien à exécuter.
+  bool _handOffImageRequestToPilot() {
+    if (_contents.length < 2) return false;
+    final imageTurn = _contents[_contents.length - 2];
+    final parts = imageTurn['parts'];
+    if (imageTurn['role'] != 'user' || parts is! List) return false;
+    // Seulement une photo de l'opérateur, pas l'image rendue par un outil
+    // (caméra) : celle-là répond déjà à un appel du modèle principal.
+    if (parts.any((p) => p is Map && p.containsKey('functionResponse'))) {
+      return false;
+    }
+    final request = _lastUserText();
+    if (request.isEmpty || request.startsWith(kImageRelayPrefix)) return false;
+    final groups = const ToolRouter().route(
+      text: request,
+      allTools: const [],
+    ).groups;
+    if (groups.intersection(_actionGroups).isEmpty) return false;
+    _contents.add({
+      'role': 'user',
+      'parts': [
+        {
+          'text': '$kImageRelayPrefix La description de l\'image est faite '
+              '(voir la fiche). Exécute maintenant la demande de l\'opérateur, '
+              'avec tes outils : « $request »',
+        }
+      ],
+    });
+    return true;
+  }
+
   /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
   /// rendue par un outil comme la caméra) ?
   bool _lastTurnHasImage() {
@@ -1633,6 +1681,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
         ));
         // Badge le bouton IA si l'écran n'est pas ouvert (info à présenter).
         _ref.read(aiInboxProvider.notifier).pushAlert(response.text);
+      }
+
+      // Photo + ordre (« regarde et lance le scan ») : le modèle d'images n'a
+      // pas d'outils, il ne peut que décrire. On passe la main au modèle
+      // principal, qui a la fiche et les outils, pour exécuter la demande.
+      if (vision != null && _handOffImageRequestToPilot()) {
+        unawaited(_persist());
+        return _runTurn(baseService);
       }
 
       if (response.functionCalls.isNotEmpty) {
