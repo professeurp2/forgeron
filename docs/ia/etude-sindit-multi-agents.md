@@ -366,3 +366,30 @@ pour joindre Ollama.
 5. **Design desktop** (§9) : maquette d'abord.
 6. **Synchronisation PC ↔ téléphone** (§10) : plus gros chantier, il dépend des
    règles de sécurité ci-dessus.
+
+## 12. État au 29 octobre 2026
+
+| Chantier | État | Commit |
+|---|---|---|
+| Commit du travail en cours | fait | `21ce3df` |
+| Fiche d'image (§7) | fait | `7d0624a` |
+| Photo + ordre exécuté par le pilote (§7, point 3) | fait : relais invisible vers le modèle principal quand la demande relève d'un groupe qui agit | `f2e451b` |
+| Erreur réelle du micro (§8) | fait ; la dictée elle-même attend le code d'erreur affiché | `7d0624a` |
+| Spécialistes (§4, phase 1) | fait : tronc commun + sections fichiers/programme, FAO, scan ; prompt complet inchangé à l'octet près ; −33 % de prompt fixe sur une question d'état | `462ed91` |
+| Spécialistes visibles (§4) | fait : pastilles dans la console desktop et sur le chat du PC | `61c15a7` |
+| Banc phase 0 et phase 1 | lancé (`BENCH_ROUTING=1`, puis `BENCH_SPECIALISTS=1`), voir `eval_reports/` | — |
+| Design desktop (§9) | fait en partie : la plateforme décide de la mise en page, taille minimale 960×600, navigation animée (apparition des pages, survol, sélection, infobulles). Reste : maquette d'ensemble, effets de matière, fenêtres détachables pour d'autres écrans que l'IA | `4c0bb2f`, `61c15a7` |
+| Chat PC ↔ téléphone (§10) | fait, première version : relais WebSocket port 8767, code à 6 chiffres, arrêt d'urgence local | `a1a1c09` |
+
+Points ouverts :
+
+- **Pare-feu Windows** : au premier « Relier un téléphone », Windows demande
+  d'autoriser Forgeron sur le réseau privé ; sans cette autorisation, le
+  téléphone ne joint pas le port 8767.
+- **Compilation Windows non vérifiée dans le worktree** : elle échoue sur un
+  plugin tiers (`flutter_secure_storage_windows`, en-tête introuvable dans le
+  chemin très long du worktree), avant d'atteindre le runner. La taille
+  minimale de fenêtre (`win32_window.cpp`) est à vérifier en compilant depuis
+  le checkout principal.
+- 3 tests échouaient déjà avant ce travail : langue bambara (×2) et taille du
+  prompt complet sur serveur réel.
