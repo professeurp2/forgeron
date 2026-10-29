@@ -1305,6 +1305,12 @@ class _Sidebar extends StatelessWidget {
       ),
       child: LayoutBuilder(builder: (context, constraints) {
         final showLabels = constraints.maxWidth >= _labelsMinWidth;
+        // Fenêtre basse : la carte opérateur cède sa place aux entrées, pour
+        // que les 7 restent visibles sans défiler (à 600 de haut, « Agent
+        // IA » sortait par le bas).
+        final itemHeight = showLabels ? 52.0 : 44.0;
+        final showFooter = constraints.maxHeight >=
+            64 + 8 + items.length * (itemHeight + 4) + 72;
         return Column(
           children: [
             Container(
@@ -1358,12 +1364,13 @@ class _Sidebar extends StatelessWidget {
                       title: items[i].title,
                       selected: i == selectedIndex,
                       showLabel: showLabels,
+                      height: itemHeight,
                       onTap: () => onItemSelected(i),
                     ),
                 ],
               ),
             ),
-            Container(
+            if (showFooter) Container(
               padding:
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               decoration: BoxDecoration(
@@ -1421,6 +1428,7 @@ class _NavItem extends StatefulWidget {
   final String title;
   final bool selected;
   final bool showLabel;
+  final double height;
   final VoidCallback onTap;
 
   const _NavItem({
@@ -1429,6 +1437,7 @@ class _NavItem extends StatefulWidget {
     required this.selected,
     required this.showLabel,
     required this.onTap,
+    this.height = 52,
   });
 
   @override
@@ -1460,7 +1469,7 @@ class _NavItemState extends State<_NavItem> {
         child: AnimatedContainer(
           duration: d,
           curve: Curves.easeOut,
-          height: 52,
+          height: widget.height,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: selected
