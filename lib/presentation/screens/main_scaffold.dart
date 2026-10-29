@@ -209,7 +209,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 Expanded(
                   child: Container(
                     color: context.fc.background,
-                    child: _screens[selectedIndex],
+                    child: _PageReveal(
+                      key: ValueKey(selectedIndex),
+                      child: _screens[selectedIndex],
+                    ),
                   ),
                 ),
               ],
@@ -1230,6 +1233,34 @@ class _StatusBadgeState extends State<_StatusBadge>
   }
 }
 
+/// Apparition d'une page du bureau : fondu + léger glissement vers le haut.
+///
+/// Seule la page qui ARRIVE est animée : la sortante disparaît aussitôt. Un
+/// fondu croisé garderait les deux pages montées le temps de la transition,
+/// donc deux visualiseurs 3D (WebView2) à la fois sur le tableau de bord.
+class _PageReveal extends StatelessWidget {
+  final Widget child;
+  const _PageReveal({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: reduce ? 0 : 260),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 14 * (1 - t)),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _Sidebar extends StatelessWidget {
   final int selectedIndex;
   final bool isExpanded;
@@ -1244,6 +1275,11 @@ class _Sidebar extends StatelessWidget {
     required this.onItemSelected,
   });
 
+  /// En dessous, les libellés n'ont pas la place : icônes seules, avec
+  /// infobulle. Décidé sur la largeur RÉELLE et non sur [isExpanded] : pendant
+  /// l'animation de repli, le contenu déplié dans 72 px débordait.
+  static const double _labelsMinWidth = 200;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -1254,164 +1290,234 @@ class _Sidebar extends StatelessWidget {
         color: context.fc.sidebar,
         border: Border(right: BorderSide(color: context.fc.surfaceBorder)),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: context.fc.surfaceBorder))),
-            child: isExpanded
-                ? Row(
-                    children: [
-                      const ForgeronLogoGlow(height: 32),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr('CNC_TRUNNION_5X'),
-                                style: TextStyle(
-                                    color: context.fc.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 2),
-                            Text(tr('AXES: X Y Z A C'),
-                                style: TextStyle(
-                                    color: context.fc.success,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'JetBrains Mono')),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : const ForgeronLogoGlow(height: 28),
-          ),
-          const SizedBox(height: 8),
-          ...List.generate(items.length, (i) {
-            final item = items[i];
-            final selected = i == selectedIndex;
-            return _NavItem(
-              icon: item.icon,
-              title: item.title,
-              selected: selected,
-              isExpanded: isExpanded,
-              onTap: () => onItemSelected(i),
-            );
-          }),
-          const Spacer(),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            decoration: BoxDecoration(
-                border:
-                    Border(top: BorderSide(color: context.fc.surfaceBorder))),
-            child: Row(
-              mainAxisAlignment: isExpanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  backgroundColor: context.fc.surfaceBright,
-                  radius: 16,
-                  child: Icon(Icons.person,
-                      color: context.fc.textSecondary, size: 18),
-                ),
-                if (isExpanded) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final showLabels = constraints.maxWidth >= _labelsMinWidth;
+        return Column(
+          children: [
+            Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment:
+                  showLabels ? Alignment.centerLeft : Alignment.center,
+              decoration: BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(color: context.fc.surfaceBorder))),
+              child: showLabels
+                  ? Row(
                       children: [
-                        Text(tr('OPÉRATEUR L01'),
-                            style: TextStyle(
-                                color: context.fc.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10)),
-                        Text(tr('NIV_AUTH: ADMIN'),
-                            style: TextStyle(
-                                color: context.fc.primary,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'JetBrains Mono')),
+                        const ForgeronLogoGlow(height: 32),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(tr('CNC_TRUNNION_5X'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: context.fc.primary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900)),
+                              const SizedBox(height: 2),
+                              Text(tr('AXES: X Y Z A C'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: context.fc.success,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'JetBrains Mono')),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                ],
-              ],
+                    )
+                  : const ForgeronLogoGlow(height: 28),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 8),
+            ...List.generate(items.length, (i) {
+              final item = items[i];
+              return _NavItem(
+                icon: item.icon,
+                title: item.title,
+                selected: i == selectedIndex,
+                showLabel: showLabels,
+                onTap: () => onItemSelected(i),
+              );
+            }),
+            const Spacer(),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                  border: Border(
+                      top: BorderSide(color: context.fc.surfaceBorder))),
+              child: Row(
+                mainAxisAlignment: showLabels
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: context.fc.surfaceBright,
+                    radius: 16,
+                    child: Icon(Icons.person,
+                        color: context.fc.textSecondary, size: 18),
+                  ),
+                  if (showLabels) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tr('OPÉRATEUR L01'),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: context.fc.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10)),
+                          Text(tr('NIV_AUTH: ADMIN'),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: context.fc.primary,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'JetBrains Mono')),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
+/// Élément de navigation du bureau : survol à la souris, sélection animée
+/// (fond et liseré qui glissent en place), infobulle quand la barre est
+/// repliée — sur PC, on pointe avant de cliquer, l'élément doit répondre.
+class _NavItem extends StatefulWidget {
   final IconData icon;
   final String title;
   final bool selected;
-  final bool isExpanded;
+  final bool showLabel;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.title,
     required this.selected,
-    required this.isExpanded,
+    required this.showLabel,
     required this.onTap,
   });
 
   @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: selected
-              ? context.fc.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border(
-              left: BorderSide(
-                  color: selected ? context.fc.primary : Colors.transparent,
-                  width: 3)),
-        ),
-        child: Row(
-          mainAxisAlignment: isExpanded
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.center,
-          children: [
-            if (isExpanded) const SizedBox(width: 12),
-            Icon(icon,
-                color: selected ? context.fc.primary : context.fc.textDisabled,
-                size: 20),
-            if (isExpanded) ...[
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected
-                        ? context.fc.textPrimary
-                        : context.fc.textSecondary,
-                    fontWeight:
-                        selected ? FontWeight.w900 : FontWeight.normal,
-                    fontSize: 11,
-                    letterSpacing: 0.8,
+    final fc = context.fc;
+    final selected = widget.selected;
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final d = Duration(milliseconds: reduce ? 0 : 180);
+    final iconColor = selected
+        ? fc.primary
+        : _hover
+            ? fc.textPrimary
+            : fc.textDisabled;
+
+    final item = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: d,
+          curve: Curves.easeOut,
+          height: 52,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: selected
+                ? fc.primary.withValues(alpha: 0.14)
+                : _hover
+                    ? fc.textPrimary.withValues(alpha: 0.06)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Stack(
+            children: [
+              // Liseré de sélection : il grandit depuis le centre.
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: d,
+                    curve: Curves.easeOutBack,
+                    width: 3,
+                    height: selected ? 28 : 0,
+                    decoration: BoxDecoration(
+                      color: fc.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
               ),
+              Row(
+                mainAxisAlignment: widget.showLabel
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  if (widget.showLabel) const SizedBox(width: 14),
+                  AnimatedScale(
+                    duration: d,
+                    scale: _hover && !selected ? 1.12 : 1.0,
+                    child: Icon(widget.icon, color: iconColor, size: 20),
+                  ),
+                  if (widget.showLabel) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: AnimatedDefaultTextStyle(
+                        duration: d,
+                        style: TextStyle(
+                          color: selected || _hover
+                              ? fc.textPrimary
+                              : fc.textSecondary,
+                          fontWeight:
+                              selected ? FontWeight.w900 : FontWeight.normal,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                        ),
+                        child: Text(widget.title,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
+
+    return widget.showLabel
+        ? item
+        : Tooltip(
+            message: widget.title,
+            preferBelow: false,
+            waitDuration: const Duration(milliseconds: 300),
+            child: item,
+          );
   }
 }
 

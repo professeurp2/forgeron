@@ -314,6 +314,13 @@ void main() {
       expect(b.declared.first, containsAll(ToolRouter.core));
     });
 
+    test('l\'état montre le spécialiste au travail', () async {
+      backend([]);
+      await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
+      expect(chat().specialists, contains('fichiers'));
+      expect(ToolRouter.labels['fichiers'], 'Fichiers');
+    });
+
     test('ordre compris : le modèle n\'est pas appelé', () async {
       final b = backend([]);
       await ctl().sendUserMessage('Allume la broche');

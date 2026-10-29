@@ -21,6 +21,7 @@ import '../../../application/providers/ai_model_provider.dart';
 import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
 import '../../../application/services/ai_window_launcher.dart';
+import '../../../application/services/tool_router.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
@@ -467,6 +468,10 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
                 fc: fc,
                 since: chat.turnStartedAt,
                 tokens: chat.turnTokens,
+                specialists: [
+                  for (final g in chat.specialists)
+                    tr(ToolRouter.labels[g] ?? g),
+                ],
                 activity: chat.runningTool != null
                     ? friendlyToolLabel(chat.runningTool!)
                     : (streaming ? tr('Rédaction de la réponse…') : tr('Réflexion…')),

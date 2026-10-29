@@ -333,6 +333,11 @@ class AiChatState {
   /// allers-retours, appels d'outils compris).
   final int turnTokens;
 
+  /// Spécialistes qui traitent le tour en cours (groupes du [ToolRouter], ou
+  /// `images` pour le modèle d'images). Vide : l'agent généraliste, avec tout
+  /// le catalogue.
+  final List<String> specialists;
+
   const AiChatState({
     this.messages = const [],
     this.isProcessing = false,
@@ -346,6 +351,7 @@ class AiChatState {
     this.runningTool,
     this.turnStartedAt,
     this.turnTokens = 0,
+    this.specialists = const [],
   });
 
   AiChatState copyWith({
@@ -366,6 +372,7 @@ class AiChatState {
     DateTime? turnStartedAt,
     bool clearTurnStartedAt = false,
     int? turnTokens,
+    List<String>? specialists,
   }) {
     return AiChatState(
       messages: messages ?? this.messages,
@@ -385,6 +392,7 @@ class AiChatState {
       turnStartedAt:
           clearTurnStartedAt ? null : (turnStartedAt ?? this.turnStartedAt),
       turnTokens: turnTokens ?? this.turnTokens,
+      specialists: specialists ?? this.specialists,
     );
   }
 }
@@ -1662,9 +1670,17 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _latestStreamingText = null;
     var lastDeltaEmit = DateTime.fromMillisecondsSinceEpoch(0);
     try {
+      final declarations = vision != null
+          ? const <Map<String, dynamic>>[]
+          : _declarationsFor(service);
+      final groups = _turnGroups;
+      state = state.copyWith(
+          specialists: vision != null
+              ? const ['images']
+              : (groups == null ? const [] : (groups.toList()..sort())));
       final response = await service.streamMessages(
         contents: _contents,
-        functionDeclarations: vision != null ? const <Map<String, dynamic>>[] : _declarationsFor(service),
+        functionDeclarations: declarations,
         systemPrompt: _buildSystemPrompt(),
         // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
         onDelta: (partial) {

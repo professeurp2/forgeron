@@ -158,6 +158,22 @@ class ToolRouter {
     ),
   };
 
+  /// Nom du spécialiste de chaque groupe, montré à l'opérateur pendant qu'il
+  /// travaille (console IA). `images` désigne le modèle d'images, qui n'est
+  /// pas un groupe d'outils.
+  static const labels = <String, String>{
+    'etat': 'Surveillance',
+    'mouvement': 'Mouvement',
+    'broche': 'Broche',
+    'programme': 'Programme',
+    'fichiers': 'Fichiers',
+    'cao': 'FAO',
+    'camera': 'Caméra',
+    'simulation': 'Simulation',
+    'scan': 'Scan 3D',
+    'images': 'Images',
+  };
+
   /// Noms d'outils à déclarer pour [text].
   ///
   /// [allTools] : le catalogue complet (le résultat n'en sort jamais).

@@ -243,11 +243,16 @@ class LiveStatusLine extends StatefulWidget {
     required this.since,
     required this.tokens,
     required this.activity,
+    this.specialists = const [],
   });
 
   final ForgeronColorPalette fc;
   final DateTime? since;
   final int tokens;
+
+  /// Noms des spécialistes au travail (« Mouvement », « Scan 3D »…), vide
+  /// pour l'agent généraliste.
+  final List<String> specialists;
 
   /// « Réflexion… », « Exécution des outils… » — ce qui se passe maintenant.
   final String activity;
@@ -282,6 +287,11 @@ class _LiveStatusLineState extends State<LiveStatusLine>
             child: Text('✳', style: TextStyle(color: fc.primary, fontSize: 13)),
           ),
           const SizedBox(width: 10),
+          for (final s in widget.specialists) ...[
+            _SpecialistChip(fc: fc, label: s),
+            const SizedBox(width: 6),
+          ],
+          if (widget.specialists.isNotEmpty) const SizedBox(width: 4),
           if (widget.since != null) ...[
             LiveElapsed(since: widget.since!, style: style),
             Text(' · ', style: style),
@@ -294,6 +304,39 @@ class _LiveStatusLineState extends State<LiveStatusLine>
             child: Text(widget.activity, overflow: TextOverflow.ellipsis, style: style),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pastille d'un spécialiste au travail : elle apparaît en glissant, pour
+/// qu'on voie à quel « agent » la demande a été confiée.
+class _SpecialistChip extends StatelessWidget {
+  const _SpecialistChip({required this.fc, required this.label});
+
+  final ForgeronColorPalette fc;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1),
+        child: Transform.translate(offset: Offset(-8 * (1 - t), 0), child: child),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: fc.primary.withValues(alpha: 0.12),
+          border: Border.all(color: fc.primary.withValues(alpha: 0.45)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: fc.primary, fontSize: 10.5, fontWeight: FontWeight.w700)),
       ),
     );
   }
