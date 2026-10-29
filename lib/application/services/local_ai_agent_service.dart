@@ -655,10 +655,15 @@ class LocalAiAgentService implements AiBackend {
   static bool containsCjk(String text) => _cjk.hasMatch(text);
 
   /// Rappel ajouté au prompt système quand le modèle a dérivé en chinois.
+  ///
+  /// Il renvoie à la consigne de langue du prompt au lieu d'imposer le
+  /// français : avec le bambara (ou l'anglais…) comme langue de réponse,
+  /// « réponds uniquement en français » contredisait cette consigne.
   static const languageReminder =
       '\n\nRAPPEL : ta réponse précédente contenait des caractères chinois, '
-      'ce qui est interdit ici. Réponds uniquement en français, sans un seul '
-      'caractère chinois, même pour un mot isolé.';
+      'ce qui est interdit ici. Réponds uniquement dans la langue de réponse '
+      'demandée plus haut (=== LANGUE DE RÉPONSE ===), sans un seul caractère '
+      'chinois, même pour un mot isolé.';
 
   /// Nombre de nouvelles tentatives quand le modèle dérive en chinois.
   static const maxLanguageRetries = 2;

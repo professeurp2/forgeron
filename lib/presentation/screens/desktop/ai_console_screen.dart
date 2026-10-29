@@ -973,23 +973,47 @@ class _ModelBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fc = ForgeronTheme.of(context);
     final settings = ref.watch(aiAgentSettingsProvider);
-    final useLocal = settings.localBaseUrl.isNotEmpty;
+    final useLocal = settings.usesLocal;
+    final canSwitch = settings.localBaseUrl.isNotEmpty;
     final modelLabel =
         useLocal ? settings.localModel : ref.watch(aiModelProvider).active.id;
-    return Container(
+    final badge = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: fc.lcdBackground,
         border: Border.all(color: fc.lcdBorder),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
-        style: TextStyle(
-          color: fc.lcdText,
-          fontFamily: 'JetBrainsMono',
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(
+          '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
+          style: TextStyle(
+            color: fc.lcdText,
+            fontFamily: 'JetBrainsMono',
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (canSwitch) ...[
+          const SizedBox(width: 5),
+          Icon(Icons.swap_horiz_rounded, size: 13, color: fc.lcdText),
+        ],
+      ]),
+    );
+    if (!canSwitch) return badge;
+    // Un clic bascule local ↔ Gemini, sans rien effacer de la configuration.
+    return Tooltip(
+      message: useLocal
+          ? tr('Passer sur Gemini (en ligne, Internet requis)')
+          : tr('Revenir au serveur local (sans Internet)'),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => ref
+              .read(aiAgentSettingsProvider.notifier)
+              .setPreferOnline(useLocal),
+          child: badge,
         ),
       ),
     );

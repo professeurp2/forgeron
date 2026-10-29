@@ -56,10 +56,21 @@ class AiAgentSettings {
   /// Adresse du serveur IA **local** (Ollama, llama.cpp, LM Studio…) sur le
   /// réseau de l'atelier. Vide = on interroge Gemini.
   ///
-  /// C'est ce seul champ qui choisit le fournisseur : renseigné, tout passe en
-  /// local et l'agent n'a plus besoin d'Internet — donc plus besoin de la 4G
-  /// pendant que le téléphone est joint à l'AP de l'ESP32.
+  /// Renseigné, l'agent peut tourner en local, sans Internet — donc sans 4G
+  /// pendant que le téléphone est joint à l'AP de l'ESP32. Le choix effectif
+  /// est [usesLocal].
   final String localBaseUrl;
+
+  /// Choix explicite de Gemini alors qu'un serveur local est configuré.
+  ///
+  /// Avant, seul [localBaseUrl] choisissait le fournisseur : passer en ligne
+  /// obligeait à effacer l'adresse (dans un réglage « avancé »), et revenir au
+  /// local à tout reconfigurer. L'opérateur jugeait le basculement cassé.
+  final bool preferOnline;
+
+  /// Fournisseur effectif : le serveur local, s'il est configuré et que
+  /// l'opérateur n'a pas choisi Gemini.
+  bool get usesLocal => !preferOnline && localBaseUrl.isNotEmpty;
 
   /// Nom du modèle servi à cette adresse, tel que le serveur le connaît.
   final String localModel;
@@ -83,6 +94,7 @@ class AiAgentSettings {
     this.localModel = defaultLocalModel,
     this.localVisionModel = '',
     this.lexiconEnabled = true,
+    this.preferOnline = false,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
@@ -102,6 +114,7 @@ class AiAgentSettings {
     String? localModel,
     String? localVisionModel,
     bool? lexiconEnabled,
+    bool? preferOnline,
   }) {
     return AiAgentSettings(
       enabled: enabled ?? this.enabled,
@@ -110,6 +123,7 @@ class AiAgentSettings {
       localModel: localModel ?? this.localModel,
       localVisionModel: localVisionModel ?? this.localVisionModel,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
+      preferOnline: preferOnline ?? this.preferOnline,
     );
   }
 
@@ -120,6 +134,7 @@ class AiAgentSettings {
         'localModel': localModel,
         'localVisionModel': localVisionModel,
         'lexiconEnabled': lexiconEnabled,
+        'preferOnline': preferOnline,
       };
 
   factory AiAgentSettings.fromJson(Map<String, dynamic> json) {
@@ -141,6 +156,7 @@ class AiAgentSettings {
       localVisionModel: json['localVisionModel'] as String? ?? '',
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
+      preferOnline: json['preferOnline'] as bool? ?? false,
     );
   }
 }
@@ -186,6 +202,12 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   /// Modèle local pour les images ; vide = aucun.
   void setLocalVisionModel(String value) {
     state = state.copyWith(localVisionModel: value.trim());
+    _persist();
+  }
+
+  /// Bascule entre le serveur local et Gemini, sans rien effacer.
+  void setPreferOnline(bool value) {
+    state = state.copyWith(preferOnline: value);
     _persist();
   }
 

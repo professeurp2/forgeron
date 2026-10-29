@@ -173,7 +173,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
     final settings = ref.watch(aiAgentSettingsProvider);
     // Une adresse de serveur local renseignee suffit a basculer le fournisseur :
     // pas de second interrupteur a tenir coherent avec elle.
-    final usingLocal = settings.localBaseUrl.isNotEmpty;
+    final usingLocal = settings.usesLocal;
     final notifier = ref.read(aiAgentSettingsProvider.notifier);
     final modelState = ref.watch(aiModelProvider);
     final modelNotifier = ref.read(aiModelProvider.notifier);
@@ -260,6 +260,13 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
+                    title: tr('FOURNISSEUR DU MODÈLE'),
+                    borderColor: fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: _ProviderSwitch(fc: fc),
                   ),
                   const SizedBox(height: 20),
                   GlassPanel(
@@ -782,5 +789,53 @@ class _LexiconSection extends ConsumerWidget {
         ],
       ],
     );
+  }
+}
+
+
+/// Choix du fournisseur : serveur local de l'atelier, ou Gemini en ligne.
+///
+/// Les deux gardent leur configuration : basculer n'efface rien. Les
+/// contraintes (langue de réponse, glossaire, lexique fermé, confirmations,
+/// garde-fous de réponse) sont les mêmes des deux côtés.
+class _ProviderSwitch extends ConsumerWidget {
+  const _ProviderSwitch({required this.fc});
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final hasLocal = settings.localBaseUrl.isNotEmpty;
+    final online = !settings.usesLocal;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SegmentedButton<bool>(
+        segments: [
+          ButtonSegment(
+            value: false,
+            enabled: hasLocal,
+            icon: const Icon(Icons.lan_outlined, size: 16),
+            label: Text(tr('Local (atelier)')),
+          ),
+          ButtonSegment(
+            value: true,
+            icon: const Icon(Icons.cloud_outlined, size: 16),
+            label: Text(tr('En ligne (Gemini)')),
+          ),
+        ],
+        selected: {online},
+        onSelectionChanged: (v) => ref
+            .read(aiAgentSettingsProvider.notifier)
+            .setPreferOnline(v.first),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        !hasLocal
+            ? tr('Aucun serveur local configuré : l\'agent passe par Gemini. Configure le serveur plus bas pour pouvoir basculer.')
+            : online
+                ? tr('Gemini, via Internet (4G sur le téléphone). Le serveur local reste configuré : un clic pour y revenir.')
+                : tr('Serveur local {} · modèle « {} ». Sans Internet.', [settings.localBaseUrl, settings.localModel]),
+        style: TextStyle(color: fc.textSecondary, fontSize: 11),
+      ),
+    ]);
   }
 }

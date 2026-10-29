@@ -13,6 +13,7 @@ import '../services/live_state_block.dart';
 import '../services/ai_turn_journal.dart';
 import '../services/local_ai_agent_service.dart';
 import '../services/ai_agent_tools.dart';
+import '../services/guarded_backend.dart';
 import '../services/tool_router.dart';
 import '../../core/net/cellular_http_client.dart';
 import '../../core/utils/command_lexicon.dart';
@@ -1210,7 +1211,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// `null` sinon (le principal s'en charge, ou aucune image n'est lisible).
   Future<AiBackend?> _ensureVisionService() async {
     final settings = _ref.read(aiAgentSettingsProvider);
-    final url = settings.localBaseUrl;
+    // En ligne, Gemini lit les images lui-même : pas de modèle d'images local.
+    final url = settings.usesLocal ? settings.localBaseUrl : '';
     final name = settings.localVisionModel;
     if (_visionService != null && (url.isEmpty || name.isEmpty)) {
       // Un faux posé par un test reste ; un vrai service dont le réglage a été
@@ -1305,7 +1307,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // entièrement sur le réseau de l'atelier, sans Internet ni clé API.
     final settings = _ref.read(aiAgentSettingsProvider);
     final localUrl = settings.localBaseUrl;
-    final useLocal = localUrl.isNotEmpty;
+    final useLocal = settings.usesLocal;
     final modelId =
         useLocal ? settings.localModel : _ref.read(aiModelProvider).active.id;
 
@@ -1350,8 +1352,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // Client cellulaire : force les appels Gemini sur la 4G/5G quand le
     // téléphone est joint à l'AP WiFi de l'ESP32 (sans Internet). Repli
     // automatique sur le client standard hors Android.
-    _service =
-        AiAgentService(apiKey: key, model: modelId, client: CellularHttpClient());
+    // Mêmes garde-fous de réponse que le modèle local (langue, réponse vide) :
+    // changer de fournisseur ne doit pas changer les contraintes.
+    _service = GuardedBackend(
+        AiAgentService(apiKey: key, model: modelId, client: CellularHttpClient()));
     return _service;
   }
 
