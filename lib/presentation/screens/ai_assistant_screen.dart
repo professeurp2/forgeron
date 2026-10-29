@@ -14,6 +14,7 @@ import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
+import '../../core/utils/speech_error_message.dart';
 import '../../core/utils/voice_locale.dart';
 import '../../application/providers/lexicon_provider.dart';
 import '../../application/providers/workspace_provider.dart';
@@ -125,33 +126,43 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               setState(() => _listening = false);
             }
           },
-          onError: (_) {
-            if (mounted) setState(() => _listening = false);
+          onError: (e) {
+            if (!mounted) return;
+            setState(() => _listening = false);
+            _showSpeechError(speechErrorMessage(e.errorMsg));
           },
         );
     if (!ok) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(tr('Reconnaissance vocale indisponible sur cet appareil.'))),
-        );
-      }
+      _showSpeechError(speechInitFailedMessage(
+          windows: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows));
       return;
     }
     setState(() => _listening = true);
-    // La liste des langues reconnues dépend de l'appareil : on prend la plus
-    // proche de la langue de l'agent, et on laisse le moteur choisir la
-    // sienne si elle est absente plutôt que d'échouer.
-    _sttLocaleId ??= bestVoiceLocale(
-      _wantedVoiceTag,
-      (await _speech.locales()).map((l) => l.localeId),
-      fallbacks: const ['fr-FR', 'en-US'],
-    );
-    await _speech.listen(
-      onResult: (r) {
-        if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
-      },
-      listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+    try {
+      // La liste des langues reconnues dépend de l'appareil : on prend la plus
+      // proche de la langue de l'agent, et on laisse le moteur choisir la
+      // sienne si elle est absente plutôt que d'échouer.
+      _sttLocaleId ??= bestVoiceLocale(
+        _wantedVoiceTag,
+        (await _speech.locales()).map((l) => l.localeId),
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
+      await _speech.listen(
+        onResult: (r) {
+          if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
+        },
+        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+      );
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _listening = false);
+      _showSpeechError(speechErrorMessage(e.code));
+    }
+  }
+
+  void _showSpeechError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
     );
   }
 
