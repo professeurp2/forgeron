@@ -522,7 +522,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
   }
 
+  /// Groupes d'outils retenus pour le tour en cours, `null` quand le modèle
+  /// reçoit tout le catalogue (routage coupé, Gemini, lecture seule, ou
+  /// message non reconnu). Décide aussi des sections de spécialiste du prompt
+  /// (voir [specialistSystemPrompt]).
+  Set<String>? _turnGroups;
+
   List<Map<String, dynamic>> _declarationsFor(AiBackend service) {
+    _turnGroups = null;
     var all = AiToolCatalog.tools
         .map((t) => t.toGeminiFunctionDeclaration())
         .toList();
@@ -550,6 +557,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       recentGroups: _recentToolGroups,
     );
     _recentToolGroups = routing.groups;
+    if (routing.routed) _turnGroups = routing.groups;
     final routed =
         all.where((d) => routing.tools.contains(d['name'])).toList();
     _declaredToolCount = routed.length;
@@ -897,7 +905,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
   // Prompt système
   // ---------------------------------------------------------------------
 
-  static const _systemPrompt =
+  // Le prompt système est découpé en un TRONC COMMUN (identité, lecture de
+  // l'état, sécurité, style), toujours envoyé, et des SECTIONS DE SPÉCIALISTE
+  // qui ne servent qu'à certains groupes d'outils (voir [_specialistSections]).
+  // [_systemPrompt] les réunit dans l'ordre d'origine : le prompt complet est
+  // identique, mot pour mot, à celui d'avant le découpage.
+
+  /// Tronc commun, début : identité, écrans, lecture de l'état.
+  static const _promptIdentity =
       'Tu es l\'assistant intégré de Forgeron, un contrôleur CNC 5 axes piloté '
       'par un firmware FluidNC/GRBL sur ESP32. '
       'Forgeron est une application Flutter (mobile/desktop) reliée à la machine '
@@ -918,7 +933,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'résultat plus haut dans la discussion t\'a appris (position, statut, '
       'alarme) est PÉRIMÉ dès que la machine bouge : à chaque question sur '
       'l\'état présent, rappelle l\'outil de lecture, même si tu viens de le '
-      'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. '
+      'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. ';
+
+  /// Spécialiste fichiers / programme : lecture, adaptation et contrôle
+  /// du G-code avant exécution.
+  static const _promptGcodeFiles =
       'Tu peux lister, lire, analyser et écrire les fichiers G-code de l\'espace '
       'de travail (list_workspace_files, read_workspace_file, analyze_gcode, '
       'write_workspace_file). Au chargement, Forgeron adapte automatiquement le '
@@ -936,7 +955,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'N\'écris JAMAIS une version « corrigée » en '
       'silence : garde l\'original intact (écris sous un nouveau nom) et fais '
       'confirmer — un rognage aveugle des coordonnées peut abîmer la pièce ou '
-      'provoquer une collision. '
+      'provoquer une collision. ';
+
+  /// Tronc commun, fin : sécurité (jamais de G-code écrit par le modèle,
+  /// confirmations) et style des réponses.
+  static const _promptRules =
       'Tu reçois en contexte le journal des actions récentes (manuelles de '
       'l\'opérateur ET les tiennes) : surveille-le pour la sécurité et '
       'l\'optimisation — signale spontanément tout enchaînement risqué (ex. '
@@ -968,7 +991,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'pas des mots à employer avec l\'opérateur — dis ce que tu fais et ce '
       'que ça donne ("j\'ai généré le G-code, 68 lignes, 3 passes"), jamais '
       'par quel moyen technique. Le nom de l\'outil déclenché ne doit jamais '
-      'apparaître non plus tel quel (run_step_pipeline, etc.). '
+      'apparaître non plus tel quel (run_step_pipeline, etc.). ';
+
+  /// Spécialiste FAO : aperçu STEP, parcours d'outil, brut de révolution.
+  static const _promptCam =
       'Dès qu\'un '
       'fichier STEP est mentionné, ouvre son aperçu 3D avec preview_step_file — '
       'c\'est aussi ta façon de vérifier que le fichier contient bien la pièce '
@@ -983,7 +1009,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
       'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
       'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
-      'relancer. '
+      'relancer. ';
+
+  /// Spécialiste scan 3D en machine.
+  static const _promptScan =
       'SCAN 3D & NUMÉRISATION EN MACHINE : quand l\'opérateur veut numériser une pièce '
       'ou un maître bridé sur la machine, utilise start_machine_scan pour piloter la rotation '
       'calibrée des axes A et C et capturer les vues multi-angles. Vérifie d\'abord que '
@@ -992,6 +1021,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'avec download_scan_result (format "step" ou "mesh") pour afficher immédiatement la pièce '
       'dans le visualiseur 3D. Rappelle honnêtement que la géométrie est approximative tant que '
       'l\'échelle n\'est pas certifiée par mire.';
+
+  static const _systemPrompt =
+      '$_promptIdentity$_promptGcodeFiles$_promptRules$_promptCam$_promptScan';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -1041,6 +1073,28 @@ class AiAgentController extends StateNotifier<AiChatState> {
   @visibleForTesting
   static const baseSystemPrompt =
       '$_systemPrompt\n\n$_machineSpecs\n\n$_docsRule';
+
+  /// Sections de spécialiste, et les groupes du [ToolRouter] qui en ont
+  /// besoin. Une section dont aucun groupe n'est retenu pour le tour n'est pas
+  /// envoyée : c'est le pendant, côté prompt, du routage des outils.
+  static const _specialistSections = <String, Set<String>>{
+    _promptGcodeFiles: {'fichiers', 'programme'},
+    _promptCam: {'cao', 'simulation'},
+    _promptScan: {'scan'},
+  };
+
+  /// Prompt fixe d'un tour routé vers les groupes [groups] : le tronc commun
+  /// (identité, sécurité, style, spécificités machine, règle des questions
+  /// techniques) est TOUJOURS présent ; seules les sections de spécialiste
+  /// inutiles sont retirées.
+  @visibleForTesting
+  static String specialistSystemPrompt(Set<String> groups) {
+    String section(String text) =>
+        _specialistSections[text]!.any(groups.contains) ? text : '';
+    return '$_promptIdentity${section(_promptGcodeFiles)}$_promptRules'
+        '${section(_promptCam)}${section(_promptScan)}'
+        '\n\n$_machineSpecs\n\n$_docsRule';
+  }
 
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
   /// Injectée à chaque tour pour que l'agent cite les VRAIES courses et pas/mm
@@ -1114,7 +1168,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // sur le modèle pour penser à appeler search_docs.
     final block = _docsBlockOrNull();
     final docs = block == null ? '' : '\n\n$block';
-    return '$baseSystemPrompt\n\n'
+    final groups = _turnGroups;
+    final fixed =
+        groups == null ? baseSystemPrompt : specialistSystemPrompt(groups);
+    return '$fixed\n\n'
         '${_kinematicsBlock()}\n\n'
         '${_ref.read(appLanguageProvider).promptDirective}'
         '${_glossaireBlockOrEmpty()}\n\n'
@@ -1590,6 +1647,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // principal, qui pilote la machine.
     final vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
     final service = vision ?? baseService;
+    _turnGroups = null; // reposé par _declarationsFor pour un tour avec outils
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
     compactGeminiContents(_contents, maxChars: service.historyBudgetChars);
