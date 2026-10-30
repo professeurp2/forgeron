@@ -17,8 +17,10 @@ ANSWERS = {
     "2. Country": "Mali",
     "3. Business / organisation / innovation name": "Forgeron",
     "4. What does your work do?": DESC,
-    "5. Website or link of your work": "https://youtu.be/DjL49i_IsJI",
-    "6. Your Social Media Links": "https://github.com/professeurp2/forgeron",
+    # Lien principal : la vidéo. Sans le &t=16s — un profil doit démarrer à 0:00,
+    # l'accroche est dans les dix premières secondes.
+    "5. Website or link of your work": "https://www.youtube.com/watch?v=DjL49i_IsJI",
+    "6. Your Social Media Links": "https://www.linkedin.com/in/lamine-sacko-mecatronique/",
 }
 
 doc = Document(SRC)
