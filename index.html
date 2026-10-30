@@ -55,6 +55,11 @@ header{position:sticky;top:0;z-index:50;-webkit-backdrop-filter:blur(10px);backd
 .links{margin-left:auto;display:flex;gap:20px;font-family:var(--mono);font-size:12.5px;letter-spacing:.05em;color:var(--muted)}
 .links a:hover{color:var(--ink)}
 .nav .btn{padding:9px 14px;font-size:11.5px}
+.lang{display:inline-flex;border:1px solid var(--line-2);border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;background:transparent;color:var(--ink);cursor:pointer;padding:0;flex:none}
+.lang span{padding:9px 10px;color:var(--mute,#8a96a3);transition:background .2s,color .2s}
+.lang span.on{background:var(--forge);color:#1a0d04;font-weight:600}
+.lang:hover{border-color:var(--forge)}
+
 @media(max-width:1060px){.links{display:none}.nav .btn{margin-left:auto}}
 
 /* hero */
@@ -369,11 +374,12 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <body>
 
 <header><div class="wrap nav">
-  <a class="brand" href="#top"><img src="assets/logo.png" alt="Forgeron logo"><b>FORGERON</b></a>
+  <a class="brand" href="#top"><img src="assets/logo.png" alt="Forgeron logo"><b data-i="1">FORGERON</b></a>
   <nav class="links">
-    <a href="#how">How it works</a><a href="#agent">AI agent</a><a href="#product">Product</a><a href="#features">Features</a><a href="#safety">Safety</a><a href="#hardware">Hardware</a><a href="#market">Market</a><a href="#traction">Traction</a><a href="#team">Team</a>
+    <a data-i="2" href="#how">How it works</a><a data-i="3" href="#agent">AI agent</a><a data-i="4" href="#product">Product</a><a data-i="5" href="#features">Features</a><a data-i="6" href="#safety">Safety</a><a data-i="7" href="#hardware">Hardware</a><a data-i="8" href="#market">Market</a><a data-i="9" href="#traction">Traction</a><a data-i="10" href="#team">Team</a>
   </nav>
-  <a class="btn solid" href="#contact">Partner with us</a>
+  <a data-i="11" class="btn solid" href="#contact">Partner with us</a>
+  <button class="lang" id="lang" type="button" aria-label="Langue / Language"><span data-l="en">EN</span><span data-l="fr">FR</span></button>
 </div></header>
 
 <main id="top">
@@ -381,74 +387,74 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <div class="eyebrow">Precision manufacturing, made in Africa</div>
-      <h1 class="big">5-axis CNC<br>at a <span class="heat">tenth of the price.</span><br>No CAD.</h1>
-      <p class="lede">We build real 5-axis machines in <b style="color:var(--ink)">Bamako, Mali</b> — run by an AI agent that understands <b style="color:var(--ink)">Bambara and French</b>, works <b style="color:var(--ink)">offline</b>, and takes the job from a spoken idea to finished toolpaths. No design software. No internet. No foreign interface between the machinist and the metal.</p>
+      <div data-i="12" class="eyebrow">Precision manufacturing, made in Africa</div>
+      <h1 data-i="13" class="big">5-axis CNC<br>at a <span class="heat">tenth of the price.</span><br>No CAD.</h1>
+      <p data-i="14" class="lede">We build real 5-axis machines in <b style="color:var(--ink)">Bamako, Mali</b> — run by an AI agent that understands <b style="color:var(--ink)">Bambara and French</b>, works <b style="color:var(--ink)">offline</b>, and takes the job from a spoken idea to finished toolpaths. No design software. No internet. No foreign interface between the machinist and the metal.</p>
       <div class="cta">
-        <a class="btn solid" href="https://youtube.com/watch?v=DjL49i_IsJI" target="_blank" rel="noopener">▶ Watch it run</a>
-        <a class="btn" href="#agent">Talk to the machine</a>
-        <a class="btn" href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener">Open source ↗</a>
+        <a data-i="15" class="btn solid" href="https://youtube.com/watch?v=DjL49i_IsJI" target="_blank" rel="noopener">▶ Watch it run</a>
+        <a data-i="16" class="btn" href="#agent">Talk to the machine</a>
+        <a data-i="17" class="btn" href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener">Open source ↗</a>
       </div>
       <div class="pill-row">
-        <span class="pill"><b>METI UniPods AI</b> · UNDP / timbuktoo · cohort 1</span>
-        <span class="pill"><b>Wadhwani Ignite</b> Full – Africa</span>
-        <span class="pill"><b>MIT</b> Universal AI Program</span>
-        <span class="pill"><b>HBS</b> Africa NVC 2027</span>
+        <span data-i="18" class="pill"><b>METI UniPods AI</b> · UNDP / timbuktoo · cohort 1</span>
+        <span data-i="19" class="pill"><b>Wadhwani Ignite</b> Full – Africa</span>
+        <span data-i="20" class="pill"><b>MIT</b> Universal AI Program</span>
+        <span data-i="21" class="pill"><b>HBS</b> Africa NVC 2027</span>
       </div>
     </div>
     <div class="viz rv">
-      <div class="win"><div class="bar"><i></i><i></i><i></i><span>forgeron — AI agent &amp; 5-axis simulator</span></div><img src="assets/app-dark-agent.jpg" alt="The Forgeron app: AI agent chat and 3D simulation of the 5-axis machine" fetchpriority="high"></div>
-      <div class="inset"><span class="badge-live">● Built</span><img src="assets/machine.jpg" alt="The real Forgeron 5-axis machine"></div>
-      <div class="floaty f1">AXES <b>X Y Z + A C</b></div>
-      <div class="floaty f2">LANGUAGE <b>Bambara · Français</b></div>
+      <div class="win"><div class="bar"><i></i><i></i><i></i><span data-i="22">forgeron — AI agent &amp; 5-axis simulator</span></div><img src="assets/app-dark-agent.jpg" alt="The Forgeron app: AI agent chat and 3D simulation of the 5-axis machine" fetchpriority="high"></div>
+      <div class="inset"><span data-i="23" class="badge-live">● Built</span><img src="assets/machine.jpg" alt="The real Forgeron 5-axis machine"></div>
+      <div data-i="24" class="floaty f1">AXES <b>X Y Z + A C</b></div>
+      <div data-i="25" class="floaty f2">LANGUAGE <b>Bambara · Français</b></div>
     </div>
   </div>
 </section>
 
 <section class="ribbon"><div class="wrap">
-  <div class="rs"><div class="n"><em data-n="5">0</em></div><div class="l">controlled axes</div></div>
-  <div class="rs"><div class="n">$6–15<em>k</em></div><div class="l">target price</div></div>
-  <div class="rs"><div class="n"><em data-n="90">0</em>%</div><div class="l">cheaper than import</div></div>
-  <div class="rs"><div class="n"><em data-n="40">0</em></div><div class="l">AI machine tools</div></div>
-  <div class="rs"><div class="n"><em data-n="17">0</em></div><div class="l">interface languages</div></div>
-  <div class="rs"><div class="n"><em data-n="800">0</em>+</div><div class="l">automated tests</div></div>
+  <div class="rs"><div class="n"><em data-i="26" data-n="5">0</em></div><div data-i="27" class="l">controlled axes</div></div>
+  <div class="rs"><div data-i="28" class="n">$6–15<em>k</em></div><div data-i="29" class="l">target price</div></div>
+  <div class="rs"><div data-i="30" class="n"><em data-n="90">0</em>%</div><div data-i="31" class="l">cheaper than import</div></div>
+  <div class="rs"><div class="n"><em data-i="32" data-n="40">0</em></div><div data-i="33" class="l">AI machine tools</div></div>
+  <div class="rs"><div class="n"><em data-i="34" data-n="17">0</em></div><div data-i="35" class="l">interface languages</div></div>
+  <div class="rs"><div data-i="36" class="n"><em data-n="800">0</em>+</div><div data-i="37" class="l">automated tests</div></div>
 </div></section>
 
 <section id="problem">
   <div class="wrap">
-    <div class="eyebrow">The problem</div>
-    <h2 class="sec-title">Africa doesn't lack ambition.<br><span class="heat">It lacks access to precision.</span></h2>
+    <div data-i="38" class="eyebrow">The problem</div>
+    <h2 data-i="39" class="sec-title">Africa doesn't lack ambition.<br><span class="heat">It lacks access to precision.</span></h2>
     <div class="cards3">
-      <div class="card rv"><div class="k">01 — Capital</div><h3>The machine costs more than the business</h3><p>An industrial 5-axis CNC centre lands in Bamako at USD 50,000–200,000+. For a workshop, a technical school or a spare-parts maker, that is simply out of reach.</p></div>
-      <div class="card rv d1"><div class="k">02 — Service</div><h3>When it breaks, it stays broken</h3><p>Closed controllers, no local technicians, parts on six-week import lead times. Imported machines routinely sit idle — we have commissioned these machines and watched it happen.</p></div>
-      <div class="card rv d2"><div class="k">03 — Skills</div><h3>CAD is the real gatekeeper</h3><p>Even with a machine, you need a CAD designer. A craftsman who knows metal but not SolidWorks cannot produce a single part. The skill, not the steel, is the bottleneck.</p></div>
+      <div class="card rv"><div data-i="40" class="k">01 — Capital</div><h3 data-i="41">The machine costs more than the business</h3><p data-i="42">An industrial 5-axis CNC centre lands in Bamako at USD 50,000–200,000+. For a workshop, a technical school or a spare-parts maker, that is simply out of reach.</p></div>
+      <div class="card rv d1"><div data-i="43" class="k">02 — Service</div><h3 data-i="44">When it breaks, it stays broken</h3><p data-i="45">Closed controllers, no local technicians, parts on six-week import lead times. Imported machines routinely sit idle — we have commissioned these machines and watched it happen.</p></div>
+      <div class="card rv d2"><div data-i="46" class="k">03 — Skills</div><h3 data-i="47">CAD is the real gatekeeper</h3><p data-i="48">Even with a machine, you need a CAD designer. A craftsman who knows metal but not SolidWorks cannot produce a single part. The skill, not the steel, is the bottleneck.</p></div>
     </div>
-    <p class="consequence rv">A broken impeller, a mould insert or a mining spare is <b>re-imported instead of remade</b> — and value leaves the continent every time.</p>
+    <p data-i="49" class="consequence rv">A broken impeller, a mould insert or a mining spare is <b>re-imported instead of remade</b> — and value leaves the continent every time.</p>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <div class="eyebrow">The idea</div>
-    <h2 class="sec-title">Five steps become <span class="heat">one sentence.</span></h2>
-    <p class="sec-lede">Today, making a part means a CAD designer, a CAM programmer and a G-code post-processor. With Forgeron, the machinist says what they want — in the language they work in — and the agent plans and cuts.</p>
+    <div data-i="50" class="eyebrow">The idea</div>
+    <h2 data-i="51" class="sec-title">Five steps become <span class="heat">one sentence.</span></h2>
+    <p data-i="52" class="sec-lede">Today, making a part means a CAD designer, a CAM programmer and a G-code post-processor. With Forgeron, the machinist says what they want — in the language they work in — and the agent plans and cuts.</p>
     <div class="flows">
       <div class="flow old rv">
-        <div class="head">Today <i>5 steps · 3 specialists · English software</i></div>
+        <div data-i="53" class="head">Today <i>5 steps · 3 specialists · English software</i></div>
         <div class="steps">
-          <div class="step"><small>STEP 1</small><b>Idea</b></div><span class="arrow">→</span>
-          <div class="step gone"><small>STEP 2</small><b class="strike">CAD model</b></div><span class="arrow">→</span>
-          <div class="step gone"><small>STEP 3</small><b class="strike">CAM toolpaths</b></div><span class="arrow">→</span>
-          <div class="step gone"><small>STEP 4</small><b class="strike">G-code</b></div><span class="arrow">→</span>
-          <div class="step"><small>STEP 5</small><b>Part</b></div>
+          <div class="step"><small data-i="54">STEP 1</small><b data-i="55">Idea</b></div><span data-i="56" class="arrow">→</span>
+          <div class="step gone"><small data-i="57">STEP 2</small><b data-i="58" class="strike">CAD model</b></div><span data-i="59" class="arrow">→</span>
+          <div class="step gone"><small data-i="60">STEP 3</small><b data-i="61" class="strike">CAM toolpaths</b></div><span data-i="62" class="arrow">→</span>
+          <div class="step gone"><small data-i="63">STEP 4</small><b data-i="64" class="strike">G-code</b></div><span data-i="65" class="arrow">→</span>
+          <div class="step"><small data-i="66">STEP 5</small><b data-i="67">Part</b></div>
         </div>
       </div>
       <div class="flow new rv d1">
-        <div class="head">With Forgeron <i>3 steps · 0 specialists · your language</i></div>
+        <div data-i="68" class="head">With Forgeron <i>3 steps · 0 specialists · your language</i></div>
         <div class="steps">
-          <div class="step"><small>STEP 1</small><b>Say it in Bambara</b></div><span class="arrow">→</span>
-          <div class="step"><small>STEP 2</small><b>The agent plans &amp; cuts</b></div><span class="arrow">→</span>
-          <div class="step"><small>STEP 3</small><b>Part</b></div>
+          <div class="step"><small data-i="69">STEP 1</small><b data-i="70">Say it in Bambara</b></div><span data-i="71" class="arrow">→</span>
+          <div class="step"><small data-i="72">STEP 2</small><b data-i="73">The agent plans &amp; cuts</b></div><span data-i="74" class="arrow">→</span>
+          <div class="step"><small data-i="75">STEP 3</small><b data-i="76">Part</b></div>
         </div>
       </div>
     </div>
@@ -457,41 +463,41 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="agent">
   <div class="wrap">
-    <div class="eyebrow">The AI agent — our moat</div>
-    <h2 class="sec-title">An agent that speaks Bambara<br><span class="heat">and runs the machine.</span></h2>
-    <p class="sec-lede">Not a chatbot bolted on. A language model wired to the machine through <b style="color:var(--ink)">40 safe tools</b>, a deterministic command engine that works without any model, and a safety layer that keeps the operator in charge.</p>
+    <div data-i="77" class="eyebrow">The AI agent — our moat</div>
+    <h2 data-i="78" class="sec-title">An agent that speaks Bambara<br><span class="heat">and runs the machine.</span></h2>
+    <p data-i="79" class="sec-lede">Not a chatbot bolted on. A language model wired to the machine through <b style="color:var(--ink)">40 safe tools</b>, a deterministic command engine that works without any model, and a safety layer that keeps the operator in charge.</p>
     <div class="demo">
       <div class="tabs" id="tabs">
-        <button class="tab on" data-s="0"><div class="t">Say it. Confirm it. Done.</div><div class="d">A command in plain language becomes a confirmed machine move.</div></button>
-        <button class="tab" data-s="1"><div class="t">Stop — in Bambara</div><div class="d">Emergency stop in the shop's own language. Instant, no model.</div></button>
-        <button class="tab" data-s="2"><div class="t">Ask. Get a sourced answer.</div><div class="d">Alarm codes, G-code and wiring answered from a cited knowledge base.</div></button>
+        <button class="tab on" data-s="0"><div data-i="80" class="t">Say it. Confirm it. Done.</div><div data-i="81" class="d">A command in plain language becomes a confirmed machine move.</div></button>
+        <button class="tab" data-s="1"><div data-i="82" class="t">Stop — in Bambara</div><div data-i="83" class="d">Emergency stop in the shop's own language. Instant, no model.</div></button>
+        <button class="tab" data-s="2"><div data-i="84" class="t">Ask. Get a sourced answer.</div><div data-i="85" class="d">Alarm codes, G-code and wiring answered from a cited knowledge base.</div></button>
       </div>
       <div class="phone"><div class="screen">
-        <div class="ahead"><div class="av">F</div><div><b>Forgeron assistant</b><small id="phsub">Offline · local model</small></div></div>
+        <div class="ahead"><div data-i="86" class="av">F</div><div><b data-i="87">Forgeron agent</b><small data-i="88" id="phsub">Offline · local model</small></div></div>
         <div class="chat" id="chat"></div>
-        <div class="inputbar"><div class="f" id="typing">Message the agent…</div><div class="s">➤</div></div>
+        <div class="inputbar"><div data-i="89" class="f" id="typing">Message the agent…</div><div data-i="90" class="s">➤</div></div>
       </div></div>
     </div>
     <div class="cards3" style="margin-top:50px">
-      <div class="card rv"><div class="k">Understands</div><h3>Closed-vocabulary engine</h3><p>A deterministic command engine reads fr · en · bm instantly, with zero network and zero model. Negations, questions and doubtful words are refused — never guessed.</p></div>
-      <div class="card rv d1"><div class="k">Runs anywhere</div><h3>Offline first</h3><p>A local model on the workshop PC — no internet, no API key, no data leaving the building. Cloud models over 4G are a fallback, with automatic multi-model switching.</p></div>
-      <div class="card rv d2"><div class="k">Sees</div><h3>Vision on demand</h3><p>Attach a photo or a camera frame and a dedicated vision model describes it, while the control model keeps the machine under its tools.</p></div>
+      <div class="card rv"><div data-i="91" class="k">Understands</div><h3 data-i="92">Closed-vocabulary engine</h3><p data-i="93">A deterministic command engine reads fr · en · bm instantly, with zero network and zero model. Negations, questions and doubtful words are refused — never guessed.</p></div>
+      <div class="card rv d1"><div data-i="94" class="k">Runs anywhere</div><h3 data-i="95">Offline first</h3><p data-i="96">A local model on the workshop PC — no internet, no API key, no data leaving the building. Cloud models over 4G are a fallback, with automatic multi-model switching.</p></div>
+      <div class="card rv d2"><div data-i="97" class="k">Sees</div><h3 data-i="98">Vision on demand</h3><p data-i="99">Attach a photo or a camera frame and a dedicated vision model describes it, while the control model keeps the machine under its tools.</p></div>
     </div>
   </div>
 </section>
 
 <section id="product">
   <div class="wrap">
-    <div class="eyebrow">The product in action</div>
-    <h2 class="sec-title">Real software. <span class="heat">Real machine.</span></h2>
-    <p class="sec-lede">These are screenshots of the running application — a desktop control room for the workshop PC, and a phone app for the shop floor. Light and dark themes included.</p>
+    <div data-i="100" class="eyebrow">The product in action</div>
+    <h2 data-i="101" class="sec-title">Real software. <span class="heat">Real machine.</span></h2>
+    <p data-i="102" class="sec-lede">These are screenshots of the running application — a desktop control room for the workshop PC, and a phone app for the shop floor. Light and dark themes included.</p>
     <div class="gal">
       <div class="gtabs" id="gtabs">
-        <button class="fbtn on" data-g="0">AI agent + simulator</button>
-        <button class="fbtn" data-g="1">Toolpath simulation</button>
-        <button class="fbtn" data-g="2">Digital twin</button>
-        <button class="fbtn" data-g="3">ForceGuard</button>
-        <button class="fbtn" data-g="4">Phone app</button>
+        <button class="fbtn on" data-g="0" data-fr="Agent IA + simulateur">AI agent + simulator</button>
+        <button class="fbtn" data-g="1" data-fr="Simulation de trajectoire">Toolpath simulation</button>
+        <button class="fbtn" data-g="2" data-fr="Jumeau numérique">Digital twin</button>
+        <button class="fbtn" data-g="3" data-fr="ForceGuard">ForceGuard</button>
+        <button class="fbtn" data-g="4" data-fr="Application mobile">Phone app</button>
       </div>
       <div class="gview">
         <div class="gshot" id="gshot"><img id="gimg" src="assets/app-dark-agent.jpg" alt="Forgeron application screenshot"></div>
@@ -503,11 +509,11 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="features">
   <div class="wrap">
-    <div class="eyebrow">Everything in the box</div>
-    <h2 class="sec-title">One app. <span class="heat">The whole workshop.</span></h2>
-    <p class="sec-lede">Control, intelligence, manufacturing chain and safety — built together as one stack, on a phone or a PC.</p>
+    <div data-i="103" class="eyebrow">Everything in the box</div>
+    <h2 data-i="104" class="sec-title">One app. <span class="heat">The whole workshop.</span></h2>
+    <p data-i="105" class="sec-lede">Control, intelligence, manufacturing chain and safety — built together as one stack, on a phone or a PC.</p>
     <div class="filters" id="filters">
-      <button class="fbtn on" data-c="all">All</button><button class="fbtn" data-c="control">Control</button><button class="fbtn" data-c="ai">Intelligence</button><button class="fbtn" data-c="make">Manufacturing</button><button class="fbtn" data-c="safe">Safety</button><button class="fbtn" data-c="hw">Hardware</button>
+      <button class="fbtn on" data-c="all" data-fr="Tout">All</button><button class="fbtn" data-c="control" data-fr="Pilotage">Control</button><button class="fbtn" data-c="ai" data-fr="Intelligence">Intelligence</button><button class="fbtn" data-c="make" data-fr="Fabrication">Manufacturing</button><button class="fbtn" data-c="safe" data-fr="Sécurité">Safety</button><button class="fbtn" data-c="hw" data-fr="Matériel">Hardware</button>
     </div>
     <div class="fgrid" id="fgrid"></div>
   </div>
@@ -515,47 +521,47 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="safety" class="safety">
   <div class="wrap">
-    <div class="eyebrow">Safety by design</div>
-    <h2 class="sec-title">An AI that can't <span class="heat">hurt the machine — or you.</span></h2>
-    <p class="sec-lede">Handing a CNC to an AI sounds reckless. So we built it the other way round: the AI never has the last word. Five independent layers stand between a sentence and a spinning cutter.</p>
+    <div data-i="106" class="eyebrow">Safety by design</div>
+    <h2 data-i="107" class="sec-title">An AI that can't <span class="heat">hurt the machine — or you.</span></h2>
+    <p data-i="108" class="sec-lede">Handing a CNC to an AI sounds reckless. So we built it the other way round: the AI never has the last word. Five independent layers stand between a sentence and a spinning cutter.</p>
     <div class="shield">
       <div class="rings" id="rings">
-        <div class="ring r1" data-l="0">Operator</div><div class="ring r2" data-l="1">Confirmation</div><div class="ring r3" data-l="2">Validation</div><div class="ring r4" data-l="3">Limits</div><div class="ring r5">MACHINE</div>
+        <div data-i="109" class="ring r1" data-l="0">Operator</div><div data-i="110" class="ring r2" data-l="1">Confirmation</div><div data-i="111" class="ring r3" data-l="2">Validation</div><div data-i="112" class="ring r4" data-l="3">Limits</div><div data-i="113" class="ring r5">MACHINE</div>
       </div>
       <div class="layers" id="layers">
-        <div class="layer" data-l="0"><div class="num">1</div><div><b>Emergency stop never goes through the AI</b><span>A fixed rule recognises “stop” in French, English, Swahili, Amharic and Bambara and acts instantly — even if the model is busy, offline or wrong.</span></div></div>
-        <div class="layer" data-l="1"><div class="num">2</div><div><b>Nothing moves without your tap</b><span>Every action shows what was understood, in which language, and why we ask. Guessed matches always need a confirmation.</span></div></div>
-        <div class="layer" data-l="2"><div class="num">3</div><div><b>Look-ahead trajectory validation</b><span>The full toolpath is simulated against the machine's real limits before any motion. A move that would collide is refused, not run.</span></div></div>
-        <div class="layer" data-l="3"><div class="num">4</div><div><b>Hard &amp; soft limits, fail-safe wiring</b><span>Normally-closed limit switches, active soft and hard limits, a streaming watchdog and ForceGuard load protection.</span></div></div>
-        <div class="layer" data-l="4"><div class="num">5</div><div><b>Questions are not orders</b><span>“Why does the spindle…?” or “don't start it” take the action tools away from the AI for that turn. A question can never start a machine.</span></div></div>
+        <div class="layer" data-l="0"><div data-i="114" class="num">1</div><div><b data-i="115">Emergency stop never goes through the AI</b><span data-i="116">A fixed rule recognises “stop” in French, English, Swahili, Amharic and Bambara and acts instantly — even if the model is busy, offline or wrong.</span></div></div>
+        <div class="layer" data-l="1"><div data-i="117" class="num">2</div><div><b data-i="118">Nothing moves without your tap</b><span data-i="119">Every action shows what was understood, in which language, and why we ask. Guessed matches always need a confirmation.</span></div></div>
+        <div class="layer" data-l="2"><div data-i="120" class="num">3</div><div><b data-i="121">Look-ahead trajectory validation</b><span data-i="122">The full toolpath is simulated against the machine's real limits before any motion. A move that would collide is refused, not run.</span></div></div>
+        <div class="layer" data-l="3"><div data-i="123" class="num">4</div><div><b data-i="124">Hard &amp; soft limits, fail-safe wiring</b><span data-i="125">Normally-closed limit switches, active soft and hard limits, a streaming watchdog and ForceGuard load protection.</span></div></div>
+        <div class="layer" data-l="4"><div data-i="126" class="num">5</div><div><b data-i="127">Questions are not orders</b><span data-i="128">“Why does the spindle…?” or “don't start it” take the action tools away from the AI for that turn. A question can never start a machine.</span></div></div>
       </div>
     </div>
     <div class="promise">
-      <div class="rv"><h4>Never invents data</h4><p>Positions, alarms and limits come from the controller and its config — or the answer is “not available”. No filler numbers, ever.</p></div>
-      <div class="rv d1"><h4>Safety words are reviewed</h4><p>A language only gets “trusted” status once a named native speaker has reviewed it. Until then, the app asks before acting.</p></div>
-      <div class="rv d2"><h4>Auditable</h4><p>Every AI turn is journaled without the conversation content, with the exact version of the AI and vocabulary in use — and release changes need proof from our benchmark.</p></div>
+      <div class="rv"><h4 data-i="129">Never invents data</h4><p data-i="130">Positions, alarms and limits come from the controller and its config — or the answer is “not available”. No filler numbers, ever.</p></div>
+      <div class="rv d1"><h4 data-i="131">Safety words are reviewed</h4><p data-i="132">A language only gets “trusted” status once a named native speaker has reviewed it. Until then, the app asks before acting.</p></div>
+      <div class="rv d2"><h4 data-i="133">Auditable</h4><p data-i="134">Every AI turn is journaled without the conversation content, with the exact version of the AI and vocabulary in use — and release changes need proof from our benchmark.</p></div>
     </div>
   </div>
 </section>
 
 <section id="languages">
   <div class="wrap">
-    <div class="eyebrow">Language is the interface</div>
-    <h2 class="sec-title">Precision, in the language<br><span class="heat">the shop floor actually speaks.</span></h2>
+    <div data-i="135" class="eyebrow">Language is the interface</div>
+    <h2 data-i="136" class="sec-title">Precision, in the language<br><span class="heat">the shop floor actually speaks.</span></h2>
     <div class="langs">
       <div>
-        <p class="sec-lede">The craftsman who knows metal but not SolidWorks — and works in Bambara, not English — can describe a part and cut it. Forgeron understands commands in Bambara and French offline, replies in clear, simple language, and ships an interface in 17 languages across the continent.</p>
+        <p data-i="137" class="sec-lede">The craftsman who knows metal but not SolidWorks — and works in Bambara, not English — can describe a part and cut it. Forgeron understands commands in Bambara and French offline, replies in clear, simple language, and ships an interface in 17 languages across the continent.</p>
         <div class="lang-cloud">
-          <span class="bm">Bamanankan</span><span class="main">Français</span><span class="main">English</span>
-          <span>العربية</span><span>Kiswahili</span><span>Afrikaans</span><span>አማርኛ</span><span>Hausa</span><span>Yorùbá</span><span>Igbo</span><span>isiZulu</span><span>Soomaali</span><span>Kinyarwanda</span><span>chiShona</span><span>Lingála</span><span>Wolof</span><span>Malagasy</span>
+          <span data-i="138" class="bm">Bamanankan</span><span data-i="139" class="main">Français</span><span data-i="140" class="main">English</span>
+          <span data-i="141">العربية</span><span data-i="142">Kiswahili</span><span data-i="143">Afrikaans</span><span data-i="144">አማርኛ</span><span data-i="145">Hausa</span><span data-i="146">Yorùbá</span><span data-i="147">Igbo</span><span data-i="148">isiZulu</span><span data-i="149">Soomaali</span><span data-i="150">Kinyarwanda</span><span data-i="151">chiShona</span><span data-i="152">Lingála</span><span data-i="153">Wolof</span><span data-i="154">Malagasy</span>
         </div>
-        <p class="note">Bambara vocabulary is sourced from published dictionaries and is being reviewed by native speakers; until it is, the app asks for confirmation. Bambara voice recognition is in active development.</p>
+        <p data-i="155" class="note">Bambara vocabulary is sourced from published dictionaries and is being reviewed by native speakers; until it is, the app asks for confirmation. Bambara voice recognition is in active development.</p>
       </div>
       <div class="say rv">
-        <div class="row"><span class="who">Bambara</span><div><div class="txt"><em>Mansin jɔ</em> sisan, joona!</div><span class="meta">→ emergency stop · instant · no model needed</span></div></div>
-        <div class="row"><span class="who">Français</span><div><div class="txt">Peux-tu <em>allumer la broche</em> ?</div><span class="meta">→ a polite request is understood as an order · confirm to run</span></div></div>
-        <div class="row"><span class="who">English</span><div><div class="txt">Move <em>X by 5 mm</em> at speed 300</div><span class="meta">→ jog X +5 mm @ 300 mm/min · numbers copied, never invented</span></div></div>
-        <div class="row"><span class="who">Typing</span><div><div class="txt">ɛ ɔ ɲ ŋ</div><span class="meta">→ built-in Bambara key row — plain e, o, ny, ng work too</span></div></div>
+        <div class="row"><span data-i="156" class="who">Bambara</span><div><div data-i="157" class="txt"><em>Mansin jɔ</em> sisan, joona!</div><span data-i="158" class="meta">→ emergency stop · instant · no model needed</span></div></div>
+        <div class="row"><span data-i="159" class="who">Français</span><div><div data-i="160" class="txt">Peux-tu <em>allumer la broche</em> ?</div><span data-i="161" class="meta">→ a polite request is understood as an order · confirm to run</span></div></div>
+        <div class="row"><span data-i="162" class="who">English</span><div><div data-i="163" class="txt">Move <em>X by 5 mm</em> at speed 300</div><span data-i="164" class="meta">→ jog X +5 mm @ 300 mm/min · numbers copied, never invented</span></div></div>
+        <div class="row"><span data-i="165" class="who">Typing</span><div><div data-i="166" class="txt">ɛ ɔ ɲ ŋ</div><span data-i="167" class="meta">→ built-in Bambara key row — plain e, o, ny, ng work too</span></div></div>
       </div>
     </div>
   </div>
@@ -563,34 +569,34 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="hardware">
   <div class="wrap">
-    <div class="eyebrow">Solution — hardware</div>
-    <h2 class="sec-title">A real 5-axis machine,<br><span class="heat">designed and assembled in Mali.</span></h2>
-    <p class="sec-lede">A trunnion A/C table with X, Y, Z — not a 3-axis desktop router dressed up as one. Open firmware, an open and substitutable bill of materials, and parts you can actually source.</p>
+    <div data-i="168" class="eyebrow">Solution — hardware</div>
+    <h2 data-i="169" class="sec-title">A real 5-axis machine,<br><span class="heat">designed and assembled in Mali.</span></h2>
+    <p data-i="170" class="sec-lede">A trunnion A/C table with X, Y, Z — not a 3-axis desktop router dressed up as one. Open firmware, an open and substitutable bill of materials, and parts you can actually source.</p>
     <div class="hw">
       <div>
         <div class="spec">
-          <div><span>Configuration</span><span>Trunnion · X Y Z + A C</span></div>
-          <div><span>Controller</span><span>ESP32 · FluidNC (open firmware)</span></div>
-          <div><span>Drives</span><span>5 × TB6600 stepper drives</span></div>
-          <div><span>Z axis</span><span>TR12×3 trapezoidal screw · POM nut</span></div>
-          <div><span>Spindle</span><span>Own PWM circuit · IRLB8721 MOSFET</span></div>
-          <div><span>Power</span><span>Validated server-grade PSU</span></div>
-          <div><span>Vision</span><span>ESP32-CAM on the machine network</span></div>
-          <div><span>Status</span><span style="color:var(--ok)">Built · validated · running</span></div>
+          <div><span data-i="171">Configuration</span><span data-i="172">Trunnion · X Y Z + A C</span></div>
+          <div><span data-i="173">Controller</span><span data-i="174">ESP32 · FluidNC (open firmware)</span></div>
+          <div><span data-i="175">Drives</span><span data-i="176">5 × TB6600 stepper drives</span></div>
+          <div><span data-i="177">Z axis</span><span data-i="178">TR12×3 trapezoidal screw · POM nut</span></div>
+          <div><span data-i="179">Spindle</span><span data-i="180">Own PWM circuit · IRLB8721 MOSFET</span></div>
+          <div><span data-i="181">Power</span><span data-i="182">Validated server-grade PSU</span></div>
+          <div><span data-i="183">Vision</span><span data-i="184">ESP32-CAM on the machine network</span></div>
+          <div><span data-i="185">Status</span><span data-i="186" style="color:var(--ok)">Built · validated · running</span></div>
         </div>
-        <div class="chain"><span>Open BOM</span><span>≥ 2 qualified sources per part</span><span>Local structure</span><span>12-month service contract</span><span>Retrofit line</span></div>
+        <div class="chain"><span data-i="187">Open BOM</span><span data-i="188">≥ 2 qualified sources per part</span><span data-i="189">Local structure</span><span data-i="190">12-month service contract</span><span data-i="191">Retrofit line</span></div>
       </div>
       <div>
-        <div class="pricehero"><span class="now heat">$6–15k</span><span class="cut">70–90% below import</span></div>
-        <p class="sec-lede" style="font-size:15px">Target price, being validated with two paid pilot shops before we fix it.</p>
+        <div class="pricehero"><span data-i="192" class="now heat">$6–15k</span><span data-i="193" class="cut">70–90% below import</span></div>
+        <p data-i="194" class="sec-lede" style="font-size:15px">Target price, being validated with two paid pilot shops before we fix it.</p>
         <div class="bars" id="bars" style="margin-top:26px">
-          <div class="bar"><div class="lab"><span>Industrial 5-axis centre (import)</span><b>$50k – $200k+</b></div><div class="track"><div class="fill ind" data-w="100%"></div></div></div>
-          <div class="bar"><div class="lab"><span>Professional CAM software</span><b>$1.5k+ / year</b></div><div class="track"><div class="fill ind" data-w="26%"></div></div></div>
-          <div class="bar"><div class="lab"><span>Forgeron 5-axis machine</span><b>$6k – $15k</b></div><div class="track"><div class="fill fg" data-w="9%"></div></div></div>
+          <div class="bar"><div class="lab"><span data-i="195">Industrial 5-axis centre (import)</span><b data-i="196">$50k – $200k+</b></div><div class="track"><div class="fill ind" data-w="100%"></div></div></div>
+          <div class="bar"><div class="lab"><span data-i="197">Professional CAM software</span><b data-i="198">$1.5k+ / year</b></div><div class="track"><div class="fill ind" data-w="26%"></div></div></div>
+          <div class="bar"><div class="lab"><span data-i="199">Forgeron 5-axis machine</span><b data-i="200">$6k – $15k</b></div><div class="track"><div class="fill fg" data-w="9%"></div></div></div>
         </div>
         <div class="cards3" style="grid-template-columns:1fr 1fr;margin-top:30px">
-          <div class="card"><div class="k">Service</div><h3 style="font-size:26px">Two days, not six weeks</h3><p>Commodity parts, documented assembly, local repair.</p></div>
-          <div class="card"><div class="k">Retrofit</div><h3 style="font-size:26px">Revive dead machines</h3><p>Bring manual or dead-controller machines back to life.</p></div>
+          <div class="card"><div data-i="201" class="k">Service</div><h3 data-i="202" style="font-size:26px">Two days, not six weeks</h3><p data-i="203">Commodity parts, documented assembly, local repair.</p></div>
+          <div class="card"><div data-i="204" class="k">Retrofit</div><h3 data-i="205" style="font-size:26px">Revive dead machines</h3><p data-i="206">Bring manual or dead-controller machines back to life.</p></div>
         </div>
       </div>
     </div>
@@ -599,166 +605,168 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="market">
   <div class="wrap">
-    <div class="eyebrow">Market opportunity</div>
-    <h2 class="sec-title">A USD 5.1 billion market —<br><span class="heat">and West Africa isn't even counted yet.</span></h2>
+    <div data-i="207" class="eyebrow">Market opportunity</div>
+    <h2 data-i="208" class="sec-title">A USD 5.1 billion market —<br><span class="heat">and West Africa isn't even counted yet.</span></h2>
     <div class="market">
       <svg viewBox="0 0 460 460" role="img" aria-label="TAM SAM SOM">
         <circle cx="230" cy="230" r="220" fill="rgba(255,106,26,.07)" stroke="#3a4450"/>
         <circle cx="230" cy="288" r="150" fill="rgba(255,106,26,.13)" stroke="#ff8c42" stroke-opacity=".5"/>
         <circle cx="230" cy="350" r="78" fill="rgba(255,106,26,.5)" stroke="#ff6a1a"/>
-        <text x="230" y="72" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="700" font-size="30" fill="#f1f3f6">TAM · $5.1B</text>
-        <text x="230" y="98" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9aa5b1" letter-spacing="2">AFRICA CNC + GLOBAL CAM</text>
-        <text x="230" y="200" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="700" font-size="27" fill="#f1f3f6">SAM · $1.7B → $3.4B</text>
-        <text x="230" y="224" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9aa5b1" letter-spacing="2">AFRICAN CNC · 10.3% CAGR</text>
-        <text x="230" y="346" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="800" font-size="26" fill="#1a0d04">SOM</text>
-        <text x="230" y="368" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="#1a0d04" letter-spacing="1.5">MALI &amp; SAHEL</text>
+        <text data-i="209" x="230" y="72" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="700" font-size="30" fill="#f1f3f6">TAM · $5.1B</text>
+        <text data-i="210" x="230" y="98" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9aa5b1" letter-spacing="2">AFRICA CNC + GLOBAL CAM</text>
+        <text data-i="211" x="230" y="200" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="700" font-size="27" fill="#f1f3f6">SAM · $1.7B → $3.4B</text>
+        <text data-i="212" x="230" y="224" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9aa5b1" letter-spacing="2">AFRICAN CNC · 10.3% CAGR</text>
+        <text data-i="213" x="230" y="346" text-anchor="middle" font-family="Saira Condensed,sans-serif" font-weight="800" font-size="26" fill="#1a0d04">SOM</text>
+        <text data-i="214" x="230" y="368" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="#1a0d04" letter-spacing="1.5">MALI &amp; SAHEL</text>
       </svg>
       <div class="tam">
-        <div class="rv"><div class="k">TAM — total addressable</div><div class="v">USD 5.1 B</div><p>Africa CNC machine market (USD 1.70 B, 2024) plus global CAM software end-user spend (USD 3.4 B, 2026). Our software is machine-agnostic, so the CAM layer is global from day one.</p></div>
-        <div class="rv d1"><div class="k">SAM — serviceable</div><div class="v">USD 1.7 B → 3.4 B by 2031</div><p>The African CNC machine market, growing at a 10.3% CAGR. Published figures count only South Africa, Egypt, Algeria and Nigeria — francophone West Africa is unmeasured and unserved.</p></div>
-        <div class="rv d2"><div class="k">SOM — beachhead</div><div class="v">Schools · workshops · mining services</div><p>Technical and engineering schools, metal and mechanical workshops and mining-service contractors across Mali and the Sahel — reached through institutions we already teach in.</p></div>
+        <div class="rv"><div data-i="215" class="k">TAM — total addressable</div><div data-i="216" class="v">USD 5.1 B</div><p data-i="217">Africa CNC machine market (USD 1.70 B, 2024) plus global CAM software end-user spend (USD 3.4 B, 2026). Our software is machine-agnostic, so the CAM layer is global from day one.</p></div>
+        <div class="rv d1"><div data-i="218" class="k">SAM — serviceable</div><div data-i="219" class="v">USD 1.7 B → 3.4 B by 2031</div><p data-i="220">The African CNC machine market, growing at a 10.3% CAGR. Published figures count only South Africa, Egypt, Algeria and Nigeria — francophone West Africa is unmeasured and unserved.</p></div>
+        <div class="rv d2"><div data-i="221" class="k">SOM — beachhead</div><div data-i="222" class="v">Schools · workshops · mining services</div><p data-i="223">Technical and engineering schools, metal and mechanical workshops and mining-service contractors across Mali and the Sahel — reached through institutions we already teach in.</p></div>
       </div>
     </div>
-    <p class="src">Sources: Business Market Insights, Africa CNC Machine Market (2024 base, 2031 forecast) · CIMdata 2026 Global CAM Market Analysis Report.</p>
+    <p data-i="224" class="src">Sources: Business Market Insights, Africa CNC Machine Market (2024 base, 2031 forecast) · CIMdata 2026 Global CAM Market Analysis Report.</p>
   </div>
 </section>
 
 <section id="model">
   <div class="wrap">
-    <div class="eyebrow">Business model</div>
-    <h2 class="sec-title">Hardware buys the installed base.<br><span class="heat">Software compounds on top of it.</span></h2>
+    <div data-i="225" class="eyebrow">Business model</div>
+    <h2 data-i="226" class="sec-title">Hardware buys the installed base.<br><span class="heat">Software compounds on top of it.</span></h2>
     <div class="twoCol">
-      <div class="rev rv"><div class="k">Line 1 — Hardware</div><h3>Machines, retrofits, service, parts</h3><div class="amt">USD 6,000–15,000 per machine</div><p>Assembled in Bamako and sold to technical schools, university workshops and small precision manufacturers.</p><ul><li>12-month service contract on every machine</li><li>Recurring spare-parts and retrofit revenue</li><li>Retrofit as a lower-cost second entry point</li></ul></div>
-      <div class="rev rv d1"><div class="k">Line 2 — Software</div><h3>CAD-free CAM, by subscription</h3><div class="amt">USD 20–50 / seat / month</div><p>Free with every Forgeron machine; sold standalone to the far larger installed base of third-party CNC machines.</p><ul><li>Near-zero marginal cost, no geographic limit</li><li>Machine-agnostic: any G-code controller</li><li>Free tier converting to subscription</li></ul></div>
+      <div class="rev rv"><div data-i="227" class="k">Line 1 — Hardware</div><h3 data-i="228">Machines, retrofits, service, parts</h3><div data-i="229" class="amt">USD 6,000–15,000 per machine</div><p data-i="230">Assembled in Bamako and sold to technical schools, university workshops and small precision manufacturers.</p><ul><li data-i="231">12-month service contract on every machine</li><li data-i="232">Recurring spare-parts and retrofit revenue</li><li data-i="233">Retrofit as a lower-cost second entry point</li></ul></div>
+      <div class="rev rv d1"><div data-i="234" class="k">Line 2 — Software</div><h3 data-i="235">CAD-free CAM, by subscription</h3><div data-i="236" class="amt">USD 20–50 / seat / month</div><p data-i="237">Free with every Forgeron machine; sold standalone to the far larger installed base of third-party CNC machines.</p><ul><li data-i="238">Near-zero marginal cost, no geographic limit</li><li data-i="239">Machine-agnostic: any G-code controller</li><li data-i="240">Free tier converting to subscription</li></ul></div>
     </div>
     <div class="cards3" style="margin-top:18px">
-      <div class="card rv"><div class="k">1 stack</div><h3 style="font-size:26px">One technology base</h3><p>Machine, controller, control app and CAM feeding two revenue lines.</p></div>
-      <div class="card rv d1"><div class="k">Licensable</div><h3 style="font-size:26px">Build it anywhere</h3><p>Modular assembly and open BOM: any country with a welding shop and a technician.</p></div>
-      <div class="card rv d2"><div class="k">Recurring</div><h3 style="font-size:26px">Annuity, not one-offs</h3><p>Service contracts, parts and CAM subscriptions on top of every sale.</p></div>
+      <div class="card rv"><div data-i="241" class="k">1 stack</div><h3 data-i="242" style="font-size:26px">One technology base</h3><p data-i="243">Machine, controller, control app and CAM feeding two revenue lines.</p></div>
+      <div class="card rv d1"><div data-i="244" class="k">Licensable</div><h3 data-i="245" style="font-size:26px">Build it anywhere</h3><p data-i="246">Modular assembly and open BOM: any country with a welding shop and a technician.</p></div>
+      <div class="card rv d2"><div data-i="247" class="k">Recurring</div><h3 data-i="248" style="font-size:26px">Annuity, not one-offs</h3><p data-i="249">Service contracts, parts and CAM subscriptions on top of every sale.</p></div>
     </div>
-    <div class="eyebrow" style="margin-top:80px">Go-to-market</div>
-    <h3 class="sec-title" style="font-size:clamp(30px,4vw,46px)">We start where we already have standing.</h3>
+    <div data-i="250" class="eyebrow" style="margin-top:80px">Go-to-market</div>
+    <h3 data-i="251" class="sec-title" style="font-size:clamp(30px,4vw,46px)">We start where we already have standing.</h3>
     <div class="waves">
-      <div class="wave rv"><div class="dot">1</div><div><b>Beachhead — technical &amp; engineering schools</b><p>Led from ENI-ABT, Mali's national engineering school, where the founder teaches CNC machining and CAM at Master's level. Every installed machine trains a cohort of Forgeron-fluent operators — the next generation of buyers. First placements in motion with ENI-ABT, TECHNOLAB-ISTA and IMT.</p></div></div>
-      <div class="wave rv"><div class="dot">2</div><div><b>Second wave — mining services &amp; industrial maintenance</b><p>Reached through a commissioning track record on real industrial equipment: a GSK-controlled 4-axis VMC850, a plastic injection press, a textile laboratory. The pitch is downtime — a part remade locally in two days instead of imported in six weeks.</p></div></div>
-      <div class="wave rv"><div class="dot">3</div><div><b>Third wave — software, sold on its own</b><p>The CAM application needs no Forgeron machine: it spreads through maker and machinist communities, technical-school partnerships and the open FluidNC / GRBL ecosystem.</p></div></div>
-      <div class="wave rv"><div class="dot">4</div><div><b>Distribution leverage — programme networks</b><p>METI UniPods AI (UNDP / timbuktoo) and Wadhwani Ignite Full – Africa bring pan-African partners, credibility and introductions ahead of revenue.</p></div></div>
+      <div class="wave rv"><div data-i="252" class="dot">1</div><div><b data-i="253">Beachhead — technical &amp; engineering schools</b><p data-i="254">Led from ENI-ABT, Mali's national engineering school, where the founder teaches CNC machining and CAM at Master's level. Every installed machine trains a cohort of Forgeron-fluent operators — the next generation of buyers. First placements in motion with ENI-ABT, TECHNOLAB-ISTA and IMT.</p></div></div>
+      <div class="wave rv"><div data-i="255" class="dot">2</div><div><b data-i="256">Second wave — mining services &amp; industrial maintenance</b><p data-i="257">Reached through a commissioning track record on real industrial equipment: a GSK-controlled 4-axis VMC850, a plastic injection press, a textile laboratory. The pitch is downtime — a part remade locally in two days instead of imported in six weeks.</p></div></div>
+      <div class="wave rv"><div data-i="258" class="dot">3</div><div><b data-i="259">Third wave — software, sold on its own</b><p data-i="260">The CAM application needs no Forgeron machine: it spreads through maker and machinist communities, technical-school partnerships and the open FluidNC / GRBL ecosystem.</p></div></div>
+      <div class="wave rv"><div data-i="261" class="dot">4</div><div><b data-i="262">Distribution leverage — programme networks</b><p data-i="263">METI UniPods AI (UNDP / timbuktoo) and Wadhwani Ignite Full – Africa bring pan-African partners, credibility and introductions ahead of revenue.</p></div></div>
     </div>
   </div>
 </section>
 
 <section id="compete">
   <div class="wrap">
-    <div class="eyebrow">Competitive landscape</div>
-    <h2 class="sec-title">Nobody is building a Bambara-speaking<br><span class="heat">offline CAM agent for Mali.</span></h2>
+    <div data-i="264" class="eyebrow">Competitive landscape</div>
+    <h2 data-i="265" class="sec-title">Nobody is building a Bambara-speaking<br><span class="heat">offline CAM agent for Mali.</span></h2>
     <div class="tbl rv">
       <table>
-        <thead><tr><th>Who</th><th>Price</th><th>Axes</th><th>Local service</th><th>Needs CAD · language</th></tr></thead>
+        <thead><tr><th data-i="266">Who</th><th data-i="267">Price</th><th data-i="268">Axes</th><th data-i="269">Local service</th><th data-i="270">Needs CAD · language</th></tr></thead>
         <tbody>
-          <tr><td><b>Industrial OEMs</b><small>Haas, DMG Mori, GSK-class VMC</small></td><td>$50k–200k+</td><td>3–5</td><td class="no">No — imported, long lead times</td><td class="no">Yes</td></tr>
-          <tr><td><b>Hobby &amp; desktop CNC</b><small>Shapeoko, Genmitsu, GRBL kits</small></td><td>$500–5k</td><td>3</td><td class="no">No — light frame, not production metal</td><td class="no">Yes</td></tr>
-          <tr><td><b>CAM software</b><small>Fusion 360, Mastercam, SolidCAM</small></td><td>$1.5k+/yr</td><td>n/a</td><td>n/a</td><td class="no">Yes — plus internet and English/French</td></tr>
-          <tr class="us"><td><b>FORGERON</b></td><td><b>$6k–15k</b></td><td><b>5</b></td><td class="yes"><b>Yes — built &amp; serviced in Mali</b></td><td class="yes"><b>No — voice &amp; text in Bambara, offline</b></td></tr>
+          <tr><td><b data-i="271">Industrial OEMs</b><small data-i="272">Haas, DMG Mori, GSK-class VMC</small></td><td data-i="273">$50k–200k+</td><td data-i="274">3–5</td><td data-i="275" class="no">No — imported, long lead times</td><td data-i="276" class="no">Yes</td></tr>
+          <tr><td><b data-i="277">Hobby &amp; desktop CNC</b><small data-i="278">Shapeoko, Genmitsu, GRBL kits</small></td><td data-i="279">$500–5k</td><td data-i="280">3</td><td data-i="281" class="no">No — light frame, not production metal</td><td data-i="282" class="no">Yes</td></tr>
+          <tr><td><b data-i="283">CAM software</b><small data-i="284">Fusion 360, Mastercam, SolidCAM</small></td><td data-i="285">$1.5k+/yr</td><td data-i="286">n/a</td><td data-i="287">n/a</td><td data-i="288" class="no">Yes — plus internet and English/French</td></tr>
+          <tr class="us"><td><b data-i="289">FORGERON</b></td><td><b data-i="290">$6k–15k</b></td><td><b data-i="291">5</b></td><td class="yes"><b data-i="292">Yes — built &amp; serviced in Mali</b></td><td class="yes"><b data-i="293">No — voice &amp; text in Bambara, offline</b></td></tr>
         </tbody>
       </table>
     </div>
     <div class="cards3">
-      <div class="card rv"><div class="k">Capability</div><h3>True 5-axis, a tenth of the price</h3><p>A trunnion A/C machine capable of production metal work.</p></div>
-      <div class="card rv d1"><div class="k">Locality</div><h3>Maintainable where it is sold</h3><p>Designed, assembled and serviced in Mali — not an import with its service contract on another continent.</p></div>
-      <div class="card rv d2"><div class="k">Language &amp; autonomy</div><h3>The only CAD-free, offline, Bambara agent</h3><p>No incumbent removes CAD, runs offline and speaks the operator's own language.</p></div>
+      <div class="card rv"><div data-i="294" class="k">Capability</div><h3 data-i="295">True 5-axis, a tenth of the price</h3><p data-i="296">A trunnion A/C machine capable of production metal work.</p></div>
+      <div class="card rv d1"><div data-i="297" class="k">Locality</div><h3 data-i="298">Maintainable where it is sold</h3><p data-i="299">Designed, assembled and serviced in Mali — not an import with its service contract on another continent.</p></div>
+      <div class="card rv d2"><div data-i="300" class="k">Language &amp; autonomy</div><h3 data-i="301">The only CAD-free, offline, Bambara agent</h3><p data-i="302">No incumbent removes CAD, runs offline and speaks the operator's own language.</p></div>
     </div>
   </div>
 </section>
 
 <section id="impact">
   <div class="wrap">
-    <div class="eyebrow">Social impact</div>
-    <h2 class="sec-title">Manufacturing capability<br><span class="heat">built in Bamako — not bought from abroad.</span></h2>
+    <div data-i="303" class="eyebrow">Social impact</div>
+    <h2 data-i="304" class="sec-title">Manufacturing capability<br><span class="heat">built in Bamako — not bought from abroad.</span></h2>
     <div class="impact">
-      <div class="imp rv"><div class="k">Access</div><h3>Machines schools can afford</h3><p>African technical schools and universities equipped with real 5-axis machines, so students learn on metal instead of on simulators.</p></div>
-      <div class="imp rv d1"><div class="k">Inclusion</div><h3>Neither skill nor language gates it</h3><p>CAD removed, commands in Bambara. A craftsman who knows metal but not SolidWorks can describe a part and cut it.</p></div>
-      <div class="imp rv d2"><div class="k">Economy</div><h3>Import substitution</h3><p>Pump impellers, mould inserts and mining spares remade locally — value and capability retained on the continent.</p></div>
-      <div class="imp rv d3"><div class="k">Jobs</div><h3>Local assembly &amp; service</h3><p>Assembly, commissioning and maintenance jobs in Bamako, plus student engineers trained through supervised theses.</p></div>
+      <div class="imp rv"><div data-i="305" class="k">Access</div><h3 data-i="306">Machines schools can afford</h3><p data-i="307">African technical schools and universities equipped with real 5-axis machines, so students learn on metal instead of on simulators.</p></div>
+      <div class="imp rv d1"><div data-i="308" class="k">Inclusion</div><h3 data-i="309">Neither skill nor language gates it</h3><p data-i="310">CAD removed, commands in Bambara. A craftsman who knows metal but not SolidWorks can describe a part and cut it.</p></div>
+      <div class="imp rv d2"><div data-i="311" class="k">Economy</div><h3 data-i="312">Import substitution</h3><p data-i="313">Pump impellers, mould inserts and mining spares remade locally — value and capability retained on the continent.</p></div>
+      <div class="imp rv d3"><div data-i="314" class="k">Jobs</div><h3 data-i="315">Local assembly &amp; service</h3><p data-i="316">Assembly, commissioning and maintenance jobs in Bamako, plus student engineers trained through supervised theses.</p></div>
     </div>
   </div>
 </section>
 
 <section id="traction">
   <div class="wrap">
-    <div class="eyebrow">Proof of concept</div>
-    <h2 class="sec-title">One prototype, running.<br><span class="heat">Now we put it in paid shops.</span></h2>
+    <div data-i="317" class="eyebrow">Proof of concept</div>
+    <h2 data-i="318" class="sec-title">One prototype, running.<br><span class="heat">Now we put it in paid shops.</span></h2>
     <div class="marq"><div class="track2">
-      <span><i>◆</i>METI UniPods AI · UNDP / timbuktoo</span><span><i>◆</i>Wadhwani Ignite Full – Africa</span><span><i>◆</i>MIT Universal AI Program</span><span><i>◆</i>HBS Africa NVC 2027</span><span><i>◆</i>Addis Ababa bootcamp · Nov 2026</span><span><i>◆</i>ENI-ABT</span><span><i>◆</i>TECHNOLAB-ISTA</span>
-      <span><i>◆</i>METI UniPods AI · UNDP / timbuktoo</span><span><i>◆</i>Wadhwani Ignite Full – Africa</span><span><i>◆</i>MIT Universal AI Program</span><span><i>◆</i>HBS Africa NVC 2027</span><span><i>◆</i>Addis Ababa bootcamp · Nov 2026</span><span><i>◆</i>ENI-ABT</span><span><i>◆</i>TECHNOLAB-ISTA</span>
+      <span data-i="319"><i>◆</i>METI UniPods AI · UNDP / timbuktoo</span><span data-i="320"><i>◆</i>Wadhwani Ignite Full – Africa</span><span data-i="321"><i>◆</i>MIT Universal AI Program</span><span data-i="322"><i>◆</i>HBS Africa NVC 2027</span><span data-i="323"><i>◆</i>Addis Ababa bootcamp · Nov 2026</span><span data-i="324"><i>◆</i>ENI-ABT</span><span data-i="325"><i>◆</i>TECHNOLAB-ISTA</span>
+      <span data-i="326"><i>◆</i>METI UniPods AI · UNDP / timbuktoo</span><span data-i="327"><i>◆</i>Wadhwani Ignite Full – Africa</span><span data-i="328"><i>◆</i>MIT Universal AI Program</span><span data-i="329"><i>◆</i>HBS Africa NVC 2027</span><span data-i="330"><i>◆</i>Addis Ababa bootcamp · Nov 2026</span><span data-i="331"><i>◆</i>ENI-ABT</span><span data-i="332"><i>◆</i>TECHNOLAB-ISTA</span>
     </div></div>
     <div class="proof">
-      <figure class="photo rv"><img src="assets/founder-machine.jpg" alt="Lamine Sacko operating the Forgeron machine from a laptop, emergency stop button in view" loading="lazy"><figcaption><b>Lamine SACKO</b> at the machine — controlled from a laptop, emergency stop within reach.</figcaption></figure>
+      <figure class="photo rv"><img src="assets/founder-machine.jpg" alt="Lamine Sacko operating the Forgeron machine from a laptop, emergency stop button in view" loading="lazy"><figcaption data-i="333"><b>Lamine SACKO</b> at the machine — controlled from a laptop, emergency stop within reach.</figcaption></figure>
       <div class="facts">
-        <div class="fact rv"><span class="m">BUILT</span><span class="t"><b>One 5-axis trunnion (A/C) machine</b> — ESP32 + FluidNC, full drive and spindle chain validated; <b>10 five-axis G-code programmes executed</b> on the machine.</span></div>
-        <div class="fact rv d1"><span class="m">SOFTWARE</span><span class="t"><b>Flutter operator app</b> with probing &amp; work offsets, an offline AI agent taking text and voice in French and Bambara, and a published open-source codebase.</span></div>
-        <div class="fact rv"><span class="m">VALIDATED</span><span class="t"><b>METI UniPods AI cohort 1</b> (UNDP / timbuktoo) · prototype to the <b>Addis Ababa bootcamp</b>, Nov 2026 · MIT Universal AI Program · Wadhwani Ignite.</span></div>
-        <div class="fact rv d1"><span class="m">DEMAND</span><span class="t">First partner interested in testing &amp; adoption — <b>Kouratechnique</b>. First school placements in motion with ENI-ABT, TECHNOLAB-ISTA and IMT.</span></div>
+        <div class="fact rv"><span data-i="334" class="m">BUILT</span><span data-i="335" class="t"><b>One 5-axis trunnion (A/C) machine</b> — ESP32 + FluidNC, full drive and spindle chain validated; <b>10 five-axis G-code programmes executed</b> on the machine.</span></div>
+        <div class="fact rv d1"><span data-i="336" class="m">SOFTWARE</span><span data-i="337" class="t"><b>Flutter operator app</b> with probing &amp; work offsets, an offline AI agent taking text and voice in French and Bambara, and a published open-source codebase.</span></div>
+        <div class="fact rv"><span data-i="338" class="m">VALIDATED</span><span data-i="339" class="t"><b>METI UniPods AI cohort 1</b> (UNDP / timbuktoo) · prototype to the <b>Addis Ababa bootcamp</b>, Nov 2026 · MIT Universal AI Program · Wadhwani Ignite.</span></div>
+        <div class="fact rv d1"><span data-i="340" class="m">DEMAND</span><span data-i="341" class="t">First partner interested in testing &amp; adoption — <b>Kouratechnique</b>. First school placements in motion with ENI-ABT, TECHNOLAB-ISTA and IMT.</span></div>
       </div>
     </div>
     <div class="road">
-      <h3>What's next</h3>
+      <h3 data-i="342">What's next</h3>
       <div class="rline">
-        <div class="rstep done rv"><small>Done</small><b>Machine built</b><p>5-axis prototype, full drive &amp; spindle chain, 10 programmes cut.</p></div>
-        <div class="rstep done rv d1"><small>Done</small><b>AI agent live</b><p>Offline model, 40 tools, safety layers, 800+ automated tests.</p></div>
-        <div class="rstep next rv d2"><small>Nov 2026</small><b>Addis Ababa</b><p>Prototype to the METI UniPods bootcamp. Voice tests in the workshop.</p></div>
-        <div class="rstep rv d3"><small>By Apr 2027</small><b>2 paid pilot shops</b><p>2 machines · 10 real customer parts · 10 customer interviews.</p></div>
-        <div class="rstep rv d3"><small>Then</small><b>Scale</b><p>Machine #2, shop-floor safety, certification, OAPI filing, CAM subscriptions.</p></div>
+        <div class="rstep done rv"><small data-i="343">Done</small><b data-i="344">Machine built</b><p data-i="345">5-axis prototype, full drive &amp; spindle chain, 10 programmes cut.</p></div>
+        <div class="rstep done rv d1"><small data-i="346">Done</small><b data-i="347">AI agent live</b><p data-i="348">Offline model, 40 tools, safety layers, 800+ automated tests.</p></div>
+        <div class="rstep next rv d2"><small data-i="349">Nov 2026</small><b data-i="350">Addis Ababa</b><p data-i="351">Prototype to the METI UniPods bootcamp. Voice tests in the workshop.</p></div>
+        <div class="rstep rv d3"><small data-i="352">By Apr 2027</small><b data-i="353">2 paid pilot shops</b><p data-i="354">2 machines · 10 real customer parts · 10 customer interviews.</p></div>
+        <div class="rstep rv d3"><small data-i="355">Then</small><b data-i="356">Scale</b><p data-i="357">Machine #2, shop-floor safety, certification, OAPI filing, CAM subscriptions.</p></div>
       </div>
     </div>
     <div class="cards3" style="margin-top:46px">
-      <div class="card rv"><div class="k">In development</div><h3>Bambara voice</h3><p>Speech recognition tuned on workshop commands, from open African speech datasets and models.</p></div>
-      <div class="card rv d1"><div class="k">In development</div><h3>Scan-to-part</h3><p>Capture a part with cameras and a calibrated rotating table, rebuild it and re-machine it.</p></div>
-      <div class="card rv d2"><div class="k">In development</div><h3>Multi-agent planning</h3><p>Specialised agents for CAM, setup and quality, coordinated under the same safety layers.</p></div>
+      <div class="card rv"><div data-i="358" class="k">In development</div><h3 data-i="359">Bambara voice</h3><p data-i="360">Speech recognition tuned on workshop commands, from open African speech datasets and models.</p></div>
+      <div class="card rv d1"><div data-i="361" class="k">In development</div><h3 data-i="362">Scan-to-part</h3><p data-i="363">Capture a part with cameras and a calibrated rotating table, rebuild it and re-machine it.</p></div>
+      <div class="card rv d2"><div data-i="364" class="k">In development</div><h3 data-i="365">Multi-agent planning</h3><p data-i="366">Specialised agents for CAM, setup and quality, coordinated under the same safety layers.</p></div>
     </div>
   </div>
 </section>
 
 <section id="team">
   <div class="wrap">
-    <div class="eyebrow">Team</div>
-    <h2 class="sec-title">We design it, wire it, program it<br><span class="heat">and commission it ourselves.</span></h2>
+    <div data-i="367" class="eyebrow">Team</div>
+    <h2 data-i="368" class="sec-title">We design it, wire it, program it<br><span class="heat">and commission it ourselves.</span></h2>
     <div class="team">
-      <div class="member rv"><div class="av"><img src="assets/lamine.jpg" alt="Lamine Sacko" loading="lazy"></div><div class="role">Founder · Engineering &amp; product</div><h3>Lamine SACKO</h3><p>Mechanical and energy engineering instructor at ENI-ABT, Mali's national engineering school, teaching CNC machining, CAM and applied programming at Master's level. Built the machine end to end: mechanics, stepper and spindle electronics, FluidNC firmware, G-code validation, the control app. MIT Universal AI Program.</p></div>
-      <div class="member rv d1"><div class="av">AD</div><div class="role">Electronics &amp; assembly</div><h3>Aboubacar Diamouténé</h3><p>Builds, wires and assembles the machines. Owns the second machine and safe shop-floor setup at both pilot sites — emergency stops, limit switches, enclosures and electrical safety.</p></div>
-      <div class="member rv d2"><div class="av">R</div><div class="role">Marketing · C-level</div><h3>Rebeka</h3><p>Brand, market communication and commercial outreach, plus programme and partnership execution across the METI UniPods AI and Wadhwani Ignite tracks.</p></div>
-      <div class="member open rv d3"><div class="av">+</div><div class="role">We're hiring</div><h3>Join the forge</h3><p>A commercial / business-development lead for institutional and mining-sector sales, and a software engineer for the AI agent.</p></div>
+      <div class="member rv"><div class="av"><img src="assets/lamine.jpg" alt="Lamine Sacko" loading="lazy"></div><div data-i="369" class="role">Founder · Engineering &amp; product</div><h3 data-i="370">Lamine SACKO</h3><p data-i="371">Mechanical and energy engineering instructor at ENI-ABT, Mali's national engineering school, teaching CNC machining, CAM and applied programming at Master's level. Built the machine end to end: mechanics, stepper and spindle electronics, FluidNC firmware, G-code validation, the control app. MIT Universal AI Program.</p></div>
+      <div class="member rv d1"><div data-i="372" class="av">AD</div><div data-i="373" class="role">Electronics &amp; assembly</div><h3 data-i="374">Aboubacar Diamouténé</h3><p data-i="375">Builds, wires and assembles the machines. Owns the second machine and safe shop-floor setup at both pilot sites — emergency stops, limit switches, enclosures and electrical safety.</p></div>
+      <div class="member rv d2"><div data-i="376" class="av">R</div><div data-i="377" class="role">Marketing · C-level</div><h3 data-i="378">Rebeka</h3><p data-i="379">Brand, market communication and commercial outreach, plus programme and partnership execution across the METI UniPods AI and Wadhwani Ignite tracks.</p></div>
+      <div class="member open rv d3"><div data-i="380" class="av">+</div><div data-i="381" class="role">We're hiring</div><h3 data-i="382">Join the forge</h3><p data-i="383">A commercial / business-development lead for institutional and mining-sector sales, and a software engineer for the AI agent.</p></div>
     </div>
-    <p class="note" style="margin-top:22px">Engineering support also comes from supervised Master's theses — one currently running on the 5-axis project, which doubles as our hiring pipeline.</p>
+    <p data-i="384" class="note" style="margin-top:22px">Engineering support also comes from supervised Master's theses — one currently running on the 5-axis project, which doubles as our hiring pipeline.</p>
   </div>
 </section>
 
 <section id="contact">
   <div class="wrap">
     <div class="final">
-      <div class="eyebrow" style="justify-content:center">An ka taa — let's go</div>
-      <h2>Let's bring precision <span class="heat">manufacturing home.</span></h2>
-      <p class="lede">Pilot shop, technical school, investor or partner — we'd like to put a Forgeron machine in front of you.</p>
+      <div data-i="385" class="eyebrow" style="justify-content:center">An ka taa — let's go</div>
+      <h2 data-i="386">Let's bring precision <span class="heat">manufacturing home.</span></h2>
+      <p data-i="387" class="lede">Pilot shop, technical school, investor or partner — we'd like to put a Forgeron machine in front of you.</p>
       <div class="cta" style="justify-content:center">
-        <a class="btn solid" href="mailto:sackolamine994@gmail.com?subject=Forgeron%20%E2%80%94%20partnership">Contact the founder</a>
-        <a class="btn" href="https://youtube.com/watch?v=DjL49i_IsJI" target="_blank" rel="noopener">▶ Live demo</a>
-        <a class="btn" href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener">Source code ↗</a>
+        <a data-i="388" class="btn solid" href="mailto:sackolamine994@gmail.com?subject=Forgeron%20%E2%80%94%20partnership">Contact the founder</a>
+        <a data-i="389" class="btn" href="https://youtube.com/watch?v=DjL49i_IsJI" target="_blank" rel="noopener">▶ Live demo</a>
+        <a data-i="390" class="btn" href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener">Source code ↗</a>
       </div>
       <div class="contact">
-        <a href="mailto:sackolamine994@gmail.com"><b>Email</b>sackolamine994@gmail.com</a>
-        <span><b>Based in</b>Bamako · Mali</span>
-        <a href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener"><b>Code</b>github.com/professeurp2/forgeron</a>
+        <a data-i="391" href="mailto:sackolamine994@gmail.com"><b>Email</b>sackolamine994@gmail.com</a>
+        <span data-i="392"><b>Based in</b>Bamako · Mali</span>
+        <a data-i="393" href="https://github.com/professeurp2/forgeron" target="_blank" rel="noopener"><b>Code</b>github.com/professeurp2/forgeron</a>
       </div>
     </div>
   </div>
 </section>
 </main>
 
-<footer><div class="wrap"><span>FORGERON · 5-axis CNC · AI-piloted · Bamako, Mali</span><span>Precision manufacturing, made in Africa · © 2026 Forgeron</span></div></footer>
+<footer><div class="wrap"><span data-i="394">FORGERON · 5-axis CNC · AI-piloted · Bamako, Mali</span><span data-i="395">Precision manufacturing, made in Africa · © 2026 Forgeron</span></div></footer>
 
 <div class="lb" id="lb"><img id="lbimg" alt=""></div>
 
 <script>
 (function(){
+  var lang=(function(){try{var s=localStorage.getItem('fg-lang');if(s==='fr'||s==='en')return s}catch(e){}return /^fr/i.test(navigator.language||'')?'fr':'en'})();
+  var D={"2": "Fonctionnement", "3": "Agent IA", "4": "Produit", "5": "Fonctions", "6": "Sécurité", "7": "Matériel", "8": "Marché", "9": "Traction", "10": "Équipe", "11": "Devenir partenaire", "12": "Fabrication de précision, faite en Afrique", "13": "CNC 5 axes<br>au <span class=\"heat\">dixième du prix.</span><br>Sans CAO.", "14": "Nous construisons de vraies machines 5 axes à <b style=\"color:var(--ink)\">Bamako, au Mali</b> — pilotées par un agent IA qui comprend le <b style=\"color:var(--ink)\">bambara et le français</b>, fonctionne <b style=\"color:var(--ink)\">hors ligne</b> et mène le travail d'une idée dite à voix haute jusqu'aux trajectoires d'usinage. Pas de logiciel de conception. Pas d'internet. Aucune interface étrangère entre l'opérateur et le métal.", "15": "▶ Voir en action", "16": "Parler à la machine", "17": "Open source ↗", "18": "<b>METI UniPods AI</b> · PNUD / timbuktoo · cohorte 1", "19": "<b>Wadhwani Ignite</b> Full – Afrique", "20": "<b>MIT</b> Universal AI Program", "21": "<b>HBS</b> Africa NVC 2027", "22": "forgeron — agent IA &amp; simulateur 5 axes", "23": "● Construit", "24": "AXES <b>X Y Z + A C</b>", "25": "LANGUE <b>Bambara · Français</b>", "27": "axes commandés", "29": "prix cible", "31": "moins cher qu'à l'import", "33": "outils IA machine", "35": "langues d'interface", "37": "tests automatisés", "38": "Le problème", "39": "L'Afrique ne manque pas d'ambition.<br><span class=\"heat\">Elle manque d'accès à la précision.</span>", "40": "01 — Capital", "41": "La machine coûte plus cher que l'activité", "42": "Un centre d'usinage 5 axes industriel arrive à Bamako entre 50 000 et 200 000+ USD. Pour un atelier, une école technique ou un fabricant de pièces détachées, c'est tout simplement hors de portée.", "43": "02 — Service", "44": "En panne, elle le reste", "45": "Commandes fermées, aucun technicien local, pièces avec six semaines de délai d'import. Les machines importées restent souvent à l'arrêt — nous en avons mis en service et l'avons constaté.", "46": "03 — Compétences", "47": "La CAO est le vrai verrou", "48": "Même avec une machine, il faut un dessinateur CAO. Un artisan qui connaît le métal mais pas SolidWorks ne peut produire aucune pièce. Le goulot, c'est la compétence, pas l'acier.", "49": "Une roue de pompe cassée, un insert de moule ou une pièce de rechange minière est <b>réimportée au lieu d'être refaite</b> — et de la valeur quitte le continent à chaque fois.", "50": "L'idée", "51": "Cinq étapes deviennent <span class=\"heat\">une seule phrase.</span>", "52": "Aujourd'hui, fabriquer une pièce demande un dessinateur CAO, un programmeur FAO et un post-processeur G-code. Avec Forgeron, l'opérateur dit ce qu'il veut — dans la langue dans laquelle il travaille — et l'agent planifie et usine.", "53": "Aujourd'hui <i>5 étapes · 3 spécialistes · logiciel en anglais</i>", "54": "ÉTAPE 1", "55": "Idée", "57": "ÉTAPE 2", "58": "Modèle CAO", "60": "ÉTAPE 3", "61": "Trajectoires FAO", "63": "ÉTAPE 4", "64": "G-code", "66": "ÉTAPE 5", "67": "Pièce", "68": "Avec Forgeron <i>3 étapes · 0 spécialiste · dans votre langue</i>", "69": "ÉTAPE 1", "70": "Le dire en bambara", "72": "ÉTAPE 2", "73": "L'agent planifie &amp; usine", "75": "ÉTAPE 3", "76": "Pièce", "77": "L'agent IA — notre avantage", "78": "Un agent qui parle bambara<br><span class=\"heat\">et pilote la machine.</span>", "79": "Pas un chatbot greffé après coup. Un modèle de langage relié à la machine par <b style=\"color:var(--ink)\">40 outils sûrs</b>, un moteur de commandes déterministe qui fonctionne sans aucun modèle, et une couche de sécurité qui garde l'opérateur aux commandes.", "80": "Le dire. Confirmer. C'est fait.", "81": "Une commande en langage courant devient un mouvement de machine confirmé.", "82": "Arrêt — en bambara", "83": "Arrêt d'urgence dans la langue de l'atelier. Instantané, sans modèle.", "84": "Demander. Obtenir une réponse sourcée.", "85": "Codes d'alarme, G-code et câblage : réponses tirées d'une base de connaissances citée.", "87": "Agent Forgeron", "91": "Comprend", "92": "Moteur à vocabulaire fermé", "93": "Un moteur de commandes déterministe lit fr · en · bm instantanément, sans réseau et sans modèle. Les négations, les questions et les mots douteux sont refusés — jamais devinés.", "94": "Fonctionne partout", "95": "Hors ligne d'abord", "96": "Un modèle local sur le PC de l'atelier — sans internet, sans clé d'API, aucune donnée ne quitte le bâtiment. Les modèles cloud en 4G ne servent que de secours, avec bascule automatique entre modèles.", "97": "Voit", "98": "Vision à la demande", "99": "Joignez une photo ou une image de caméra : un modèle de vision dédié la décrit, tandis que le modèle de pilotage garde la machine sous le contrôle de ses outils.", "100": "Le produit en action", "101": "Un vrai logiciel. <span class=\"heat\">Une vraie machine.</span>", "102": "Voici des captures de l'application en fonctionnement — une salle de contrôle de bureau pour le PC de l'atelier, et une application mobile pour le terrain. Thèmes clair et sombre inclus.", "103": "Tout est dans la boîte", "104": "Une application. <span class=\"heat\">Tout l'atelier.</span>", "105": "Pilotage, intelligence, chaîne de fabrication et sécurité — conçus ensemble comme une seule pile, sur téléphone ou sur PC.", "106": "Sécurité dès la conception", "107": "Une IA qui ne peut pas <span class=\"heat\">abîmer la machine — ni vous.</span>", "108": "Confier une CNC à une IA semble imprudent. Nous l'avons donc construit à l'envers : l'IA n'a jamais le dernier mot. Cinq couches indépendantes séparent une phrase d'une fraise qui tourne.", "109": "Opérateur", "110": "Confirmation", "111": "Validation", "112": "Limites", "113": "MACHINE", "115": "L'arrêt d'urgence ne passe jamais par l'IA", "116": "Une règle fixe reconnaît « stop » en français, anglais, swahili, amharique et bambara et agit instantanément — même si le modèle est occupé, hors ligne ou dans l'erreur.", "118": "Rien ne bouge sans votre appui", "119": "Chaque action montre ce qui a été compris, dans quelle langue, et pourquoi on demande. Les correspondances devinées exigent toujours une confirmation.", "121": "Validation anticipée de la trajectoire", "122": "La trajectoire complète est simulée contre les vraies limites de la machine avant tout mouvement. Un mouvement qui provoquerait une collision est refusé, pas exécuté.", "124": "Limites dures &amp; logicielles, câblage à sécurité intégrée", "125": "Fins de course normalement fermés, limites logicielles et matérielles actives, chien de garde du flux et protection de charge ForceGuard.", "127": "Une question n'est pas un ordre", "128": "« Pourquoi la broche… ? » ou « ne la démarre pas » retirent à l'IA les outils d'action pour ce tour. Une question ne peut jamais démarrer une machine.", "129": "N'invente jamais de données", "130": "Positions, alarmes et limites viennent du contrôleur et de sa configuration — sinon la réponse est « non disponible ». Jamais de chiffres de remplissage.", "131": "Les mots de sécurité sont relus", "132": "Une langue n'obtient le statut « de confiance » qu'après relecture par un locuteur natif nommé. D'ici là, l'application demande avant d'agir.", "133": "Auditable", "134": "Chaque tour d'IA est journalisé sans le contenu de la conversation, avec la version exacte de l'IA et du vocabulaire utilisés — et toute évolution de version exige la preuve de notre banc d'essai.", "135": "La langue est l'interface", "136": "La précision, dans la langue<br><span class=\"heat\">que parle vraiment l'atelier.</span>", "137": "L'artisan qui connaît le métal mais pas SolidWorks — et qui travaille en bambara, pas en anglais — peut décrire une pièce et l'usiner. Forgeron comprend les commandes en bambara et en français hors ligne, répond dans un langage clair et simple, et propose une interface en 17 langues à travers le continent.", "141": "العربية", "155": "Le vocabulaire bambara provient de dictionnaires publiés et est en cours de relecture par des locuteurs natifs ; d'ici là, l'application demande confirmation. La reconnaissance vocale du bambara est en développement actif.", "156": "Bambara", "158": "→ arrêt d'urgence · instantané · aucun modèle nécessaire", "160": "Peux-tu <em>allumer la broche</em> ?", "161": "→ une demande polie est comprise comme un ordre · confirmer pour exécuter", "162": "Anglais", "163": "Move <em>X by 5 mm</em> at speed 300", "164": "→ jog X +5 mm @ 300 mm/min · chiffres recopiés, jamais inventés", "165": "Saisie", "167": "→ rangée de touches bambara intégrée — e, o, ny, ng simples fonctionnent aussi", "168": "Solution — matériel", "169": "Une vraie machine 5 axes,<br><span class=\"heat\">conçue et assemblée au Mali.</span>", "170": "Une table A/C à tourillons avec X, Y, Z — pas une fraiseuse 3 axes de bureau déguisée. Firmware ouvert, nomenclature ouverte et substituable, et des pièces que l'on peut réellement se procurer.", "171": "Configuration", "172": "Tourillons · X Y Z + A C", "173": "Contrôleur", "174": "ESP32 · FluidNC (firmware ouvert)", "175": "Entraînements", "176": "5 × drivers pas à pas TB6600", "177": "Axe Z", "178": "Vis trapézoïdale TR12×3 · écrou POM", "179": "Broche", "180": "Circuit PWM propre · MOSFET IRLB8721", "181": "Alimentation", "182": "Alimentation serveur validée", "183": "Vision", "184": "ESP32-CAM sur le réseau de la machine", "185": "Statut", "186": "Construite · validée · en fonctionnement", "187": "Nomenclature ouverte", "188": "≥ 2 sources qualifiées par pièce", "189": "Structure locale", "190": "Contrat de service de 12 mois", "191": "Gamme rétrofit", "193": "70–90 % sous le prix d'import", "194": "Prix cible, en cours de validation avec deux ateliers pilotes payants avant de le fixer.", "195": "Centre 5 axes industriel (import)", "197": "Logiciel FAO professionnel", "198": "1,5 k$+ / an", "199": "Machine 5 axes Forgeron", "200": "6 k$ – 15 k$", "201": "Service", "202": "Deux jours, pas six semaines", "203": "Pièces standard, assemblage documenté, réparation locale.", "204": "Rétrofit", "205": "Ressusciter les machines mortes", "206": "Redonner vie aux machines manuelles ou au contrôleur HS.", "207": "Opportunité de marché", "208": "Un marché de 5,1 milliards USD —<br><span class=\"heat\">et l'Afrique de l'Ouest n'est même pas comptée.</span>", "209": "TAM · 5,1 G$", "210": "CNC AFRIQUE + FAO MONDIALE", "211": "SAM · 1,7 G$ → 3,4 G$", "212": "CNC AFRICAINE · TCAC 10,3 %", "213": "SOM", "214": "MALI &amp; SAHEL", "215": "TAM — marché total adressable", "216": "5,1 Md USD", "217": "Marché africain des machines CNC (1,70 Md USD, 2024) plus dépenses mondiales des utilisateurs de logiciels FAO (3,4 Md USD, 2026). Notre logiciel est indépendant de la machine : la couche FAO est mondiale dès le premier jour.", "218": "SAM — marché accessible", "219": "1,7 Md → 3,4 Md USD d'ici 2031", "220": "Le marché africain des machines CNC, en croissance de 10,3 % par an. Les chiffres publiés ne comptent que l'Afrique du Sud, l'Égypte, l'Algérie et le Nigeria — l'Afrique de l'Ouest francophone n'est ni mesurée ni servie.", "221": "SOM — tête de pont", "222": "Écoles · ateliers · services miniers", "223": "Écoles techniques et d'ingénieurs, ateliers de métallurgie et de mécanique, et sous-traitants de services miniers au Mali et au Sahel — atteints par les institutions où nous enseignons déjà.", "224": "Sources : Business Market Insights, Africa CNC Machine Market (base 2024, prévision 2031) · CIMdata 2026 Global CAM Market Analysis Report.", "225": "Modèle économique", "226": "Le matériel construit la base installée.<br><span class=\"heat\">Le logiciel se cumule par-dessus.</span>", "227": "Ligne 1 — Matériel", "228": "Machines, rétrofits, service, pièces", "229": "6 000–15 000 USD par machine", "230": "Assemblées à Bamako et vendues aux écoles techniques, ateliers universitaires et petits fabricants de précision.", "231": "Contrat de service de 12 mois sur chaque machine", "232": "Revenus récurrents de pièces et de rétrofit", "233": "Le rétrofit comme second point d'entrée moins coûteux", "234": "Ligne 2 — Logiciel", "235": "FAO sans CAO, par abonnement", "236": "20–50 USD / poste / mois", "237": "Gratuit avec chaque machine Forgeron ; vendu séparément à la base bien plus vaste de machines CNC tierces.", "238": "Coût marginal quasi nul, aucune limite géographique", "239": "Indépendant de la machine : tout contrôleur G-code", "240": "Offre gratuite convertie en abonnement", "241": "1 pile", "242": "Une seule base technologique", "243": "Machine, contrôleur, application de pilotage et FAO alimentent deux lignes de revenus.", "244": "Licenciable", "245": "À construire partout", "246": "Assemblage modulaire et nomenclature ouverte : tout pays doté d'un atelier de soudure et d'un technicien.", "247": "Récurrent", "248": "Une rente, pas des coups uniques", "249": "Contrats de service, pièces et abonnements FAO en plus de chaque vente.", "250": "Mise sur le marché", "251": "Nous commençons là où nous avons déjà de l'ancrage.", "253": "Tête de pont — écoles techniques &amp; d'ingénieurs", "254": "Pilotée depuis l'ENI-ABT, l'école nationale d'ingénieurs du Mali, où le fondateur enseigne l'usinage CNC et la FAO au niveau Master. Chaque machine installée forme une cohorte d'opérateurs maîtrisant Forgeron — la prochaine génération d'acheteurs. Premiers placements en cours avec l'ENI-ABT, TECHNOLAB-ISTA et l'IMT.", "256": "Deuxième vague — services miniers &amp; maintenance industrielle", "257": "Atteints grâce à des références de mise en service sur de vrais équipements industriels : un centre VMC850 4 axes piloté par GSK, une presse à injection plastique, un laboratoire textile. L'argument, c'est l'arrêt de production — une pièce refaite localement en deux jours au lieu d'être importée en six semaines.", "259": "Troisième vague — le logiciel, vendu seul", "260": "L'application FAO n'exige aucune machine Forgeron : elle se diffuse par les communautés de makers et d'usineurs, les partenariats avec les écoles techniques et l'écosystème ouvert FluidNC / GRBL.", "262": "Effet de levier de distribution — réseaux de programmes", "263": "METI UniPods AI (PNUD / timbuktoo) et Wadhwani Ignite Full – Afrique apportent des partenaires panafricains, de la crédibilité et des introductions avant même le chiffre d'affaires.", "264": "Paysage concurrentiel", "265": "Personne ne construit d'agent FAO<br><span class=\"heat\">hors ligne parlant bambara pour le Mali.</span>", "266": "Qui", "267": "Prix", "268": "Axes", "269": "Service local", "270": "CAO requise · langue", "271": "Constructeurs industriels", "272": "Haas, DMG Mori, VMC de classe GSK", "275": "Non — importé, longs délais", "276": "Oui", "277": "CNC de loisir &amp; de bureau", "278": "Shapeoko, Genmitsu, kits GRBL", "281": "Non — cadre léger, pas de métal en production", "282": "Oui", "283": "Logiciels FAO", "285": "1,5 k$+/an", "286": "s. o.", "287": "s. o.", "288": "Oui — plus internet et anglais/français", "290": "6–15 k$", "292": "Oui — construite &amp; entretenue au Mali", "293": "Non — voix &amp; texte en bambara, hors ligne", "294": "Capacité", "295": "Vrai 5 axes, au dixième du prix", "296": "Une machine à tourillons A/C capable de travailler le métal en production.", "297": "Proximité", "298": "Entretenable là où elle est vendue", "299": "Conçue, assemblée et entretenue au Mali — pas un import dont le contrat de service est sur un autre continent.", "300": "Langue &amp; autonomie", "301": "Le seul agent bambara, hors ligne et sans CAO", "302": "Aucun acteur en place ne supprime la CAO, ne fonctionne hors ligne et ne parle la langue de l'opérateur.", "303": "Impact social", "304": "Une capacité de fabrication<br><span class=\"heat\">construite à Bamako — pas achetée à l'étranger.</span>", "305": "Accès", "306": "Des machines que les écoles peuvent s'offrir", "307": "Écoles techniques et universités africaines équipées de vraies machines 5 axes : les étudiants apprennent sur le métal, pas sur des simulateurs.", "308": "Inclusion", "309": "Ni la compétence ni la langue ne bloquent", "310": "CAO supprimée, commandes en bambara. Un artisan qui connaît le métal mais pas SolidWorks peut décrire une pièce et l'usiner.", "311": "Économie", "312": "Substitution aux importations", "313": "Roues de pompe, inserts de moule et pièces minières refaits localement — valeur et savoir-faire conservés sur le continent.", "314": "Emplois", "315": "Assemblage &amp; service locaux", "316": "Emplois d'assemblage, de mise en service et de maintenance à Bamako, plus des élèves-ingénieurs formés par des mémoires encadrés.", "317": "Preuve de concept", "318": "Un prototype, en marche.<br><span class=\"heat\">Maintenant, on le place dans des ateliers payants.</span>", "323": "<i>◆</i>Bootcamp d'Addis-Abeba · nov. 2026", "329": "<i>◆</i>HBS Africa NVC 2027", "330": "<i>◆</i>Bootcamp d'Addis-Abeba · nov. 2026", "333": "<b>Lamine SACKO</b> devant la machine — pilotée depuis un portable, arrêt d'urgence à portée de main.", "334": "CONSTRUIT", "335": "<b>Une machine 5 axes à tourillons (A/C)</b> — ESP32 + FluidNC, chaîne d'entraînement et de broche entièrement validée ; <b>10 programmes G-code 5 axes exécutés</b> sur la machine.", "336": "LOGICIEL", "337": "<b>Application opérateur Flutter</b> avec palpage &amp; décalages d'origine, un agent IA hors ligne acceptant texte et voix en français et en bambara, et un code source ouvert publié.", "338": "VALIDÉ", "339": "<b>METI UniPods AI cohorte 1</b> (PNUD / timbuktoo) · prototype au <b>bootcamp d'Addis-Abeba</b>, nov. 2026 · MIT Universal AI Program · Wadhwani Ignite.", "340": "DEMANDE", "341": "Premier partenaire intéressé par des tests &amp; l'adoption — <b>Kouratechnique</b>. Premiers placements en écoles en cours avec l'ENI-ABT, TECHNOLAB-ISTA et l'IMT.", "342": "La suite", "343": "Fait", "344": "Machine construite", "345": "Prototype 5 axes, chaîne complète d'entraînement &amp; de broche, 10 programmes usinés.", "346": "Fait", "347": "Agent IA en service", "348": "Modèle hors ligne, 40 outils, couches de sécurité, 800+ tests automatisés.", "349": "Nov. 2026", "350": "Addis-Abeba", "351": "Prototype au bootcamp METI UniPods. Tests vocaux en atelier.", "352": "D'ici avr. 2027", "353": "2 ateliers pilotes payants", "354": "2 machines · 10 vraies pièces clients · 10 entretiens clients.", "355": "Ensuite", "356": "Passage à l'échelle", "357": "Machine n°2, sécurité en atelier, certification, dépôt OAPI, abonnements FAO.", "358": "En développement", "359": "Voix en bambara", "360": "Reconnaissance vocale ajustée aux commandes d'atelier, à partir de jeux de données et modèles vocaux africains ouverts.", "361": "En développement", "362": "Du scan à la pièce", "363": "Capturer une pièce avec des caméras et une table rotative calibrée, la reconstruire et la réusiner.", "364": "En développement", "365": "Planification multi-agents", "366": "Des agents spécialisés pour la FAO, le montage et la qualité, coordonnés sous les mêmes couches de sécurité.", "367": "Équipe", "368": "Nous le concevons, le câblons, le programmons<br><span class=\"heat\">et le mettons en service nous-mêmes.</span>", "369": "Fondateur · Ingénierie &amp; produit", "371": "Enseignant en génie mécanique et énergétique à l'ENI-ABT, l'école nationale d'ingénieurs du Mali, où il enseigne l'usinage CNC, la FAO et la programmation appliquée au niveau Master. A construit la machine de bout en bout : mécanique, électronique des moteurs pas à pas et de la broche, firmware FluidNC, validation du G-code, application de pilotage. MIT Universal AI Program.", "373": "Électronique &amp; assemblage", "375": "Construit, câble et assemble les machines. Responsable de la deuxième machine et de l'installation sûre en atelier sur les deux sites pilotes — arrêts d'urgence, fins de course, protections et sécurité électrique.", "377": "Marketing · Direction", "379": "Marque, communication marché et prospection commerciale, ainsi que l'exécution des programmes et partenariats dans les parcours METI UniPods AI et Wadhwani Ignite.", "381": "Nous recrutons", "382": "Rejoignez la forge", "383": "Un responsable commercial / développement pour les ventes institutionnelles et minières, et un ingénieur logiciel pour l'agent IA.", "384": "Un appui d'ingénierie vient aussi de mémoires de Master encadrés — l'un est en cours sur le projet 5 axes, ce qui nous sert aussi de vivier de recrutement.", "385": "An ka taa — allons-y", "386": "Ramenons la <span class=\"heat\">fabrication de précision à la maison.</span>", "387": "Atelier pilote, école technique, investisseur ou partenaire — nous aimerions placer une machine Forgeron devant vous.", "388": "Contacter le fondateur", "389": "▶ Démo en direct", "390": "Code source ↗", "391": "<b>E-mail</b>sackolamine994@gmail.com", "392": "<b>Basé à</b>Bamako · Mali", "393": "<b>Code</b>github.com/professeurp2/forgeron", "394": "FORGERON · CNC 5 axes · piloté par IA · Bamako, Mali", "395": "Fabrication de précision, faite en Afrique · © 2026 Forgeron"},FRX={"title": "FORGERON — CNC 5 axes au dixième du prix. Dites-le. Usinez-le.", "desc": "Forgeron construit des machines CNC 5 axes à Bamako, au Mali — pilotées par un agent IA hors ligne qui comprend le bambara et le français. Sans CAO. Sans internet. Fabrication de précision, faite en Afrique.", "alt": "Capture d'écran de l'application Forgeron", "subs": ["Hors ligne · modèle local", "Hors ligne · aucun modèle", "Hors ligne · base de connaissances"], "chips": "<i>bambara</i><i>stop</i><i>maintenant</i><i class=\"w\">règle fixe · sans IA</i>", "msg": "Écrire à l'agent…", "tag": "en conception", "gt": ["Agent IA + simulateur", "Simulation de trajectoire", "Jumeau numérique", "ForceGuard", "Application mobile"], "ft": ["Tout", "Pilotage", "Intelligence", "Fabrication", "Sécurité", "Matériel"], "g": [{"t": "Parler à la machine", "p": "L'agent comprend la demande, exécute un outil sur le contrôleur et affiche le résultat — à côté d'une vue 3D en direct de la machine 5 axes.", "l": ["Dialogue avec 40 outils machine", "Jumeau numérique 3D en direct des tourillons", "Arrêt d'urgence toujours à un clic", "Hors ligne · modèle local"]}, {"t": "Voir la coupe avant qu'elle n'ait lieu", "p": "La trajectoire est simulée sur la pièce avec les vraies limites de la machine : temps de cycle, collisions et course 5 axes vérifiés avant qu'un seul moteur ne tourne.", "l": ["Trajectoire sur la matière, en 3D", "Temps de cycle et longueur de coupe estimés", "Contrôle collisions et course : 0 collision", "Un appui : simuler, puis lancer la production"]}, {"t": "Un jumeau numérique de votre machine", "p": "Toute la machine — colonne, table à tourillons, outil — bouge dans le simulateur, pour que l'opérateur voie exactement ce que feront les vrais axes.", "l": ["Vues machine, cabine et brut", "Vitesse de lecture et suivi de progression", "Onglet caméra pour la vraie machine", "Thèmes clair et sombre"]}, {"t": "Une protection intégrée à l'avance", "p": "ForceGuard limite l'avance pour garder l'effort de coupe sous un seuil, et les origines pièce G54–G59 sont à un appui.", "l": ["ForceGuard : avance limitée pour garder l'effort ≤ 45,6 N", "Décalages d'origine par axe X Y Z A C", "Palpage et origines sur un seul écran", "Bascule du mode 5 axes simultanés"]}, {"t": "Dans la poche de l'opérateur", "p": "Le même pilotage, dans une application mobile pour l'atelier : DRO en direct, jog, départ cycle, pause, arrêt — et l'agent IA en discussion.", "l": ["Affichage X Y Z A C en direct", "Départ cycle · pause · arrêt", "Agent IA dans la même application", "Connexion par le Wi-Fi propre de la machine"]}], "f": [["DRO 5 axes en temps réel", "Positions X Y Z A C en direct — coordonnées machine et pièce, état et alarmes d'un coup d'œil."], ["Jog &amp; correcteurs en direct", "Déplacement précis axe par axe, avec correcteurs d'avance, de rapide et de broche réglables pendant la coupe."], ["Palpage &amp; origines pièce", "Définir l'origine sans déplacement, passer de G54 à G59 et palper les pièces par contact G38.2."], ["Table d'outils &amp; changements", "Bibliothèque d'outils avec invites guidées de changement d'outil : rien n'est oublié en cours de travail."], ["Terminal MDI &amp; fichiers", "Saisir du G-code directement, parcourir et modifier les programmes de l'espace de travail."], ["Assistant de mise en route &amp; limites", "Prise d'origine guidée et réglage des limites logicielles/matérielles à partir de zéro."], ["Diagnostic", "Firmware, qualité du réseau, températures, tampons et état des fins de course sur un seul écran."], ["Vue caméra", "Suivre la coupe via une ESP32-CAM embarquée, depuis la même application."], ["Téléphone ou PC", "Une seule application Flutter pour un téléphone Android ou un poste Windows, sur le réseau propre de la machine."], ["Agent à 40 outils", "Une intention en langage courant ; l'agent planifie et exécute la séquence d'outils sur la machine."], ["Option 100 % hors ligne", "Un modèle local sur le PC de l'atelier : pas d'internet, pas de clé d'API, aucune donnée ne quitte le bâtiment."], ["Secours cloud", "Gemini via les données mobiles, avec bascule automatique entre modèles quand les quotas s'épuisent."], ["Moteur de commandes instantané", "Compréhension déterministe fr · en · bm en quelques millisecondes — sans modèle, sans réseau."], ["Voix &amp; lecture à voix haute", "Dicter des commandes et entendre les réponses lues, avec les voix de l'appareil."], ["Modèle de vision", "Déposez une photo ou une image de caméra : un modèle de vision dédié la lit pour vous."], ["Base de connaissances citée", "Codes d'alarme, G-code et câblage répondus à partir de notes relues — avec la source nommée."], ["17 langues", "Bambara et français d'abord, puis swahili, haoussa, wolof, amharique, arabe et d'autres."], ["STEP vers G-code", "Pièces de révolution : ébauche 3 axes et finition 5 axes. Pièces prismatiques via FreeCAD CAM."], ["Adaptateur FAO", "Importe le G-code des FAO courantes — 3 axes et 3+2 validés sur la machine."], ["Aperçu 3D des trajectoires", "Voir la pièce et la trajectoire en 3D avant que rien ne bouge."], ["Critique de G-code", "Un relecteur qui lit un programme et signale les risques avant l'exécution."], ["10 programmes cinq axes", "Écrits, validés et exécutés sur la vraie machine — pas seulement simulés."], ["Arrêt d'urgence hors de l'IA", "Reconnu par des règles fixes en cinq langues et exécuté sans le modèle."], ["Cartes de confirmation", "Chaque commande d'action montre ce qui a été compris, dans quelle langue, et pourquoi on demande."], ["Validation anticipée", "Toute la trajectoire vérifiée contre les vraies limites mécaniques avant le mouvement."], ["Reprise sur alarme en mots simples", "Chaque alarme du contrôleur expliquée : la cause, si la position est perdue, et quoi faire."], ["ForceGuard &amp; chien de garde", "Protection de charge et chien de garde du flux qui remarquent ce que l'opérateur ne peut pas voir."], ["ESP32 + FluidNC", "Firmware open source sur un microcontrôleur à quelques dollars — l'avantage de coût, et aucun verrouillage."], ["Bâti 5 axes à tourillons", "Table A/C sur X Y Z, drivers TB6600, vis Z trapézoïdale — une architecture pour le métal en production."], ["Circuit de broche maison", "Étage PWM à MOSFET avec diode de roue libre et dissipateur dimensionné, conçu en interne."], ["Carte d'interface Rev 2.0", "Une carte contrôleur dédiée avec adaptation de niveaux, étage de broche et arrêt d'urgence à niveaux."], ["Nomenclature ouverte", "Pièces standard, deux sources qualifiées chacune, assemblage documenté."]]};
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.14,rootMargin:'0px 0px -6% 0px'});
   document.querySelectorAll('.rv').forEach(function(el){io.observe(el)});
 
@@ -770,16 +778,16 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
   /* agent demo */
   var scenes=[
-    {sub:'Offline · local model',type:'Déplace X de 5 mm à la vitesse 300',seq:[
+    {sub:'Offline · local model',subi:0,type:'Déplace X de 5 mm à la vitesse 300',seq:[
       {c:'u',h:'Déplace X de 5 mm à la vitesse 300'},
       {c:'card',h:'<div class="h">J\'AI COMPRIS :</div><div class="a">Déplacer l\'axe X de +5 mm à 300 mm/min</div><div class="cc"><span>français</span><span>langue non relue</span></div><div class="bt"><span class="no">REFUSER</span><span class="yes">CONFIRMER</span></div>'},
       {c:'tool',h:'⟳ jog_axis ✓'},
       {c:'a',h:'C\'est fait. X 5 mm · F300'}]},
-    {sub:'Offline · no model used',type:'Mansin jɔ sisan, joona!',seq:[
+    {sub:'Offline · no model used',subi:1,type:'Mansin jɔ sisan, joona!',seq:[
       {c:'u',h:'Mansin jɔ sisan, joona!'},
       {c:'tool',h:'⟳ emergency_stop ✓'},
       {c:'a',h:'Arrêt d\'urgence envoyé à la machine.<div class="chips"><i>bambara</i><i>stop</i><i>now</i><i class="w">fixed rule · no AI</i></div>'}]},
-    {sub:'Offline · knowledge base',type:'C\'est quoi l\'alarme 9 ?',seq:[
+    {sub:'Offline · knowledge base',subi:2,type:'C\'est quoi l\'alarme 9 ?',seq:[
       {c:'u',h:'C\'est quoi l\'alarme 9 ?'},
       {c:'tool',h:'⟳ search_docs ✓'},
       {c:'a',h:'<b>Prise d\'origine — capteur introuvable.</b> L\'axe a parcouru toute la distance sans trouver son capteur. Vérifie le câblage et le sens de déplacement de l\'axe, ou augmente la course de recherche. <span style="color:#8a96a3">(alarme-9)</span>'}]}
@@ -787,13 +795,13 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   var chat=document.getElementById('chat'),typing=document.getElementById('typing'),sub=document.getElementById('phsub'),tabs=[].slice.call(document.querySelectorAll('.tab')),cur=-1,timers=[],auto=true;
   function clear(){timers.forEach(clearTimeout);timers=[]}
   function later(f,ms){timers.push(setTimeout(f,ms))}
-  function add(m){var d=document.createElement('div');d.className=m.c==='card'?'card-confirm':'msg '+m.c;d.innerHTML=m.h;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+  function add(m){var d=document.createElement('div');d.className=m.c==='card'?'card-confirm':'msg '+m.c;d.innerHTML=lang==='fr'?m.h.replace('<i>bambara</i><i>stop</i><i>now</i><i class="w">fixed rule · no AI</i>',FRX.chips):m.h;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
   function play(i){
-    cur=i;clear();chat.innerHTML='';sub.textContent=scenes[i].sub;
+    cur=i;clear();chat.innerHTML='';sub.textContent=lang==='fr'?FRX.subs[scenes[i].subi]:scenes[i].sub;
     tabs.forEach(function(t,k){t.classList.toggle('on',k===i)});
     var s=scenes[i],txt=s.type,n=0;typing.innerHTML='<span class="caret"></span>';
     function typeIt(){n++;typing.innerHTML=txt.slice(0,n)+'<span class="caret"></span>';if(n<txt.length)later(typeIt,38);else later(run,380)}
-    function run(){typing.innerHTML='Message the agent…';var at=0;s.seq.forEach(function(m){later(function(){add(m)},at);at+=900});later(function(){if(auto)play((cur+1)%scenes.length)},at+4200)}
+    function run(){typing.innerHTML=lang==='fr'?FRX.msg:'Message the agent…';var at=0;s.seq.forEach(function(m){later(function(){add(m)},at);at+=900});later(function(){if(auto)play((cur+1)%scenes.length)},at+4200)}
     later(typeIt,350);
   }
   tabs.forEach(function(t,k){t.addEventListener('click',function(){auto=false;play(k)})});
@@ -809,7 +817,8 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
     {src:'assets/app.jpg',t:'In the operator\'s pocket',p:'The same control, in a phone app for the shop floor: live DRO, jog, cycle start, pause, stop — and the AI agent in chat.',l:['Live X Y Z A C display','Cycle start · pause · stop','AI agent in the same app','Connects over the machine\'s own Wi-Fi']}
   ];
   var gi=document.getElementById('gimg'),gc=document.getElementById('gcap');
-  function show(k){var g=G[k];gi.style.opacity=.15;setTimeout(function(){gi.src=g.src;gi.style.opacity=1},180);
+  var gk=0;
+  function show(k){gk=k;var g=G[k];if(lang==='fr'){var f=FRX.g[k];g={src:g.src,t:f.t,p:f.p,l:f.l}}gi.style.opacity=.15;setTimeout(function(){gi.src=g.src;gi.style.opacity=1},180);
     gc.innerHTML='<h3>'+g.t+'</h3><p>'+g.p+'</p><ul>'+g.l.map(function(x){return'<li>'+x+'</li>'}).join('')+'</ul>';
     document.querySelectorAll('#gtabs .fbtn').forEach(function(b){b.classList.toggle('on',+b.dataset.g===k)})}
   document.getElementById('gtabs').addEventListener('click',function(e){var b=e.target.closest('.fbtn');if(b)show(+b.dataset.g)});
@@ -884,11 +893,30 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
    ['hw','wrench','Open bill of materials','Commodity parts, two qualified sources each, documented assembly.']
   ];
   var g=document.getElementById('fgrid');
-  F.forEach(function(f){var d=document.createElement('div');d.className='feat';d.dataset.c=f[0];
-    d.innerHTML='<div class="ic"><svg viewBox="0 0 24 24">'+ic[f[1]]+'</svg></div><h4>'+f[2]+'</h4><p>'+f[3]+'</p>'+(f[2].indexOf('Rev 2.0')>-1?'<span class="tag">in design</span>':'');g.appendChild(d)});
+  function buildF(){g.innerHTML='';F.forEach(function(f,n){var d=document.createElement('div');d.className='feat';d.dataset.c=f[0];var t=f[2],p=f[3];if(lang==='fr'){t=FRX.f[n][0];p=FRX.f[n][1]}
+    d.innerHTML='<div class="ic"><svg viewBox="0 0 24 24">'+ic[f[1]]+'</svg></div><h4>'+t+'</h4><p>'+p+'</p>'+(f[2].indexOf('Rev 2.0')>-1?'<span class="tag">'+(lang==='fr'?FRX.tag:'in design')+'</span>':'');g.appendChild(d)});
+    var on=document.querySelector('#filters .fbtn.on');if(on&&on.dataset.c!=='all')document.querySelectorAll('.feat').forEach(function(x){x.classList.toggle('hide',x.dataset.c!==on.dataset.c)})}
+  buildF();
   document.getElementById('filters').addEventListener('click',function(e){var b=e.target.closest('.fbtn');if(!b)return;
     document.querySelectorAll('#filters .fbtn').forEach(function(x){x.classList.toggle('on',x===b)});
     document.querySelectorAll('.feat').forEach(function(x){x.classList.toggle('hide',b.dataset.c!=='all'&&x.dataset.c!==b.dataset.c)})});
+
+  /* language */
+  var lbtn=document.getElementById('lang');
+  function applyLang(l,persist){
+    lang=l;document.documentElement.lang=l;
+    if(persist){try{localStorage.setItem('fg-lang',l)}catch(e){}}
+    if(!document.documentElement.dataset.en){document.documentElement.dataset.en='1';FRX.entitle=document.title;FRX.endesc=document.querySelector('meta[name=description]').content;FRX.enalt=gi.alt}
+    document.querySelectorAll('[data-i]').forEach(function(el){var k=el.dataset.i;if(!D[k])return;if(el.dataset.en===undefined)el.dataset.en=el.innerHTML;el.innerHTML=l==='fr'?D[k]:el.dataset.en});
+    document.querySelectorAll('[data-fr]').forEach(function(el){if(el.dataset.en===undefined)el.dataset.en=el.textContent;el.textContent=l==='fr'?el.dataset.fr:el.dataset.en});
+    document.title=l==='fr'?FRX.title:FRX.entitle;
+    document.querySelector('meta[name=description]').content=l==='fr'?FRX.desc:FRX.endesc;
+    gi.alt=l==='fr'?FRX.alt:FRX.enalt;
+    lbtn.querySelectorAll('span').forEach(function(s){s.classList.toggle('on',s.dataset.l===l)});
+    buildF();show(gk);if(cur>=0)play(cur);else typing.textContent=l==='fr'?FRX.msg:'Message the agent…';
+  }
+  lbtn.addEventListener('click',function(){applyLang(lang==='fr'?'en':'fr',true)});
+  if(lang==='fr')applyLang('fr',false);else lbtn.querySelectorAll('span').forEach(function(s){s.classList.toggle('on',s.dataset.l==='en')});
 
   /* safety rings */
   var layers=[].slice.call(document.querySelectorAll('.layer')),rings=[].slice.call(document.querySelectorAll('.ring[data-l]'));
