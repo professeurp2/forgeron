@@ -1,0 +1,340 @@
+<title>Talk to the Machine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage, illustration above caption, controls beneath — built to be
+   screen-recorded as a video and to loop unattended on a tablet at an exhibition stand. */
+:root{
+  --ground:#14171c;      /* workshop dark */
+  --panel:#1b2027;
+  --forge:#ff6a1a;       /* hot metal */
+  --ink:#f4f1ea;
+  --mute:#8d96a3;
+  --steel:#39424e;
+  --display:'Saira Condensed','Arial Narrow',system-ui,sans-serif;
+  --body:'Archivo',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:18px;gap:14px;
+}
+
+/* ---------- masthead ---------- */
+.mast{width:100%;max-width:980px;display:flex;align-items:baseline;gap:12px;
+      border-bottom:1px solid var(--steel);padding-bottom:8px}
+.word{font-family:var(--display);font-weight:700;font-size:clamp(20px,3.4vw,30px);
+      letter-spacing:.06em;text-transform:uppercase}
+.word b{color:var(--forge);font-weight:700}
+.where{font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.08em;
+       text-transform:uppercase;margin-left:auto;text-align:right;line-height:1.5}
+
+/* ---------- stage ---------- */
+.stage{width:100%;max-width:980px;aspect-ratio:16/9;max-height:62vh;position:relative;
+       background:var(--panel);border:1px solid var(--steel);border-radius:6px;overflow:hidden}
+.scene{position:absolute;inset:0;display:grid;grid-template-rows:1fr auto;
+       opacity:0;transition:opacity .5s ease;pointer-events:none}
+.scene.on{opacity:1}
+.art{display:grid;place-items:center;min-height:0;padding:16px 16px 4px}
+.art svg{width:100%;height:100%;max-height:100%;max-width:520px}
+.cap{padding:0 clamp(16px,4vw,40px) clamp(14px,3vw,26px);text-align:center}
+.step{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--forge);
+      text-transform:uppercase;display:block;margin-bottom:6px}
+.line{font-family:var(--display);font-weight:600;letter-spacing:.01em;
+      font-size:clamp(17px,3.1vw,30px);line-height:1.18;margin:0;text-wrap:balance}
+.line em{color:var(--forge);font-style:normal}
+.sub{font-size:clamp(11px,1.5vw,14px);color:var(--mute);margin:8px auto 0;max-width:52ch;
+     line-height:1.5}
+
+/* ---------- progress ---------- */
+.bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--steel)}
+.fill{height:100%;width:0;background:var(--forge)}
+
+/* ---------- controls ---------- */
+.ctl{width:100%;max-width:980px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+button{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+       background:transparent;color:var(--mute);border:1px solid var(--steel);
+       border-radius:4px;padding:7px 11px;cursor:pointer}
+button:hover{color:var(--ink);border-color:var(--mute)}
+button:focus-visible{outline:2px solid var(--forge);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--forge);border-color:var(--forge);color:#160d06}
+.dots{display:flex;gap:6px;margin-left:auto}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--steel);border:0;padding:0}
+.dot[aria-current="true"]{background:var(--forge)}
+.hint{font-family:var(--mono);font-size:10px;color:var(--steel);letter-spacing:.06em;
+      width:100%;max-width:980px;text-align:center}
+
+@media (prefers-reduced-motion:reduce){.scene{transition:none}.fill{transition:none}}
+@media (max-width:620px){
+  .where{display:none}
+  .stage{aspect-ratio:4/5;max-height:none}
+  .dots{margin-left:0;width:100%;justify-content:center;order:3}
+}
+</style>
+
+<header class="mast">
+  <span class="word">FOR<b>GERON</b></span>
+  <span class="where">Bamako, Mali<br>UniPod Mali — ENI-ABT</span>
+</header>
+
+<div class="stage" id="stage" aria-live="polite"></div>
+
+<div class="ctl">
+  <button id="play" aria-pressed="true">Pause</button>
+  <button id="prev">&larr;</button>
+  <button id="next">&rarr;</button>
+  <button id="lang">English</button>
+  <button id="full">Plein écran</button>
+  <div class="dots" id="dots"></div>
+</div>
+<p class="hint" id="hint">Espace : pause &middot; Flèches : naviguer &middot; L : langue</p>
+
+<script>
+const ART = {
+  /* 1 — the part that cannot be made */
+  part:`<svg viewBox="0 0 340 200" role="img" aria-label="A curved metal part, refused">
+    <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#6b7684"/><stop offset="1" stop-color="#39424e"/></linearGradient></defs>
+    <path d="M70 150 Q70 70 130 62 Q190 54 196 100 Q202 146 150 150 Z" fill="url(#g1)" stroke="#8d96a3" stroke-width="2"/>
+    <circle cx="132" cy="100" r="15" fill="#1b2027" stroke="#8d96a3" stroke-width="2"/>
+    <circle cx="96" cy="131" r="7" fill="#1b2027" stroke="#8d96a3" stroke-width="2"/>
+    <g stroke="#ff6a1a" stroke-width="7" stroke-linecap="round">
+      <line x1="235" y1="68" x2="295" y2="128"/><line x1="295" y1="68" x2="235" y2="128"/></g>
+  </svg>`,
+  /* 2 — price and the missing specialist */
+  cost:`<svg viewBox="0 0 340 200" role="img" aria-label="Forty thousand dollars, and no specialist">
+    <rect x="26" y="62" width="128" height="76" rx="5" fill="#1b2027" stroke="#8d96a3" stroke-width="2"/>
+    <text x="90" y="98" text-anchor="middle" fill="#f4f1ea" font-family="'Saira Condensed',sans-serif" font-size="27" font-weight="700">$40,000</text>
+    <text x="90" y="120" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="10">IMPORTED</text>
+    <circle cx="238" cy="80" r="19" fill="none" stroke="#39424e" stroke-width="2.5"/>
+    <path d="M208 138 Q238 106 268 138" fill="none" stroke="#39424e" stroke-width="2.5"/>
+    <g stroke="#ff6a1a" stroke-width="6" stroke-linecap="round">
+      <line x1="286" y1="58" x2="320" y2="92"/><line x1="320" y1="58" x2="286" y2="92"/></g>
+    <text x="238" y="166" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="10">NO PROGRAMMER</text>
+  </svg>`,
+  /* 3 — so it is imported */
+  import:`<svg viewBox="0 0 340 200" role="img" aria-label="The part is imported, three weeks away">
+    <circle cx="276" cy="56" r="11" fill="#39424e"/><circle cx="64" cy="150" r="11" fill="#ff6a1a"/>
+    <path d="M64 150 Q140 24 276 56" fill="none" stroke="#8d96a3" stroke-width="2" stroke-dasharray="7 7"/>
+    <text x="64" y="180" text-anchor="middle" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="11">BAMAKO</text>
+    <text x="170" y="118" text-anchor="middle" fill="#ff6a1a" font-family="'Saira Condensed',sans-serif" font-size="25" font-weight="700">3 WEEKS</text>
+    <text x="170" y="142" text-anchor="middle" fill="#8d96a3" font-family="'Saira Condensed',sans-serif" font-size="21" font-weight="600">3&times; THE PRICE</text>
+  </svg>`,
+  /* 4 — the machine */
+  machine:`<svg viewBox="0 0 340 200" role="img" aria-label="A five-axis machine built in Bamako">
+    <rect x="52" y="34" width="236" height="12" rx="3" fill="#39424e"/>
+    <rect x="52" y="34" width="12" height="118" fill="#39424e"/><rect x="276" y="34" width="12" height="118" fill="#39424e"/>
+    <rect x="148" y="40" width="44" height="30" rx="3" fill="#6b7684"/>
+    <rect x="163" y="70" width="14" height="30" fill="#8d96a3"/>
+    <path d="M163 100 L177 100 L170 118 Z" fill="#ff6a1a"/>
+    <rect x="96" y="150" width="148" height="12" rx="3" fill="#39424e"/>
+    <path d="M110 150 Q170 120 230 150 Z" fill="#4a5565" stroke="#8d96a3" stroke-width="2"/>
+    <circle cx="100" cy="134" r="13" fill="none" stroke="#8d96a3" stroke-width="2.5"/>
+    <circle cx="240" cy="134" r="13" fill="none" stroke="#8d96a3" stroke-width="2.5"/>
+    <text x="170" y="188" text-anchor="middle" fill="#ff6a1a" font-family="'Saira Condensed',sans-serif" font-size="22" font-weight="700">$15,000 &middot; BUILT IN BAMAKO</text>
+  </svg>`,
+  /* 5 — you talk to it */
+  talk:`<svg viewBox="0 0 340 200" role="img" aria-label="A spoken instruction reaches the machine">
+    <rect x="18" y="44" width="186" height="66" rx="10" fill="#1b2027" stroke="#ff6a1a" stroke-width="2"/>
+    <path d="M52 110 L52 132 L78 110 Z" fill="#1b2027" stroke="#ff6a1a" stroke-width="2"/>
+    <text x="36" y="72" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="12">Make me this</text>
+    <text x="36" y="94" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="12">dome, 40 mm.</text>
+    <path d="M214 86 L262 86" stroke="#ff6a1a" stroke-width="3"/>
+    <path d="M254 78 L264 86 L254 94 Z" fill="#ff6a1a"/>
+    <rect x="276" y="52" width="46" height="68" rx="5" fill="#39424e"/>
+    <rect x="283" y="60" width="32" height="44" rx="2" fill="#14171c"/>
+    <circle cx="299" cy="112" r="3" fill="#8d96a3"/>
+  </svg>`,
+  /* 6 — it asks before moving */
+  ask:`<svg viewBox="0 0 340 200" role="img" aria-label="The machine asks for confirmation before moving">
+    <rect x="52" y="40" width="236" height="120" rx="7" fill="#1b2027" stroke="#8d96a3" stroke-width="2"/>
+    <rect x="52" y="40" width="236" height="26" rx="7" fill="#39424e"/>
+    <text x="66" y="58" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="11">ABOUT TO DO</text>
+    <text x="70" y="92" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="12">Move Z &minus;18 mm</text>
+    <text x="70" y="112" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="12">Spindle 8000 rpm</text>
+    <rect x="70" y="126" width="88" height="24" rx="4" fill="#ff6a1a"/>
+    <text x="114" y="142" text-anchor="middle" fill="#160d06" font-family="'IBM Plex Mono',monospace" font-size="11">CONFIRM</text>
+    <rect x="170" y="126" width="88" height="24" rx="4" fill="none" stroke="#8d96a3" stroke-width="1.5"/>
+    <text x="214" y="142" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="11">CANCEL</text>
+  </svg>`,
+  /* 7 — what it makes */
+  parts:`<svg viewBox="0 0 340 200" role="img" aria-label="A gear, an impeller and a mould">
+    <g transform="translate(58,100)">
+      <circle r="34" fill="#4a5565" stroke="#8d96a3" stroke-width="2"/><circle r="12" fill="#1b2027"/>
+      <g fill="#4a5565" stroke="#8d96a3" stroke-width="2">
+        <rect x="-5" y="-44" width="10" height="12"/><rect x="-5" y="32" width="10" height="12"/>
+        <rect x="-44" y="-5" width="12" height="10"/><rect x="32" y="-5" width="12" height="10"/></g>
+    </g>
+    <g transform="translate(170,100)">
+      <circle r="12" fill="#8d96a3"/>
+      <g fill="#4a5565" stroke="#8d96a3" stroke-width="2">
+        <path d="M0 -12 Q26 -30 34 -6 Q16 -6 0 -12"/><path d="M10 7 Q34 16 20 34 Q10 20 10 7"/>
+        <path d="M-10 7 Q-24 30 -38 12 Q-20 6 -10 7"/><path d="M-6 -11 Q-28 -26 -14 -38 Q-4 -24 -6 -11"/></g>
+    </g>
+    <g transform="translate(278,100)">
+      <rect x="-36" y="-30" width="72" height="60" rx="4" fill="#4a5565" stroke="#8d96a3" stroke-width="2"/>
+      <path d="M-20 10 Q0 -26 20 10 Z" fill="#1b2027"/>
+    </g>
+    <text x="58" y="166" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="9">SPARE PART</text>
+    <text x="170" y="166" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="9">IMPELLER</text>
+    <text x="278" y="166" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="9">MOULD</text>
+  </svg>`,
+  /* 8 — medical */
+  medical:`<svg viewBox="0 0 340 200" role="img" aria-label="A bone plate shaped for one person">
+    <path d="M96 44 Q82 56 88 76 L104 128 Q110 148 98 160" fill="none" stroke="#6b7684" stroke-width="15" stroke-linecap="round"/>
+    <path d="M96 44 Q82 56 88 76 L104 128 Q110 148 98 160" fill="none" stroke="#8d96a3" stroke-width="2" stroke-linecap="round"/>
+    <path d="M128 56 Q116 86 134 150" fill="none" stroke="#ff6a1a" stroke-width="13" stroke-linecap="round"/>
+    <g fill="#14171c">
+      <circle cx="126" cy="70" r="3.4"/><circle cx="122" cy="94" r="3.4"/>
+      <circle cx="126" cy="118" r="3.4"/><circle cx="131" cy="140" r="3.4"/></g>
+    <text x="236" y="84" text-anchor="middle" fill="#f4f1ea" font-family="'Saira Condensed',sans-serif" font-size="23" font-weight="700">BONE PLATE</text>
+    <text x="236" y="106" text-anchor="middle" fill="#8d96a3" font-family="'Saira Condensed',sans-serif" font-size="19" font-weight="600">DENTAL PROSTHESIS</text>
+    <text x="236" y="128" text-anchor="middle" fill="#8d96a3" font-family="'Saira Condensed',sans-serif" font-size="19" font-weight="600">CUSTOM IMPLANT</text>
+    <text x="236" y="152" text-anchor="middle" fill="#ff6a1a" font-family="'IBM Plex Mono',monospace" font-size="10">SHAPED TO ONE BODY</text>
+  </svg>`,
+  /* 9 — made here */
+  africa:`<svg viewBox="0 0 340 200" role="img" aria-label="The continent of Africa, cut on the machine">
+    <path d="M150 18 L186 20 L204 30 L214 26 L222 36 L238 40 L242 56 L232 72 L226 94
+             L214 112 L208 134 L196 150 L188 170 L176 182 L166 176 L162 158 L152 146
+             L140 142 L128 128 L118 108 L104 96 L94 76 L92 58 L100 42 L116 30 L132 22 Z"
+          fill="#4a5565" stroke="#ff6a1a" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M150 18 L186 20 L204 30 L214 26 L222 36 L238 40 L242 56 L232 72 L226 94
+             L214 112 L208 134 L196 150 L188 170 L176 182 L166 176 L162 158 L152 146
+             L140 142 L128 128 L118 108 L104 96 L94 76 L92 58 L100 42 L116 30 L132 22 Z"
+          fill="none" stroke="#ff6a1a" stroke-width="2.5" stroke-linejoin="round"
+          stroke-dasharray="620" stroke-dashoffset="620">
+      <animate attributeName="stroke-dashoffset" from="620" to="0" dur="4s" fill="freeze"/>
+    </path>
+    <circle cx="112" cy="68" r="4.5" fill="#ff6a1a"/>
+    <text x="112" y="56" text-anchor="middle" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="9">MALI</text>
+  </svg>`
+};
+
+const SCENES = [
+  {art:'part', n:['01','01'],
+   fr:['Un client apporte une pièce. L’atelier ne peut pas la faire.',
+       'Une forme courbe, précise. La commande part ailleurs.'],
+   en:['A customer brings in a part. The workshop cannot make it.',
+       'A curved, precise shape. The order goes elsewhere.']},
+  {art:'cost', n:['02','02'],
+   fr:['La machine coûte <em>40 000 $</em>. Et il faut un spécialiste pour la piloter.',
+       'Au Mali, ces spécialistes sont rares et chers.'],
+   en:['The machine costs <em>$40,000</em>. And you need a specialist to run it.',
+       'In Mali, those specialists are rare and expensive.']},
+  {art:'import', n:['03','03'],
+   fr:['Alors on importe la pièce.',
+       'Trois semaines d’attente. Trois fois le prix. Et l’argent quitte le pays.'],
+   en:['So the part is imported.',
+       'Three weeks of waiting. Three times the price. And the money leaves the country.']},
+  {art:'machine', n:['04','04'],
+   fr:['Nous avons construit cette machine <em>à Bamako</em>.',
+       'Cinq axes, pour les formes que les machines simples ne savent pas faire.'],
+   en:['We built that machine <em>in Bamako</em>.',
+       'Five axes — for the shapes a simple machine cannot cut.']},
+  {art:'talk', n:['05','05'],
+   fr:['On ne la programme pas. <em>On lui parle.</em>',
+       'Vous dites ce que vous voulez, dans vos mots. Une IA s’occupe du reste.'],
+   en:['You don’t program it. <em>You talk to it.</em>',
+       'You say what you want, in your own words. An AI works out the rest.']},
+  {art:'ask', n:['06','06'],
+   fr:['Elle annonce ce qu’elle va faire, et <em>attend votre accord</em>.',
+       'Avant chaque mouvement, elle simule le trajet. Si c’est dangereux, elle refuse.'],
+   en:['It says what it is about to do, and <em>waits for your yes</em>.',
+       'Before every move it simulates the path. If it is unsafe, it refuses.']},
+  {art:'parts', n:['07','07'],
+   fr:['Une pièce de rechange. Une turbine de pompe. Un moule.',
+       'Le travail que l’atelier refusait hier.'],
+   en:['A spare part. A pump impeller. A mould.',
+       'The work the workshop used to turn away.']},
+  {art:'medical', n:['08','08'],
+   fr:['Et en médecine : une <em>plaque osseuse</em>, une prothèse dentaire, un implant sur mesure.',
+       'Ces pièces épousent un seul corps. Aujourd’hui, elles sont importées.'],
+   en:['And in medicine: a <em>bone plate</em>, a dental prosthesis, a custom implant.',
+       'These parts fit one body only. Today, they are imported.']},
+  {art:'africa', n:['09','09'],
+   fr:['Fabriqué ici. <em>Pas importé.</em>',
+       'Forgeron — Bamako, Mali.'],
+   en:['Made here. <em>Not imported.</em>',
+       'Forgeron — Bamako, Mali.']}
+];
+
+const DUR = 7000;
+const stage = document.getElementById('stage');
+const dots  = document.getElementById('dots');
+let lang = 'fr', i = 0, playing = true, t0 = 0, raf = null;
+
+SCENES.forEach((s, k) => {
+  const el = document.createElement('div');
+  el.className = 'scene';
+  el.innerHTML = `<div class="art">${ART[s.art]}</div>
+    <div class="cap"><span class="step"></span><p class="line"></p><p class="sub"></p></div>`;
+  stage.appendChild(el);
+  const d = document.createElement('button');
+  d.className = 'dot'; d.type = 'button';
+  d.setAttribute('aria-label', 'Scene ' + (k + 1));
+  d.addEventListener('click', () => go(k));
+  dots.appendChild(d);
+});
+const bar = document.createElement('div');
+bar.className = 'bar'; bar.innerHTML = '<div class="fill" id="fill"></div>';
+stage.appendChild(bar);
+const fill = document.getElementById('fill');
+const scenes = [...stage.querySelectorAll('.scene')];
+
+function paint(){
+  scenes.forEach((el, k) => {
+    const s = SCENES[k];
+    el.classList.toggle('on', k === i);
+    el.querySelector('.step').textContent = s.n[0] + ' / 09';
+    el.querySelector('.line').innerHTML = s[lang][0];
+    el.querySelector('.sub').textContent = s[lang][1];
+  });
+  [...dots.children].forEach((d, k) => d.setAttribute('aria-current', k === i));
+}
+function go(k){ i = (k + SCENES.length) % SCENES.length; t0 = performance.now(); paint(); }
+function tick(now){
+  if(playing){
+    const p = (now - t0) / DUR;
+    fill.style.width = Math.min(p, 1) * 100 + '%';
+    if(p >= 1) go(i + 1);
+  }
+  raf = requestAnimationFrame(tick);
+}
+function setPlay(on){
+  playing = on;
+  const b = document.getElementById('play');
+  b.textContent = on ? (lang === 'fr' ? 'Pause' : 'Pause') : (lang === 'fr' ? 'Lecture' : 'Play');
+  b.setAttribute('aria-pressed', on);
+  if(on) t0 = performance.now() - 0;
+}
+
+document.getElementById('play').addEventListener('click', () => setPlay(!playing));
+document.getElementById('prev').addEventListener('click', () => go(i - 1));
+document.getElementById('next').addEventListener('click', () => go(i + 1));
+document.getElementById('lang').addEventListener('click', () => {
+  lang = lang === 'fr' ? 'en' : 'fr';
+  document.getElementById('lang').textContent = lang === 'fr' ? 'English' : 'Français';
+  document.getElementById('full').textContent = lang === 'fr' ? 'Plein écran' : 'Full screen';
+  document.getElementById('hint').textContent = lang === 'fr'
+    ? 'Espace : pause · Flèches : naviguer · L : langue'
+    : 'Space: pause · Arrows: navigate · L: language';
+  setPlay(playing); paint();
+});
+document.getElementById('full').addEventListener('click', () => {
+  if(document.fullscreenElement) document.exitFullscreen?.();
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+});
+addEventListener('keydown', e => {
+  if(e.key === ' '){ e.preventDefault(); setPlay(!playing); }
+  else if(e.key === 'ArrowRight') go(i + 1);
+  else if(e.key === 'ArrowLeft') go(i - 1);
+  else if(e.key.toLowerCase() === 'l') document.getElementById('lang').click();
+});
+
+paint(); t0 = performance.now(); raf = requestAnimationFrame(tick);
+</script>
