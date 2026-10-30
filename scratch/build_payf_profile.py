@@ -17,8 +17,8 @@ ANSWERS = {
     "2. Country": "Mali",
     "3. Business / organisation / innovation name": "Forgeron",
     "4. What does your work do?": DESC,
-    "5. Website or link of your work": "https://github.com/professeurp2/forgeron",
-    "6. Your Social Media Links": "",
+    "5. Website or link of your work": "https://youtu.be/DjL49i_IsJI",
+    "6. Your Social Media Links": "https://github.com/professeurp2/forgeron",
 }
 
 doc = Document(SRC)
@@ -47,7 +47,22 @@ for i, row in enumerate(tbl.rows):
             placed.append(key)
             break
 
+# Case d'autorisation : elle ne concerne que Lamine lui-même, et envoyer le
+# formulaire EST l'acte de consentement. On la coche.
+ticked = False
+for p in doc.paragraphs:
+    if "☐" in p.text and "I agree" in p.text:
+        for r in p.runs:
+            if "☐" in r.text:
+                r.text = r.text.replace("☐", "☒")
+                ticked = True
+        if not ticked:                      # la case est dans un run séparé
+            p.runs[0].text = p.runs[0].text.replace("☐", "☒")
+            ticked = "☒" in p.runs[0].text
+        break
+
 doc.save(OUT)
+print("Case d'autorisation cochée :", ticked)
 print("Champs remplis :", len(placed))
 for k in placed:
     print("  -", k)
