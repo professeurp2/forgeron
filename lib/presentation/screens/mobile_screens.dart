@@ -74,9 +74,9 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
         // ── Tab bar compacte (48 px au lieu de 72) ─────────────────────
         MobileTabBar(
           controller: _tab,
-          tabs: const [
+          tabs: [
             MobileTab(Icons.grid_on, 'WCS'),
-            MobileTab(Icons.center_focus_strong, 'JOG'),
+            MobileTab(Icons.center_focus_strong, tr('JOG')),
             MobileTab(Icons.vertical_align_bottom, 'PALPAGE'),
             MobileTab(Icons.home, 'HOMING'),
           ],
@@ -128,7 +128,7 @@ class _WCSTab extends ConsumerWidget {
         const ModeSelectorWidget(),
         SizedBox(height: 20),
 
-        const _MLabel('SYSTÈMES DE COORDONNÉES (WCS)'),
+        _MLabel(tr('SYSTÈMES DE COORDONNÉES (WCS)')),
         SizedBox(height: 8),
         ...wcsData.map((d) {
           final sel = d.$1 == activeWCS;
@@ -215,7 +215,7 @@ class _WCSTab extends ConsumerWidget {
         }),
 
         SizedBox(height: 20),
-        const _MLabel('DRO EN DIRECT'),
+        _MLabel(tr('DRO EN DIRECT')),
         SizedBox(height: 8),
         ...List.generate(5, (i) {
           final isRotary = i >= 3;
@@ -320,14 +320,14 @@ class _WCSTab extends ConsumerWidget {
 
         SizedBox(height: 16),
         _MActionButton(
-          'ALLER AU ZÉRO',
+          tr('ALLER AU ZÉRO'),
           context.fc.textSecondary,
           Icons.gps_fixed,
           () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
         ),
         SizedBox(height: 8),
         _MActionButton(
-          'ORIGINES (TOUS)',
+          tr('ORIGINES (TOUS)'),
           context.fc.axisZ,
           Icons.home,
           () => ref.read(secureJogProvider.notifier).homeAll(),
@@ -609,23 +609,23 @@ class _MobileProbingTab extends ConsumerWidget {
 
         // Routines 2×2
         Row(children: [
-          Expanded(child: _ProbingCard('HAUTEUR Z', 'G38.2 sur axe Z',
+          Expanded(child: _ProbingCard(tr('HAUTEUR Z'), 'G38.2 sur axe Z',
               Icons.vertical_align_bottom,
               probing.step == ProbingStep.idle ? () => probingN.startToolZRoutine() : null)),
           SizedBox(width: 10),
-          Expanded(child: _ProbingCard('CENTRE TROU', '4 points → centre',
+          Expanded(child: _ProbingCard(tr('CENTRE TROU'), tr('4 points → centre'),
               Icons.adjust,
               probing.step == ProbingStep.idle
                   ? () => probingN.startHoleCenterRoutine(20.0, -5.0) : null)),
         ]),
         SizedBox(height: 10),
         Row(children: [
-          Expanded(child: _ProbingCard('ANGLE X', 'Inclinaison pièce X',
+          Expanded(child: _ProbingCard(tr('ANGLE X'), tr('Inclinaison pièce X'),
               Icons.architecture,
               probing.step == ProbingStep.idle
                   ? () => probingN.startAngleRoutine('X', 50.0) : null)),
           SizedBox(width: 10),
-          Expanded(child: _ProbingCard('ANGLE Y', 'Inclinaison pièce Y',
+          Expanded(child: _ProbingCard(tr('ANGLE Y'), tr('Inclinaison pièce Y'),
               Icons.architecture,
               probing.step == ProbingStep.idle
                   ? () => probingN.startAngleRoutine('Y', 50.0) : null)),
@@ -771,11 +771,11 @@ class _MobileHomingTab extends ConsumerWidget {
         ),
         SizedBox(height: 16),
         for (final e in [
-          ('HOME Z', 'Dégager broche', context.fc.axisZ, () => jogN.homeAxis('Z')),
-          ('HOME X', 'Axe horizontal', context.fc.axisX, () => jogN.homeAxis('X')),
-          ('HOME Y', 'Axe frontal', context.fc.axisY, () => jogN.homeAxis('Y')),
-          ('HOME A', 'Basculement trunnion', context.fc.axisA, () => jogN.homeAxis('A')),
-          ('HOME C', 'Rotation plateau', context.fc.axisC, () => jogN.homeAxis('C')),
+          (tr('HOME Z'), tr('Dégager broche'), context.fc.axisZ, () => jogN.homeAxis('Z')),
+          (tr('HOME X'), tr('Axe horizontal'), context.fc.axisX, () => jogN.homeAxis('X')),
+          (tr('HOME Y'), tr('Axe frontal'), context.fc.axisY, () => jogN.homeAxis('Y')),
+          (tr('HOME A'), tr('Basculement trunnion'), context.fc.axisA, () => jogN.homeAxis('A')),
+          (tr('HOME C'), tr('Rotation plateau'), context.fc.axisC, () => jogN.homeAxis('C')),
         ])
           Padding(
             padding: EdgeInsets.only(bottom: 10),
@@ -923,7 +923,7 @@ class _MobileToolTableScreenState
                       fontWeight: FontWeight.w900)),
             )
           else
-            Text(tr(count > 1 ? '{} outils' : '{} outil', [count]),
+            Text(tr(count > 1 ? tr('{} outils') : tr('{} outil'), [count]),
                 style: TextStyle(color: fc.textDisabled, fontSize: 12)),
         ],
       ),
@@ -1216,9 +1216,9 @@ class _ToolDetailSheet extends ConsumerWidget {
             _row(fc, 'Diamètre', '${_trim(tool.diameterMm!)} mm'),
           if (tool.flutes != null) _row(fc, 'Tailles', '${tool.flutes}'),
           if (tool.cuttingLengthMm != null)
-            _row(fc, 'Longueur de coupe',
+            _row(fc, tr('Longueur de coupe'),
                 '${_trim(tool.cuttingLengthMm!)} mm'),
-          if (tool.material != null) _row(fc, 'Matière', tool.material!),
+          if (tool.material != null) _row(fc, tr('Matière'), tool.material!),
         ],
 
         const SizedBox(height: 18),
@@ -1228,7 +1228,7 @@ class _ToolDetailSheet extends ConsumerWidget {
         // Numérotation du FICHIER SOURCE, pas du programme affiché dans
         // l'onglet PROGRAMME : celui-ci est la version adaptée, dont les lignes
         // ont été renumérotées. Le préciser évite un renvoi faux.
-        _row(fc, 'Ligne (fichier d\'origine)', '${tool.firstChangeLine + 1}'),
+        _row(fc, tr('Ligne (fichier d\'origine)'), '${tool.firstChangeLine + 1}'),
 
         if (tool.spindleSpeed != null) ...[
           const SizedBox(height: 8),
@@ -1450,26 +1450,26 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
     // la définit pas. Sous l'étiquette « ZÉRO PIÈCE », l'opérateur croyait
     // poser son origine et lançait un rapide 5 axes vers Z0 — dans la pièce.
     // Pour définir l'origine : onglet PALPAGE → DÉFINIR L'ORIGINE (G10 L20).
-    (Icons.gps_fixed, 'ALLER AU ZÉRO', 'G0 X0 Y0 Z0 A0 C0', c.primary),
-    (Icons.sensors, 'PALPAGE Z', 'G38.2 Z-50 F100', c.secondary),
+    (Icons.gps_fixed, tr('ALLER AU ZÉRO'), 'G0 X0 Y0 Z0 A0 C0', c.primary),
+    (Icons.sensors, tr('PALPAGE Z'), 'G38.2 Z-50 F100', c.secondary),
     // S1000 = 100 % de la speed_map FluidNC (broche relais tout-ou-rien sur
     // gpio.21). S12000 annonçait un régime que cette broche ne connaît pas.
-    (Icons.rotate_right, 'BROCHE H', 'M3 S1000', c.success),
-    (Icons.stop_circle, 'ARRÊT B.', 'M5', c.error),
+    (Icons.rotate_right, tr('BROCHE H'), 'M3 S1000', c.success),
+    (Icons.stop_circle, tr('ARRÊT B.'), 'M5', c.error),
     (Icons.water_drop, 'ARROSAGE', 'M8', c.primary),
-    (Icons.water_drop_outlined, 'ARROS. OFF', 'M9', c.textDisabled),
+    (Icons.water_drop_outlined, tr('ARROS. OFF'), 'M9', c.textDisabled),
     (Icons.air, 'SOUFFLAGE', 'M7', c.secondary),
-    (Icons.vertical_align_top, 'Z SÉCU', 'G0 Z50', c.primary),
+    (Icons.vertical_align_top, tr('Z SÉCU'), 'G0 Z50', c.primary),
     // G28 (position prédéfinie de la carte), comme sur desktop. L'ancien
     // « G0 X0 Y200 Z50 » demandait Y200 alors que la course Y est de 150 mm,
     // soft_limits activées : la macro finissait systématiquement en alarme.
     (Icons.local_parking, 'PARKING', 'G28', c.textSecondary),
     (Icons.play_arrow, 'REPRENDRE', '~', c.success),
-    (Icons.pause, 'PAUSE', '!', c.warning),
+    (Icons.pause, tr('PAUSE'), '!', c.warning),
     // Manquaient au mobile : de quoi couper un programme en cours et sortir
     // d'alarme sans passer par la saisie clavier.
-    (Icons.cancel_rounded, 'ANNULER', '', c.error),
-    (Icons.lock_open_rounded, 'DÉBLOQUER', '\$X', c.warning),
+    (Icons.cancel_rounded, tr('ANNULER'), '', c.error),
+    (Icons.lock_open_rounded, tr('DÉBLOQUER'), '\$X', c.warning),
   ];
 
 
@@ -1477,7 +1477,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
-    _log.add((_fmtTime(DateTime.now()), 'INFO', 'Terminal prêt — en attente de trafic…'));
+    _log.add((_fmtTime(DateTime.now()), 'INFO', tr('Terminal prêt — en attente de trafic…')));
     Future.microtask(() {
       _trafficSub =
           ref.read(machineRepositoryProvider).trafficStream.listen(_handleTraffic);
@@ -1642,7 +1642,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const _MLabel('MACROS RAPIDES'),
+                  _MLabel(tr('MACROS RAPIDES')),
                   SizedBox(height: 12),
                   GridView.count(
                     crossAxisCount: 3,
@@ -1715,7 +1715,7 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                     )).toList(),
                   ),
                   SizedBox(height: 24),
-                  const _MLabel('HISTORIQUE'),
+                  _MLabel(tr('HISTORIQUE')),
                   SizedBox(height: 8),
                   for (final h in _history)
                     GestureDetector(
@@ -1841,7 +1841,7 @@ class _MobileDiagnosticsScreenState
                   Expanded(child: _SensorMini('PALPEUR', 'GPIO 36',
                       machineState?.probeTriggered ?? false, context.fc.secondary)),
                   SizedBox(width: 8),
-                  Expanded(child: _SensorMini('E-STOP', 'GPIO 27',
+                  Expanded(child: _SensorMini(tr('E-STOP'), 'GPIO 27',
                       machineState?.emergencyTriggered ?? false, context.fc.danger)),
                 ]),
 
@@ -1861,9 +1861,9 @@ class _MobileDiagnosticsScreenState
                     // RAM / Uptime / RSSI : non rapportés par FluidNC standard →
                     // resteront statiques tant que le firmware n'envoie pas de
                     // [MSG:] custom. Marqués « — » pour ne pas faire croire à du live.
-                    _HealthCard('USAGE RAM', '—', Icons.memory, context.fc.textDisabled),
+                    _HealthCard(tr('USAGE RAM'), '—', Icons.memory, context.fc.textDisabled),
                     _HealthCard('UPTIME', '—', Icons.schedule, context.fc.textDisabled),
-                    _HealthCard('WiFi RSSI', '—', Icons.wifi, context.fc.textDisabled),
+                    _HealthCard(tr('WiFi RSSI'), '—', Icons.wifi, context.fc.textDisabled),
                   ],
                 ),
 
@@ -1918,9 +1918,9 @@ class _MobileDiagnosticsScreenState
                     ]),
                     SizedBox(height: 12),
                     for (final e in [
-                      ('PAQUETS TX', '${net.txCount}'),
-                      ('PAQUETS RX', '${net.rxCount}'),
-                      ('UPTIME CONN.', formatUptime(net.uptime)),
+                      (tr('PAQUETS TX'), '${net.txCount}'),
+                      (tr('PAQUETS RX'), '${net.rxCount}'),
+                      (tr('UPTIME CONN.'), formatUptime(net.uptime)),
                     ])
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 3),
@@ -1995,7 +1995,7 @@ class _MobileDiagnosticsScreenState
                 ),
 
                 SizedBox(height: 16),
-                const _MLabel('MAINTENANCE PRÉVENTIVE'),
+                _MLabel(tr('MAINTENANCE PRÉVENTIVE')),
                 SizedBox(height: 8),
                 _MaintCard(),
               ]),
@@ -2168,7 +2168,7 @@ class _MobileDiagnosticsScreenState
                     }
                   ),
                   (
-                    'REDÉMARRER ESP32',
+                    tr('REDÉMARRER ESP32'),
                     Icons.power_settings_new,
                     context.fc.error,
                     () async {
@@ -2555,9 +2555,9 @@ class _MaintCard extends StatelessWidget {
         ]),
         SizedBox(height: 10),
         for (final e in [
-          ('Graissage Vis à Billes', 85.0, '12j'),
-          ('Tension Courroies', 42.0, '45j'),
-          ('Calibration Trunnion', 95.0, '2j'),
+          (tr('Graissage Vis à Billes'), 85.0, '12j'),
+          (tr('Tension Courroies'), 42.0, '45j'),
+          (tr('Calibration Trunnion'), 95.0, '2j'),
         ])
           _MaintRow(e.$1, e.$2, e.$3),
       ]),
@@ -3008,8 +3008,8 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       // On repart du YAML déjà chargé (évite un GET fragile sur l'AP ESP32).
       final yaml = ref.read(configResultProvider).valueOrNull?.yaml;
       if (yaml == null || !yaml.contains('axes:')) {
-        throw Exception('config.yaml non chargé ou sans section axes '
-            '(machine hors ligne ?)');
+        throw Exception(tr('config.yaml non chargé ou sans section axes '
+            '(machine hors ligne ?)'));
       }
       // Construit {axe: {clé_yaml: valeur}} depuis l'affichage (overrides inclus).
       final byAxis = <String, Map<String, double>>{};

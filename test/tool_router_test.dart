@@ -81,6 +81,17 @@ void main() {
       expect(route('Jog the C axis by 90 degrees at feed 800.').tools, contains('jog_axis'));
       expect(route('List the files in my workspace.').tools, contains('list_workspace_files'));
     });
+
+    test('scan 3D et reco3d', () {
+      final r1 = route('Scanne la pièce sur la machine avec 24 photos.');
+      expect(r1.tools, containsAll(['start_machine_scan', 'get_reco3d_status']));
+
+      final r2 = route('Quel est l\'état du poste de calcul reco3d ?');
+      expect(r2.tools, containsAll(['get_reco3d_status', 'discover_reco3d_server']));
+
+      final r3 = route('Télécharge le modèle 3D du scan');
+      expect(r3.tools, containsAll(['download_scan_result', 'get_scan_job_status']));
+    });
   });
 
   group('prudence', () {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart';
@@ -13,6 +14,7 @@ class LargeGCodeState {
   final List<String> allLines;
   final List<List<double>> toolpath;
   final List<int> toolpathLineIndices;
+  final Map<int, GCodeModalState> modalStates;
   final int currentLineIndex;
   final bool isLoading;
 
@@ -23,20 +25,13 @@ class LargeGCodeState {
   final bool adaptBlocking;
 
   /// Outils appelés par le programme, extraits du fichier **d'origine**.
-  ///
-  /// Calculés à l'ouverture et conservés, car [allLines] contient le G-code
-  /// ADAPTÉ : l'adaptateur y a converti chaque `T.. M6` en pause `M0`, si bien
-  /// que ni le mot `T` ni le `M6` n'y subsistent. Chercher les outils dans
-  /// [allLines] ne trouve donc jamais rien.
-  ///
-  /// On stocke le résultat plutôt qu'une seconde copie du fichier : la liste
-  /// est minuscule, le fichier peut peser plusieurs mégaoctets.
   final List<ProgramTool> tools;
 
   LargeGCodeState({
     this.allLines = const [],
     this.toolpath = const [],
     this.toolpathLineIndices = const [],
+    this.modalStates = const {},
     this.currentLineIndex = 0,
     this.isLoading = false,
     this.adaptWarnings = const [],
@@ -56,14 +51,21 @@ class LargeGCodeState {
   /// utilisé par le streaming) en index dans [toolpath] — qui ne contient
   /// qu'un point par ligne de mouvement. Renvoie l'index du dernier point de
   /// mouvement à ou avant [rawLineIndex] (0 si aucun).
+  ///
+  /// Utilise une recherche dichotomique O(log N) car [toolpathLineIndices] est
+  /// strictement croissant par construction (15 comparaisons au lieu de 30 000).
   int resolveToolpathIndex(int rawLineIndex) {
     if (toolpathLineIndices.isEmpty) return 0;
+    int lo = 0;
+    int hi = toolpathLineIndices.length - 1;
     int result = 0;
-    for (int j = 0; j < toolpathLineIndices.length; j++) {
-      if (toolpathLineIndices[j] <= rawLineIndex) {
-        result = j;
+    while (lo <= hi) {
+      final mid = (lo + hi) >>> 1;
+      if (toolpathLineIndices[mid] <= rawLineIndex) {
+        result = mid;
+        lo = mid + 1;
       } else {
-        break;
+        hi = mid - 1;
       }
     }
     return result;
@@ -73,6 +75,7 @@ class LargeGCodeState {
     List<String>? allLines,
     List<List<double>>? toolpath,
     List<int>? toolpathLineIndices,
+    Map<int, GCodeModalState>? modalStates,
     int? currentLineIndex,
     bool? isLoading,
     List<String>? adaptWarnings,
@@ -83,6 +86,7 @@ class LargeGCodeState {
       allLines: allLines ?? this.allLines,
       toolpath: toolpath ?? this.toolpath,
       toolpathLineIndices: toolpathLineIndices ?? this.toolpathLineIndices,
+      modalStates: modalStates ?? this.modalStates,
       currentLineIndex: currentLineIndex ?? this.currentLineIndex,
       isLoading: isLoading ?? this.isLoading,
       adaptWarnings: adaptWarnings ?? this.adaptWarnings,
@@ -92,40 +96,53 @@ class LargeGCodeState {
   }
 }
 
+class _FullGCodePayload {
+  final List<ProgramTool> tools;
+  final GcodeAdaptResult adapt;
+  final AnalyzedGCode analyzed;
+
+  const _FullGCodePayload({
+    required this.tools,
+    required this.adapt,
+    required this.analyzed,
+  });
+}
+
+final RegExp _crlfSplit = RegExp(r'\r?\n');
+
+_FullGCodePayload _processFullGCodeSync(String content) {
+  final tools = GCodeToolExtractor.extract(content.split(_crlfSplit));
+  final adapt = GcodeAdapter.adaptForFluidNC(content);
+  final analyzed = GCodeParser.parseSync(adapt.gcode);
+  return _FullGCodePayload(
+    tools: tools,
+    adapt: adapt,
+    analyzed: analyzed,
+  );
+}
+
 class GCodeNotifier extends StateNotifier<LargeGCodeState> {
   GCodeNotifier() : super(LargeGCodeState());
 
-  /// Charge un fichier volumineux via un Isolate pour ne pas bloquer l'UI.
-  ///
-  /// Le contenu passe d'abord par [GcodeAdapter] : les codes CAM incompatibles
-  /// (cycles fixes, G43/H, M6, O/N…) sont traduits pour FluidNC. Le G-code
-  /// STOCKÉ et exécuté est la version adaptée. Les avertissements et le flag de
-  /// blocage sont exposés à l'UI/l'agent. Un G-code déjà propre traverse sans
-  /// changement (adaptateur no-op).
+  /// Charge un fichier volumineux via un Isolate unifié pour ne jamais bloquer
+  /// le thread UI (extraction d'outils + adaptation FluidNC + parsing 5 axes).
   Future<void> loadFile(String content) async {
     state = state.copyWith(isLoading: true);
 
-    // AVANT adaptation : c'est le fichier d'origine qui porte les `T.. M6` et
-    // les commentaires descriptifs du post-processeur.
-    // Découpage tolérant au CRLF : les sorties de post sous Windows en sont
-    // pleines, et un `\r` traînant en fin de ligne fausserait les motifs.
-    final tools =
-        GCodeToolExtractor.extract(content.split(RegExp(r'\r?\n')));
-
-    final adapt = GcodeAdapter.adaptForFluidNC(content);
-
-    // Le parseur travaille sur le G-code ADAPTÉ (celui qui sera exécuté).
-    final analyzed = await GCodeParser.parseLargeFile(adapt.gcode);
+    final payload = content.length > 4096
+        ? await compute(_processFullGCodeSync, content)
+        : _processFullGCodeSync(content);
 
     state = state.copyWith(
-      allLines: analyzed.lines,
-      toolpath: analyzed.toolpath,
-      toolpathLineIndices: analyzed.toolpathLineIndices,
+      allLines: payload.analyzed.lines,
+      toolpath: payload.analyzed.toolpath,
+      toolpathLineIndices: payload.analyzed.toolpathLineIndices,
+      modalStates: payload.analyzed.modalStates,
       isLoading: false,
       currentLineIndex: 0,
-      adaptWarnings: adapt.warnings,
-      adaptBlocking: adapt.blocking,
-      tools: tools,
+      adaptWarnings: payload.adapt.warnings,
+      adaptBlocking: payload.adapt.blocking,
+      tools: payload.tools,
     );
   }
 
@@ -147,17 +164,11 @@ final gcodeWindowProvider = Provider((ref) {
 
 /// Toolpath préparé pour le RENDU 3D.
 ///
-/// Deux cas :
-///  - **Programme SANS axes rotatifs** (A/C toujours nuls : 3 axes, gravure,
-///    ébauche…) : les coordonnées sont déjà dans le repère pièce du CAM → on
-///    les affiche TELLES QUELLES. Y appliquer la cinématique table-table
-///    ajouterait un décalage parasite (offset table) → tracé décalé du modèle.
-///  - **Programme AVEC inclinaison/rotation** (3+2 ou coords machine RTCP) : on
-///    applique la cinématique directe pour retrouver la position réelle de la
-///    pointe d'outil dans le repère pièce (sinon le tracé est faux dès qu'A/C
-///    bougent).
+/// N'observe que `gcodeProvider.select((s) => s.toolpath)` pour éviter de
+/// recalculer la cinématique directe sur 30 000 points à chaque changement de
+/// `currentLineIndex`.
 final renderToolpathProvider = Provider<List<List<double>>>((ref) {
-  final raw = ref.watch(gcodeProvider).toolpath;
+  final raw = ref.watch(gcodeProvider.select((s) => s.toolpath));
   if (raw.isEmpty) return raw;
 
   final usesRotary = raw.any((p) => p[3] != 0.0 || p[4] != 0.0);
@@ -186,7 +197,5 @@ final gcodeScrollControllerProvider = Provider((ref) => ScrollController());
 
 /// Provider pour synchroniser le scroll sans rebuild massif
 final autoScrollProvider = Provider.autoDispose((ref) {
-  final controller = ref.watch(gcodeScrollControllerProvider);
-  // On écoute l'index de ligne actuel depuis le machine state
-  // et on déclenche un scroll doux.
+  ref.watch(gcodeScrollControllerProvider);
 });

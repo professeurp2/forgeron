@@ -413,7 +413,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                           decoration: InputDecoration(
                             labelText: tr('Modèle'),
                             labelStyle: TextStyle(color: fc.textSecondary),
-                            hintText: 'forgeron-qwen',
+                            hintText: tr('forgeron-qwen'),
                             hintStyle: TextStyle(color: fc.textDisabled),
                             filled: true,
                             fillColor: fc.background.withValues(alpha: 0.4),
@@ -635,7 +635,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
           child: Text(tr(category.label),
               style: TextStyle(color: fc.textPrimary, fontSize: 13)),
         ),
-        _autonomyChip(fc, 'CONFIRMER', !isAuto,
+        _autonomyChip(fc, tr('CONFIRMER'), !isAuto,
             () => notifier.setAutonomy(category, AiAutonomyLevel.requireConfirmation)),
         const SizedBox(width: 8),
         _autonomyChip(fc, 'AUTO', isAuto,

@@ -137,7 +137,7 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
           labelColor: Colors.deepOrange,
           unselectedLabelColor: context.fc.textDisabled,
           tabs: [
-            Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: 'JOG'),
+            Tab(icon: Icon(Icons.center_focus_strong, size: 16), text: tr('JOG')),
             Tab(icon: Icon(Icons.vertical_align_bottom, size: 16), text: 'PALPAGE'),
             Tab(icon: Icon(Icons.rotate_right, size: 16), text: 'ALIGNER'),
             Tab(icon: Icon(Icons.home, size: 16), text: 'HOMING'),
@@ -322,11 +322,11 @@ class _HomingSequencePanel extends ConsumerWidget {
         Text(tr('Séquence recommandée : Z → X → Y → A → C'), style: TextStyle(color: context.fc.textDisabled, fontSize: 9, height: 1.5)),
         SizedBox(height: 16),
         for (final e in [
-          ('HOME Z', 'Dégager broche', context.fc.axisZ, () => jogN.homeAxis('Z')),
-          ('HOME X', 'Axe horizontal', context.fc.axisX, () => jogN.homeAxis('X')),
-          ('HOME Y', 'Axe frontal', context.fc.axisY, () => jogN.homeAxis('Y')),
-          ('HOME A', 'Basculement', context.fc.axisA, () => jogN.homeAxis('A')),
-          ('HOME C', 'Rotation plateau', context.fc.axisC, () => jogN.homeAxis('C')),
+          (tr('HOME Z'), tr('Dégager broche'), context.fc.axisZ, () => jogN.homeAxis('Z')),
+          (tr('HOME X'), tr('Axe horizontal'), context.fc.axisX, () => jogN.homeAxis('X')),
+          (tr('HOME Y'), tr('Axe frontal'), context.fc.axisY, () => jogN.homeAxis('Y')),
+          (tr('HOME A'), 'Basculement', context.fc.axisA, () => jogN.homeAxis('A')),
+          (tr('HOME C'), tr('Rotation plateau'), context.fc.axisC, () => jogN.homeAxis('C')),
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -536,7 +536,7 @@ class _AlignementTabState extends ConsumerState<_AlignementTab> {
       child: GlassPanel(
         title: tr('Alignement des axes rotatifs'),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final e in [('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', context.fc.axisA), ('AXE C (Rotation plateau)', '${cPos.toStringAsFixed(3)}°', context.fc.axisC)])
+          for (final e in [('AXE A (Tilt broche)', '${aPos.toStringAsFixed(3)}°', context.fc.axisA), (tr('AXE C (Rotation plateau)'), '${cPos.toStringAsFixed(3)}°', context.fc.axisC)])
             Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [Text(e.$1, style: TextStyle(color: e.$3, fontSize: 11, fontWeight: FontWeight.w900)), const Spacer(), Text(e.$2, style: TextStyle(color: context.fc.textPrimary, fontSize: 18, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900))])),
           SizedBox(height: 24),
           SizedBox(width: double.infinity, height: 48, child: ElevatedButton.icon(onPressed: () => setState(() => _showWizard = true), icon: Icon(Icons.rotate_right), label: Text(tr('LANCER L\'ASSISTANT DE CALIBRATION'), style: TextStyle(fontWeight: FontWeight.w900)))),

@@ -19,9 +19,9 @@ void main() {
     AppLocalizations.setCurrentForTest(const <String, String>{});
   });
 
-  Widget harness() => ProviderScope(
+  Widget harness([String code = 'fr']) => ProviderScope(
         child: MaterialApp(
-          locale: const Locale('fr'),
+          locale: Locale(code),
           supportedLocales: kSupportedLocales,
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -42,6 +42,25 @@ void main() {
     expect(find.text('Langue'), findsOneWidget);
     expect(find.text('Interface, agent IA, dictée et voix'), findsOneWidget);
     expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+  });
+
+  /// Le test qui manquait. Les autres montaient un MaterialApp jouet avec un
+  /// seul Text : ils prouvaient que le moteur traduit, jamais qu'un VRAI
+  /// écran de l'app se traduit. Un libellé que personne n'a sorti du code
+  /// serait resté français dans les quinze langues sans faire rougir un seul
+  /// test — c'est exactement ce qui s'est passé.
+  testWidgets('un écran réel se traduit vraiment dans une langue couverte',
+      (tester) async {
+    await tester.pumpWidget(harness('sw'));
+    await tester.pump();
+
+    expect(find.text('Lugha'), findsOneWidget, reason: 'Langue');
+    expect(find.text('Mandhari'), findsOneWidget, reason: 'Thème');
+    expect(find.text('Urekebishaji wa mashine'), findsOneWidget,
+        reason: 'Calibration machine');
+    // Et plus rien de la version française de ces trois-là.
+    expect(find.text('Langue'), findsNothing);
+    expect(find.text('Thème'), findsNothing);
   });
 
   testWidgets('toutes les langues du catalogue sont proposées', (tester) async {

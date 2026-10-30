@@ -10,7 +10,9 @@ import '../../../application/providers/ui_state_provider.dart';
 import '../trunnion_visualizer.dart';
 import '../camera_view.dart';
 import '../visualizer_mode_toggle.dart';
+import '../simulation_control_panel.dart';
 import '../../../core/i18n/app_localizations.dart';
+import '../../../application/providers/ai_artifacts_provider.dart';
 
 /// Panneau du visualiseur pour mobile. Il porte deux vues qui occupent le même
 /// emplacement : la **caméra** (ESP32-CAM, vue par défaut dès qu'elle est
@@ -71,6 +73,7 @@ class MobileVisualizerPanel extends ConsumerWidget {
     );
 
     final header = _Header(mode: mode);
+    final is3d = mode == VisualizerMode.simulation3d;
 
     if (expand) {
       return Padding(
@@ -79,6 +82,13 @@ class MobileVisualizerPanel extends ConsumerWidget {
           header,
           const SizedBox(height: 8),
           Expanded(child: viz),
+          if (is3d) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: const CompactSimulationBar(dense: true),
+            ),
+          ],
         ]),
       );
     }
@@ -87,6 +97,13 @@ class MobileVisualizerPanel extends ConsumerWidget {
       header,
       const SizedBox(height: 6),
       SizedBox(height: 260, child: viz),
+      if (is3d) ...[
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: const CompactSimulationBar(dense: true),
+        ),
+      ],
     ]);
   }
 }
@@ -105,6 +122,7 @@ Widget buildTrunnionView(WidgetRef ref, bool showVectors) {
     activeIndex: gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
     showVectors: showVectors,
     machineLimits: ref.watch(machineTravelProvider),
+    partMesh: ref.watch(aiArtifactsProvider).step?.preview?.mesh,
   );
 }
 
@@ -182,7 +200,15 @@ class MobileVisualizerFullScreen extends ConsumerWidget {
           Positioned.fill(
             child: mode == VisualizerMode.camera
                 ? const CameraView()
-                : buildTrunnionView(ref, ref.watch(showVectorsProvider)),
+                : Column(
+                    children: [
+                      Expanded(
+                        child: buildTrunnionView(
+                            ref, ref.watch(showVectorsProvider)),
+                      ),
+                      const CompactSimulationBar(dense: true),
+                    ],
+                  ),
           ),
           Positioned(
             top: 12,

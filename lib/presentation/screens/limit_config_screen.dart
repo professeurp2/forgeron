@@ -237,7 +237,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
     try {
       final yaml = ref.read(configResultProvider).valueOrNull?.yaml;
       if (yaml == null || !yaml.contains('axes:')) {
-        throw Exception('config.yaml non chargé (machine hors ligne ?)');
+        throw Exception(tr('config.yaml non chargé (machine hors ligne ?)'));
       }
       final byAxis = <String, Map<String, String>>{};
       final requested = <String>{};
@@ -265,7 +265,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
         if (!mounted) return;
         messenger.showSnackBar(SnackBar(
           content: Text(missing.isEmpty
-              ? 'Config enregistrée — redémarrage de FluidNC…'
+              ? tr('Config enregistrée — redémarrage de FluidNC…')
               : 'Enregistré. Clés absentes (à ajouter via WebUI) : '
                   '${missing.join(', ')}'),
           backgroundColor: missing.isEmpty ? okColor : fc.warning,

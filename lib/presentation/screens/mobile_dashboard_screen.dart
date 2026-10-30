@@ -422,7 +422,7 @@ class _ExecutionProgressPanel extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(children: [
                       _stat(Icons.tag, 'LIGNE', '${p.currentLine}/${p.totalLines}'),
-                      _stat(Icons.timer_outlined, 'ÉCOULÉ',
+                      _stat(Icons.timer_outlined, tr('ÉCOULÉ'),
                           formatDuration(p.elapsed)),
                       _stat(Icons.hourglass_bottom_rounded, 'RESTANT',
                           eta != null ? formatDuration(eta) : '—'),
@@ -487,6 +487,7 @@ class _GCodeListView extends StatefulWidget {
 class _GCodeListViewState extends State<_GCodeListView> {
   final _ctrl = ScrollController();
   static const double _extent = 32.0;
+  DateTime? _lastScrollTime;
 
   @override
   void initState() {
@@ -527,9 +528,16 @@ class _GCodeListViewState extends State<_GCodeListView> {
       _ctrl.jumpTo(clamped);
       return;
     }
+    final now = DateTime.now();
+    if (_lastScrollTime != null &&
+        now.difference(_lastScrollTime!).inMilliseconds < 150) {
+      _ctrl.jumpTo(clamped);
+      return;
+    }
+    _lastScrollTime = now;
     _ctrl.animateTo(
       clamped,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
     );
   }

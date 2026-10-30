@@ -1,150 +1,443 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgeron 3D Visualizer</title>
+    <title>Forgeron 3D Digital Twin & Simulator</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; color: #FF6B35; font-family: monospace; }
-        canvas { display: block; }
-        #debug { position: absolute; top: 10px; left: 10px; font-size: 10px; pointer-events: none; opacity: 0.7; }
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 35%, #1c212b 0%, #0d1017 100%);
+            color: #FF6B35;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+        }
+        body.light-studio {
+            background: radial-gradient(circle at 50% 30%, #f8fafd 0%, #dfe5ef 100%);
+            color: #1f2937;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        #hud-top-left {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            pointer-events: none;
+            z-index: 900;
+        }
+        #debug {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(13, 16, 23, 0.72);
+            border: 1px solid rgba(255, 107, 53, 0.35);
+            color: #ff6b35;
+            backdrop-filter: blur(4px);
+        }
+        body.light-studio #debug {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(31, 41, 55, 0.2);
+            color: #1f2937;
+        }
+
+        /* --- VIEWCUBE INDUSTRIEL (STYLE ACTERIS / CAD) --- */
+        #viewcube-card {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 112px;
+            padding: 8px 8px 6px 8px;
+            border-radius: 10px;
+            background: rgba(20, 24, 33, 0.82);
+            border: 1px solid rgba(139, 147, 156, 0.28);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            z-index: 1000;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+        body.light-studio #viewcube-card {
+            background: rgba(255, 255, 255, 0.90);
+            border-color: rgba(15, 23, 42, 0.14);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+        }
+        .vc-scene {
+            width: 66px;
+            height: 66px;
+            perspective: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px 0;
+        }
+        .vc-cube {
+            width: 44px;
+            height: 44px;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-25deg) rotateY(-38deg);
+            transition: transform 0.08s linear;
+        }
+        .vc-face {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            border: 1px solid rgba(139, 147, 156, 0.55);
+            background: rgba(42, 48, 60, 0.92);
+            color: #e5e7eb;
+            transition: background 0.15s, color 0.15s;
+        }
+        body.light-studio .vc-face {
+            background: rgba(235, 239, 245, 0.95);
+            border-color: rgba(100, 116, 139, 0.55);
+            color: #1e293b;
+        }
+        .vc-face:hover {
+            background: #ff6b35 !important;
+            color: #ffffff !important;
+        }
+        .vc-front  { transform: rotateY(  0deg) translateZ(22px); }
+        .vc-back   { transform: rotateY(180deg) translateZ(22px); }
+        .vc-right  { transform: rotateY( 90deg) translateZ(22px); }
+        .vc-left   { transform: rotateY(-90deg) translateZ(22px); }
+        .vc-top    { transform: rotateX( 90deg) translateZ(22px); }
+        .vc-bottom { transform: rotateX(-90deg) translateZ(22px); }
+
+        #vc-label {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.9px;
+            color: #9aa3ab;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        body.light-studio #vc-label { color: #475569; }
+        #vc-label:hover { color: #ff6b35; }
+
         .btn-container {
-            position: absolute; bottom: 15px; right: 15px;
-            display: flex; gap: 8px;
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
             z-index: 1000;
         }
         button {
-            background: rgba(0,0,0,0.6); border: 1px solid #FF6B35; color: #FF6B35;
-            padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 10px;
-            display: flex; align-items: center; gap: 6px;
+            background: rgba(16, 20, 28, 0.78);
+            border: 1px solid rgba(255, 107, 53, 0.55);
+            color: #FF6B35;
+            padding: 5px 9px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 9.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
             font-family: 'JetBrains Mono', monospace;
             text-transform: uppercase;
+            backdrop-filter: blur(4px);
         }
-        button:hover { background: rgba(255, 107, 53, 0.2); }
-        svg { width: 14px; height: 14px; }
+        body.light-studio button {
+            background: rgba(255, 255, 255, 0.88);
+            border-color: rgba(30, 41, 59, 0.25);
+            color: #1e293b;
+        }
+        button:hover {
+            background: rgba(255, 107, 53, 0.22);
+            border-color: #FF6B35;
+        }
+        svg { width: 13px; height: 13px; }
     </style>
 </head>
 <body>
-    <div id="debug">ENGINE: INITIALIZING...</div>
-    <div class="btn-container">
-        <button id="reset-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            <span>Reset</span>
+    <div id="hud-top-left">
+        <div id="debug">JUMEAU NUMÉRIQUE 5 AXES · PRÊT</div>
+    </div>
+
+    <!-- ViewCube 3D Interactif (Style Acteris / CAO) -->
+    <div id="viewcube-card" title="Cliquer une face pour orienter la caméra">
+        <div class="vc-scene">
+            <div class="vc-cube" id="vc-cube">
+                <div class="vc-face vc-top" data-view="TOP">TOP</div>
+                <div class="vc-face vc-bottom" data-view="BOTTOM">BOT</div>
+                <div class="vc-face vc-front" data-view="FRONT">FRONT</div>
+                <div class="vc-face vc-back" data-view="BACK">BACK</div>
+                <div class="vc-face vc-right" data-view="RIGHT">RIGHT</div>
+                <div class="vc-face vc-left" data-view="LEFT">LEFT</div>
+            </div>
+        </div>
+        <div id="vc-label" data-view="ISOMETRIC">ISOMETRIC</div>
+    </div>
+
+    <div class="btn-container" id="floating-controls">
+        <button id="reset-btn" title="Réinitialiser le brut et la vue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span>Brut</span>
         </button>
-        <button id="mode-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span id="mode-text">Parcours</span>
+        <button id="cabin-btn" title="Afficher/Masquer le carénage industriel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            <span id="cabin-text">Cabine</span>
         </button>
-        <button id="fs-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        <button id="mode-btn" title="Afficher/Masquer la machine">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <span id="mode-text">Machine</span>
+        </button>
+        <button id="fs-btn" title="Plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
         </button>
     </div>
 
     <script src="js/three.min.js"></script>
     <script src="js/OrbitControls.js"></script>
     <script>
-        const debug = (msg) => { document.getElementById('debug').innerText = msg; };
+        const debugEl = document.getElementById('debug');
+        const debug = (msg) => { if (debugEl) debugEl.innerText = msg; };
 
-        // --- VOXEL SYSTEM (S'intègre au design sans le casser) ---
+        let needsRender = true;
+        function requestRender() { needsRender = true; }
+
+        // --- VOXEL WORKPIECE HAUTE PERFORMANCE (Cylindre / Cuboïde + updateRange) ---
         class VoxelWorkpiece {
-            constructor(parent, size, res, material) {
+            constructor(parent, size, res, material, shape = 'cylinder') {
+                this.parent = parent;
+                this.material = material;
                 this.res = res;
-                this.voxelSize = size.x / res;
-                this.nx = Math.ceil(size.x / this.voxelSize);
-                this.ny = Math.ceil(size.y / this.voxelSize);
-                this.nz = Math.ceil(size.z / this.voxelSize);
+                this.shape = shape;
+                this.size = { x: size.x || 35, y: size.y || 35, z: size.z || 25 };
+                this.dummy = new THREE.Object3D();
+                this.matrix = new THREE.Matrix4();
+                this._buildMesh();
+            }
+
+            _buildMesh() {
+                if (this.mesh) {
+                    this.parent.remove(this.mesh);
+                    if (this.mesh.geometry) this.mesh.geometry.dispose();
+                    this.mesh = null;
+                }
+                const maxXY = Math.max(this.size.x, this.size.y);
+                this.voxelSize = maxXY / this.res;
+                this.nx = Math.max(4, Math.ceil(this.size.x / this.voxelSize));
+                this.ny = Math.max(4, Math.ceil(this.size.y / this.voxelSize));
+                this.nz = Math.max(4, Math.ceil(this.size.z / this.voxelSize));
                 this.count = this.nx * this.ny * this.nz;
 
                 const geo = new THREE.BoxGeometry(this.voxelSize, this.voxelSize, this.voxelSize);
-                this.mesh = new THREE.InstancedMesh(geo, material, this.count);
+                this.mesh = new THREE.InstancedMesh(geo, this.material, this.count);
                 this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                this.states = new Uint8Array(this.count).fill(1);
-                this.dummy = new THREE.Object3D();
-                this.matrix = new THREE.Matrix4();
+                this.states = new Uint8Array(this.count);
                 this.reset();
-                parent.add(this.mesh);
+                this.parent.add(this.mesh);
             }
-            reset() {
-                let i = 0;
-                const ox = -(this.nx * this.voxelSize)/2, oy = -(this.ny * this.voxelSize)/2;
-                for(let x=0; x<this.nx; x++) for(let y=0; y<this.ny; y++) for(let z=0; z<this.nz; z++) {
-                    this.dummy.position.set(ox+(x+0.5)*this.voxelSize, oy+(y+0.5)*this.voxelSize, (z+0.5)*this.voxelSize);
-                    this.dummy.scale.set(1,1,1); this.dummy.updateMatrix();
-                    this.mesh.setMatrixAt(i, this.dummy.matrix); this.states[i] = 1; i++;
+
+            configure(shape, dims) {
+                const newShape = shape || this.shape;
+                const sx = (dims && dims[0]) ? dims[0] : this.size.x;
+                const sy = (dims && dims[1]) ? dims[1] : sx;
+                const sz = (dims && dims[2]) ? dims[2] : this.size.z;
+                const sizeChanged = Math.abs(sx - this.size.x) > 0.1 ||
+                                    Math.abs(sy - this.size.y) > 0.1 ||
+                                    Math.abs(sz - this.size.z) > 0.1;
+                this.shape = newShape;
+                this.size = { x: sx, y: sy, z: sz };
+                if (sizeChanged) {
+                    this._buildMesh();
+                } else {
+                    this.reset();
                 }
-                this.mesh.instanceMatrix.needsUpdate = true;
+                requestRender();
             }
-            cut(worldToolPos, radius) {
-                const local = this.mesh.worldToLocal(worldToolPos.clone());
-                const rSq = radius * radius;
-                const ox = -(this.nx * this.voxelSize)/2, oy = -(this.ny * this.voxelSize)/2;
-                const iMinX = Math.max(0, Math.floor((local.x - radius - ox)/this.voxelSize));
-                const iMaxX = Math.min(this.nx-1, Math.ceil((local.x + radius - ox)/this.voxelSize));
-                const iMinY = Math.max(0, Math.floor((local.y - radius - oy)/this.voxelSize));
-                const iMaxY = Math.min(this.ny-1, Math.ceil((local.y + radius - oy)/this.voxelSize));
-                const iMinZ = Math.max(0, Math.floor((local.z - radius)/this.voxelSize));
-                const iMaxZ = Math.min(this.nz-1, Math.ceil((local.z + radius)/this.voxelSize));
-                let changed = false;
-                for(let x=iMinX; x<=iMaxX; x++) for(let y=iMinY; y<=iMaxY; y++) for(let z=iMinZ; z<=iMaxZ; z++) {
-                    const idx = x*(this.ny*this.nz) + y*this.nz + z;
-                    if(this.states[idx] === 0) continue;
-                    const dx = (ox+(x+0.5)*this.voxelSize) - local.x;
-                    const dy = (oy+(y+0.5)*this.voxelSize) - local.y;
-                    const dz = ((z+0.5)*this.voxelSize) - local.z;
-                    if(dx*dx + dy*dy < rSq && Math.abs(dz) < radius) {
-                        this.states[idx]=0; this.matrix.makeScale(0,0,0);
-                        this.mesh.setMatrixAt(idx, this.matrix); changed = true;
+
+            reset() {
+                if (!this.mesh) return;
+                let i = 0;
+                const ox = -(this.nx * this.voxelSize) / 2;
+                const oy = -(this.ny * this.voxelSize) / 2;
+                const rx = this.size.x / 2;
+                const ry = this.size.y / 2;
+                const isCyl = this.shape === 'cylinder';
+
+                for (let x = 0; x < this.nx; x++) {
+                    const px = ox + (x + 0.5) * this.voxelSize;
+                    for (let y = 0; y < this.ny; y++) {
+                        const py = oy + (y + 0.5) * this.voxelSize;
+                        const insideCyl = !isCyl || ((px * px) / (rx * rx) + (py * py) / (ry * ry) <= 1.0);
+                        for (let z = 0; z < this.nz; z++) {
+                            const pz = (z + 0.5) * this.voxelSize;
+                            if (insideCyl) {
+                                this.dummy.position.set(px, py, pz);
+                                this.dummy.scale.set(1, 1, 1);
+                                this.dummy.updateMatrix();
+                                this.mesh.setMatrixAt(i, this.dummy.matrix);
+                                this.states[i] = 1;
+                            } else {
+                                this.matrix.makeScale(0, 0, 0);
+                                this.mesh.setMatrixAt(i, this.matrix);
+                                this.states[i] = 0;
+                            }
+                            i++;
+                        }
                     }
                 }
-                if(changed) this.mesh.instanceMatrix.needsUpdate = true;
+                this.mesh.instanceMatrix.updateRange.offset = 0;
+                this.mesh.instanceMatrix.updateRange.count = -1;
+                this.mesh.instanceMatrix.needsUpdate = true;
+                requestRender();
+            }
+
+            cut(worldToolPos, radius) {
+                if (!this.mesh || !this.mesh.visible) return;
+                const local = this.mesh.worldToLocal(worldToolPos.clone());
+                const halfX = (this.nx * this.voxelSize) / 2 + radius;
+                const halfY = (this.ny * this.voxelSize) / 2 + radius;
+                const maxZ = this.nz * this.voxelSize + radius;
+                // Court-circuit immédiat hors de la boîte englobante du brut
+                if (local.x < -halfX || local.x > halfX ||
+                    local.y < -halfY || local.y > halfY ||
+                    local.z < -radius || local.z > maxZ) {
+                    return;
+                }
+
+                const rSq = radius * radius;
+                const ox = -(this.nx * this.voxelSize) / 2;
+                const oy = -(this.ny * this.voxelSize) / 2;
+                const iMinX = Math.max(0, Math.floor((local.x - radius - ox) / this.voxelSize));
+                const iMaxX = Math.min(this.nx - 1, Math.ceil((local.x + radius - ox) / this.voxelSize));
+                const iMinY = Math.max(0, Math.floor((local.y - radius - oy) / this.voxelSize));
+                const iMaxY = Math.min(this.ny - 1, Math.ceil((local.y + radius - oy) / this.voxelSize));
+                const iMinZ = Math.max(0, Math.floor((local.z - radius) / this.voxelSize));
+                const iMaxZ = Math.min(this.nz - 1, Math.ceil((local.z + radius) / this.voxelSize));
+
+                let minChanged = this.count;
+                let maxChanged = -1;
+                for (let x = iMinX; x <= iMaxX; x++) {
+                    const dx = (ox + (x + 0.5) * this.voxelSize) - local.x;
+                    const dxSq = dx * dx;
+                    for (let y = iMinY; y <= iMaxY; y++) {
+                        const dy = (oy + (y + 0.5) * this.voxelSize) - local.y;
+                        const dxySq = dxSq + dy * dy;
+                        if (dxySq >= rSq) continue;
+                        for (let z = iMinZ; z <= iMaxZ; z++) {
+                            const idx = x * (this.ny * this.nz) + y * this.nz + z;
+                            if (this.states[idx] === 0) continue;
+                            const dz = ((z + 0.5) * this.voxelSize) - local.z;
+                            if (Math.abs(dz) < radius) {
+                                this.states[idx] = 0;
+                                this.matrix.makeScale(0, 0, 0);
+                                this.mesh.setMatrixAt(idx, this.matrix);
+                                if (idx < minChanged) minChanged = idx;
+                                if (idx > maxChanged) maxChanged = idx;
+                            }
+                        }
+                    }
+                }
+                if (maxChanged >= minChanged) {
+                    this.mesh.instanceMatrix.updateRange.offset = minChanged * 16;
+                    this.mesh.instanceMatrix.updateRange.count = (maxChanged - minChanged + 1) * 16;
+                    this.mesh.instanceMatrix.needsUpdate = true;
+                    requestRender();
+                }
             }
         }
 
-        // --- SCENE & MATERIALS ---
+        // --- SCENE, CAMÉRA & ÉCLAIRAGE STUDIO CAO ---
         const scene = new THREE.Scene();
-
-        // Etat du theme. Declare ici, avant createMesh() et la construction de
-        // la machine : ces valeurs sont lues pendant le montage de la scene, et
-        // un `const` declare plus bas leverait un ReferenceError (zone morte).
-        // Ce sont les valeurs de repli, remplacees des que Dart poste sa
-        // palette via 'set_theme'.
         const theme = {
-            background: '#050505', surface: '#1b1e24', surfaceBright: '#d9dde1',
+            background: '#0e1117', surface: '#1b1e24', surfaceBright: '#d9dde1',
             surfaceBorder: '#8b939c', edge: '#000000', primary: '#ff6b35',
             success: '#3fb950', error: '#f85149', info: '#0080ff',
             textSecondary: '#9aa3ab',
         };
         const edgeMaterials = [];
-        const cG0 = new THREE.Color(theme.error); // rapide (G0)
-        const cG1 = new THREE.Color(theme.success); // travail (G1)
+        const cG0 = new THREE.Color(theme.error);
+        const cG1 = new THREE.Color(theme.success);
+        const cDone = new THREE.Color('#00d4ff');
 
-        scene.background = new THREE.Color(theme.background);
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
-        camera.position.set(250, -350, 300); camera.up.set(0, 0, 1);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 6000);
+        camera.position.set(340, -420, 310);
+        camera.up.set(0, 0, 1);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         document.body.appendChild(renderer.domElement);
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true; controls.target.set(0, 0, 50);
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambient);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(100, -100, 200); scene.add(dirLight);
 
-        const matPlate = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.55, roughness: 0.5 });
-        const matExtrusion = new THREE.MeshStandardMaterial({ color: 0x8b939c, metalness: 0.75, roughness: 0.35 });
-        const matMotor = new THREE.MeshStandardMaterial({ color: 0x131313, metalness: 0.35, roughness: 0.75 });
-        const matCap = new THREE.MeshStandardMaterial({ color: 0xbe8a5c, metalness: 0.65, roughness: 0.45 });
-        const matSteel = new THREE.MeshStandardMaterial({ color: 0xc2c8ce, metalness: 0.95, roughness: 0.18 });
-        const matAccent = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.85, roughness: 0.35 });
-        const matTool = new THREE.MeshStandardMaterial({ color: 0xFF6B35, metalness: 0.9, roughness: 0.2 });
-        const matTeal = new THREE.MeshStandardMaterial({ color: 0x0f8b7d, metalness: 0.5, roughness: 0.4 });
-        const matWorkpiece = new THREE.MeshStandardMaterial({ color: 0xd9dde1, metalness: 0.15, roughness: 0.85 });
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 0, 55);
+        controls.addEventListener('change', () => {
+            syncViewCube();
+            requestRender();
+        });
+
+        // Éclairage Studio 3 Points
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.72);
+        hemiLight.position.set(0, 0, 500);
+        scene.add(hemiLight);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        keyLight.position.set(220, -280, 380);
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.42);
+        fillLight.position.set(-250, 220, 200);
+        scene.add(fillLight);
+
+        // --- GRILLE MÉTRIQUE CAO AU SOL (Style Acteris) ---
+        const floorGridGroup = new THREE.Group();
+        const gridMinor = new THREE.GridHelper(900, 90, 0x475569, 0x1e293b);
+        gridMinor.rotation.x = Math.PI / 2;
+        gridMinor.position.z = -22;
+        gridMinor.material.transparent = true;
+        gridMinor.material.opacity = 0.35;
+        floorGridGroup.add(gridMinor);
+
+        const gridMajor = new THREE.GridHelper(900, 9, 0x64748b, 0x475569);
+        gridMajor.rotation.x = Math.PI / 2;
+        gridMajor.position.z = -21.8;
+        gridMajor.material.transparent = true;
+        gridMajor.material.opacity = 0.55;
+        floorGridGroup.add(gridMajor);
+        scene.add(floorGridGroup);
+
+        // --- MATÉRIAUX INDUSTRIELS PBR ---
+        const matCabinetLight = new THREE.MeshStandardMaterial({ color: 0xbfc6d0, metalness: 0.35, roughness: 0.55 });
+        const matCabinetDark  = new THREE.MeshStandardMaterial({ color: 0x3b424d, metalness: 0.45, roughness: 0.50 });
+        const matGlass        = new THREE.MeshStandardMaterial({ color: 0x93c5fd, metalness: 0.1, roughness: 0.15, transparent: true, opacity: 0.18, depthWrite: false });
+        const matPlate        = new THREE.MeshStandardMaterial({ color: 0x252a34, metalness: 0.55, roughness: 0.45 });
+        const matExtrusion    = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.78, roughness: 0.32 });
+        const matMotor        = new THREE.MeshStandardMaterial({ color: 0x161920, metalness: 0.35, roughness: 0.70 });
+        const matCap          = new THREE.MeshStandardMaterial({ color: 0xc88a55, metalness: 0.65, roughness: 0.42 });
+        const matSteel        = new THREE.MeshStandardMaterial({ color: 0xd8dee6, metalness: 0.92, roughness: 0.18 });
+        const matAccent       = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.85, roughness: 0.35 });
+        const matTool         = new THREE.MeshStandardMaterial({ color: 0xFF6B35, metalness: 0.88, roughness: 0.22 });
+        const matTeal         = new THREE.MeshStandardMaterial({ color: 0x0f8b7d, metalness: 0.55, roughness: 0.38 });
+        const matWorkpiece    = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.25, roughness: 0.65 });
+        const matLedRing      = new THREE.MeshBasicMaterial({ color: 0x3fb950 });
 
         function createMesh(geo, mat) {
             const m = new THREE.Mesh(geo, mat);
             const e = new THREE.EdgesGeometry(geo);
-            // Materiau d'aretes garde en reference : applyTheme() le reteinte,
-            // sinon les aretes restent noires et disparaissent en theme sombre.
-            const em = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+            const em = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.24 });
             edgeMaterials.push(em);
             m.add(new THREE.LineSegments(e, em));
             return m;
@@ -152,182 +445,447 @@
 
         function createStepper(size, len, shaftLen) {
             const g = new THREE.Group();
-            const body = createMesh(new THREE.BoxGeometry(size, size, len), matMotor); body.position.z = -len/2;
-            const cap = createMesh(new THREE.BoxGeometry(size*0.9, size*0.9, size*0.16), matCap); cap.position.z = size*0.08;
-            const shaft = createMesh(new THREE.CylinderGeometry(size*0.08, size*0.08, shaftLen, 12), matSteel);
-            shaft.rotation.x = Math.PI/2; shaft.position.z = size*0.16 + shaftLen/2;
-            g.add(body, cap, shaft); return g;
+            const body = createMesh(new THREE.BoxGeometry(size, size, len), matMotor); body.position.z = -len / 2;
+            const cap = createMesh(new THREE.BoxGeometry(size * 0.9, size * 0.9, size * 0.16), matCap); cap.position.z = size * 0.08;
+            const shaft = createMesh(new THREE.CylinderGeometry(size * 0.08, size * 0.08, shaftLen, 12), matSteel);
+            shaft.rotation.x = Math.PI / 2; shaft.position.z = size * 0.16 + shaftLen / 2;
+            g.add(body, cap, shaft);
+            return g;
         }
 
-        // --- MACHINE MODEL (RESTAURÉ) ---
-        const machineGroup = new THREE.Group(); scene.add(machineGroup);
+        // --- MODÈLE JUMEAU NUMÉRIQUE 5 AXES + CELLULE INDUSTRIELLE ---
+        const machineGroup = new THREE.Group();
+        scene.add(machineGroup);
 
-        // Base & Colonne
-        const floor = createMesh(new THREE.BoxGeometry(120, 300, 22), matPlate); floor.position.set(0, -50, -11); machineGroup.add(floor);
-        const col = createMesh(new THREE.BoxGeometry(130, 45, 350), matPlate); col.position.set(0, 145, 165); machineGroup.add(col);
+        // 1. Enceinte / Cabine industrielle CNC (Style Acteris)
+        const enclosureGroup = new THREE.Group();
+        machineGroup.add(enclosureGroup);
+
+        // Socle d'atelier & bac à copeaux
+        const basePedestal = createMesh(new THREE.BoxGeometry(280, 340, 18), matCabinetDark);
+        basePedestal.position.set(15, -20, -13);
+        enclosureGroup.add(basePedestal);
+
+        // Paroi arrière et flancs de la cabine CNC
+        const backWall = createMesh(new THREE.BoxGeometry(280, 14, 360), matCabinetLight);
+        backWall.position.set(15, 165, 165);
+        enclosureGroup.add(backWall);
+
+        const leftWall = createMesh(new THREE.BoxGeometry(10, 320, 360), matCabinetLight);
+        leftWall.position.set(-120, 10, 165);
+        enclosureGroup.add(leftWall);
+
+        // Pupitre opérateur latéral droit (Style Acteris)
+        const controlCabinet = createMesh(new THREE.BoxGeometry(58, 320, 360), matCabinetLight);
+        controlCabinet.position.set(126, 10, 165);
+        enclosureGroup.add(controlCabinet);
+
+        const hmiPanel = createMesh(new THREE.BoxGeometry(44, 6, 95), matCabinetDark);
+        hmiPanel.position.set(126, -151, 225);
+        enclosureGroup.add(hmiPanel);
+
+        // Vitre polycarbonate de protection frontale (semi-transparente)
+        const safetyWindow = new THREE.Mesh(new THREE.BoxGeometry(200, 4, 240), matGlass);
+        safetyWindow.position.set(-10, -148, 175);
+        enclosureGroup.add(safetyWindow);
+
+        // 2. Bâti mécanique & Colonne Z
+        const floor = createMesh(new THREE.BoxGeometry(140, 300, 22), matPlate);
+        floor.position.set(0, -50, -11);
+        machineGroup.add(floor);
+
+        const col = createMesh(new THREE.BoxGeometry(130, 45, 350), matPlate);
+        col.position.set(0, 138, 165);
+        machineGroup.add(col);
         [-48, 48].forEach(x => {
-            const p = createMesh(new THREE.BoxGeometry(22, 30, 340), matExtrusion); p.position.set(x, 112, 168); machineGroup.add(p);
+            const p = createMesh(new THREE.BoxGeometry(22, 30, 340), matExtrusion);
+            p.position.set(x, 108, 168);
+            machineGroup.add(p);
         });
 
-        // Z-Axis
-        const zRailGroup = new THREE.Group(); zRailGroup.position.set(0, 40, 200); machineGroup.add(zRailGroup);
-        const zPlate = createMesh(new THREE.BoxGeometry(60, 12, 210), matPlate); zPlate.position.set(0, 8, 0); zRailGroup.add(zPlate);
-        const zStepper = createStepper(42, 42, 16); zStepper.rotation.x = Math.PI; zStepper.position.set(0, 1, 118); zRailGroup.add(zStepper);
+        // 3. Axe Z & Électrobroche avec anneau LED d'état
+        const zRailGroup = new THREE.Group();
+        zRailGroup.position.set(0, 40, 200);
+        machineGroup.add(zRailGroup);
+        const zPlate = createMesh(new THREE.BoxGeometry(60, 12, 210), matPlate);
+        zPlate.position.set(0, 8, 0);
+        zRailGroup.add(zPlate);
+        const zStepper = createStepper(42, 42, 16);
+        zStepper.rotation.x = Math.PI;
+        zStepper.position.set(0, 1, 118);
+        zRailGroup.add(zStepper);
 
-        const zAxis = new THREE.Group(); machineGroup.add(zAxis);
-        const spindle = createMesh(new THREE.CylinderGeometry(20, 20, 90, 32), matMotor); spindle.rotation.x = Math.PI/2; zAxis.add(spindle);
-        const chuck = createMesh(new THREE.CylinderGeometry(8, 10, 22, 20), matAccent); chuck.rotation.x = Math.PI/2; chuck.position.set(0,0,-56); zAxis.add(chuck);
-        const toolBit = createMesh(new THREE.CylinderGeometry(2, 0, 22, 16), matTool); toolBit.rotation.x = Math.PI/2; toolBit.position.set(0,0,-80); zAxis.add(toolBit);
+        const zAxis = new THREE.Group();
+        machineGroup.add(zAxis);
+        const spindle = createMesh(new THREE.CylinderGeometry(20, 20, 90, 32), matMotor);
+        spindle.rotation.x = Math.PI / 2;
+        zAxis.add(spindle);
 
-        // Kinematics Y -> X -> A -> C
-        const yAxis = new THREE.Group(); machineGroup.add(yAxis);
-        const yTable = createMesh(new THREE.BoxGeometry(110, 170, 10), matPlate); yTable.position.z = 5; yAxis.add(yTable);
-        const yMotor = createStepper(38, 38, 12); yMotor.rotation.x = -Math.PI/2; yMotor.position.set(0, -128, -3); machineGroup.add(yMotor);
+        // Anneau lumineux d'état (vert = prêt, orange = coupe, rouge = alarme)
+        const spindleLed = new THREE.Mesh(new THREE.TorusGeometry(20.6, 1.8, 12, 32), matLedRing);
+        spindleLed.position.set(0, 0, -40);
+        zAxis.add(spindleLed);
 
-        const xAxis = new THREE.Group(); xAxis.position.z = 10; yAxis.add(xAxis);
-        const xTable = createMesh(new THREE.BoxGeometry(150, 90, 6), matPlate); xTable.position.z = 3; xAxis.add(xTable);
-        const xMotor = createStepper(38, 38, 12); xMotor.rotation.y = Math.PI/2; xMotor.position.set(-85, 0, 8); yAxis.add(xMotor);
+        const chuck = createMesh(new THREE.CylinderGeometry(8, 10, 22, 20), matAccent);
+        chuck.rotation.x = Math.PI / 2;
+        chuck.position.set(0, 0, -56);
+        zAxis.add(chuck);
 
-        const trunnionBase = new THREE.Group(); trunnionBase.position.z = 6; xAxis.add(trunnionBase);
-        const tSuppL = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate); tSuppL.position.set(-62, 0, 31); trunnionBase.add(tSuppL);
-        const tSuppR = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate); tSuppR.position.set(62, 0, 31); trunnionBase.add(tSuppR);
-        const aMotor = createStepper(36, 36, 12); aMotor.rotation.y = -Math.PI/2; aMotor.position.set(80, 0, 40); trunnionBase.add(aMotor);
+        const toolBit = createMesh(new THREE.CylinderGeometry(3, 1.5, 22, 20), matTool);
+        toolBit.rotation.x = Math.PI / 2;
+        toolBit.position.set(0, 0, -80);
+        zAxis.add(toolBit);
 
-        const aAxis = new THREE.Group(); aAxis.position.set(0, 0, 40); trunnionBase.add(aAxis);
-        const cradle = createMesh(new THREE.BoxGeometry(118, 46, 10), matPlate); cradle.position.z = -14; aAxis.add(cradle);
-        const cMotor = createStepper(34, 34, 10); cMotor.position.z = -44; aAxis.add(cMotor);
+        // Halo au point de contact de coupe
+        const cutSparkGeo = new THREE.SphereGeometry(2.8, 12, 12);
+        const cutSparkMat = new THREE.MeshBasicMaterial({ color: 0xff9f1c, transparent: true, opacity: 0.85 });
+        const cutSpark = new THREE.Mesh(cutSparkGeo, cutSparkMat);
+        cutSpark.position.set(0, 0, -91);
+        cutSpark.visible = false;
+        zAxis.add(cutSpark);
 
-        const cAxis = new THREE.Group(); cAxis.position.z = -8; aAxis.add(cAxis);
-        const platter = createMesh(new THREE.CylinderGeometry(40, 40, 8, 48), matTeal); platter.rotation.x = Math.PI/2; cAxis.add(platter);
+        // 4. Chaîne cinématique Y -> X -> Berceau A -> Plateau C
+        const yAxis = new THREE.Group();
+        machineGroup.add(yAxis);
+        const yTable = createMesh(new THREE.BoxGeometry(110, 170, 10), matPlate);
+        yTable.position.z = 5;
+        yAxis.add(yTable);
+        const yMotor = createStepper(38, 38, 12);
+        yMotor.rotation.x = -Math.PI / 2;
+        yMotor.position.set(0, -128, -3);
+        machineGroup.add(yMotor);
 
-        // --- WORKPIECE & LOGIC ---
-        const workpiece = new VoxelWorkpiece(cAxis, {x: 35, y: 35, z: 25}, 30, matWorkpiece);
-        let lastToolPos = new THREE.Vector3();
+        const xAxis = new THREE.Group();
+        xAxis.position.z = 10;
+        yAxis.add(xAxis);
+        const xTable = createMesh(new THREE.BoxGeometry(150, 90, 6), matPlate);
+        xTable.position.z = 3;
+        xAxis.add(xTable);
+        const xMotor = createStepper(38, 38, 12);
+        xMotor.rotation.y = Math.PI / 2;
+        xMotor.position.set(-85, 0, 8);
+        yAxis.add(xMotor);
 
-        function updateMachineStatus(payload) {
-            const m = payload.mPos;
-            zAxis.position.z = 200 + m[2];
-            xAxis.position.x = -m[0];
-            yAxis.position.y = -m[1];
-            aAxis.rotation.x = m[3] * Math.PI / 180;
-            cAxis.rotation.z = m[4] * Math.PI / 180;
+        const trunnionBase = new THREE.Group();
+        trunnionBase.position.z = 6;
+        xAxis.add(trunnionBase);
+        const tSuppL = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate);
+        tSuppL.position.set(-62, 0, 31);
+        trunnionBase.add(tSuppL);
+        const tSuppR = createMesh(new THREE.BoxGeometry(14, 80, 62), matPlate);
+        tSuppR.position.set(62, 0, 31);
+        trunnionBase.add(tSuppR);
+        const aMotor = createStepper(36, 36, 12);
+        aMotor.rotation.y = -Math.PI / 2;
+        aMotor.position.set(80, 0, 40);
+        trunnionBase.add(aMotor);
 
-            if (payload.activeIndex > 0) {
-                const currentPos = new THREE.Vector3(); toolBit.getWorldPosition(currentPos);
-                currentPos.z -= 11; // Pointe de l'outil
-                workpiece.cut(currentPos, 3);
+        const aAxis = new THREE.Group();
+        aAxis.position.set(0, 0, 40);
+        trunnionBase.add(aAxis);
+        const cradle = createMesh(new THREE.BoxGeometry(118, 46, 10), matPlate);
+        cradle.position.z = -14;
+        aAxis.add(cradle);
+        const cMotor = createStepper(34, 34, 10);
+        cMotor.position.z = -44;
+        aAxis.add(cMotor);
+
+        // Chargement optionnel du maillage CAO binaire A-axis.STL injecté en Base64
+        const A_AXIS_STL_B64 = "__A_AXIS_STL_BASE64__";
+        function loadEmbeddedAAxisStl(b64) {
+            if (!b64 || b64.length < 120 || b64.startsWith("__A_AXIS")) return;
+            try {
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                const dv = new DataView(bytes.buffer);
+                const numTris = dv.getUint32(80, true);
+                if (84 + numTris * 50 > bytes.byteLength || numTris === 0 || numTris > 250000) return;
+
+                const positions = new Float32Array(numTris * 9);
+                let offset = 84;
+                let k = 0;
+                for (let t = 0; t < numTris; t++) {
+                    offset += 12; // normale
+                    for (let v = 0; v < 3; v++) {
+                        positions[k++] = dv.getFloat32(offset, true);
+                        positions[k++] = dv.getFloat32(offset + 4, true);
+                        positions[k++] = dv.getFloat32(offset + 8, true);
+                        offset += 12;
+                    }
+                    offset += 2; // attribute byte count
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geo.computeVertexNormals();
+                geo.computeBoundingBox();
+                const bb = geo.boundingBox;
+                const size = new THREE.Vector3();
+                bb.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                if (maxDim > 0) {
+                    const center = new THREE.Vector3();
+                    bb.getCenter(center);
+                    geo.translate(-center.x, -center.y, -center.z);
+                    const scale = 116 / maxDim;
+                    geo.scale(scale, scale, scale);
+                }
+                const stlMesh = new THREE.Mesh(geo, matExtrusion);
+                stlMesh.position.set(0, 0, -12);
+                cradle.visible = false;
+                aAxis.add(stlMesh);
+                requestRender();
+            } catch (_) {}
+        }
+        loadEmbeddedAAxisStl(A_AXIS_STL_B64);
+
+        const cAxis = new THREE.Group();
+        cAxis.position.z = -8;
+        aAxis.add(cAxis);
+        const platter = createMesh(new THREE.CylinderGeometry(42, 42, 8, 48), matTeal);
+        platter.rotation.x = Math.PI / 2;
+        cAxis.add(platter);
+
+        // --- BRUT VOXELISÉ & INTERPOLATION CINÉMATIQUE ---
+        const workpiece = new VoxelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, 28, matWorkpiece, 'cylinder');
+
+        const currentMachine = { x: 0, y: 0, z: 0, a: 0, c: 0 };
+        const targetMachine  = { x: 0, y: 0, z: 0, a: 0, c: 0 };
+        let activeToolpathIndex = 0;
+        let currentToolRadius = 3.0;
+
+        function applyMachineCoords(m, isCutting) {
+            zAxis.position.z = 200 + m.z;
+            xAxis.position.x = -m.x;
+            yAxis.position.y = -m.y;
+            aAxis.rotation.x = m.a * Math.PI / 180;
+            cAxis.rotation.z = m.c * Math.PI / 180;
+
+            if (isCutting) {
+                matLedRing.color.setHex(0xff6b35);
+                cutSpark.visible = true;
+                toolBit.rotation.z += 0.45;
+                const currentPos = new THREE.Vector3();
+                toolBit.getWorldPosition(currentPos);
+                currentPos.z -= 11;
+                workpiece.cut(currentPos, currentToolRadius);
+            } else {
+                matLedRing.color.setHex(0x3fb950);
+                cutSpark.visible = false;
             }
         }
 
-        // UI Handlers
-        document.getElementById('reset-btn').onclick = () => workpiece.reset();
+        function updateMachineStatus(payload) {
+            const m = payload.mPos || [0, 0, 0, 0, 0];
+            targetMachine.x = m[0] || 0;
+            targetMachine.y = m[1] || 0;
+            targetMachine.z = m[2] || 0;
+            targetMachine.a = m[3] || 0;
+            targetMachine.c = m[4] || 0;
+            activeToolpathIndex = payload.activeIndex || 0;
+            applyMachineCoords(targetMachine, activeToolpathIndex > 0);
+            currentMachine.x = targetMachine.x;
+            currentMachine.y = targetMachine.y;
+            currentMachine.z = targetMachine.z;
+            currentMachine.a = targetMachine.a;
+            currentMachine.c = targetMachine.c;
+            requestRender();
+        }
+
+        // --- CONTRÔLES BOUTONS & VIEWCUBE ---
+        document.getElementById('reset-btn').onclick = () => {
+            workpiece.reset();
+            setCameraPreset('ISOMETRIC');
+        };
+        document.getElementById('cabin-btn').onclick = () => {
+            enclosureGroup.visible = !enclosureGroup.visible;
+            requestRender();
+        };
         document.getElementById('mode-btn').onclick = () => {
-            const m = machineGroup.visible; machineGroup.visible = !m;
+            const m = machineGroup.visible;
+            machineGroup.visible = !m;
             document.getElementById('mode-text').innerText = m ? 'Outil' : 'Machine';
+            requestRender();
         };
 
-        // --- PRÉVISUALISATION DU PARCOURS D'OUTIL (restaurée) -------------
-        // La refonte du simulateur avait retiré ce rendu : Dart envoyait bien
-        // 'load_toolpath', mais le JS ne le traitait plus → aucun tracé.
+        // Orientation caméra par ViewCube (Style Acteris)
+        let camTween = null;
+        function setCameraPreset(preset) {
+            const p = (preset || 'ISOMETRIC').toUpperCase();
+            const target = controls.target.clone();
+            const dist = Math.max(180, camera.position.distanceTo(target));
+            const dest = new THREE.Vector3();
+
+            switch (p) {
+                case 'TOP':
+                    dest.set(target.x, target.y - 0.01, target.z + dist);
+                    break;
+                case 'BOTTOM':
+                    dest.set(target.x, target.y + 0.01, target.z - dist);
+                    break;
+                case 'FRONT':
+                    dest.set(target.x, target.y - dist, target.z + 20);
+                    break;
+                case 'BACK':
+                    dest.set(target.x, target.y + dist, target.z + 20);
+                    break;
+                case 'RIGHT':
+                    dest.set(target.x + dist, target.y, target.z + 20);
+                    break;
+                case 'LEFT':
+                    dest.set(target.x - dist, target.y, target.z + 20);
+                    break;
+                default: // ISOMETRIC
+                    dest.set(target.x + dist * 0.56, target.y - dist * 0.68, target.z + dist * 0.48);
+                    break;
+            }
+            const lbl = document.getElementById('vc-label');
+            if (lbl) lbl.innerText = p;
+            camTween = {
+                startPos: camera.position.clone(),
+                endPos: dest,
+                startTime: performance.now(),
+                duration: 240,
+            };
+            requestRender();
+        }
+
+        document.querySelectorAll('[data-view]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setCameraPreset(el.getAttribute('data-view'));
+            });
+        });
+
+        function syncViewCube() {
+            const cube = document.getElementById('vc-cube');
+            if (!cube) return;
+            const offset = camera.position.clone().sub(controls.target).normalize();
+            const yaw = Math.atan2(offset.x, -offset.y) * (180 / Math.PI);
+            const pitch = Math.asin(Math.max(-1, Math.min(1, offset.z))) * (180 / Math.PI);
+            cube.style.transform = `rotateX(${-pitch.toFixed(1)}deg) rotateY(${-yaw.toFixed(1)}deg)`;
+        }
+
+        // --- PRÉVISUALISATION DU PARCOURS D'OUTIL (ZÉRO FUITE VRAM) ---
         const toolpathGroup = new THREE.Group();
         scene.add(toolpathGroup);
         const pathMaterial = new THREE.LineBasicMaterial({ vertexColors: true });
         let pathLines = null;
         let vectorLines = null;
         let showVectors = false;
-
         let lastToolpath = null;
 
-        function loadToolpath(pointsArray) {
-            lastToolpath = pointsArray;
-            let flat = pointsArray;
-            if (Array.isArray(pointsArray) && Array.isArray(pointsArray[0])) {
-                flat = new Float32Array(pointsArray.length * 6);
-                for (let i = 0; i < pointsArray.length; i++)
-                    for (let j = 0; j < 6; j++) flat[i * 6 + j] = pointsArray[i][j];
+        function clearToolpath() {
+            if (pathLines) {
+                toolpathGroup.remove(pathLines);
+                if (pathLines.geometry) pathLines.geometry.dispose();
+                pathLines = null;
             }
-            if (pathLines) toolpathGroup.remove(pathLines);
-            if (vectorLines) toolpathGroup.remove(vectorLines);
-            const n = Math.floor(flat.length / 6);
+            if (vectorLines) {
+                toolpathGroup.remove(vectorLines);
+                if (vectorLines.geometry) vectorLines.geometry.dispose();
+                vectorLines = null;
+            }
+            requestRender();
+        }
+
+        function loadToolpath(pointsData) {
+            lastToolpath = pointsData;
+            clearToolpath();
+            if (!pointsData || pointsData.length === 0) {
+                debug('PARCOURS VIDE');
+                return;
+            }
+            const flat = Array.isArray(pointsData[0]);
+            const n = flat ? pointsData.length : Math.floor(pointsData.length / 6);
             if (n < 2) return;
 
-            const positions = new Float32Array(n * 3);
-            const colors = new Float32Array(n * 3);
-            const vecPos = [], vecCol = [];
-            // cG0 / cG1 sont definis au niveau du module et reteintes par
-            // applyTheme() : le parcours suit desormais la palette de l'app.
+            const segCount = n - 1;
+            const positions = new Float32Array(segCount * 6);
+            const colors = new Float32Array(segCount * 6);
+            const vecPositions = [];
 
-            for (let i = 0; i < n; i++) {
-                const k = i * 6;
-                const x = flat[k], y = flat[k + 1], z = flat[k + 2];
-                const a = flat[k + 3] || 0, c = flat[k + 4] || 0, type = flat[k + 5];
-                positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
-                const col = (type === 0.0) ? cG0 : cG1;
-                colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
-                if (i % 5 === 0) {
-                    const dir = new THREE.Vector3(0, 0, 1);
-                    dir.applyAxisAngle(new THREE.Vector3(1, 0, 0), -a * Math.PI / 180);
-                    dir.applyAxisAngle(new THREE.Vector3(0, 0, 1), -c * Math.PI / 180);
-                    const L = 15;
-                    vecPos.push(x, y, z, x + dir.x * L, y + dir.y * L, z + dir.z * L);
-                    vecCol.push(0, 0.5, 1, 0, 0.5, 1);
+            const get = (i, k) => flat ? pointsData[i][k] : pointsData[i * 6 + k];
+
+            for (let i = 0; i < segCount; i++) {
+                const x0 = get(i, 0), y0 = get(i, 1), z0 = get(i, 2);
+                const x1 = get(i + 1, 0), y1 = get(i + 1, 1), z1 = get(i + 1, 2);
+                const type = get(i + 1, 5);
+                const c = (type === 0) ? cG0 : cG1;
+
+                const o = i * 6;
+                positions[o]     = x0; positions[o + 1] = y0; positions[o + 2] = z0;
+                positions[o + 3] = x1; positions[o + 4] = y1; positions[o + 5] = z1;
+                colors[o]     = c.r; colors[o + 1] = c.g; colors[o + 2] = c.b;
+                colors[o + 3] = c.r; colors[o + 4] = c.g; colors[o + 5] = c.b;
+
+                if (i % 10 === 0) {
+                    const aRad = (get(i, 3) || 0) * Math.PI / 180;
+                    const len = 8;
+                    vecPositions.push(
+                        x0, y0, z0,
+                        x0, y0 - len * Math.sin(aRad), z0 + len * Math.cos(aRad)
+                    );
                 }
             }
 
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            pathLines = new THREE.Line(geo, pathMaterial);
+            pathLines = new THREE.LineSegments(geo, pathMaterial);
             toolpathGroup.add(pathLines);
 
-            if (vecPos.length > 0) {
-                const vg = new THREE.BufferGeometry();
-                vg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vecPos), 3));
-                vg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vecCol), 3));
-                vectorLines = new THREE.LineSegments(vg, new THREE.LineBasicMaterial({ vertexColors: true, opacity: 0.5, transparent: true }));
+            if (vecPositions.length > 0) {
+                const vGeo = new THREE.BufferGeometry();
+                vGeo.setAttribute('position', new THREE.Float32BufferAttribute(vecPositions, 3));
+                const vMat = new THREE.LineBasicMaterial({ color: new THREE.Color(theme.info) });
+                vectorLines = new THREE.LineSegments(vGeo, vMat);
                 vectorLines.visible = showVectors;
                 toolpathGroup.add(vectorLines);
             }
+            debug('PARCOURS : ' + n + ' PTS');
+            if (!machineGroup.visible) fitCameraTo(pathLines);
+            requestRender();
         }
 
-        // --- ENVELOPPE DE COURSE ------------------------------------------
-        // 'set_limits' etait envoye par Dart depuis toujours mais AUCUN
-        // handler ne le traitait : le message partait dans le vide. Et cote
-        // Dart la valeur etait un defaut invente ([200,300,150]) qu'aucun
-        // ecran ne remplacait. On dessine donc la vraie enveloppe, et
-        // uniquement quand les courses sont connues : `null` => rien, plutot
-        // qu'une boite fausse.
         let limitsBox = null;
-
-        function setLimits(p) {
-            if (limitsBox) { scene.remove(limitsBox); limitsBox = null; }
-            if (!p || !p.x || !p.y || !p.z) return;
-            const g = new THREE.BoxGeometry(p.x, p.y, p.z);
+        function setLimits(b) {
+            if (limitsBox) {
+                scene.remove(limitsBox);
+                if (limitsBox.geometry) limitsBox.geometry.dispose();
+                limitsBox = null;
+            }
+            if (!b) return;
+            const sx = (b.maxX ?? 100) - (b.minX ?? -100);
+            const sy = (b.maxY ?? 100) - (b.minY ?? -100);
+            const sz = (b.maxZ ?? 100) - (b.minZ ?? -100);
+            const g = new THREE.BoxGeometry(sx, sy, sz);
             const e = new THREE.EdgesGeometry(g);
-            limitsBox = new THREE.LineSegments(e, new THREE.LineBasicMaterial({
-                color: new THREE.Color(theme.surfaceBorder),
-                transparent: true, opacity: 0.45,
-            }));
-            // Repere : le modele de la machine est centre sur l'origine en X
-            // et Y (l'axe du plateau), et le parcours est trace aux
-            // coordonnees pieces telles quelles. L'enveloppe est donc centree
-            // en X/Y, et descend depuis Z=0 : sur cette machine le zero
-            // machine est en haut et la course utile va de 0 a -Lz.
-            limitsBox.position.set(0, 0, -p.z / 2);
+            g.dispose();
+            limitsBox = new THREE.LineSegments(
+                e,
+                new THREE.LineBasicMaterial({ color: new THREE.Color(theme.primary), transparent: true, opacity: 0.35 })
+            );
+            limitsBox.position.set(
+                ((b.maxX ?? 100) + (b.minX ?? -100)) / 2,
+                ((b.maxY ?? 100) + (b.minY ?? -100)) / 2,
+                ((b.maxZ ?? 100) + (b.minZ ?? -100)) / 2
+            );
             scene.add(limitsBox);
+            requestRender();
         }
 
-        // --- PIECE (maillage STEP) ----------------------------------------
-        // Le viewer ne savait afficher qu'un parcours : une piece chargee mais
-        // pas encore usinee n'avait donc AUCUNE representation. Le maillage
-        // vient de `pipeline/step_preview.py` (tessellation OpenCASCADE) sous
-        // forme de sommets + indices : three.js recalcule les normales, ce qui
-        // evite de transporter un troisieme tableau pour rien.
+        // --- MAILLAGE DE PIÈCE (STEP facettisé) ---
         const partGroup = new THREE.Group();
         scene.add(partGroup);
         const matPart = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(theme.surfaceBright),
-            metalness: 0.25, roughness: 0.6, side: THREE.DoubleSide,
+            color: 0xd9dde1,
+            metalness: 0.35,
+            roughness: 0.45,
+            side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
         });
         let partMesh = null;
 
@@ -336,151 +894,207 @@
             partGroup.remove(partMesh);
             partMesh.geometry.dispose();
             partMesh = null;
+            requestRender();
         }
 
-        function loadMesh(p) {
+        function loadMesh(data) {
             clearMesh();
-            if (!p || !p.vertices || p.vertices.length < 9) return;
+            if (!data || !data.vertices || data.vertices.length < 9) {
+                debug('MAILLAGE VIDE');
+                return;
+            }
             const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position',
-                new THREE.BufferAttribute(new Float32Array(p.vertices), 3));
-            if (p.indices && p.indices.length) {
-                // Uint32 systematiquement : au-dela de 65535 sommets un index
-                // 16 bits repliera la piece sur elle-meme, en silence.
-                geo.setIndex(new THREE.Uint32BufferAttribute(new Uint32Array(p.indices), 1));
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(data.vertices, 3));
+            if (data.indices && data.indices.length >= 3) {
+                geo.setIndex(data.indices);
             }
             geo.computeVertexNormals();
-            geo.computeBoundingSphere();
             partMesh = new THREE.Mesh(geo, matPart);
             partGroup.add(partMesh);
-            debug('PIECE: ' + Math.round((p.indices ? p.indices.length / 3 : p.vertices.length / 9)) + ' TRIANGLES');
-            fitView(geo.boundingSphere);
+
+            const nTri = data.indices ? (data.indices.length / 3) : (data.vertices.length / 9);
+            debug('PIÈCE CAO : ' + nTri + ' TRIANGLES');
+            fitCameraTo(partMesh);
+            requestRender();
         }
 
-        // Cadre la vue sur une sphere englobante : une piece de 5 mm et une de
-        // 500 mm doivent toutes deux remplir l'ecran, sans reglage manuel.
-        function fitView(sphere) {
-            if (!sphere || !isFinite(sphere.radius)) return;
-            const r = Math.max(sphere.radius, 1);
-            const c = sphere.center;
-            const d = r / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.3;
-            const dir = new THREE.Vector3(0.75, -1, 0.7).normalize();
-            controls.target.copy(c);
-            camera.position.copy(c).addScaledVector(dir, d);
-            camera.near = Math.max(0.1, d - r * 4);
-            camera.far = d + r * 8;
-            camera.updateProjectionMatrix();
+        function fitCameraTo(obj) {
+            obj.geometry.computeBoundingBox();
+            const bb = obj.geometry.boundingBox;
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            bb.getCenter(center);
+            bb.getSize(size);
+            const span = Math.max(size.x, size.y, size.z, 20);
+            controls.target.copy(center);
+            camera.position.set(center.x + span * 1.4, center.y - span * 1.8, center.z + span * 1.2);
             controls.update();
+            syncViewCube();
+            requestRender();
         }
 
-        // Cadrage sur ce qui est affiche, a la demande (bouton, ou message
-        // 'fit_view' apres un chargement pilote depuis Dart).
-        function fitToContent() {
-            const box = new THREE.Box3();
-            if (partMesh) box.expandByObject(partMesh);
-            if (pathLines) box.expandByObject(pathLines);
-            if (box.isEmpty()) return;
-            fitView(box.getBoundingSphere(new THREE.Sphere()));
-        }
-
-        // Une fenetre « apercu piece » n'a que faire du portique, et une
-        // fenetre « parcours » n'a que faire du brut voxelise : chaque fenetre
-        // detachee compose sa scene plutot que d'en cacher des morceaux apres
-        // coup.
-        function setScene(p) {
-            if (!p) return;
-            if (p.machine !== undefined) {
-                machineGroup.visible = !!p.machine;
-                // Meme correspondance que le bouton ci-dessus, pour que le
-                // libelle ne change pas de sens selon qui a bascule la vue.
-                document.getElementById('mode-text').innerText = p.machine ? 'Machine' : 'Outil';
+        function applyScene(s) {
+            if (!s) return;
+            if (typeof s.machine === 'boolean') {
+                machineGroup.visible = s.machine;
+                floorGridGroup.visible = s.machine;
             }
-            if (p.toolpath !== undefined) toolpathGroup.visible = !!p.toolpath;
-            if (p.part !== undefined) partGroup.visible = !!p.part;
-            if (p.workpiece !== undefined) workpiece.mesh.visible = !!p.workpiece;
-            if (p.controls !== undefined) {
-                document.querySelector('.btn-container').style.display =
-                    p.controls ? 'flex' : 'none';
+            if (typeof s.toolpath === 'boolean') toolpathGroup.visible = s.toolpath;
+            if (typeof s.part === 'boolean') partGroup.visible = s.part;
+            if (typeof s.workpiece === 'boolean' && workpiece.mesh) {
+                workpiece.mesh.visible = s.workpiece;
             }
+            if (typeof s.controls === 'boolean') {
+                document.getElementById('floating-controls').style.display = s.controls ? 'flex' : 'none';
+            }
+            requestRender();
         }
 
-        // --- THEME ---------------------------------------------------------
         function applyTheme(p) {
+            if (!p) return;
             Object.assign(theme, p);
-            scene.background = new THREE.Color(theme.background);
-            matPlate.color.set(theme.surface);
-            matWorkpiece.color.set(theme.surfaceBright);
-            matPart.color.set(theme.surfaceBright);
+            const isLight = p.background && (p.background.toLowerCase().startsWith('#f') || p.background.toLowerCase().startsWith('#e'));
+            document.body.classList.toggle('light-studio', !!isLight);
+
+            matPlate.color.set(isLight ? '#334155' : theme.surface);
+            matExtrusion.color.set(theme.surfaceBorder);
+            matAccent.color.set(theme.textSecondary);
             matTool.color.set(theme.primary);
-            for (const m of edgeMaterials) m.color.set(theme.edge);
+            matPart.color.set(theme.surfaceBright);
+
+            const edgeColor = new THREE.Color(theme.edge);
+            for (const m of edgeMaterials) m.color.copy(edgeColor);
+
             cG0.set(theme.error);
             cG1.set(theme.success);
-            if (limitsBox) limitsBox.material.color.set(theme.surfaceBorder);
-            // Une scene claire a besoin de moins de relance lumineuse qu'une
-            // scene sombre, sinon les pieces metalliques y sont delavees.
-            ambient.intensity = p.isDark ? 0.6 : 0.85;
-            dirLight.intensity = p.isDark ? 0.8 : 0.65;
-            // Le parcours porte ses couleurs par sommet : il faut le reconstruire
-            // pour que le changement de theme s'y applique.
-            if (lastToolpath) loadToolpath(lastToolpath);
+            requestRender();
         }
 
-        window.handleMessage = (data) => {
-            if (data.type === 'update_machine') updateMachineStatus(data.payload);
-            else if (data.type === 'load_toolpath') loadToolpath(data.payload);
-            else if (data.type === 'toggle_vectors') {
-                showVectors = data.payload;
-                if (vectorLines) vectorLines.visible = showVectors;
-            }
-            else if (data.type === 'set_limits') setLimits(data.payload);
-            else if (data.type === 'set_theme') applyTheme(data.payload);
-            else if (data.type === 'load_mesh') loadMesh(data.payload);
-            else if (data.type === 'clear_mesh') clearMesh();
-            else if (data.type === 'set_scene') setScene(data.payload);
-            else if (data.type === 'fit_view') fitToContent();
+        document.getElementById('fs-btn').onclick = () => {
+            const msg = JSON.stringify({ type: 'toggle_fullscreen' });
+            if (window.ForgeronBridge) window.ForgeronBridge.postMessage(msg);
+            if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg);
         };
 
-        window.addEventListener('message', (e) => handleMessage(e.data));
+        window.handleMessage = window.handleFlutterMessage = (rawData) => {
+            const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+            const payload = data.payload !== undefined ? data.payload : (data.data !== undefined ? data.data : data);
+            switch (data.type || data.action) {
+                case 'update_machine':
+                case 'update':
+                    updateMachineStatus(payload);
+                    break;
+                case 'load_toolpath':
+                    loadToolpath(Array.isArray(payload) ? payload : (payload && payload.points));
+                    break;
+                case 'clear_toolpath':
+                    clearToolpath();
+                    break;
+                case 'load_mesh':
+                    loadMesh(payload && payload.vertices ? payload : data.mesh);
+                    break;
+                case 'clear_mesh':
+                    clearMesh();
+                    break;
+                case 'set_scene':
+                    applyScene(payload);
+                    break;
+                case 'set_theme':
+                    applyTheme(payload);
+                    break;
+                case 'set_limits':
+                    if (payload && payload.x !== undefined) {
+                        setLimits({
+                            minX: -payload.x / 2, maxX: payload.x / 2,
+                            minY: -payload.y / 2, maxY: payload.y / 2,
+                            minZ: 0, maxZ: payload.z,
+                        });
+                    } else {
+                        setLimits(payload);
+                    }
+                    break;
+                case 'toggle_vectors':
+                case 'set_vectors':
+                    showVectors = typeof payload === 'boolean' ? payload : !!(payload && payload.show);
+                    if (vectorLines) vectorLines.visible = showVectors;
+                    requestRender();
+                    break;
+                case 'set_camera_preset':
+                    setCameraPreset(typeof payload === 'string' ? payload : (payload && payload.preset));
+                    break;
+                case 'configure_stock':
+                    workpiece.configure(payload && payload.shape, payload && payload.dimensions);
+                    if (payload && typeof payload.toolDiameter === 'number' && payload.toolDiameter > 0) {
+                        currentToolRadius = payload.toolDiameter / 2.0;
+                    }
+                    break;
+                case 'reset_stock':
+                    workpiece.reset();
+                    break;
+                case 'set_enclosure':
+                    enclosureGroup.visible = typeof payload === 'boolean' ? payload : !!(payload && payload.show);
+                    requestRender();
+                    break;
+                case 'reset_camera':
+                    if (partGroup.visible && partMesh) {
+                        fitCameraTo(partMesh);
+                    } else if (!machineGroup.visible && pathLines) {
+                        fitCameraTo(pathLines);
+                    } else {
+                        controls.target.set(0, 0, 55);
+                        setCameraPreset('ISOMETRIC');
+                    }
+                    break;
+            }
+        };
 
-        // --- PONT AVEC L'HOTE ---------------------------------------------
-        // Deux hotes, deux protocoles, et c'est ce qui tenait le viewer
-        // Windows muet : la page ne signalait sa disponibilite que par
-        // `window.ForgeronChannel`, le canal JS de `webview_flutter`
-        // (Android/iOS). Sur WebView2 cet objet n'existe pas — le signal
-        // « pret » ne partait donc jamais, et Dart, qui n'envoie theme,
-        // parcours et position qu'APRES ce signal, n'envoyait rien du tout.
-        // WebView2 expose `window.chrome.webview` a la place : on annonce sur
-        // les deux, et on ecoute aussi son evenement 'message', qui n'atteint
-        // pas `window`.
-        function announceReady() {
-            const hello = JSON.stringify({ type: 'viewer_ready' });
-            if (window.ForgeronChannel) window.ForgeronChannel.postMessage(hello);
-            if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage(hello);
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener('message', e => window.handleMessage(e.data));
+        }
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            if (camTween) {
+                const elapsed = now - camTween.startTime;
+                const t = Math.min(1, elapsed / camTween.duration);
+                const ease = 1 - Math.pow(1 - t, 3);
+                camera.position.lerpVectors(camTween.startPos, camTween.endPos, ease);
+                controls.update();
+                syncViewCube();
+                needsRender = true;
+                if (t >= 1) camTween = null;
+            } else if (controls.enableDamping) {
+                if (controls.update()) {
+                    syncViewCube();
+                    needsRender = true;
+                }
+            }
+
+            if (needsRender) {
+                renderer.render(scene, camera);
+                needsRender = false;
             }
         }
-        if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.addEventListener('message', (e) => {
-                const d = e.data;
-                handleMessage(typeof d === 'string' ? JSON.parse(d) : d);
-            });
+        syncViewCube();
+        requestAnimationFrame(animate);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            requestRender();
+        });
+
+        function announceReady() {
+            const readyMsg = JSON.stringify({ type: 'viewer_ready' });
+            if (window.ForgeronChannel) window.ForgeronChannel.postMessage(readyMsg);
+            if (window.ForgeronBridge) window.ForgeronBridge.postMessage(readyMsg);
+            if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(readyMsg);
         }
         announceReady();
-        // Filet de securite : si l'hote s'abonne apres le premier tour de
-        // boucle (initialisation asynchrone cote Dart), il manquerait
-        // l'annonce. On la repete quelques fois, c'est un message inerte.
-        let readyBeeps = 0;
-        const readyTimer = setInterval(() => {
-            announceReady();
-            if (++readyBeeps >= 5) clearInterval(readyTimer);
-        }, 300);
-
-        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
-        animate();
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        setTimeout(announceReady, 150);
+        setTimeout(announceReady, 500);
     </script>
 </body>
 </html>

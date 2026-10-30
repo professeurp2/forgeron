@@ -169,7 +169,7 @@ class OverridePanel extends ConsumerWidget {
   Widget _dense(BuildContext context, ForgeronColorPalette fc, int feed,
       int rapid, void Function(String) send) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _denseLabel(fc, 'AVANCE', '$feed %', feed != 100,
+      _denseLabel(fc, tr('AVANCE'), '$feed %', feed != 100,
           onReset: feed == 100 ? null : () => send(_feedReset)),
       const SizedBox(height: 5),
       Row(children: [
@@ -182,7 +182,7 @@ class OverridePanel extends ConsumerWidget {
         _denseBtn(fc, '+10', () => send(_feedPlus10)),
       ]),
       const SizedBox(height: 10),
-      _denseLabel(fc, 'RAPIDES', '$rapid %', rapid != 100),
+      _denseLabel(fc, tr('RAPIDES'), '$rapid %', rapid != 100),
       const SizedBox(height: 5),
       Row(children: [
         _denseBtn(fc, '25', () => send(_rapid25), selected: rapid == 25),

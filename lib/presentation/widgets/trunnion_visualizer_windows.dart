@@ -1,32 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_windows/webview_windows.dart';
 
+import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/utils/three_viewer_asset_cache.dart';
 import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Windows** (`webview_windows` / WebView2).
-///
-/// Historique du bug corrigé ici : la page `three_viewer.html` annonçait sa
-/// disponibilité par `window.ForgeronChannel`, le canal JS de
-/// `webview_flutter` (Android/iOS). Cet objet n'existe pas sous WebView2 —
-/// l'annonce ne partait donc jamais, `_isReady` restait faux, et comme
-/// TOUT l'envoi (thème, parcours, position, courses) était conditionné à ce
-/// signal, la scène restait une page noire et vide. La page annonce désormais
-/// aussi via `window.chrome.webview` ; et par sécurité on considère également
-/// la fin de navigation comme un signal de disponibilité.
-///
-/// Deuxième correction : le sens Dart → page passe par `executeScript`, qui
-/// appelle directement `window.handleMessage(...)` — exactement ce que fait la
-/// version Android/iOS, qui marche. `postWebMessage` visait `window`, alors
-/// que WebView2 délivre ses messages sur `window.chrome.webview` : les
-/// messages partaient dans le vide.
 class WindowsTrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
   final List<double>? targetPos;
@@ -37,8 +26,7 @@ class WindowsTrunnionVisualizer extends ConsumerStatefulWidget {
   /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
   final List<double>? machineLimits;
 
-  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
-  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`).
   final Map<String, dynamic>? partMesh;
 
   /// Ce que la scène montre — voir [ViewerScene].
@@ -87,19 +75,16 @@ class _WindowsTrunnionVisualizerState
 
       _messageSub = _controller.webMessage.listen((message) {
         try {
-          // Selon la version du plugin, la charge arrive déjà décodée ou
-          // encore sous forme de texte JSON : on accepte les deux.
           final data = message is String ? jsonDecode(message) : message;
-          if (data is Map && data['type'] == 'viewer_ready') _markReady();
+          if (data is Map &&
+              (data['type'] == 'viewer_ready' || data['type'] == 'ready')) {
+            _markReady();
+          }
         } catch (e) {
           debugPrint('[Visualizer] message illisible : $e');
         }
       });
 
-      // Filet : si l'annonce de la page n'arrive pas (pont bloqué, page
-      // servie autrement), la fin de navigation suffit — le script inline
-      // s'exécute pendant l'analyse du document, donc `handleMessage` existe
-      // déjà à ce moment-là.
       _loadingSub = _controller.loadingState.listen((s) {
         if (s == LoadingState.navigationCompleted) _markReady();
       });
@@ -107,7 +92,8 @@ class _WindowsTrunnionVisualizerState
       await _controller.setBackgroundColor(Colors.transparent);
       await _controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
 
-      await _controller.loadStringContent(await _viewerHtml());
+      final html = await ThreeViewerAssetCache.getInlinedHtml();
+      await _controller.loadStringContent(html);
 
       if (mounted) setState(() => _isInitialized = true);
     } on PlatformException catch (e) {
@@ -119,38 +105,19 @@ class _WindowsTrunnionVisualizerState
     }
   }
 
-  /// La page et ses deux scripts sont **inlinés** : aucune requête réseau, le
-  /// visualiseur fonctionne hors ligne (atelier sans Internet).
-  Future<String> _viewerHtml() async {
-    var html = await rootBundle.loadString('web/three_viewer.html');
-    final three = await rootBundle.loadString('web/js/three.min.js');
-    final orbit = await rootBundle.loadString('web/js/OrbitControls.js');
-    html = html.replaceFirst(
-      '<script src="js/three.min.js"></script>',
-      '<script>$three</script>',
-    );
-    html = html.replaceFirst(
-      '<script src="js/OrbitControls.js"></script>',
-      '<script>$orbit</script>',
-    );
-    return html;
-  }
-
-  /// Premier signal de disponibilité reçu : on pousse tout l'état d'un coup.
-  /// Les annonces suivantes (la page en répète quelques-unes) sont ignorées.
   void _markReady() {
     if (_isReady || !mounted) return;
     setState(() => _isReady = true);
+    _lastThemeSent = null;
     _sendScene();
+    _sendStockConfig(ref.read(simulationProvider));
     _sendMesh();
     _sendToolpath();
     _sendLimits();
     _toggleVectors();
     _updateMachine();
-    _lastThemeSent = null; // force le renvoi du thème au prochain build
   }
 
-  /// Dart → page : la page expose `handleMessage(data)` au scope global.
   void _post(Map<String, dynamic> data) {
     if (!_isReady) return;
     unawaited(
@@ -170,13 +137,31 @@ class _WindowsTrunnionVisualizerState
 
     if (oldWidget.scene != widget.scene) _sendScene();
     if (!identical(oldWidget.partMesh, widget.partMesh)) _sendMesh();
-    if (oldWidget.toolpath != widget.toolpath) _sendToolpath();
+    if (!identical(oldWidget.toolpath, widget.toolpath)) _sendToolpath();
     if (oldWidget.showVectors != widget.showVectors) _toggleVectors();
-    if (oldWidget.machineLimits != widget.machineLimits) _sendLimits();
-    _updateMachine();
+    if (!listEquals(oldWidget.machineLimits, widget.machineLimits)) {
+      _sendLimits();
+    }
+    if (oldWidget.activeIndex != widget.activeIndex ||
+        !listEquals(oldWidget.mPos, widget.mPos)) {
+      _updateMachine();
+    }
   }
 
-  void _sendScene() => _post({'type': 'set_scene', 'payload': widget.scene.toJson()});
+  void _sendScene() =>
+      _post({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendStockConfig(SimulationState sim) {
+    _post({
+      'type': 'configure_stock',
+      'payload': {
+        'shape': sim.stockShape.wire,
+        'dimensions': sim.stockDimensions,
+        'toolDiameter': sim.toolDiameter,
+      },
+    });
+    _post({'type': 'set_enclosure', 'payload': sim.showEnclosure});
+  }
 
   void _sendMesh() {
     final mesh = widget.partMesh;
@@ -189,14 +174,29 @@ class _WindowsTrunnionVisualizerState
 
   void _sendToolpath() {
     final tp = widget.toolpath;
-    if (tp == null || tp.isEmpty) return;
-    _post({'type': 'load_toolpath', 'payload': _toolpathPayload(tp)});
+    if (tp == null || tp.isEmpty) {
+      _post({'type': 'clear_toolpath'});
+      return;
+    }
+    _post({
+      'type': 'load_toolpath',
+      'payload': ThreeViewerAssetCache.flattenToolpath(tp),
+    });
   }
 
-  void _updateMachine() => _post({
-        'type': 'update_machine',
-        'payload': {'mPos': widget.mPos, 'activeIndex': widget.activeIndex},
-      });
+  void _updateMachine([List<double>? overrideMPos, int? overrideIdx]) {
+    final sim = ref.read(simulationProvider);
+    final useSim = overrideMPos != null ||
+        sim.isSimulating ||
+        sim.status == SimulationStatus.completed;
+    final pos = overrideMPos ?? (useSim ? sim.simulatedMPos : widget.mPos);
+    final idx =
+        overrideIdx ?? (useSim ? sim.currentToolpathIndex : widget.activeIndex);
+    _post({
+      'type': 'update_machine',
+      'payload': {'mPos': pos, 'activeIndex': idx},
+    });
+  }
 
   void _toggleVectors() =>
       _post({'type': 'toggle_vectors', 'payload': widget.showVectors});
@@ -211,12 +211,31 @@ class _WindowsTrunnionVisualizerState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SimulationState>(simulationProvider, (prev, next) {
+      if (!_isReady) return;
+      if (prev?.stockResetSeq != next.stockResetSeq ||
+          prev?.toolDiameter != next.toolDiameter) {
+        _sendStockConfig(next);
+      }
+      if (prev?.showEnclosure != next.showEnclosure) {
+        _post({'type': 'set_enclosure', 'payload': next.showEnclosure});
+      }
+      if (prev?.cameraCommandSeq != next.cameraCommandSeq) {
+        _post({'type': 'set_camera_preset', 'payload': next.cameraPreset});
+      }
+      if (next.isSimulating ||
+          next.status == SimulationStatus.completed ||
+          (prev?.isSimulating == true && !next.isSimulating)) {
+        _updateMachine(next.simulatedMPos, next.currentToolpathIndex);
+      }
+    });
+
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            'Simulateur 3D indisponible\n$_error',
+            tr('Simulateur 3D indisponible\n{}', [_error]),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11),
           ),
@@ -246,21 +265,4 @@ class _WindowsTrunnionVisualizerState
     _controller.dispose();
     super.dispose();
   }
-}
-
-/// Met le parcours à plat, en six colonnes par point (x, y, z, a, c, type) :
-/// le format que `loadToolpath` attend côté page. Partagé mot pour mot avec la
-/// version Android/iOS.
-List<List<double>> _toolpathPayload(List<List<double>> toolpath) {
-  return [
-    for (final p in toolpath)
-      [
-        p.isNotEmpty ? p[0] : 0.0,
-        p.length > 1 ? p[1] : 0.0,
-        p.length > 2 ? p[2] : 0.0,
-        p.length > 3 ? p[3] : 0.0,
-        p.length > 4 ? p[4] : 0.0,
-        p.length > 5 ? p[5] : 1.0,
-      ],
-  ];
 }

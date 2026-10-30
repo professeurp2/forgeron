@@ -14,11 +14,6 @@ import 'package:vector_math/vector_math_64.dart';
 /// où `Pivot` est le centre de rotation A (repère machine), `d`
 /// [pivotToTableOffset] la distance pivot→plateau (le pivot est SOUS la table,
 /// donc d > 0), et la pointe d'outil est à `Zm − toolLength`.
-///
-/// ⚠️ `Pivot` (position machine du pivot) et l'offset WCS sont des données de
-/// **calibration de montage** (dépendent du zéro pièce G54), pas de simples
-/// constantes machine. Par défaut `Pivot = (0,0,0)` : la reconstruction est
-/// alors correcte en FORME (rotations + offset table) à une translation près.
 class KinematicsService {
   /// Distance Z entre le centre de rotation A et la surface du plateau (mm).
   /// Le pivot est sous la table → valeur positive. Mesuré machine : 8 mm.
@@ -38,25 +33,36 @@ class KinematicsService {
     Vector3? pivot,
   }) : pivot = pivot ?? Vector3.zero();
 
-  Vector3 get _tableOffset => Vector3(0, 0, pivotToTableOffset);
-
   /// --- CINÉMATIQUE DIRECTE ---
   /// Position de la pointe d'outil dans le repère PIÈCE à partir des
   /// coordonnées MACHINE (X, Y, Z, A, C).
   ///
   ///   p_pièce = Rz(−C) · ( Rx(−A)·(T − Pivot) − (0,0,d) ),  T = (X, Y, Z−Loutil)
+  ///
+  /// Implémentation scalaire directe sans allocation de Matrix4/Vector3
+  /// intermédiaires pour éviter la pression GC sur 30 000+ points.
   Vector3 forward(Vector3 mPos, double angleA, double angleC) {
     final aRad = _deg(angleA);
     final cRad = _deg(angleC);
+    final cosA = math.cos(aRad);
+    final sinA = math.sin(aRad);
+    final cosC = math.cos(cRad);
+    final sinC = math.sin(cRad);
 
-    // Pointe d'outil dans le repère machine.
-    final tip = Vector3(mPos.x, mPos.y, mPos.z - toolLength);
+    final dx = mPos.x - pivot.x;
+    final dy = mPos.y - pivot.y;
+    final dz = (mPos.z - toolLength) - pivot.z;
 
-    // Relatif au pivot, puis on annule l'inclinaison A (repère berceau).
-    final inCradle = _rotX(-aRad).transform3(tip - pivot) - _tableOffset;
+    // Rx(-aRad) · (T - Pivot) - (0, 0, pivotToTableOffset)
+    final cx = dx;
+    final cy = dy * cosA + dz * sinA;
+    final cz = -dy * sinA + dz * cosA - pivotToTableOffset;
 
-    // On annule la rotation plateau C → repère pièce.
-    return _rotZ(-cRad).transform3(inCradle);
+    // Rz(-cRad) · inCradle
+    final px = cx * cosC + cy * sinC;
+    final py = -cx * sinC + cy * cosC;
+
+    return Vector3(px, py, cz);
   }
 
   /// --- CINÉMATIQUE INVERSE (RTCP) ---
@@ -68,13 +74,22 @@ class KinematicsService {
   Vector3 inverseRTCP(Vector3 wPos, double angleA, double angleC) {
     final aRad = _deg(angleA);
     final cRad = _deg(angleC);
+    final cosA = math.cos(aRad);
+    final sinA = math.sin(aRad);
+    final cosC = math.cos(cRad);
+    final sinC = math.sin(cRad);
 
-    // NB : Matrix4.transform3 mute son argument sur place → on clone l'entrée
-    // pour ne pas corrompre le Vector3 fourni par l'appelant.
-    final inCradle = _rotZ(cRad).transform3(wPos.clone()) + _tableOffset;
-    final tip = pivot + _rotX(aRad).transform3(inCradle);
+    // Rz(cRad) · wPos + (0, 0, pivotToTableOffset)
+    final cx = wPos.x * cosC - wPos.y * sinC;
+    final cy = wPos.x * sinC + wPos.y * cosC;
+    final cz = wPos.z + pivotToTableOffset;
 
-    return Vector3(tip.x, tip.y, tip.z + toolLength);
+    // Pivot + Rx(aRad) · inCradle + (0, 0, toolLength)
+    final tx = pivot.x + cx;
+    final ty = pivot.y + (cy * cosA - cz * sinA);
+    final tz = pivot.z + (cy * sinA + cz * cosA) + toolLength;
+
+    return Vector3(tx, ty, tz);
   }
 
   /// --- DÉTECTION DE SINGULARITÉ ---
@@ -84,17 +99,16 @@ class KinematicsService {
   double calculateSingularityRisk(double angleA, {double dangerZone = 5.0}) {
     final absA = angleA.abs();
     if (absA >= dangerZone) return 0.0;
-    return math.pow(1.0 - (absA / dangerZone), 2).toDouble();
+    final ratio = 1.0 - (absA / dangerZone);
+    return ratio * ratio;
   }
 
   /// Vecteur normal à la surface pièce (axe outil pièce) exprimé dans le repère
   /// machine, pour les angles A/C donnés. À A=0,C=0 → (0,0,1).
   Vector3 getSurfaceNormal(double angleA, double angleC) {
-    final rot = _rotX(_deg(angleA))..multiply(_rotZ(_deg(angleC)));
-    return rot.transform3(Vector3(0, 0, 1));
+    final aRad = _deg(angleA);
+    return Vector3(0.0, -math.sin(aRad), math.cos(aRad));
   }
 
   static double _deg(double d) => d * math.pi / 180.0;
-  static Matrix4 _rotX(double r) => Matrix4.identity()..rotateX(r);
-  static Matrix4 _rotZ(double r) => Matrix4.identity()..rotateZ(r);
 }

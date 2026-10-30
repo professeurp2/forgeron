@@ -44,8 +44,11 @@ class GCodeModalState {
 /// Conçu pour être exécuté dans un Isolate via [compute].
 class GCodeParser {
   static Future<AnalyzedGCode> parseLargeFile(String content) async {
-    return compute(_parseInternal, content);
+    return compute(parseSync, content);
   }
+
+  /// Exécution synchrone (appelable directement depuis un Isolate unifié).
+  static AnalyzedGCode parseSync(String content) => _parseInternal(content);
 
   // Mot de mouvement G0/G1/G2/G3 en tant que MOT ENTIER : le `(?![0-9])` évite
   // que G17/G21/G28… soient pris pour G1/G2 (bug de préfixe).
@@ -53,6 +56,12 @@ class GCodeParser {
   // Présence d'un axe avec une valeur (pour savoir si la ligne bouge).
   static final RegExp _hasAxis = RegExp(r'[XYZAC]\s*[-+]?\.?[0-9]');
   static final RegExp _parenComment = RegExp(r'\([^)]*\)');
+  // Expressions régulières pré-compilées par mot G-code (évite ~180 000
+  // compilations de RegExp lors du chargement d'un fichier de 30 000 lignes).
+  static final Map<String, RegExp> _wordRegex = {
+    for (final k in const ['X', 'Y', 'Z', 'A', 'C', 'I', 'J', 'K', 'R', 'F', 'S'])
+      k: RegExp('$k([-+]?[0-9]*\\.?[0-9]+)'),
+  };
 
   static AnalyzedGCode _parseInternal(String content) {
     final lines = content.split('\n');
@@ -85,6 +94,20 @@ class GCodeParser {
       if (line.contains('G17')) plane = 17;
       if (line.contains('G18')) plane = 18;
       if (line.contains('G19')) plane = 19;
+      if (line.contains('F')) {
+        final fm = _wordRegex['F']?.firstMatch(line);
+        if (fm != null) {
+          final fv = double.tryParse(fm.group(1)!);
+          if (fv != null) currentModal = _updateModal(currentModal, feedrate: fv);
+        }
+      }
+      if (line.contains('S')) {
+        final sm = _wordRegex['S']?.firstMatch(line);
+        if (sm != null) {
+          final sv = double.tryParse(sm.group(1)!);
+          if (sv != null) currentModal = _updateModal(currentModal, spindleSpeed: sv);
+        }
+      }
       modalStates[i] = currentModal;
 
       // --- Mode de mouvement (modal) ---
@@ -131,7 +154,10 @@ class GCodeParser {
   /// Offset d'arc (I/J/K) ou rayon (R) présent sur la ligne, converti en mm si
   /// pouces. `null` si absent.
   static double? _offset(String line, String axis, GCodeModalState modal) {
-    final m = RegExp('$axis([-+]?[0-9]*\\.?[0-9]+)').firstMatch(line);
+    final reg = _wordRegex[axis];
+    final m = reg != null
+        ? reg.firstMatch(line)
+        : RegExp('$axis([-+]?[0-9]*\\.?[0-9]+)').firstMatch(line);
     if (m == null) return null;
     var v = double.tryParse(m.group(1)!) ?? 0.0;
     if (modal.isInches) v *= 25.4;
@@ -235,8 +261,10 @@ class GCodeParser {
     GCodeModalState modal, {
     required bool isLinear,
   }) {
-    final reg = RegExp('$axis([-+]?[0-9]*\\.?[0-9]+)');
-    final match = reg.firstMatch(line);
+    final reg = _wordRegex[axis];
+    final match = reg != null
+        ? reg.firstMatch(line)
+        : RegExp('$axis([-+]?[0-9]*\\.?[0-9]+)').firstMatch(line);
     if (match == null) return lastVal;
 
     double value = double.tryParse(match.group(1)!) ?? 0.0;
@@ -245,13 +273,20 @@ class GCodeParser {
     return modal.isRelative ? lastVal + value : value;
   }
 
-  static GCodeModalState _updateModal(GCodeModalState current, {String? wcs, bool? relative, bool? inches}) {
+  static GCodeModalState _updateModal(
+    GCodeModalState current, {
+    String? wcs,
+    bool? relative,
+    bool? inches,
+    double? feedrate,
+    double? spindleSpeed,
+  }) {
     return GCodeModalState(
       wcs: wcs ?? current.wcs,
       isRelative: relative ?? current.isRelative,
       isInches: inches ?? current.isInches,
-      feedrate: current.feedrate,
-      spindleSpeed: current.spindleSpeed,
+      feedrate: feedrate ?? current.feedrate,
+      spindleSpeed: spindleSpeed ?? current.spindleSpeed,
     );
   }
 }

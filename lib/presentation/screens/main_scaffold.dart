@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/camera_provider.dart';
@@ -21,6 +22,7 @@ import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
 import 'app_settings_screen.dart';
+import 'scan3d_screen.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import 'connection_settings_screen.dart';
 import 'mobile_dashboard_screen.dart';
@@ -102,6 +104,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
       // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
       ref.read(discoveryProvider.notifier).scan(autoConnect: true);
+
+      // 3. Si l'activité Android a été recréée pendant la prise de photo Scan 3D, rouvrir l'écran
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('on_scan3d_screen') == true && mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+          );
+        }
+      } catch (_) {}
     });
   }
 
@@ -136,24 +148,19 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final machineState = ref.watch(machineStateProvider);
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
     return TutorialOverlay(
       child: ResponsiveLayout(
-        mobile: _buildMobileScaffold(machineState, selectedIndex),
-        tablet: _buildDesktopScaffold(machineState, selectedIndex, false),
-        desktop: _buildDesktopScaffold(machineState, selectedIndex, _isSidebarExpanded),
+        mobile: _buildMobileScaffold(selectedIndex),
+        tablet: _buildDesktopScaffold(selectedIndex, false),
+        desktop: _buildDesktopScaffold(selectedIndex, _isSidebarExpanded),
       ),
     );
   }
 
-  Widget _buildDesktopScaffold(AsyncValue<MachineState> machineState, int selectedIndex, bool isExpanded) {
+  Widget _buildDesktopScaffold(int selectedIndex, bool isExpanded) {
     // ── Mode atelier : pupitre plein écran, sans barre latérale ni en-tête ──
-    // Le drapeau n'était lu que par le tableau de bord : depuis n'importe
-    // quelle autre page, le réglage se refermait sans rien changer, et quand
-    // il prenait enfin effet le pupitre restait enfermé dans le chrome de
-    // navigation — alors qu'il est annoncé « plein écran ».
     if (ref.watch(isWorkshopModeProvider)) {
       return Scaffold(
         backgroundColor: context.fc.background,
@@ -168,7 +175,6 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       backgroundColor: context.fc.background,
       bottomNavigationBar: _StatusFooter(
         key: TutorialKeys.statusFooter,
-        machineState: machineState,
       ),
       body: Column(
         children: [
@@ -177,10 +183,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
             key: TutorialKeys.headerBar,
             isSidebarExpanded: isExpanded,
             onMenuToggle: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
-            machineState: machineState,
             onEmergencyStop: () {
-              // Passe par le contrôleur : il purge le flux ET vérifie que la
-              // commande est réellement partie (sinon SafetyBanner alerte).
               ref.read(streamingProvider.notifier).stopStream();
             },
             onSettingsPressed: () {
@@ -206,7 +209,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 Expanded(
                   child: Container(
                     color: context.fc.background,
-                    child: _screens[selectedIndex],
+                    child: _PageReveal(
+                      key: ValueKey(selectedIndex),
+                      child: _screens[selectedIndex],
+                    ),
                   ),
                 ),
               ],
@@ -236,20 +242,17 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     'TABLEAU', 'PALPAGE', 'OUTILS', 'TRAVAIL', 'MDI', 'DIAG',
   ];
 
-  Widget _buildMobileScaffold(AsyncValue<MachineState> machineState, int selectedIndex) {
+  Widget _buildMobileScaffold(int selectedIndex) {
     // ── Mode atelier : pupitre plein écran, sans barre de navigation ───────
-    // Le drapeau est levé depuis Paramètres → Mode atelier. Seul le tableau de
-    // bord *desktop* le lisait : sur mobile, le réglage se refermait sans rien
-    // changer. Le pupitre remplace tout le chrome — il porte sa propre sortie.
     if (ref.watch(isWorkshopModeProvider)) return const MobileWorkshopScreen();
 
     final fc = context.fc;
     final aiInbox = ref.watch(aiInboxProvider);
-    final state = machineState.valueOrNull;
+    final status = ref.watch(machineStateProvider.select((s) => s.valueOrNull?.status));
     final statusColor =
-        _getMachineStatusColor(context, state?.status ?? MachineStatus.offline);
-    final statusLabel = state?.status.name.toUpperCase() ?? 'OFFLINE';
-    final isOnline = state?.status != null && state?.status != MachineStatus.offline;
+        _getMachineStatusColor(context, status ?? MachineStatus.offline);
+    final statusLabel = status?.name.toUpperCase() ?? 'OFFLINE';
+    final isOnline = status != null && status != MachineStatus.offline;
 
     final destinations = [
       for (int i = 0; i < _mobileNavLabels.length; i++)
@@ -305,6 +308,16 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.camera_enhance_rounded, color: fc.primary, size: 20),
+            tooltip: tr('Scan 3D (Photo vers Usinage)'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+              );
+            },
+          ),
           // Paramètres de l'app (remplace l'ancienne bascule de thème, qui a
           // déménagé dans Paramètres → Apparence).
           IconButton(
@@ -448,32 +461,34 @@ class _EstopFabState extends State<_EstopFab>
   @override
   Widget build(BuildContext context) {
     final danger = context.fc.danger;
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (context, child) {
-        final t = _pulse.value;
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: danger.withValues(alpha: 0.35 + 0.35 * t),
-                blurRadius: 12 + 12 * t,
-                spreadRadius: 1 + 3 * t,
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: FloatingActionButton(
-        onPressed: widget.onPressed,
-        backgroundColor: danger,
-        foregroundColor: Colors.white,
-        elevation: 6,
-        shape: const CircleBorder(),
-        tooltip: tr('Arrêt d\'urgence'),
-        child: const Icon(Icons.warning_amber_rounded, size: 26),
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, child) {
+          final t = _pulse.value;
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: danger.withValues(alpha: 0.35 + 0.35 * t),
+                  blurRadius: 12 + 12 * t,
+                  spreadRadius: 1 + 3 * t,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: FloatingActionButton(
+          onPressed: widget.onPressed,
+          backgroundColor: danger,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shape: const CircleBorder(),
+          tooltip: tr('Arrêt d\'urgence'),
+          child: const Icon(Icons.warning_amber_rounded, size: 26),
+        ),
       ),
     );
   }
@@ -525,7 +540,7 @@ class _AiAssistantPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr('AGENT IA'),
+                  Text('AGENT IA',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textPrimary,
@@ -551,7 +566,7 @@ class _AiAssistantPage extends ConsumerWidget {
             return IconButton(
               icon: Icon(ttsOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                   color: ttsOn ? fc.primary : fc.textSecondary, size: 20),
-              tooltip: ttsOn ? 'Lecture vocale activée' : 'Lecture vocale',
+              tooltip: ttsOn ? tr('Lecture vocale activée') : tr('Lecture vocale'),
               onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
             );
           }),
@@ -793,82 +808,77 @@ class _FloatingAiButtonState extends State<_FloatingAiButton>
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final t = _ctrl.value; // 0 → 1
-        // Ondulation verticale douce + léger balancement.
-        final bob = sin(t * 2 * pi) * 4.0;
-        final tilt = sin(t * 2 * pi) * 0.06;
-        return Transform.translate(
-          offset: Offset(0, bob),
-          child: Transform.rotate(angle: tilt, child: child),
-        );
-      },
-      child: _buildButton(fc),
-    );
-  }
-
-  Widget _buildButton(ForgeronColorPalette fc) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.88 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            final glow = 0.35 + 0.35 * (0.5 + 0.5 * sin(_ctrl.value * 4 * pi));
-            return Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    fc.primary,
-                    fc.primary.withValues(alpha: 0.75),
-                  ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: fc.primary.withValues(alpha: glow),
-                    blurRadius: 16,
-                    spreadRadius: 1,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.88 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, badge) {
+              final t = _ctrl.value;
+              final bob = sin(t * 2 * pi) * 4.0;
+              final tilt = sin(t * 2 * pi) * 0.06;
+              final glow = 0.35 + 0.35 * (0.5 + 0.5 * sin(t * 4 * pi));
+              return Transform.translate(
+                offset: Offset(0, bob),
+                child: Transform.rotate(
+                  angle: tilt,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              fc.primary,
+                              fc.primary.withValues(alpha: 0.75),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: fc.primary.withValues(alpha: glow),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.30),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text('🤖', style: TextStyle(fontSize: 28)),
+                      ),
+                      if (badge != null) badge,
+                    ],
                   ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.30),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Text('🤖', style: TextStyle(fontSize: 28)),
-            );
-          },
-            ),
-            // Badge d'alerte : « ? » (info) ou « ! » (problème).
-            if (widget.alert)
-              Positioned(
-                right: -2,
-                top: -2,
-                child: _AiBadge(problem: widget.problem, fc: fc),
-              ),
-          ],
+                ),
+              );
+            },
+            child: widget.alert
+                ? Positioned(
+                    right: -2,
+                    top: -2,
+                    child: _AiBadge(problem: widget.problem, fc: fc),
+                  )
+                : null,
+          ),
         ),
       ),
     );
@@ -908,40 +918,42 @@ class _AiBadgeState extends State<_AiBadge>
   Widget build(BuildContext context) {
     final fc = widget.fc;
     final color = widget.problem ? fc.danger : fc.warning;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final t = _ctrl.value;
-        return Container(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) {
+          final t = _ctrl.value;
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4 + 0.4 * t),
+                  blurRadius: 6 + 4 * t,
+                  spreadRadius: 0.5 + t,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: Container(
+          width: 21,
+          height: 21,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
+            color: color,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.4 + 0.4 * t),
-                blurRadius: 6 + 4 * t,
-                spreadRadius: 0.5 + t,
-              ),
-            ],
+            border: Border.all(color: fc.background, width: 2),
           ),
-          child: child,
-        );
-      },
-      child: Container(
-        width: 21,
-        height: 21,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: fc.background, width: 2),
-        ),
-        child: Text(
-          widget.problem ? '!' : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            height: 1.0,
+          child: Text(
+            widget.problem ? '!' : '?',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
           ),
         ),
       ),
@@ -958,7 +970,6 @@ class _NavDef {
 class _HeaderBar extends ConsumerWidget {
   final bool isSidebarExpanded;
   final VoidCallback onMenuToggle;
-  final AsyncValue<MachineState> machineState;
   final VoidCallback onEmergencyStop;
   final VoidCallback onSettingsPressed;
 
@@ -966,19 +977,16 @@ class _HeaderBar extends ConsumerWidget {
     super.key,
     required this.isSidebarExpanded,
     required this.onMenuToggle,
-    required this.machineState,
     required this.onEmergencyStop,
     required this.onSettingsPressed,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = machineState.valueOrNull;
-    final isOnline = state?.status != null &&
-        state?.status != MachineStatus.offline;
-    final statusLabel =
-        state?.status.name.toUpperCase() ?? 'HORS LIGNE';
-    final statusColor = _statusColor(context, state?.status ?? MachineStatus.offline);
+    final status = ref.watch(machineStateProvider.select((s) => s.valueOrNull?.status));
+    final isOnline = status != null && status != MachineStatus.offline;
+    final statusLabel = status?.name.toUpperCase() ?? 'HORS LIGNE';
+    final statusColor = _statusColor(context, status ?? MachineStatus.offline);
     final ip = ref.watch(espIpProvider);
 
     return Container(
@@ -988,7 +996,13 @@ class _HeaderBar extends ConsumerWidget {
         color: context.fc.surface,
         border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
       ),
-      child: Row(
+      // Fenêtre étroite : on retire d'abord le décoratif (nom en toutes
+      // lettres, adresse IP, second badge), JAMAIS le bouton d'arrêt
+      // d'urgence — à 960 px il était coupé de 60 px (vu à l'écran).
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 1200;
+        final tight = constraints.maxWidth < 900;
+        return Row(
         children: [
           IconButton(
             key: TutorialKeys.menuToggleBtn,
@@ -999,28 +1013,34 @@ class _HeaderBar extends ConsumerWidget {
           ),
           SizedBox(width: 8),
           const ForgeronLogoGlow(height: 32),
-          SizedBox(width: 12),
-          const ForgeronWordmark(fontSize: 22),
-          SizedBox(width: 24),
+          if (!compact) ...[
+            SizedBox(width: 12),
+            const ForgeronWordmark(fontSize: 22),
+          ],
+          SizedBox(width: compact ? 16 : 24),
           _StatusBadge(
             label: isOnline ? 'EN LIGNE' : 'HORS LIGNE',
             color: isOnline ? context.fc.success : context.fc.error,
             isActive: isOnline,
           ),
-          SizedBox(width: 12),
-          _StatusBadge(
-            label: statusLabel,
-            color: statusColor,
-            isActive: true,
-          ),
-          SizedBox(width: 12),
-          Text(
-            ip,
-            style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono'),
-          ),
+          if (!tight) ...[
+            SizedBox(width: 12),
+            _StatusBadge(
+              label: statusLabel,
+              color: statusColor,
+              isActive: true,
+            ),
+          ],
+          if (!compact) ...[
+            SizedBox(width: 12),
+            Text(
+              ip,
+              style: TextStyle(
+                  color: context.fc.textDisabled,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono'),
+            ),
+          ],
           const Spacer(),
           IconButton(
             icon: AnimatedSwitcher(
@@ -1052,6 +1072,14 @@ class _HeaderBar extends ConsumerWidget {
                 color: context.fc.textSecondary, size: 20),
             tooltip: tr('Tutoriel interactif'),
             onPressed: () => ref.read(tutorialProvider.notifier).start(),
+          ),
+          IconButton(
+            icon: Icon(Icons.camera_enhance_rounded,
+                color: context.fc.primary, size: 20),
+            tooltip: tr('Scan 3D (Photo vers Usinage)'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const Scan3dScreen()),
+            ),
           ),
           // Paramètres de l'application. Sans cette entrée, l'assistant de
           // mise en route, la calibration machine, le test des fins de course
@@ -1086,8 +1114,8 @@ class _HeaderBar extends ConsumerWidget {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 14 : 24, vertical: 20),
               ),
               onPressed: onEmergencyStop,
               icon: const Icon(Icons.warning_amber, size: 18),
@@ -1099,7 +1127,8 @@ class _HeaderBar extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+      );
+      }),
     );
   }
 
@@ -1143,8 +1172,24 @@ class _StatusBadgeState extends State<_StatusBadge>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
+    if (widget.isActive) {
+      _ctrl.repeat(reverse: true);
+    }
     _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void didUpdateWidget(_StatusBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _ctrl.repeat(reverse: true);
+      } else {
+        _ctrl.stop();
+        _ctrl.value = 0.0;
+      }
+    }
   }
 
   @override
@@ -1155,45 +1200,75 @@ class _StatusBadgeState extends State<_StatusBadge>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: widget.color.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(4),
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: widget.color.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            AnimatedBuilder(
+              animation: _pulse,
+              builder: (context, _) {
+                final t = widget.isActive ? _pulse.value : 0.0;
+                return Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.isActive ? widget.color : context.fc.textDisabled,
+                    boxShadow: widget.isActive
+                        ? [
+                            BoxShadow(
+                              color: widget.color.withValues(alpha: 0.6 + 0.4 * t),
+                              blurRadius: 5 + 6 * t,
+                              spreadRadius: 0.5 * t,
+                            ),
+                          ]
+                        : null,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(tr(widget.label),
+                style: TextStyle(
+                    color: widget.color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 1.0)),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _pulse,
-            builder: (context, _) {
-              final t = widget.isActive ? _pulse.value : 0.0;
-              return Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.isActive ? widget.color : context.fc.textDisabled,
-                  boxShadow: widget.isActive
-                      ? [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.6 + 0.4 * t),
-                            blurRadius: 5 + 6 * t,
-                            spreadRadius: 0.5 * t,
-                          ),
-                        ]
-                      : null,
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          Text(widget.label,
-              style: TextStyle(
-                  color: widget.color,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 10,
-                  letterSpacing: 1.0)),
-        ],
+    );
+  }
+}
+
+/// Apparition d'une page du bureau : fondu + léger glissement vers le haut.
+///
+/// Seule la page qui ARRIVE est animée : la sortante disparaît aussitôt. Un
+/// fondu croisé garderait les deux pages montées le temps de la transition,
+/// donc deux visualiseurs 3D (WebView2) à la fois sur le tableau de bord.
+class _PageReveal extends StatelessWidget {
+  final Widget child;
+  const _PageReveal({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: reduce ? 0 : 260),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 14 * (1 - t)),
+          child: child,
+        ),
       ),
     );
   }
@@ -1213,6 +1288,11 @@ class _Sidebar extends StatelessWidget {
     required this.onItemSelected,
   });
 
+  /// En dessous, les libellés n'ont pas la place : icônes seules, avec
+  /// infobulle. Décidé sur la largeur RÉELLE et non sur [isExpanded] : pendant
+  /// l'animation de repli, le contenu déplié dans 72 px débordait.
+  static const double _labelsMinWidth = 200;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -1223,174 +1303,266 @@ class _Sidebar extends StatelessWidget {
         color: context.fc.sidebar,
         border: Border(right: BorderSide(color: context.fc.surfaceBorder)),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: context.fc.surfaceBorder))),
-            child: isExpanded
-                ? Row(
-                    children: [
-                      const ForgeronLogoGlow(height: 32),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr('CNC_TRUNNION_5X'),
-                                style: TextStyle(
-                                    color: context.fc.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 2),
-                            Text(tr('AXES: X Y Z A C'),
-                                style: TextStyle(
-                                    color: context.fc.success,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'JetBrains Mono')),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : const ForgeronLogoGlow(height: 28),
-          ),
-          const SizedBox(height: 8),
-          ...List.generate(items.length, (i) {
-            final item = items[i];
-            final selected = i == selectedIndex;
-            return _NavItem(
-              icon: item.icon,
-              title: item.title,
-              selected: selected,
-              isExpanded: isExpanded,
-              onTap: () => onItemSelected(i),
-            );
-          }),
-          const Spacer(),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            decoration: BoxDecoration(
-                border:
-                    Border(top: BorderSide(color: context.fc.surfaceBorder))),
-            child: Row(
-              mainAxisAlignment: isExpanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  backgroundColor: context.fc.surfaceBright,
-                  radius: 16,
-                  child: Icon(Icons.person,
-                      color: context.fc.textSecondary, size: 18),
-                ),
-                if (isExpanded) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final showLabels = constraints.maxWidth >= _labelsMinWidth;
+        // Fenêtre basse : la carte opérateur cède sa place aux entrées, pour
+        // que les 7 restent visibles sans défiler (à 600 de haut, « Agent
+        // IA » sortait par le bas).
+        final itemHeight = showLabels ? 52.0 : 44.0;
+        final showFooter = constraints.maxHeight >=
+            64 + 8 + items.length * (itemHeight + 4) + 72;
+        return Column(
+          children: [
+            Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment:
+                  showLabels ? Alignment.centerLeft : Alignment.center,
+              decoration: BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(color: context.fc.surfaceBorder))),
+              child: showLabels
+                  ? Row(
                       children: [
-                        Text(tr('OPÉRATEUR L01'),
-                            style: TextStyle(
-                                color: context.fc.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10)),
-                        Text(tr('NIV_AUTH: ADMIN'),
-                            style: TextStyle(
-                                color: context.fc.primary,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'JetBrains Mono')),
+                        const ForgeronLogoGlow(height: 32),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(tr('CNC_TRUNNION_5X'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: context.fc.primary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900)),
+                              const SizedBox(height: 2),
+                              Text(tr('AXES: X Y Z A C'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: context.fc.success,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'JetBrains Mono')),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                ],
-              ],
+                    )
+                  : const ForgeronLogoGlow(height: 28),
             ),
-          ),
-        ],
-      ),
+            // Fenêtre basse : les entrées défilent (elles débordaient de
+            // quelques pixels sous 600 de haut, vu à l'écran).
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(top: 8),
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    _NavItem(
+                      icon: items[i].icon,
+                      title: items[i].title,
+                      selected: i == selectedIndex,
+                      showLabel: showLabels,
+                      height: itemHeight,
+                      onTap: () => onItemSelected(i),
+                    ),
+                ],
+              ),
+            ),
+            if (showFooter) Container(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                  border: Border(
+                      top: BorderSide(color: context.fc.surfaceBorder))),
+              child: Row(
+                mainAxisAlignment: showLabels
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: context.fc.surfaceBright,
+                    radius: 16,
+                    child: Icon(Icons.person,
+                        color: context.fc.textSecondary, size: 18),
+                  ),
+                  if (showLabels) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tr('OPÉRATEUR L01'),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: context.fc.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10)),
+                          Text(tr('NIV_AUTH: ADMIN'),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: context.fc.primary,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'JetBrains Mono')),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
+/// Élément de navigation du bureau : survol à la souris, sélection animée
+/// (fond et liseré qui glissent en place), infobulle quand la barre est
+/// repliée — sur PC, on pointe avant de cliquer, l'élément doit répondre.
+class _NavItem extends StatefulWidget {
   final IconData icon;
   final String title;
   final bool selected;
-  final bool isExpanded;
+  final bool showLabel;
+  final double height;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.title,
     required this.selected,
-    required this.isExpanded,
+    required this.showLabel,
     required this.onTap,
+    this.height = 52,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: selected
-              ? context.fc.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border(
-              left: BorderSide(
-                  color: selected ? context.fc.primary : Colors.transparent,
-                  width: 3)),
-        ),
-        child: Row(
-          mainAxisAlignment: isExpanded
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.center,
-          children: [
-            if (isExpanded) const SizedBox(width: 12),
-            Icon(icon,
-                color: selected ? context.fc.primary : context.fc.textDisabled,
-                size: 20),
-            if (isExpanded) ...[
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected
-                        ? context.fc.textPrimary
-                        : context.fc.textSecondary,
-                    fontWeight:
-                        selected ? FontWeight.w900 : FontWeight.normal,
-                    fontSize: 11,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  State<_NavItem> createState() => _NavItemState();
 }
 
-class _StatusFooter extends StatelessWidget {
-  final AsyncValue<MachineState> machineState;
-  const _StatusFooter({super.key, required this.machineState});
+class _NavItemState extends State<_NavItem> {
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
-    final state = machineState.valueOrNull;
+    final fc = context.fc;
+    final selected = widget.selected;
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final d = Duration(milliseconds: reduce ? 0 : 180);
+    final iconColor = selected
+        ? fc.primary
+        : _hover
+            ? fc.textPrimary
+            : fc.textDisabled;
+
+    final item = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: d,
+          curve: Curves.easeOut,
+          height: widget.height,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            // Fond neutre : l'orange de la marque en transparence donnait un
+            // brun-rouge sur le fond sombre, pris pour une tache (signalé à
+            // l'écran). La sélection se lit au liseré, à l'icône et au gras.
+            color: selected
+                ? fc.textPrimary.withValues(alpha: 0.08)
+                : _hover
+                    ? fc.textPrimary.withValues(alpha: 0.05)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Stack(
+            children: [
+              // Liseré de sélection : il grandit depuis le centre.
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  // Courbe SANS dépassement : easeOutBack faisait passer la
+                  // hauteur sous zéro en rétrécissant (28 → 0), et l'entrée
+                  // quittée s'affichait en écran d'erreur rouge le temps de
+                  // l'animation (signalé et capturé à l'écran).
+                  child: AnimatedContainer(
+                    duration: d,
+                    curve: Curves.easeOutCubic,
+                    width: 3,
+                    height: selected ? 28 : 0,
+                    decoration: BoxDecoration(
+                      color: fc.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Row(
+                mainAxisAlignment: widget.showLabel
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  if (widget.showLabel) const SizedBox(width: 14),
+                  AnimatedScale(
+                    duration: d,
+                    scale: _hover && !selected ? 1.12 : 1.0,
+                    child: Icon(widget.icon, color: iconColor, size: 20),
+                  ),
+                  if (widget.showLabel) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: AnimatedDefaultTextStyle(
+                        duration: d,
+                        style: TextStyle(
+                          color: selected || _hover
+                              ? fc.textPrimary
+                              : fc.textSecondary,
+                          fontWeight:
+                              selected ? FontWeight.w900 : FontWeight.normal,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                        ),
+                        child: Text(widget.title,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ],
+                ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return widget.showLabel
+        ? item
+        : Tooltip(
+            message: widget.title,
+            preferBelow: false,
+            waitDuration: const Duration(milliseconds: 300),
+            child: item,
+          );
+  }
+}
+
+class _StatusFooter extends ConsumerWidget {
+  const _StatusFooter({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(machineStateProvider).valueOrNull;
     final mPos = state?.mPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
     final feed = state?.feedrate.toStringAsFixed(0) ?? '0';
     final spindle = state?.spindleSpeed.toStringAsFixed(0) ?? '0';

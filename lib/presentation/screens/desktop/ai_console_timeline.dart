@@ -7,6 +7,7 @@ import 'package:flutter/material.dart' show Colors, Icons, SelectableText;
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Le fil de la console IA : bulles, étapes d'outils et indicateurs vivants.
 ///
@@ -104,11 +105,22 @@ const _toolLabels = <String, String>{
   'show_popup': 'Message de l\'agent',
   'open_chart_window': 'Ouverture d\'un graphique',
   'open_gcode_window': 'Ouverture du G-code dans une fenêtre',
+  'get_reco3d_status': 'État du serveur de calcul Scan 3D',
+  'discover_reco3d_server': 'Recherche du serveur Scan 3D',
+  'start_machine_scan': 'Scan 3D en machine (axes A/C)',
+  'get_scan_job_status': 'Suivi de la reconstruction 3D',
+  'download_scan_result': 'Téléchargement du modèle 3D',
+  'run_machining_simulation': 'Simulation d\'usinage 3D & analyse de collisions',
+  'control_simulation': 'Pilotage du simulateur 3D / ViewCube',
+  'switch_simulator_camera_tab': 'Bascule Simulateur 3D / Caméra',
 };
 
+/// La table ci-dessus est `const` : la traduction se fait ici, au moment de
+/// lire le libellé, sinon elle serait figée à la compilation.
 String friendlyToolLabel(String toolName) =>
-    _toolLabels[toolName] ??
-    toolName
+    _toolLabels[toolName] != null
+        ? tr(_toolLabels[toolName]!)
+        : toolName
         .replaceAll('_', ' ')
         .replaceFirstMapped(RegExp('^.'), (m) => m.group(0)!.toUpperCase());
 
@@ -138,6 +150,25 @@ String resultSummary(String toolName, String result) {
           if (size != null) '$size mm',
           if (data['triangles'] != null) '${data['triangles']} triangles',
         ].join(' · ');
+      }
+      if (toolName == 'start_machine_scan') {
+        if (data['job_id'] != null) {
+          return 'Job ${data['job_id']} lancé · ${data['stage'] ?? ""}';
+        }
+      }
+      if (toolName == 'get_scan_job_status') {
+        final pct = data['progress_percent'];
+        final stage = data['stage'];
+        return 'Étape $stage (${pct != null ? (pct as num).toStringAsFixed(0) : 0}%) · ${data['message'] ?? ''}';
+      }
+      if (toolName == 'get_reco3d_status') {
+        final gpu = data['gpu'] ?? 'GPU';
+        final status = data['status'] ?? '';
+        return 'Serveur $status · $gpu';
+      }
+      if (toolName == 'download_scan_result') {
+        final fmt = data['format']?.toString().toUpperCase() ?? '';
+        return 'Modèle $fmt récupéré';
       }
     }
   } catch (_) {
@@ -212,11 +243,16 @@ class LiveStatusLine extends StatefulWidget {
     required this.since,
     required this.tokens,
     required this.activity,
+    this.specialists = const [],
   });
 
   final ForgeronColorPalette fc;
   final DateTime? since;
   final int tokens;
+
+  /// Noms des spécialistes au travail (« Mouvement », « Scan 3D »…), vide
+  /// pour l'agent généraliste.
+  final List<String> specialists;
 
   /// « Réflexion… », « Exécution des outils… » — ce qui se passe maintenant.
   final String activity;
@@ -251,18 +287,56 @@ class _LiveStatusLineState extends State<LiveStatusLine>
             child: Text('✳', style: TextStyle(color: fc.primary, fontSize: 13)),
           ),
           const SizedBox(width: 10),
+          for (final s in widget.specialists) ...[
+            _SpecialistChip(fc: fc, label: s),
+            const SizedBox(width: 6),
+          ],
+          if (widget.specialists.isNotEmpty) const SizedBox(width: 4),
           if (widget.since != null) ...[
             LiveElapsed(since: widget.since!, style: style),
             Text(' · ', style: style),
           ],
           if (widget.tokens > 0) ...[
-            Text('${formatTokens(widget.tokens)} jetons', style: style),
+            Text(tr('{} jetons', [formatTokens(widget.tokens)]), style: style),
             Text(' · ', style: style),
           ],
           Flexible(
             child: Text(widget.activity, overflow: TextOverflow.ellipsis, style: style),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pastille d'un spécialiste au travail : elle apparaît en glissant, pour
+/// qu'on voie à quel « agent » la demande a été confiée.
+class _SpecialistChip extends StatelessWidget {
+  const _SpecialistChip({required this.fc, required this.label});
+
+  final ForgeronColorPalette fc;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1),
+        child: Transform.translate(offset: Offset(-8 * (1 - t), 0), child: child),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: fc.primary.withValues(alpha: 0.12),
+          border: Border.all(color: fc.primary.withValues(alpha: 0.45)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: fc.primary, fontSize: 10.5, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -540,7 +614,7 @@ class _StepRowState extends State<StepRow> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'durée : ${formatDuration(step.toolDuration!)}',
+                      tr('durée : {}', [formatDuration(step.toolDuration!)]),
                       style: TextStyle(color: fc.textDisabled, fontSize: 10),
                     ),
                   ),

@@ -97,30 +97,30 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
     switch (_currentStep) {
       case 0:
         return _stepLayout(
-          'Étape 1 : Palpage à 0°',
-          'Positionnez le palpeur au centre du plateau avec l\'axe A à 0°. Cette mesure servira de référence pour le plan Z=0.',
+          tr('Étape 1 : Palpage à 0°'),
+          tr('Positionnez le palpeur au centre du plateau avec l\'axe A à 0°. Cette mesure servira de référence pour le plan Z=0.'),
           Icons.straighten,
           onAction: () => _runProbeStep(0),
           result: _probeResults[0],
-          actionLabel: 'Lancer le palpage (0°)',
+          actionLabel: tr('Lancer le palpage (0°)'),
         );
       case 1:
         return _stepLayout(
-          'Étape 2 : Palpage à 90°',
-          'Inclinez l\'axe A à 90°. Le plateau est maintenant vertical. Palpez la face latérale pour identifier le rayon de pivotement.',
+          tr('Étape 2 : Palpage à 90°'),
+          tr('Inclinez l\'axe A à 90°. Le plateau est maintenant vertical. Palpez la face latérale pour identifier le rayon de pivotement.'),
           Icons.rotate_right,
           onAction: () => _runProbeStep(1),
           result: _probeResults[1],
-          actionLabel: 'Lancer le palpage (90°)',
+          actionLabel: tr('Lancer le palpage (90°)'),
         );
       case 2:
         return _stepLayout(
-          'Étape 3 : Palpage à -90°',
-          'Inclinez l\'axe A à -90°. Cette mesure permet de confirmer l\'alignement et de compenser les erreurs de flexion.',
+          tr('Étape 3 : Palpage à -90°'),
+          tr('Inclinez l\'axe A à -90°. Cette mesure permet de confirmer l\'alignement et de compenser les erreurs de flexion.'),
           Icons.rotate_left,
           onAction: () => _runProbeStep(2),
           result: _probeResults[2],
-          actionLabel: 'Lancer le palpage (-90°)',
+          actionLabel: tr('Lancer le palpage (-90°)'),
         );
       case 3:
         return _buildCalculationStep();
@@ -182,8 +182,8 @@ class _CalibrationWizardState extends ConsumerState<CalibrationWizard> {
       children: [
         Text(tr('Calcul des Offsets Terminé'), style: TextStyle(color: context.fc.success, fontSize: 16, fontWeight: FontWeight.bold)),
         SizedBox(height: 16),
-        _resultRow('Pivot Z (Machine)', pivotZ),
-        _resultRow('Table Offset (Z0)', tableOffset),
+        _resultRow(tr('Pivot Z (Machine)'), pivotZ),
+        _resultRow(tr('Table Offset (Z0)'), tableOffset),
         SizedBox(height: 24),
         Text(tr('Ces valeurs seront appliquées à la configuration de FluidNC pour garantir un RTCP (G43.4) précis.'), style: TextStyle(color: context.fc.textDisabled, fontSize: 11, height: 1.5)),
         const Spacer(),

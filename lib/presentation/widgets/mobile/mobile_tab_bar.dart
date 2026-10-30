@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// Barre d'onglets compacte pour les sous-écrans mobiles.
 ///
@@ -44,7 +45,7 @@ class MobileTabBar extends StatelessWidget implements PreferredSizeWidget {
                   Icon(t.icon, size: 17),
                   const SizedBox(height: 2),
                   Text(
-                    t.label,
+                    tr(t.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

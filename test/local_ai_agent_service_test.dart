@@ -879,6 +879,54 @@ void main() {
       expect(content.last['type'], 'image_url');
       expect(jsonEncode(msgs), isNot(contains('ne lit que du texte')));
     });
+
+    test('image déjà décrite : le pilote reçoit la fiche, pas « tu ne peux pas la voir »',
+        () {
+      final fiche = LocalAiAgentService.imageFichePart(
+          'Une pièce cylindrique bridée, environ 40 mm.', 'gemma3n:latest');
+      final msgs = LocalAiAgentService.toOpenAiMessages([
+        {
+          'role': 'user',
+          'parts': [
+            {'text': 'Que vois-tu ?'},
+            png,
+            fiche,
+          ]
+        },
+      ], null, supportsImages: false);
+
+      final text = msgs.single['content'] as String;
+      expect(text, startsWith('Que vois-tu ?\n${LocalAiAgentService.imageFicheNote}'));
+      expect(text, contains('gemma3n:latest'));
+      expect(text, contains('Une pièce cylindrique bridée'));
+      expect(text, isNot(contains(LocalAiAgentService.imageNote)));
+      expect(jsonEncode(msgs), isNot(contains('image_url')));
+    });
+
+    test('un modèle qui lit les images reçoit l\'image ET la fiche', () {
+      final msgs = LocalAiAgentService.toOpenAiMessages([
+        {
+          'role': 'user',
+          'parts': [
+            png,
+            LocalAiAgentService.imageFichePart('Une fraise.', 'gemma3n:latest'),
+          ]
+        },
+      ], null);
+
+      final content = msgs.single['content'] as List;
+      expect(content.any((c) => c['type'] == 'image_url'), isTrue);
+      expect(jsonEncode(content), contains('Une fraise.'));
+    });
+
+    test('une fiche trop longue est tronquée', () {
+      final part = LocalAiAgentService.imageFichePart('x' * 5000, 'm');
+      final text = part['text'] as String;
+      expect(text, startsWith(LocalAiAgentService.imageFichePrefix));
+      expect(text.length,
+          lessThan(LocalAiAgentService.imageFicheMaxChars + 100));
+      expect(text, endsWith('…'));
+    });
   });
 
   // Ollama annonce 32 768 pour Qwen2.5 mais charge le modèle à 4 096 (mesuré

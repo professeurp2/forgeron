@@ -1,0 +1,34 @@
+{
+  "spike": "phase 0 — STEP facetté vs maillage direct",
+  "statut": "COMPLET — Mesure effectuée sous OCP",
+  "maillage_direct": {
+    "source": "vase.stl",
+    "nature_source": "maillage CAO propre (pas un scan)",
+    "sommets": 36000,
+    "revolution": true,
+    "ecart_max_mm": 0.0,
+    "points_profil": 200,
+    "lignes_gcode": 29852,
+    "duree_calcul_s": 0.178,
+    "duree_usinage_estimee_min": 1905.6
+  },
+  "step_facette": {
+    "mesure": "EFFECTUÉE SUR MACHINE AVEC OCP",
+    "piece_test": "cylindre_facette (R=15mm, H=30mm, discrétisé en facettes planes)",
+    "nombre_facettes": 144,
+    "faces_step_lues": 144,
+    "taille_step_ko": 312.62,
+    "duree_generation_step_s": 0.062,
+    "detection_axe": {
+      "axe_detecte": false,
+      "motif_verdict": "aucune face cylindrique/conique/sphérique/torique : pas de révolution détectable",
+      "duree_detection_s": 0.0028
+    },
+    "test_step_to_gcode": {
+      "succes": false,
+      "motif_refus": "C:\\Users\\CITTUN~1\\AppData\\Local\\Temp\\reco3d_spike_7c08ha2z\\cylindre_facette.step : pas une pièce de révolution — aucune face cylindrique/conique/sphérique/torique : pas de révolution détectable"
+    },
+    "conclusion_mesuree": "CONFIRMÉE : L'adaptateur analytique STEP refuse catégoriquement le STEP facetté (C:\\Users\\CITTUN~1\\AppData\\Local\\Temp\\reco3d_spike_7c08ha2z\\cylindre_facette.step : pas une pièce de révolution — aucune face cylindrique/conique/sphérique/torique : pas de révolution détectable). Il confirme qu'un STEP constitué de facettes planes ne porte aucune surface analytique (cylindre/cône) et ne peut donc pas être usiné par step_to_gcode sans passer par le chemin maillage natif (mesh_profile)."
+  },
+  "decision_finale_phase0": "Le pipeline de Forgeron DOIT impérativement acheminer le maillage direct (STL/OBJ) vers l'adaptateur de fabrication (mesh_profile / CAM). Le format STEP ne doit être conservé que comme export CAO externe."
+}

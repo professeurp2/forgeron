@@ -1,0 +1,53 @@
+{
+  "operations": [
+    "Pocket",
+    "Drilling",
+    "Profile"
+  ],
+  "ordre_usinage": [
+    "Pocket",
+    "Drilling",
+    "Profile"
+  ],
+  "faces_poche": [
+    "Face16",
+    "Face23"
+  ],
+  "percages_detectes": 0,
+  "lignes_gcode": 75,
+  "gcode_path": "C:\\Users\\CITT Unipod\\Documents\\ENI\\Mon PFE\\forgeron\\scratch\\Carre35x35_freecad.nc",
+  "outil_diametre_mm": 6.0,
+  "ap_mm": 0.2,
+  "ae_mm": 0.5,
+  "avance_mm_min": 500.0,
+  "reglages_appliques": {
+    "outil.avance_coupe": "500.0 mm/min",
+    "outil.avance_plongee": "100.0 mm/min",
+    "outil.rapide_xy": "500.0 mm/min",
+    "outil.rapide_z": "300.0 mm/min",
+    "outil.broche_S": "1000.0",
+    "outil.broche_sens": "Forward",
+    "outil.diametre": "6.0 mm",
+    "outil.hauteur_coupe": "30.0 mm",
+    "outil.dents": "4",
+    "brut.marge_X-": "1.0 mm",
+    "brut.marge_X+": "1.0 mm",
+    "brut.marge_Y-": "1.0 mm",
+    "brut.marge_Y+": "1.0 mm",
+    "brut.marge_Z-": "0.0 mm",
+    "brut.marge_Z+": "1.0 mm",
+    "hauteur.degagement": "5.0 mm",
+    "hauteur.securite": "2.0 mm",
+    "poche.profondeur_passe": "0.2 mm",
+    "poche.recouvrement_%": "8",
+    "poche.recouvrement_mm": "0.480 mm",
+    "poche.motif": "Offset",
+    "poche.outil_reste_bas": "True",
+    "percage.debourrage": "True",
+    "percage.pas_debourrage": "1.0 mm",
+    "percage.temporisation": "False",
+    "percage.mode_retrait": "G99",
+    "contour.profondeur_passe": "0.2 mm"
+  },
+  "reglages_non_appliques": []
+}

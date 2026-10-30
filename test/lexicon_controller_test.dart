@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -10,6 +11,8 @@ import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/providers/lexicon_provider.dart';
 import 'package:forgeron/application/services/ai_agent_service.dart';
 import 'package:forgeron/application/services/command_understanding.dart' show isReadOnlyToolName;
+import 'package:forgeron/application/services/local_ai_agent_service.dart';
+import 'package:forgeron/application/services/tool_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_machine_repository.dart';
@@ -20,6 +23,10 @@ class _FakeBackend implements AiBackend {
   final String modelId;
   final List<AiApiResponse> script;
   final List<List<String>> declared = [];
+
+  /// Historique reçu au dernier appel (copie profonde : le contrôleur le
+  /// modifie ensuite).
+  List<Map<String, dynamic>> lastContents = const [];
 
   @override
   String get model => modelId;
@@ -58,8 +65,11 @@ class _FakeBackend implements AiBackend {
           required List<Map<String, dynamic>> functionDeclarations,
           String? systemPrompt,
           void Function(String partialText)? onDelta,
-          bool Function()? shouldCancel}) async =>
-      _next(functionDeclarations);
+          bool Function()? shouldCancel}) async {
+    lastContents = (jsonDecode(jsonEncode(contents)) as List)
+        .cast<Map<String, dynamic>>();
+    return _next(functionDeclarations);
+  }
 }
 
 void main() {
@@ -182,8 +192,85 @@ void main() {
 
       await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
       expect(main.declared, hasLength(1));
-      expect(main.declared.single, contains('set_spindle'));
+      // Le principal, lui, reçoit des outils (ceux que le routage retient,
+      // noyau de sécurité compris).
+      expect(main.declared.single, containsAll(ToolRouter.core));
       expect(vision.declared, hasLength(1), reason: 'pas de nouvel appel au modèle d\'images');
+    });
+
+    test('au tour suivant, le modèle principal reçoit la fiche d\'image', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(
+            parts: [{'text': 'Une pièce cylindrique bridée.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Que vois-tu ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      await ctl().sendUserMessage('Peux-tu l\'usiner ?');
+
+      final imageTurn = main.lastContents.firstWhere((c) =>
+          (c['parts'] as List).any((p) => (p as Map).containsKey('inlineData')));
+      final texts = [
+        for (final p in imageTurn['parts'] as List)
+          if ((p as Map)['text'] is String) p['text'] as String,
+      ];
+      expect(texts.last, startsWith(LocalAiAgentService.imageFichePrefix));
+      expect(texts.last, contains('gemma3n:latest'));
+      expect(texts.last, contains('Une pièce cylindrique bridée.'));
+    });
+
+    test('photo + ordre : le modèle principal prend la main, avec ses outils', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(
+            parts: [{'text': 'Une pièce bridée sur le plateau.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Regarde cette pièce et lance le scan',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+
+      expect(vision.declared, hasLength(1));
+      expect(main.declared, hasLength(1), reason: 'le pilote est relancé une fois');
+      expect(main.declared.single, contains('start_machine_scan'));
+      final relay = main.lastContents.last;
+      final text = (relay['parts'] as List).first['text'] as String;
+      expect(relay['role'], 'user');
+      expect(text, startsWith(AiAgentController.kImageRelayPrefix));
+      expect(text, contains('lance le scan'));
+      expect(chat().messages.where((m) => m.text.contains(AiAgentController.kImageRelayPrefix)),
+          isEmpty, reason: 'le relais n\'apparaît pas dans le chat');
+    });
+
+    test('photo + simple question : pas de relais au pilote', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, []);
+      final vision = _FakeBackend('gemma3n:latest', [
+        const AiApiResponse(parts: [{'text': 'Une fraise.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+      ctl().debugUseVisionBackend(vision);
+
+      await ctl().sendUserMessage('Que vois-tu sur cette photo ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      expect(main.declared, isEmpty);
+    });
+
+    test('sans modèle d\'images, aucune fiche n\'est inventée', () async {
+      final main = _FakeBackend(container.read(aiModelProvider).active.id, [
+        const AiApiResponse(parts: [{'text': 'Je ne vois pas l\'image.'}], finishReason: 'STOP'),
+      ]);
+      ctl().debugUseBackend(main);
+
+      await ctl().sendUserMessage('Que vois-tu ?',
+          imageBytes: Uint8List.fromList([1, 2, 3]));
+      await ctl().sendUserMessage('Et maintenant ?');
+
+      expect(jsonEncode(main.lastContents),
+          isNot(contains(LocalAiAgentService.imageFichePrefix)));
     });
   });
 
@@ -215,10 +302,23 @@ void main() {
           reason: 'l\'appel interdit n\'arrive même pas à la confirmation');
     });
 
-    test('message ordinaire : le modèle garde tous ses outils', () async {
+    // Depuis l'activation du routage, le modèle local ne reçoit plus TOUS ses
+    // outils mais ceux du groupe reconnu (ici « fichiers ») plus le noyau de
+    // sécurité. Ce que ce test protège reste vrai : un message ordinaire n'est
+    // pas réduit à la lecture seule comme une question ou une négation.
+    test('message ordinaire : pas réduit à la lecture seule', () async {
       final b = backend([]);
       await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
-      expect(b.declared.first, contains('set_spindle'));
+      expect(b.declared.first, contains('write_workspace_file'));
+      expect(b.declared.first.every(isReadOnlyToolName), isFalse);
+      expect(b.declared.first, containsAll(ToolRouter.core));
+    });
+
+    test('l\'état montre le spécialiste au travail', () async {
+      backend([]);
+      await ctl().sendUserMessage('Bonjour, peux-tu analyser mon fichier ?');
+      expect(chat().specialists, contains('fichiers'));
+      expect(ToolRouter.labels['fichiers'], 'Fichiers');
     });
 
     test('ordre compris : le modèle n\'est pas appelé', () async {

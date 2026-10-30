@@ -333,6 +333,11 @@ class AiChatState {
   /// allers-retours, appels d'outils compris).
   final int turnTokens;
 
+  /// Spécialistes qui traitent le tour en cours (groupes du [ToolRouter], ou
+  /// `images` pour le modèle d'images). Vide : l'agent généraliste, avec tout
+  /// le catalogue.
+  final List<String> specialists;
+
   const AiChatState({
     this.messages = const [],
     this.isProcessing = false,
@@ -346,6 +351,7 @@ class AiChatState {
     this.runningTool,
     this.turnStartedAt,
     this.turnTokens = 0,
+    this.specialists = const [],
   });
 
   AiChatState copyWith({
@@ -366,6 +372,7 @@ class AiChatState {
     DateTime? turnStartedAt,
     bool clearTurnStartedAt = false,
     int? turnTokens,
+    List<String>? specialists,
   }) {
     return AiChatState(
       messages: messages ?? this.messages,
@@ -385,6 +392,7 @@ class AiChatState {
       turnStartedAt:
           clearTurnStartedAt ? null : (turnStartedAt ?? this.turnStartedAt),
       turnTokens: turnTokens ?? this.turnTokens,
+      specialists: specialists ?? this.specialists,
     );
   }
 }
@@ -423,12 +431,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   // ── Surveillance et routage d'outils ──────────────────────────────────────
 
-  /// Routage d'outils (n'exposer au modèle que les outils utiles au message) :
-  /// **désactivé tant que Forgeron-Bench n'a pas montré qu'il ne dégrade ni la
-  /// réussite ni la sécurité** (`BENCH_ROUTING=1`, voir `tool/eval/README.md`).
-  /// Ne concerne jamais Gemini, dont la fenêtre et le quota ne le justifient
-  /// pas.
-  static const _useToolRouting = false;
+  /// Routage d'outils (n'exposer au modèle local que les outils utiles au
+  /// message, avec noyau de sécurité permanent et repli sur le catalogue
+  /// complet en cas de doute). Ne concerne pas Gemini (`service.usesCellular`).
+  static const _useToolRouting = true;
+
+  String? _latestStreamingText;
 
   AiTurnJournal? _journal;
   Set<String> _recentToolGroups = const {};
@@ -522,7 +530,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
   }
 
+  /// Groupes d'outils retenus pour le tour en cours, `null` quand le modèle
+  /// reçoit tout le catalogue (routage coupé, Gemini, lecture seule, ou
+  /// message non reconnu). Décide aussi des sections de spécialiste du prompt
+  /// (voir [specialistSystemPrompt]).
+  Set<String>? _turnGroups;
+
   List<Map<String, dynamic>> _declarationsFor(AiBackend service) {
+    _turnGroups = null;
     var all = AiToolCatalog.tools
         .map((t) => t.toGeminiFunctionDeclaration())
         .toList();
@@ -550,6 +565,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       recentGroups: _recentToolGroups,
     );
     _recentToolGroups = routing.groups;
+    if (routing.routed) _turnGroups = routing.groups;
     final routed =
         all.where((d) => routing.tools.contains(d['name'])).toList();
     _declaredToolCount = routed.length;
@@ -897,7 +913,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
   // Prompt système
   // ---------------------------------------------------------------------
 
-  static const _systemPrompt =
+  // Le prompt système est découpé en un TRONC COMMUN (identité, lecture de
+  // l'état, sécurité, style), toujours envoyé, et des SECTIONS DE SPÉCIALISTE
+  // qui ne servent qu'à certains groupes d'outils (voir [_specialistSections]).
+  // [_systemPrompt] les réunit dans l'ordre d'origine : le prompt complet est
+  // identique, mot pour mot, à celui d'avant le découpage.
+
+  /// Tronc commun, début : identité, écrans, lecture de l'état.
+  static const _promptIdentity =
       'Tu es l\'assistant intégré de Forgeron, un contrôleur CNC 5 axes piloté '
       'par un firmware FluidNC/GRBL sur ESP32. '
       'Forgeron est une application Flutter (mobile/desktop) reliée à la machine '
@@ -918,7 +941,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'résultat plus haut dans la discussion t\'a appris (position, statut, '
       'alarme) est PÉRIMÉ dès que la machine bouge : à chaque question sur '
       'l\'état présent, rappelle l\'outil de lecture, même si tu viens de le '
-      'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. '
+      'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. ';
+
+  /// Spécialiste fichiers / programme : lecture, adaptation et contrôle
+  /// du G-code avant exécution.
+  static const _promptGcodeFiles =
       'Tu peux lister, lire, analyser et écrire les fichiers G-code de l\'espace '
       'de travail (list_workspace_files, read_workspace_file, analyze_gcode, '
       'write_workspace_file). Au chargement, Forgeron adapte automatiquement le '
@@ -936,7 +963,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'N\'écris JAMAIS une version « corrigée » en '
       'silence : garde l\'original intact (écris sous un nouveau nom) et fais '
       'confirmer — un rognage aveugle des coordonnées peut abîmer la pièce ou '
-      'provoquer une collision. '
+      'provoquer une collision. ';
+
+  /// Tronc commun, fin : sécurité (jamais de G-code écrit par le modèle,
+  /// confirmations) et style des réponses.
+  static const _promptRules =
       'Tu reçois en contexte le journal des actions récentes (manuelles de '
       'l\'opérateur ET les tiennes) : surveille-le pour la sécurité et '
       'l\'optimisation — signale spontanément tout enchaînement risqué (ex. '
@@ -968,7 +999,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'pas des mots à employer avec l\'opérateur — dis ce que tu fais et ce '
       'que ça donne ("j\'ai généré le G-code, 68 lignes, 3 passes"), jamais '
       'par quel moyen technique. Le nom de l\'outil déclenché ne doit jamais '
-      'apparaître non plus tel quel (run_step_pipeline, etc.). '
+      'apparaître non plus tel quel (run_step_pipeline, etc.). ';
+
+  /// Spécialiste FAO : aperçu STEP, parcours d'outil, brut de révolution.
+  static const _promptCam =
       'Dès qu\'un '
       'fichier STEP est mentionné, ouvre son aperçu 3D avec preview_step_file — '
       'c\'est aussi ta façon de vérifier que le fichier contient bien la pièce '
@@ -983,7 +1017,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'elle, l\'ébauche ne sait pas où s\'arrête la matière et balaie toute '
       'l\'enveloppe de dégagement, en tournant dans le vide. Si le rapport '
       'revient avec duree_a_vide_min non nul, dis-le en clair et propose de '
-      'relancer.';
+      'relancer. ';
+
+  /// Spécialiste scan 3D en machine.
+  static const _promptScan =
+      'SCAN 3D & NUMÉRISATION EN MACHINE : quand l\'opérateur veut numériser une pièce '
+      'ou un maître bridé sur la machine, utilise start_machine_scan pour piloter la rotation '
+      'calibrée des axes A et C et capturer les vues multi-angles. Vérifie d\'abord que '
+      'le poste de calcul est joignable (get_reco3d_status, ou discover_reco3d_server si besoin). '
+      'Suis l\'avancement avec get_scan_job_status, et une fois terminé, télécharge le résultat '
+      'avec download_scan_result (format "step" ou "mesh") pour afficher immédiatement la pièce '
+      'dans le visualiseur 3D. Rappelle honnêtement que la géométrie est approximative tant que '
+      'l\'échelle n\'est pas certifiée par mire.';
+
+  static const _systemPrompt =
+      '$_promptIdentity$_promptGcodeFiles$_promptRules$_promptCam$_promptScan';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -1034,9 +1082,47 @@ class AiAgentController extends StateNotifier<AiChatState> {
   static const baseSystemPrompt =
       '$_systemPrompt\n\n$_machineSpecs\n\n$_docsRule';
 
+  /// Sections de spécialiste, et les groupes du [ToolRouter] qui en ont
+  /// besoin. Une section dont aucun groupe n'est retenu pour le tour n'est pas
+  /// envoyée : c'est le pendant, côté prompt, du routage des outils.
+  static const _specialistSections = <String, Set<String>>{
+    _promptGcodeFiles: {'fichiers', 'programme'},
+    _promptCam: {'cao', 'simulation'},
+    _promptScan: {'scan'},
+  };
+
+  /// Prompt fixe d'un tour routé vers les groupes [groups] : le tronc commun
+  /// (identité, sécurité, style, spécificités machine, règle des questions
+  /// techniques) est TOUJOURS présent ; seules les sections de spécialiste
+  /// inutiles sont retirées.
+  @visibleForTesting
+  static String specialistSystemPrompt(Set<String> groups) {
+    String section(String text) =>
+        _specialistSections[text]!.any(groups.contains) ? text : '';
+    return '$_promptIdentity${section(_promptGcodeFiles)}$_promptRules'
+        '${section(_promptCam)}${section(_promptScan)}'
+        '\n\n$_machineSpecs\n\n$_docsRule';
+  }
+
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
   /// Injectée à chaque tour pour que l'agent cite les VRAIES courses et pas/mm
   /// — des constantes figées dans le code dérivent au premier recalibrage.
+  /// Glossaire sourcé de la langue active, ajouté au prompt pour les langues
+  /// peu dotées seulement.
+  ///
+  /// Le modèle écrit mal ces langues parce qu'il improvise le vocabulaire.
+  /// Lui donner les mots déjà vérifiés (An ka taa pour le bambara) coûte
+  /// ~200 jetons et lui évite d'en forger. Rien n'est ajouté pour le
+  /// français, l'anglais, ni une langue sans sources : un glossaire sans
+  /// provenance ne vaut pas mieux que l'improvisation.
+  String _glossaireBlockOrEmpty() {
+    final langue = _ref.read(appLanguageProvider);
+    if (!langue.lowResource) return '';
+    final glossaire =
+        _ref.read(lexiconLoadProvider).valueOrNull?.glossaries[langue.id];
+    return glossaire == null ? '' : '\n\n$glossaire';
+  }
+
   String _kinematicsBlock() {
     final axes = _ref.read(axisKinematicsProvider).asData?.value ?? const [];
     if (axes.isEmpty) {
@@ -1090,9 +1176,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // sur le modèle pour penser à appeler search_docs.
     final block = _docsBlockOrNull();
     final docs = block == null ? '' : '\n\n$block';
-    return '$baseSystemPrompt\n\n'
+    final groups = _turnGroups;
+    final fixed =
+        groups == null ? baseSystemPrompt : specialistSystemPrompt(groups);
+    return '$fixed\n\n'
         '${_kinematicsBlock()}\n\n'
-        '${_ref.read(appLanguageProvider).promptDirective}\n\n'
+        '${_ref.read(appLanguageProvider).promptDirective}'
+        '${_glossaireBlockOrEmpty()}\n\n'
         '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity';
@@ -1135,6 +1225,71 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _visionService?.dispose();
     final info = await LocalAiAgentService.probe(url, name);
     return _visionService = LocalAiAgentService(baseUrl: url, model: name, info: info);
+  }
+
+  /// Joint à l'image ce qu'en a dit le modèle d'images, pour les tours
+  /// suivants : le modèle principal ne voit pas l'image, mais il lira cette
+  /// fiche (voir `LocalAiAgentService.imageFicheNote`). Appelé juste après
+  /// l'ajout de la réponse : le message qui porte l'image est l'avant-dernier.
+  void _attachImageFiche(String description, String model) {
+    if (_contents.length < 2) return;
+    final i = _contents.length - 2;
+    final parts = _contents[i]['parts'];
+    if (parts is! List || !parts.any((p) => p is Map && p.containsKey('inlineData'))) {
+      return;
+    }
+    _contents[i] = {
+      ..._contents[i],
+      'parts': [...parts, LocalAiAgentService.imageFichePart(description, model)],
+    };
+  }
+
+  /// Groupes d'outils qui AGISSENT : une demande qui en relève, jointe à une
+  /// photo, doit être exécutée par le modèle principal après la description.
+  /// Ni « etat » ni « camera » : décrire suffit. Ni « fichiers » ni « cao » :
+  /// leurs mots (« analyse », « pièce », « 3d ») sont ceux d'une simple
+  /// question sur une photo, et relanceraient le pilote pour rien.
+  static const _actionGroups = {
+    'mouvement', 'broche', 'programme', 'scan', 'simulation',
+  };
+
+  /// Préfixe du message de relais (voir [_handOffImageRequestToPilot]).
+  static const kImageRelayPrefix = '[Relais du modèle d\'images]';
+
+  /// Si le message qui portait l'image demande une action, ajoute au fil un
+  /// relais qui la confie au modèle principal, et rend `true`.
+  ///
+  /// Le relais est un message « user » que l'opérateur ne voit pas : le fil
+  /// se termine sinon par la description du modèle d'images, et un modèle à
+  /// qui l'on rend la parole sur sa propre réponse n'a rien à exécuter.
+  bool _handOffImageRequestToPilot() {
+    if (_contents.length < 2) return false;
+    final imageTurn = _contents[_contents.length - 2];
+    final parts = imageTurn['parts'];
+    if (imageTurn['role'] != 'user' || parts is! List) return false;
+    // Seulement une photo de l'opérateur, pas l'image rendue par un outil
+    // (caméra) : celle-là répond déjà à un appel du modèle principal.
+    if (parts.any((p) => p is Map && p.containsKey('functionResponse'))) {
+      return false;
+    }
+    final request = _lastUserText();
+    if (request.isEmpty || request.startsWith(kImageRelayPrefix)) return false;
+    final groups = const ToolRouter().route(
+      text: request,
+      allTools: const [],
+    ).groups;
+    if (groups.intersection(_actionGroups).isEmpty) return false;
+    _contents.add({
+      'role': 'user',
+      'parts': [
+        {
+          'text': '$kImageRelayPrefix La description de l\'image est faite '
+              '(voir la fiche). Exécute maintenant la demande de l\'opérateur, '
+              'avec tes outils : « $request »',
+        }
+      ],
+    });
+    return true;
   }
 
   /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
@@ -1422,7 +1577,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return;
     }
 
-    final partial = state.streamingText;
+    final partial = _latestStreamingText ?? state.streamingText;
+    _latestStreamingText = null;
     state = state.copyWith(
         isProcessing: false,
         clearStreamingText: true,
@@ -1499,6 +1655,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // principal, qui pilote la machine.
     final vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
     final service = vision ?? baseService;
+    _turnGroups = null; // reposé par _declarationsFor pour un tour avec outils
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
     compactGeminiContents(_contents, maxChars: service.historyBudgetChars);
@@ -1510,15 +1667,30 @@ class AiAgentController extends StateNotifier<AiChatState> {
         clearStreamingText: true,
         turnStartedAt: state.turnStartedAt ?? DateTime.now());
     final clock = Stopwatch()..start();
+    _latestStreamingText = null;
+    var lastDeltaEmit = DateTime.fromMillisecondsSinceEpoch(0);
     try {
+      final declarations = vision != null
+          ? const <Map<String, dynamic>>[]
+          : _declarationsFor(service);
+      final groups = _turnGroups;
+      state = state.copyWith(
+          specialists: vision != null
+              ? const ['images']
+              : (groups == null ? const [] : (groups.toList()..sort())));
       final response = await service.streamMessages(
         contents: _contents,
-        functionDeclarations: vision != null ? const <Map<String, dynamic>>[] : _declarationsFor(service),
+        functionDeclarations: declarations,
         systemPrompt: _buildSystemPrompt(),
-        // Aperçu live : le texte s'affiche au fur et à mesure.
+        // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
         onDelta: (partial) {
           if (_cancelled) return;
-          state = state.copyWith(streamingText: partial);
+          _latestStreamingText = partial;
+          final now = DateTime.now();
+          if (now.difference(lastDeltaEmit).inMilliseconds >= 40) {
+            lastDeltaEmit = now;
+            state = state.copyWith(streamingText: partial);
+          }
         },
         shouldCancel: () => _cancelled || _epoch != epoch,
       );
@@ -1560,6 +1732,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Fin du streaming : on efface l'aperçu et on fige le message.
       state = state.copyWith(clearStreamingText: true);
       _contents.add({'role': 'model', 'parts': response.parts});
+      if (vision != null && response.text.isNotEmpty) {
+        _attachImageFiche(response.text, vision.model);
+      }
       unawaited(_persist());
       // Comptabilise l'appel abouti (quotas du jour, par modèle).
       _ref
@@ -1580,6 +1755,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
         ));
         // Badge le bouton IA si l'écran n'est pas ouvert (info à présenter).
         _ref.read(aiInboxProvider.notifier).pushAlert(response.text);
+      }
+
+      // Photo + ordre (« regarde et lance le scan ») : le modèle d'images n'a
+      // pas d'outils, il ne peut que décrire. On passe la main au modèle
+      // principal, qui a la fiche et les outils, pour exécuter la demande.
+      if (vision != null && _handOffImageRequestToPilot()) {
+        unawaited(_persist());
+        return _runTurn(baseService);
       }
 
       if (response.functionCalls.isNotEmpty) {

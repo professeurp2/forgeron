@@ -4,6 +4,11 @@ import '../theme/app_colors.dart';
 class GCodeHighlighter {
   GCodeHighlighter._();
 
+  static final RegExp _tokenRegex = RegExp(
+    r'(;.*)|(\([^\)]*\))|([GM]\d+(?:\.\d+)?)|([XYZAC][\-+]?\d*\.?\d*)|([FS][\-+]?\d*\.?\d*)|([NTPD][\-+]?\d*\.?\d*)',
+    caseSensitive: false,
+  );
+
   static List<InlineSpan> buildSpans(String line, bool isCurrent) {
     if (line.isEmpty) return [];
 
@@ -13,8 +18,8 @@ class GCodeHighlighter {
         TextSpan(
           text: line,
           style: TextStyle(
-            color: isCurrent 
-                ? AppColors.textSecondary.withValues(alpha: 0.8) 
+            color: isCurrent
+                ? AppColors.textSecondary.withValues(alpha: 0.8)
                 : AppColors.textDisabled.withValues(alpha: 0.8),
             fontStyle: FontStyle.italic,
           ),
@@ -23,13 +28,9 @@ class GCodeHighlighter {
     }
 
     final List<InlineSpan> spans = [];
-    final RegExp regex = RegExp(
-      r'(;.*)|(\([^\)]*\))|([GM]\d+(?:\.\d+)?)|([XYZAC][\-+]?\d*\.?\d*)|([FS][\-+]?\d*\.?\d*)|([NTPD][\-+]?\d*\.?\d*)',
-      caseSensitive: false,
-    );
 
     int lastIndex = 0;
-    for (final Match match in regex.allMatches(line)) {
+    for (final Match match in _tokenRegex.allMatches(line)) {
       if (match.start > lastIndex) {
         spans.add(TextSpan(
           text: line.substring(lastIndex, match.start),

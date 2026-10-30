@@ -271,13 +271,47 @@ class LocalAiAgentService implements AiBackend {
       'voir, ce modèle ne lit que du texte. Réponds sans la décrire et '
       'préviens l\'opérateur que tu n\'as pas pu l\'examiner.]';
 
+  /// Début de la fiche qu'écrit le modèle d'images (voir [imageFichePart]).
+  static const imageFichePrefix = '[Fiche d\'image';
+
+  /// Remplace l'image, pour un modèle texte seul, quand le modèle d'images l'a
+  /// déjà examinée.
+  ///
+  /// Sans elle, le pilote recevait [imageNote] (« tu ne peux pas la voir…
+  /// préviens l'opérateur ») au tour suivant, alors que la description était
+  /// juste au-dessus : il annonçait n'avoir pas vu la photo qu'on venait de
+  /// lui décrire. La fiche lui donne ce qui a été vu ; la note lui interdit
+  /// d'y ajouter quoi que ce soit.
+  static const imageFicheNote = '[Image jointe — tu ne la vois pas toi-même. '
+      'Le modèle d\'images l\'a examinée : sa fiche suit. Appuie-toi sur elle, '
+      'sans rien affirmer de l\'image qu\'elle ne dise pas.]';
+
+  /// Longueur maximale d'une fiche : elle reste dans l'historique à chaque
+  /// tour, et le plafond fiable du modèle local est de 12 000 caractères
+  /// ([reliableHistoryChars]).
+  static const imageFicheMaxChars = 1500;
+
+  /// Part texte à joindre au message qui porte l'image, avec ce qu'en a dit
+  /// le modèle d'images [model].
+  static Map<String, dynamic> imageFichePart(String description, String model) {
+    var d = description.trim();
+    if (d.length > imageFicheMaxChars) {
+      d = '${d.substring(0, imageFicheMaxChars)}…';
+    }
+    return {'text': '$imageFichePrefix — rédigée par le modèle d\'images $model]\n$d'};
+  }
+
+  static bool _isImageFiche(Map p) =>
+      p['text'] is String && (p['text'] as String).startsWith(imageFichePrefix);
+
   /// Historique Gemini → `messages` OpenAI.
   ///
   /// [supportsImages] à `false` remplace chaque image par [imageNote] : un
   /// serveur qui reçoit une image qu'il ne sait pas lire répond HTTP 400, et
   /// comme l'historique garde toujours la dernière image, TOUS les tours
   /// suivants échoueraient — la discussion serait cassée jusqu'à son
-  /// effacement.
+  /// effacement. Si le message porte une fiche du modèle d'images, c'est
+  /// [imageFicheNote] qui remplace l'image, et la fiche suit.
   static List<Map<String, dynamic>> toOpenAiMessages(
     List<Map<String, dynamic>> contents,
     String? systemPrompt, {
@@ -303,6 +337,7 @@ class LocalAiAgentService implements AiBackend {
       final images = <Map<String, dynamic>>[];
       final toolCalls = <Map<String, dynamic>>[];
       final toolMessages = <Map<String, dynamic>>[];
+      final hasFiche = parts.any(_isImageFiche);
 
       for (final raw in parts) {
         final p = raw.cast<String, dynamic>();
@@ -312,7 +347,7 @@ class LocalAiAgentService implements AiBackend {
           if (t.isNotEmpty) texts.add(t);
         } else if (p.containsKey('inlineData')) {
           if (!supportsImages) {
-            texts.add(imageNote);
+            texts.add(hasFiche ? imageFicheNote : imageNote);
             continue;
           }
           final d = (p['inlineData'] as Map).cast<String, dynamic>();
