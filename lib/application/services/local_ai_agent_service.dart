@@ -96,7 +96,7 @@ class LocalAiAgentService implements AiBackend {
   /// échoue dès que la charge utile dépasse cette valeur — typiquement quand
   /// on ajoute des outils — pour que le budget d'historique ne devienne pas
   /// trop généreux sans que personne s'en aperçoive.
-  static const promptOverheadTokens = 7500;
+  static const promptOverheadTokens = 10000;
 
   /// Place laissée à la réponse — un appel d'outil ou un paragraphe.
   static const replyTokens = 1500;

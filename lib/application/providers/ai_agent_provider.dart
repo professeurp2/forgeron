@@ -1022,8 +1022,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'N\'écris JAMAIS de code, de nom de commande ni de JSON technique en texte '
       '(pas de "preview_step_file(...)" ou "run_step_pipeline(...)"). '
       'Ne fais PAS de tutoriel décrivant les étapes théoriques à l\'avance (« Étape 1... »). '
-      'Exécute les outils en coulisse et présente directement le résultat fini à l\'opérateur : '
-      'programme généré et chargé dans la machine, prêt à être exécuté (run_program) dès que l\'opérateur le souhaite. ';
+      'Exécute les outils en coulisse et présente directement le résultat fini à l\'opérateur en français simple : '
+      'la pièce est prête, le tracé d\'outil est visible, et le programme est déjà chargé dans la machine. '
+      'LANCEMENT DE L\'USINAGE EN LANGAGE NATUREL : '
+      'Dès que l\'opérateur demande en langage naturel d\'exécuter, d\'usiner ou de démarrer '
+      '(ex: "lance l\'usinage", "usinons-le", "exécute ce code", "démarre la machine", "lance la pièce") : '
+      'déclenche directement l\'outil run_program pour lancer l\'usinage réel sur FluidNC avec ForceGuard, '
+      'puis confirme chaleureusement en langage humain que l\'usinage est en cours. ';
 
   /// Spécialiste scan 3D en machine.
   static const _promptScan =

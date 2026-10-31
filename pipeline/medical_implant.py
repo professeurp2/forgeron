@@ -52,28 +52,64 @@ def read_3d_file(path: str | Path, step_deflection: float = 0.01) -> np.ndarray:
     """Lit un fichier géométrique 3D (.stl, .step, .stp) et renvoie les triangles (N, 3, 3).
 
     Pour un modèle CAO STEP (.step, .stp) :
-      - Utilise OpenCASCADE (cadquery-ocp dans pipeline/.venv312) pour lire la
-        géométrie B-Rep analytique exacte (NURBS, cylindres, cônes, tores).
-      - Facettise avec une flèche (cordal deflection) submillimétrique très fine
-        (défaut 0,01 mm = 10 µm), très inférieure à la répétabilité mécanique de la
-        machine (30-50 µm). Cela élimine l'erreur de corde et les méplats polygonaux
-        caractéristiques des exports STL tiers.
+      - Vérifie si un cache d'aperçu existe déjà (<base>_apercu.json). S'il existe,
+        il est chargé directement en < 0.5 s sans recalcul OpenCASCADE.
+      - Sinon, utilise OpenCASCADE pour lire la B-Rep exacte et facettiser.
+      - Si le nombre de triangles dépasse 40 000, une décimation QEM rapide
+        (fast_simplification) optimise le maillage pour Drop-Cutter en conservant
+        une précision submillimétrique.
 
     Pour un maillage STL (.stl) :
       - Lit le maillage binaire ou ASCII directement via `stl_io.read_stl`.
     """
     path_str = str(path)
     lower = path_str.lower()
-    if lower.endswith((".step", ".stp")):
-        from step_io import read_step
-        from step_preview import tessellate
+    tris: np.ndarray
 
-        shape = read_step(path_str)
-        verts, idxs = tessellate(shape, step_deflection)
-        pts = np.asarray(verts, dtype=np.float64).reshape(-1, 3)
-        faces = np.asarray(idxs, dtype=np.int64).reshape(-1, 3)
-        return pts[faces]
-    return read_stl(path_str)
+    if lower.endswith((".step", ".stp")):
+        base_path = Path(path_str).with_suffix("")
+        apercu_path = base_path.parent / f"{base_path.name}_apercu.json"
+        loaded = False
+        if apercu_path.is_file():
+            try:
+                with open(apercu_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if "vertices" in data and "indices" in data and len(data["indices"]) > 0:
+                    pts = np.asarray(data["vertices"], dtype=np.float64).reshape(-1, 3)
+                    faces = np.asarray(data["indices"], dtype=np.int64).reshape(-1, 3)
+                    tris = pts[faces]
+                    loaded = True
+            except Exception:
+                loaded = False
+
+        if not loaded:
+            from step_io import read_step
+            from step_preview import tessellate
+
+            shape = read_step(path_str)
+            verts, idxs = tessellate(shape, step_deflection)
+            pts = np.asarray(verts, dtype=np.float64).reshape(-1, 3)
+            faces = np.asarray(idxs, dtype=np.int64).reshape(-1, 3)
+            tris = pts[faces]
+    else:
+        tris = read_stl(path_str)
+
+    # Optimisation Drop-Cutter : décimation QEM ultra-rapide si le maillage est très lourd
+    if len(tris) > 40_000:
+        try:
+            import fast_simplification
+            pts_flat = tris.reshape(-1, 3).astype(np.float32)
+            pts_uniq, inv = np.unique(np.round(pts_flat, 4), axis=0, return_inverse=True)
+            faces_arr = inv.reshape(-1, 3).astype(np.int32)
+            if len(faces_arr) > 40_000:
+                target_red = max(0.5, 1.0 - (30_000.0 / len(faces_arr)))
+                pts_s, faces_s = fast_simplification.simplify(pts_uniq, faces_arr, target_reduction=target_red)
+                if len(faces_s) > 0:
+                    tris = pts_s[faces_s].astype(np.float64)
+        except Exception:
+            pass
+
+    return tris
 
 
 # ── Enveloppe machine de production (mêmes constantes que GcodeCritic) ──────
@@ -265,6 +301,7 @@ def prepare_implant_mesh(
     *,
     auto_orient: bool = True,
     target_length_mm: float | None = None,
+    auto_fit: bool = True,
 ) -> PreparedMesh:
     """Prépare un maillage brut (DICOM / scanner) pour le plateau 5 axes :
 
@@ -349,7 +386,31 @@ def prepare_implant_mesh(
     lo, hi = pts.min(axis=0), pts.max(axis=0)
     prep_size = (float(hi[0] - lo[0]), float(hi[1] - lo[1]), float(hi[2] - lo[2]))
 
-    # 4. Vérification de l'enveloppe machine
+    # 4. Ajustement automatique à l'enveloppe machine (si activé) ou vérification
+    if auto_fit and target_length_mm is None:
+        fit_ratio = min(
+            (MAX_TRAVEL_X_MM * 0.85) / max(prep_size[0], 1e-6),
+            (MAX_TRAVEL_Y_MM * 0.85) / max(prep_size[1], 1e-6),
+            (MAX_TRAVEL_Z_MM * 0.85) / max(prep_size[2], 1e-6),
+        )
+        if fit_ratio < 1.0:
+            tris *= fit_ratio
+            scale_factor *= fit_ratio
+            notes.append(
+                f"Ajustement d'échelle automatique pour respecter l'enveloppe machine Forgeron "
+                f"({MAX_TRAVEL_X_MM:.0f} × {MAX_TRAVEL_Y_MM:.0f} × {MAX_TRAVEL_Z_MM:.0f} mm) : "
+                f"facteur ×{fit_ratio:.4f} (taille adaptée : {prep_size[0]*fit_ratio:.1f} × "
+                f"{prep_size[1]*fit_ratio:.1f} × {prep_size[2]*fit_ratio:.1f} mm)."
+            )
+            pts = tris.reshape(-1, 3)
+            lo, hi = pts.min(axis=0), pts.max(axis=0)
+            center_xy = (lo[:2] + hi[:2]) / 2.0
+            shift = np.array([-center_xy[0], -center_xy[1], -float(hi[2])], dtype=np.float64)
+            tris += shift
+            pts = tris.reshape(-1, 3)
+            lo, hi = pts.min(axis=0), pts.max(axis=0)
+            prep_size = (float(hi[0] - lo[0]), float(hi[1] - lo[1]), float(hi[2] - lo[2]))
+
     if prep_size[0] > MAX_TRAVEL_X_MM:
         raise ValueError(
             f"Implant trop large en X ({prep_size[0]:.1f} mm > course machine "
@@ -892,6 +953,11 @@ def main() -> int:
         help="signale un maillage issu d'un mode génératif ou sans mire d'échelle",
     )
     ap.add_argument(
+        "--sans-auto-fit",
+        action="store_true",
+        help="désactive l'ajustement automatique d'échelle aux dimensions de la machine",
+    )
+    ap.add_argument(
         "--apercu-seul",
         action="store_true",
         help="génère uniquement le fichier <base>_apercu.json pour le visualiseur 3D",
@@ -904,6 +970,7 @@ def main() -> int:
             raw_tris,
             auto_orient=not args.sans_reorientation,
             target_length_mm=args.longueur_cible,
+            auto_fit=not args.sans_auto_fit,
         )
     except Exception as exc:
         print(f"REFUS : {exc}")

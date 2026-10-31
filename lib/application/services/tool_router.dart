@@ -91,6 +91,8 @@ class ToolRouter {
       keywords: [
         'programme', 'program', 'lance', 'execute', 'run', 'cycle', 'g code',
         'gcode', 'commande', 'envoie', 'send', 'demarre le', 'start the',
+        'usinage', 'usiner', 'usinons', 'machine la', 'demarre la', 'démarrer',
+        'demarrer', 'fabrication', 'fabriquer', 'lancer',
       ],
     ),
     'fichiers': ToolGroup(
@@ -108,7 +110,7 @@ class ToolRouter {
       tools: {
         'run_step_pipeline', 'preview_step_file', 'open_toolpath_window',
         'open_gcode_window', 'open_chart_window', 'show_popup',
-        'list_workspace_files', 'analyze_gcode',
+        'list_workspace_files', 'analyze_gcode', 'run_program',
         'get_reco3d_status', 'start_machine_scan', 'get_scan_job_status',
         'download_scan_result',
         'run_machining_simulation', 'control_simulation',

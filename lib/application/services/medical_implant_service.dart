@@ -26,9 +26,9 @@ class MedicalImplantResult {
 }
 
 /// Exécute `pipeline/medical_implant.py` pour transformer un maillage `.stl`
-/// (issu d'une segmentation DICOM ou d'un scan 3D) en un programme G-code
-/// d'usinage médical (ébauche 3 axes + finition 5 axes continu) accompagné de
-/// son dossier de traçabilité ISO 13485.
+/// (issu d'une segmentation DICOM ou d'un scan 3D) ou un modèle CAO `.step`
+/// en un programme G-code d'usinage médical (ébauche 3 axes + finition 5 axes continu)
+/// accompagné de son dossier de traçabilité ISO 13485.
 class MedicalImplantService {
   const MedicalImplantService._();
 
@@ -75,6 +75,7 @@ class MedicalImplantService {
     String patientRef = 'PAT-ANONYME',
     bool fiveAxis = true,
     bool autoOrient = true,
+    bool autoFit = true,
     bool provenanceApproximate = false,
   }) async {
     validateGuardrails(
@@ -109,9 +110,10 @@ class MedicalImplantService {
       );
     }
 
+    final absStlPath = modelFile.absolute.path;
     final args = <String>[
       'medical_implant.py',
-      stlPath,
+      absStlPath,
       '--materiau',
       material.wire,
       '--type-implant',
@@ -135,6 +137,7 @@ class MedicalImplantService {
       ],
       if (!fiveAxis) '--trois-axes',
       if (!autoOrient) '--sans-reorientation',
+      if (!autoFit) '--sans-auto-fit',
       if (provenanceApproximate) '--provenance-approx',
     ];
 
@@ -164,9 +167,9 @@ class MedicalImplantService {
       );
     }
 
-    final base = stlPath.contains('.')
-        ? stlPath.substring(0, stlPath.lastIndexOf('.'))
-        : stlPath;
+    final base = absStlPath.contains('.')
+        ? absStlPath.substring(0, absStlPath.lastIndexOf('.'))
+        : absStlPath;
     final reportFile = File('${base}_rapport.json');
     final dossierFile = File('${base}_dossier_medical.json');
     if (!reportFile.existsSync() || !dossierFile.existsSync()) {
@@ -206,4 +209,3 @@ class MedicalImplantException implements Exception {
   @override
   String toString() => message;
 }
-
