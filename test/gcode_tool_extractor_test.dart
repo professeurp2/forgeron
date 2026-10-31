@@ -175,5 +175,22 @@ S11000 M3
     test('programme vide', () {
       expect(GCodeToolExtractor.extract(const []), isEmpty);
     });
+
+    test('programme mono-outil sans M6 avec en-tête OUTIL', () {
+      final tools = GCodeToolExtractor.extract(lines('''
+(FORGERON - CHAINE IMPLANT MEDICAL SUR MESURE)
+(OUTIL : FRAISE BOULE DIAM 3.0 MM - COUPE A SEC)
+G21 G90 G94 G17 G40
+G54
+M3 S18000
+G0 X0 Y0 Z10
+G1 Z-2 F300
+'''));
+      expect(tools, hasLength(1));
+      expect(tools.first.number, 1);
+      expect(tools.first.shape, ToolShape.ballNose);
+      expect(tools.first.diameterMm, 3.0);
+      expect(tools.first.spindleSpeed, 18000);
+    });
   });
 }

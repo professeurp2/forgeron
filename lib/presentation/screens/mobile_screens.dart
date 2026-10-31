@@ -21,6 +21,8 @@ import '../widgets/dashboard/jog_control_panel.dart';
 import '../../application/providers/di_providers.dart';
 import '../../application/providers/program_tools_provider.dart';
 import '../../application/providers/streaming_provider.dart';
+import '../../application/providers/gcode_provider.dart';
+import '../../domain/models/machine_state.dart';
 import '../../core/utils/gcode_tool_extractor.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -854,6 +856,14 @@ class _MobileToolTableScreenState
     final fc = context.fc;
     final tools = ref.watch(programToolsProvider);
     final activeToolNum = ref.watch(activeToolNumberProvider);
+    final gcodeState = ref.watch(gcodeProvider);
+    final isStreaming = ref.watch(streamingProvider);
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final isRunning = isStreaming ||
+        machineState?.status == MachineStatus.run ||
+        machineState?.status == MachineStatus.hold;
+    final hasProgram = gcodeState.allLines.isNotEmpty ||
+        (machineState?.sdFilename != null && machineState!.sdFilename!.isNotEmpty);
 
     final filtered = tools.where((t) {
       if (_query.isEmpty) return true;
@@ -865,11 +875,18 @@ class _MobileToolTableScreenState
 
     return Column(
       children: [
-        _header(fc, tools.length, activeToolNum),
+        _header(fc, tools.length, activeToolNum, isRunning: isRunning, hasProgram: hasProgram),
         if (tools.isNotEmpty) _searchField(fc),
         Expanded(
           child: tools.isEmpty
-              ? _emptyState(fc)
+              ? _emptyState(
+                  fc,
+                  isRunning: isRunning,
+                  hasProgram: hasProgram,
+                  lineCount: gcodeState.allLines.length,
+                  activeToolNum: activeToolNum,
+                  sdFilename: machineState?.sdFilename,
+                )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   itemCount: filtered.length,
@@ -887,7 +904,13 @@ class _MobileToolTableScreenState
     );
   }
 
-  Widget _header(ForgeronColorPalette fc, int count, int activeToolNum) {
+  Widget _header(
+    ForgeronColorPalette fc,
+    int count,
+    int activeToolNum, {
+    bool isRunning = false,
+    bool hasProgram = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
@@ -922,8 +945,35 @@ class _MobileToolTableScreenState
                       fontSize: 11,
                       fontWeight: FontWeight.w900)),
             )
-          else
+          else if (count > 0)
             Text(tr(count > 1 ? tr('{} outils') : tr('{} outil'), [count]),
+                style: TextStyle(color: fc.textDisabled, fontSize: 12))
+          else if (isRunning)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: fc.warning.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: fc.warning.withValues(alpha: 0.5)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.play_arrow_rounded, color: fc.warning, size: 14),
+                const SizedBox(width: 3),
+                Text(tr('EN COURS'),
+                    style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900)),
+              ]),
+            )
+          else if (hasProgram)
+            Text(tr('PROGRAMME ACTIF'),
+                style: TextStyle(
+                    color: fc.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900))
+          else
+            Text(tr('0 outil'),
                 style: TextStyle(color: fc.textDisabled, fontSize: 12)),
         ],
       ),
@@ -957,7 +1007,100 @@ class _MobileToolTableScreenState
     );
   }
 
-  Widget _emptyState(ForgeronColorPalette fc) {
+  Widget _emptyState(
+    ForgeronColorPalette fc, {
+    bool isRunning = false,
+    bool hasProgram = false,
+    int lineCount = 0,
+    int activeToolNum = 0,
+    String? sdFilename,
+  }) {
+    if (isRunning) {
+      final progName = (sdFilename != null && sdFilename.isNotEmpty)
+          ? sdFilename
+          : (lineCount > 0 ? '$lineCount lignes G-code' : null);
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.precision_manufacturing_rounded, color: fc.success, size: 48),
+              const SizedBox(height: 14),
+              Text(
+                tr('PROGRAMME EN COURS D\'EXÉCUTION'),
+                style: TextStyle(
+                  color: fc.success,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                activeToolNum > 0
+                    ? tr('Usinage en cours sur la machine avec l\'outil T{}. Aucun changement d\'outil n\'est prévu dans ce cycle.', [activeToolNum])
+                    : tr('Usinage en cours sur la machine. Le programme s\'exécute avec l\'outil monté dans la broche (aucun bloc T.. M6 dans le code).'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+              ),
+              if (progName != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: fc.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: fc.surfaceBorder),
+                  ),
+                  child: Text(
+                    progName,
+                    style: TextStyle(
+                      color: fc.textPrimary,
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (hasProgram) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.description_outlined, color: fc.primary, size: 48),
+              const SizedBox(height: 14),
+              Text(
+                tr('PROGRAMME CHARGÉ SANS OUTIL DÉCLARÉ'),
+                style: TextStyle(
+                  color: fc.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                activeToolNum > 0
+                    ? tr('Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. La machine utilisera l\'outil actif en broche (T{}).', [lineCount, activeToolNum])
+                    : tr('Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. L\'usinage s\'effectuera avec l\'outil préalablement installé dans la broche.', [lineCount]),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

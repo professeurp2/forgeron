@@ -401,6 +401,7 @@ def generate(profile: np.ndarray, p: CutParams = CutParams()) -> tuple[str, dict
         f"  Z DE {f3(-clear_d)} A {f3(p.z_safe)})",
         "G21 G90 G94 G17 G40",
         "G54",
+        f"T1 M6 (FRAISE BOULE DIAM {f3(p.tool_dia)} MM)",
         "M5",
         f"G0 Z{f3(p.z_safe)}",
         f"M0 (VERIFIER FRAISE BOULE DIAM {f3(p.tool_dia)},"

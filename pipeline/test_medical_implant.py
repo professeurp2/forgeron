@@ -191,7 +191,7 @@ def main() -> int:
     huge_path = tmp / "trop_grand.stl"
     _make_curved_cranial_plate_stl(huge_path, width_x=95.0, length_y=120.0)
     try:
-        prepare_implant_mesh(read_stl(str(huge_path)))
+        prepare_implant_mesh(read_stl(str(huge_path)), auto_fit=False)
         chk("dépassement d'enveloppe X refusé", False)
     except ValueError as exc:
         chk("dépassement d'enveloppe X refusé", "course machine" in str(exc), str(exc))

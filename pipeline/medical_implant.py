@@ -723,6 +723,7 @@ def generate_implant_program(
         *warnings,
         "G21 G90 G94 G17 G40",
         "G54",
+        f"T1 M6 (FRAISE BOULE DIAM {f3(cfg.tool_dia)} MM - {mat.nom.upper()})",
         "M5",
         "M9 (INTERDICTION D ARROSAGE - BIOCOMPATIBILITE POLYMERE)",
         f"G0 Z{f3(cfg.z_safe)}",
