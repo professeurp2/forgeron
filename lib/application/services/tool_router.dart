@@ -117,6 +117,8 @@ class ToolRouter {
         'step', 'stp', 'apercu', 'preview', '3d', 'parcours', 'toolpath',
         'genere', 'generer', 'generate', 'usinage', 'cao', 'cam', 'piece',
         'graphique', 'chart', 'courbe', 'fenetre', 'window',
+        'implant', 'medical', 'chirurgical', 'dicom', 'peek', 'pmma', 'uhmwpe',
+        'prothese', 'cranien', 'biocompatible',
       ],
     ),
     'simulation': ToolGroup(

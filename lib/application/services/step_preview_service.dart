@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'pipeline_locator.dart';
 
-/// Maillage d'aperçu d'un fichier STEP, via `pipeline/step_preview.py`.
+/// Maillage d'aperçu d'un fichier STEP ou STL, via `pipeline/step_preview.py`
+/// (pour `.step`/`.stp`) ou `pipeline/medical_implant.py --apercu-seul` (pour
+/// `.stl`).
 ///
 /// Le pipeline d'usinage lit le STEP pour sa géométrie EXACTE ; ici on veut
 /// l'inverse — de quoi dessiner la pièce à l'écran, tout de suite, avant même
@@ -12,7 +14,7 @@ import 'pipeline_locator.dart';
 /// encore traitée n'avait aucune représentation.
 ///
 /// Le résultat est mis en cache à côté du fichier source (`<piece>_apercu.json`)
-/// et réutilisé tant que le STEP n'a pas changé : facettiser une pièce chargée
+/// et réutilisé tant que le fichier n'a pas changé : facettiser une pièce chargée
 /// coûte quelques secondes, et l'opérateur ouvre souvent l'aperçu plusieurs
 /// fois pendant une même session.
 class StepPreviewService {
@@ -39,10 +41,12 @@ class StepPreviewService {
       }
     }
 
-    final pipelineDir = PipelineLocator.findDir(marker: 'step_preview.py');
+    final isStl = stepPath.toLowerCase().endsWith('.stl');
+    final scriptName = isStl ? 'medical_implant.py' : 'step_preview.py';
+    final pipelineDir = PipelineLocator.findDir(marker: scriptName);
     if (pipelineDir == null) {
-      throw const StepPreviewException(
-        'Dossier pipeline introuvable (step_preview.py). '
+      throw StepPreviewException(
+        'Dossier pipeline introuvable ($scriptName). '
         'Cette machine n\'a pas l\'environnement CAO installé.',
       );
     }
@@ -54,9 +58,13 @@ class StepPreviewService {
       );
     }
 
+    final args = isStl
+        ? ['medical_implant.py', stepPath, '--apercu-seul', '-o', cache.path]
+        : ['step_preview.py', stepPath, '-o', cache.path];
+
     final result = await Process.run(
       python,
-      ['step_preview.py', stepPath, '-o', cache.path],
+      args,
       workingDirectory: pipelineDir.path,
     ).timeout(
       _timeout,

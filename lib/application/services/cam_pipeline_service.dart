@@ -1,12 +1,13 @@
+import 'medical_implant_service.dart';
 import 'step_pipeline_service.dart';
 import 'prismatic_pipeline_service.dart';
 
-/// Point d'entrée unique du pipeline CAO -> G-code pour l'agent IA : essaie
-/// la révolution (rapide, précision analytique) et ne retombe sur FreeCAD
-/// (cas général, phase 5.c) que si la pièce n'en est explicitement pas une —
-/// pas sur n'importe quelle erreur, pour ne pas masquer un vrai problème
-/// (fichier absent, environnement manquant) derrière une seconde tentative
-/// qui échouerait pour une raison sans rapport.
+/// Point d'entrée unique du pipeline CAO -> G-code pour l'agent IA :
+/// - si le fichier est un maillage `.stl` (implant médical sur mesure issu de
+///   DICOM ou d'un scan 3D), délègue directement à [MedicalImplantService] ;
+/// - sinon (`.step` / `.stp`), essaie la révolution (rapide, précision
+///   analytique) et ne retombe sur FreeCAD (cas général, phase 5.c) que si la
+///   pièce n'en est explicitement pas une.
 class CamPipelineService {
   static const _refusRevolution = 'pas une pièce de révolution';
 
@@ -18,6 +19,17 @@ class CamPipelineService {
     double stepover = 0.4,
     double? stockRadius,
   }) async {
+    if (stepPath.toLowerCase().endsWith('.stl')) {
+      final res = await MedicalImplantService.run(
+        stepPath,
+        toolDiameter: toolDiameter,
+        ap: ap,
+        ae: ae,
+        stepover: stepover,
+      );
+      return res.report;
+    }
+
     try {
       final report = await StepPipelineService.run(
         stepPath,

@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,10 +10,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../application/providers/ai_agent_provider.dart';
 import '../../application/providers/ai_artifacts_provider.dart';
+import '../../application/providers/medical_implant_provider.dart';
 import '../../application/providers/reco3d_provider.dart';
+import '../../application/services/medical_implant_service.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../domain/models/medical_material.dart';
 import 'ai_assistant_screen.dart';
 import 'main_scaffold.dart' show selectedNavIndexProvider;
 
@@ -29,6 +34,12 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
   String _selectedScaleType = 'aruco'; // 'aruco', 'ruler', 'manual_edge', 'none'
   final TextEditingController _scaleController = TextEditingController(text: '50.0');
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _medLotController =
+      TextEditingController(text: 'LOT-MED-2026-01');
+  final TextEditingController _medPatientController =
+      TextEditingController(text: 'CAS-ANONYME-01');
+  final TextEditingController _medTargetLengthController =
+      TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   bool _isDiscovering = false;
@@ -136,6 +147,9 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
     _markScreenActive(false);
     _scaleController.dispose();
     _urlController.dispose();
+    _medLotController.dispose();
+    _medPatientController.dispose();
+    _medTargetLengthController.dispose();
     super.dispose();
   }
 
@@ -347,6 +361,10 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
               const SizedBox(height: 20),
               _buildResultCard(scanState),
             ],
+
+            // 7. Chaîne Implant Médical sur Mesure (STL DICOM / Scan 3D -> G-code ISO 13485)
+            const SizedBox(height: 20),
+            _buildMedicalImplantSection(scanState),
           ],
         ),
       ),
@@ -889,10 +907,8 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
               }
 
               // 1. Charger la pièce dans le magasin d'artefacts et ouvrir l'aperçu 3D
-              if (stepFile != null) {
-                await ref.read(aiArtifactsProvider.notifier).loadStep(stepFile.path);
-                ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
-              }
+              await ref.read(aiArtifactsProvider.notifier).loadStep(targetFile.path);
+              ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
 
               if (!mounted) return;
 
@@ -929,9 +945,9 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () async {
-              final stepFile = scanState.downloadedStepFile;
-              if (stepFile != null) {
-                await ref.read(aiArtifactsProvider.notifier).loadStep(stepFile.path);
+              final targetFile = scanState.downloadedStepFile ?? scanState.downloadedMeshFile;
+              if (targetFile != null) {
+                await ref.read(aiArtifactsProvider.notifier).loadStep(targetFile.path);
                 ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
               }
               if (!mounted) return;
@@ -943,6 +959,511 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickMedicalStlFile() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['stl', 'step', 'stp'],
+      );
+      if (res != null && res.files.isNotEmpty && res.files.single.path != null) {
+        final file = File(res.files.single.path!);
+        ref
+            .read(medicalImplantProvider.notifier)
+            .selectStlFile(file, provenanceApproximate: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${tr("Erreur import 3D")} : $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildMedicalImplantSection(Reco3dScanState scanState) {
+    final medState = ref.watch(medicalImplantProvider);
+    final notifier = ref.read(medicalImplantProvider.notifier);
+
+    // Source 3D effective : fichier choisi explicitement, sinon le STL issu du scan
+    final effectiveStl = medState.stlFile ?? scanState.downloadedMeshFile;
+    final effectiveApprox = medState.stlFile != null
+        ? medState.provenanceApproximate
+        : (scanState.provenance?.isApproximate ?? false);
+
+    final spec = medState.materialSpec;
+    final blocker = () {
+      if (!spec.machinable) return spec.refusalReason;
+      if (effectiveApprox &&
+          medState.implantType != MedicalImplantType.anatomicalModel &&
+          (medState.targetLengthMm == null || medState.targetLengthMm! <= 0)) {
+        return tr(
+          'Modèle issu d\'un scan sans mire certifiée : indiquez une longueur '
+          'cible (mm) ci-dessous ou basculez sur « Modèle anatomique pré-opératoire ».',
+        );
+      }
+      return null;
+    }();
+
+    final isStep = effectiveStl != null &&
+        (effectiveStl.path.toLowerCase().endsWith('.step') ||
+            effectiveStl.path.toLowerCase().endsWith('.stp'));
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medical_services_outlined, color: Colors.tealAccent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Chaîne Usinage Médical sur Mesure (STL / STEP → G-code)'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.5)),
+                ),
+                child: const Text(
+                  'ISO 13485 · M9 SEC',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.tealAccent),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr(
+              'Prépare un modèle 3D (STL scanner/DICOM ou STEP CAO natif), '
+              'oriente la pièce à plat sur le berceau, centre l\'origine G54, '
+              'vérifie la biocompatibilité d\'usinage (coupe à sec M9) et '
+              'génère le dossier de lot.',
+            ),
+            style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+
+          // Sélection du fichier 3D (import STL/STEP ou récupération du scan courant)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickMedicalStlFile,
+                  icon: const Icon(Icons.upload_file, size: 16),
+                  label: Text(
+                    tr('Importer 3D (STL ou STEP CAO)'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              if (scanState.downloadedMeshFile != null &&
+                  medState.stlFile?.path != scanState.downloadedMeshFile!.path) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    notifier.selectStlFile(
+                      scanState.downloadedMeshFile!,
+                      provenanceApproximate: scanState.provenance?.isApproximate ?? true,
+                    );
+                  },
+                  icon: const Icon(Icons.auto_fix_high, size: 16),
+                  label: Text(tr('Utiliser le Scan 3D'), style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  effectiveStl != null ? Icons.insert_drive_file_outlined : Icons.info_outline,
+                  size: 15,
+                  color: effectiveStl != null ? Colors.tealAccent : Colors.white54,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    effectiveStl != null
+                        ? '${isStep ? "STEP CAO" : "STL"} : ${effectiveStl.path.split(Platform.pathSeparator).last}'
+                            '${effectiveApprox ? " (échelle approximative)" : " (échelle métrique)"}'
+                        : tr('Aucun fichier 3D sélectionné (importez un STL/STEP ou lancez un scan).'),
+                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Type de dispositif médical
+          DropdownButtonFormField<MedicalImplantType>(
+            key: ValueKey<MedicalImplantType>(medState.implantType),
+            initialValue: medState.implantType,
+            decoration: InputDecoration(
+              labelText: tr('Type de dispositif médical'),
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+            items: [
+              for (final t in MedicalImplantType.values)
+                DropdownMenuItem(
+                  value: t,
+                  child: Text(t.label, style: const TextStyle(fontSize: 13)),
+                ),
+            ],
+            onChanged: (val) {
+              if (val != null) notifier.setImplantType(val);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          // Matériau médical (avec signalement honnête des métaux hors capacité)
+          DropdownButtonFormField<MedicalMaterialId>(
+            key: ValueKey<MedicalMaterialId>(medState.material),
+            initialValue: medState.material,
+            decoration: InputDecoration(
+              labelText: tr('Matériau biomédical & enveloppe machine'),
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+            items: [
+              for (final m in MedicalMaterialId.values)
+                DropdownMenuItem(
+                  value: m,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        m.spec.machinable ? Icons.check_circle_outline : Icons.block,
+                        size: 15,
+                        color: m.spec.machinable ? Colors.greenAccent : Colors.redAccent,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '${m.spec.name} (${m.spec.machinable ? "ap ≤ ${m.spec.apMax} mm" : "Hors capacité 200 W"})',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: m.spec.machinable ? null : Colors.redAccent,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            onChanged: (val) {
+              if (val != null) notifier.setMaterial(val);
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // Fiche du matériau sélectionné ou refus motivé
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: spec.machinable
+                  ? Colors.teal.withValues(alpha: 0.12)
+                  : Colors.red.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: spec.machinable ? Colors.tealAccent.withValues(alpha: 0.4) : Colors.redAccent,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${spec.name} — ${spec.standard}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: spec.machinable ? Colors.tealAccent : Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• Usage : ${spec.clinicalUse}',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                if (spec.machinable) ...[
+                  Text(
+                    '• Plafonds machine : ap ≤ ${spec.apMax} mm · ae ≤ ${spec.aeMax} mm · '
+                    'pas finition ${spec.stepoverRecommended} mm · F ébauche ${spec.feedRoughMax.toInt()} mm/min',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  const Text(
+                    '• Hygiène : Coupe à sec obligatoire (M9 forcé, M7/M8 bloqués)',
+                    style: TextStyle(fontSize: 11, color: Colors.amberAccent),
+                  ),
+                ] else if (spec.refusalReason != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '⛔ ${spec.refusalReason!}',
+                    style: const TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Traçabilité de lot (ISO 13485) & recalage métrique optionnel
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _medLotController,
+                  decoration: InputDecoration(
+                    labelText: tr('N° de Lot (ISO 13485)'),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => notifier.setLotInfo(lotId: v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _medPatientController,
+                  decoration: InputDecoration(
+                    labelText: tr('Réf. Cas / Patient (anonymisée)'),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => notifier.setLotInfo(patientRef: v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _medTargetLengthController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: tr('Longueur XY cible (mm, optionnel)'),
+                    hintText: tr('Ex: 45.0 (recalage DICOM/Scan)'),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => notifier.setTargetLengthMm(double.tryParse(v.trim())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilterChip(
+                label: Text(
+                  medState.fiveAxis ? tr('5 Axes Continu') : tr('3 Axes (A=0)'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                selected: medState.fiveAxis,
+                onSelected: (v) => notifier.setFiveAxis(v),
+              ),
+            ],
+          ),
+
+          if (blocker != null && spec.machinable) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.amber),
+              ),
+              child: Text(
+                '⚠️ $blocker',
+                style: const TextStyle(fontSize: 11, color: Colors.amber),
+              ),
+            ),
+          ],
+
+          if (medState.errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              medState.errorMessage!,
+              style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: (medState.isGenerating || blocker != null || effectiveStl == null)
+                ? null
+                : () {
+                    notifier.setLotInfo(
+                      lotId: _medLotController.text,
+                      patientRef: _medPatientController.text,
+                    );
+                    notifier.setTargetLengthMm(
+                      double.tryParse(_medTargetLengthController.text.trim()),
+                    );
+                    notifier.generateProgram(
+                      overrideStlFile: effectiveStl,
+                      overrideProvenanceApproximate: effectiveApprox,
+                    );
+                  },
+            icon: medState.isGenerating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.healing),
+            label: Text(
+              medState.isGenerating
+                  ? tr('Préparation géométrique & calcul 5 axes en cours...')
+                  : tr('Préparer l\'implant & Générer le G-code médical'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+
+          if (medState.result != null) ...[
+            const SizedBox(height: 16),
+            _buildMedicalDossierCard(medState.result!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedicalDossierCard(MedicalImplantResult res) {
+    final d = res.dossier;
+    final crit = res.critique;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user, color: Colors.tealAccent, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${tr("Dossier de Lot ISO 13485")} — ${d.lotId}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.tealAccent,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy, size: 16),
+                tooltip: tr('Copier la fiche de traçabilité'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: d.toMarkdownSummary()));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(tr('Fiche de traçabilité ISO 13485 copiée.'))),
+                  );
+                },
+              ),
+            ],
+          ),
+          const Divider(height: 12),
+          Text('• Cas / Patient : ${d.patientRef} · ${d.implantType.label}',
+              style: const TextStyle(fontSize: 12)),
+          Text('• Matériau : ${d.material.name} (${d.material.standard})',
+              style: const TextStyle(fontSize: 12)),
+          Text('• Dimensions G54 : ${d.sizeLabel} (vol. ${d.volumeMm3.toStringAsFixed(1)} mm³)',
+              style: const TextStyle(fontSize: 12)),
+          Text(
+            '• Coupe : ap ${d.apMm} mm · ae ${d.aeMm} mm · pas ${d.stepoverMm} mm '
+            '(crête ${d.crestUm.toStringAsFixed(1)} µm) · Coupe à sec M9',
+            style: const TextStyle(fontSize: 12),
+          ),
+          Text(
+            '• Parcours : ${d.roughLayers} couches d\'ébauche + ${d.finishPoints} pts finition '
+            '(A de ${d.aRangeDeg.first.toStringAsFixed(1)}° à ${d.aRangeDeg.last.toStringAsFixed(1)}°) '
+            '· ${d.durationTotalMin.toStringAsFixed(1)} min (${d.gcodeLines} lignes)',
+            style: const TextStyle(fontSize: 12),
+          ),
+          Text(
+            '• Critique G-code médicale : ${crit.usable ? "CONFORME (sans lubrifiant M7/M8)" : "BLOQUÉ"}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: crit.usable ? Colors.greenAccent : Colors.redAccent,
+            ),
+          ),
+          for (final note in d.preparationNotes)
+            Text('  ↳ $note',
+                style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.white70)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
+                    ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+                    ref.read(selectedNavIndexProvider.notifier).state = 0;
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(Icons.view_in_ar, size: 16),
+                  label: Text(tr('Plateau 3D & Parcours'), style: const TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final prompt =
+                        'Vérifie le dossier médical du lot ${d.lotId} (${d.material.name}, '
+                        '${d.implantType.label}) généré dans ${res.gcodePath}.';
+                    ref.read(aiAgentControllerProvider.notifier).sendUserMessage(prompt);
+                    final isDesktop = MediaQuery.of(context).size.width >= 900;
+                    if (isDesktop) {
+                      ref.read(selectedNavIndexProvider.notifier).state = 6;
+                      Navigator.of(context).pop();
+                    } else {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const Scaffold(
+                            body: SafeArea(child: AiAssistantScreen(embedded: false)),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.smart_toy_outlined, size: 16),
+                  label: Text(tr('Ouvrir dans l\'Agent IA'), style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

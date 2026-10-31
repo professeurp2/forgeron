@@ -71,3 +71,6 @@ tool/reco3d/bin/
 
 # Dossiers temporaires de pytest (tool/reco3d)
 .pytest_temp/
+
+dist/
+scratch/

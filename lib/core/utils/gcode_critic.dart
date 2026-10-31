@@ -29,6 +29,10 @@ class GcodeCritic {
   /// Sur cette machine les redémarrages thermiques surviennent vers 25-35 min.
   final double maxMinutes;
 
+  /// Mode d'usinage médical : interdit tout arrosage M7/M8 pour éviter la
+  /// contamination d'un polymère implantable ou d'un guide chirurgical.
+  final bool medicalMode;
+
   const GcodeCritic({
     this.maxX = 88.0,
     this.maxY = 150.0,
@@ -38,6 +42,7 @@ class GcodeCritic {
     this.maxFeed = 500.0,
     this.maxDegPerMm = 90.0,
     this.maxMinutes = 25.0,
+    this.medicalMode = false,
   });
 
   static final _word = <String, RegExp>{
@@ -66,6 +71,18 @@ class GcodeCritic {
       final raw = lines[i].split('(').first.split(';').first.trim();
       if (raw.isEmpty) continue;
       final u = raw.toUpperCase();
+
+      if (medicalMode && RegExp(r'(?:^|\s)M0?[78](?![0-9])').hasMatch(u)) {
+        findings.add(CriticFinding(
+          code: 'arrosage_interdit_en_medical',
+          severity: CriticSeverity.blocking,
+          line: i + 1,
+          message: 'Arrosage (M7/M8) interdit en usinage médical : un fluide '
+              'd\'atelier contamine les polymères biocompatibles (PEEK, '
+              'UHMWPE, PMMA).',
+          remedy: 'Remplacer M7/M8 par M9 (coupe à sec ou air médical filtré).',
+        ));
+      }
 
       // Temporisation : ni mouvement, ni avance.
       final dwell = RegExp(r'G0?4(?:\s|\b)[^;(]*?\bP\s*([0-9]*\.?[0-9]+)')
