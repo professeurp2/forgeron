@@ -1190,13 +1190,69 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final groups = _turnGroups;
     final fixed =
         groups == null ? baseSystemPrompt : specialistSystemPrompt(groups);
+    final langBlock = _languageEnforcementBlock();
+    final glossaire = _glossaireBlockOrEmpty();
     return '$fixed\n\n'
-        '${_kinematicsBlock()}\n\n'
-        '${_ref.read(appLanguageProvider).promptDirective}'
-        '${_glossaireBlockOrEmpty()}\n\n'
+        '${_kinematicsBlock()}'
+        '${glossaire.isEmpty ? "" : "\n\n$glossaire"}\n\n'
         '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
-        '$activity';
+        '$activity\n\n'
+        '$langBlock';
+  }
+
+  /// Bloc de directive linguistique placé en FIN de prompt système (attention maximale
+  /// du modèle) pour empêcher tout basculement intempestif en anglais après un outil.
+  String _languageEnforcementBlock() {
+    final appLang = _ref.read(appLanguageProvider);
+    String detectedLang = 'français';
+
+    if (appLang.isAuto) {
+      final userMessages = state.messages.where((m) => m.role == 'user');
+      final lastUserMsg = userMessages.isNotEmpty ? userMessages.last.text : '';
+      detectedLang = _detectLanguage(lastUserMsg);
+    } else {
+      detectedLang = appLang.promptName ?? 'français';
+    }
+
+    return '=== RÈGLE STRICTE : LANGUE DE RÉPONSE ===\n'
+        'L\'opérateur s\'adresse à toi en $detectedLang.\n'
+        'Tu DOIS impérativement et exclusivement répondre en $detectedLang.\n'
+        'RÈGLE CRITIQUE APRÈS UN OUTIL : même après un appel d\'outil (run_step_pipeline, preview_step_file, home...), '
+        'même en cas d\'erreur ou d\'action technique (timeout, délai dépassé, fichier introuvable, refus...), '
+        'et quelle que soit la langue des fonctions ou résultats techniques : '
+        'ta réponse, tes explications et tes propositions à l\'opérateur DOIVENT ÊTRE EN $detectedLang. '
+        'Il est STRICTEMENT INTERDIT de basculer en anglais ou dans une autre langue.\n\n'
+        '${appLang.promptDirective}';
+  }
+
+  static String _detectLanguage(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return 'français';
+
+    if (RegExp(r'[\u0600-\u06FF]').hasMatch(trimmed)) return 'arabe';
+    if (RegExp(r'[\u1200-\u137F]').hasMatch(trimmed)) return 'amharique';
+
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('i ni ce') || lower.contains('aw ni ce') || lower.contains('an ka') || lower.contains('sisan')) {
+      return 'bambara';
+    }
+    if (lower.contains('arakitra') || lower.contains('misaotra') || lower.contains('manao ahoana') || lower.contains('aza fady')) {
+      return 'malgache';
+    }
+    if (lower.contains('habari') || lower.contains('asante') || lower.contains('tafadhali') || lower.contains('mashine')) {
+      return 'swahili';
+    }
+
+    final enWords = RegExp(r'\b(the|is|are|please|load|start|run|toolpath|help|what|can|you|generate|show|view)\b');
+    final frWords = RegExp(r"\b(le|la|les|un|une|des|du|de|ce|cette|ces|et|en|pour|dans|sur|avec|est|sont|j'|l'|d'|qu'|charge|prépare|fichier|usinage|bonjour|bonsoir|salut|merci)\b");
+    final hasFrAccents = RegExp(r'[éèêàçùôîëï]').hasMatch(lower);
+
+    if (enWords.hasMatch(lower) && !frWords.hasMatch(lower) && !hasFrAccents) {
+      return 'anglais';
+    }
+
+    return 'français';
   }
 
   // ---------------------------------------------------------------------

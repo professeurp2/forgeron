@@ -686,13 +686,61 @@ class LocalAiAgentService implements AiBackend {
   /// français : avec le bambara (ou l'anglais…) comme langue de réponse,
   /// « réponds uniquement en français » contredisait cette consigne.
   static const languageReminder =
-      '\n\nRAPPEL : ta réponse précédente contenait des caractères chinois, '
-      'ce qui est interdit ici. Réponds uniquement dans la langue de réponse '
-      'demandée plus haut (=== LANGUE DE RÉPONSE ===), sans un seul caractère '
-      'chinois, même pour un mot isolé.';
+      '\n\nRAPPEL STRICT : ta réponse précédente a dérapé dans une autre langue '
+      '(anglais ou chinois), ce qui est interdit. '
+      'Réponds uniquement et intégralement dans la langue de réponse '
+      'demandée (=== LANGUE DE RÉPONSE ===), sans un seul mot en anglais ni caractère chinois.';
 
-  /// Nombre de nouvelles tentatives quand le modèle dérive en chinois.
+  /// Nombre de nouvelles tentatives quand le modèle dérive de langue (chinois ou anglais).
   static const maxLanguageRetries = 2;
+
+  /// Mots grammaticaux anglais typiques d'une dérive de prose.
+  static final _enStopwords = RegExp(
+    r'\b(the|is|are|and|to|of|that|it|you|we|with|for|on|this|from|have|has|would|please|encountered|while|attempting|ensure|exceeded|check)\b',
+    caseSensitive: false,
+  );
+
+  /// Marqueurs de langue française (mots grammaticaux courants et voyelles accentuées).
+  static final _frMarkers = RegExp(
+    r"\b(le|la|les|un|une|des|du|de|ce|cette|ces|et|en|pour|dans|sur|avec|est|sont|j'|l'|d'|qu'|c'|vous|nous|pas|plus|faire|fichier|usinage|charge|prépare|erreur)\b",
+    caseSensitive: false,
+  );
+  static final _frAccents = RegExp(r'[éèêàçùôîëï]', caseSensitive: false);
+
+  /// Vrai si le modèle a produit une prose anglaise alors que le dernier
+  /// message de l'opérateur était en français (ou autre langue non-anglaise).
+  static bool driftedToEnglish(
+      AiApiResponse r, List<Map<String, dynamic>> contents) {
+    if (r.finishReason == 'CANCELLED') return false;
+    final text = r.text.trim();
+    if (text.length < 20) return false;
+
+    // Trouver le dernier message réellement écrit par l'opérateur
+    String userText = '';
+    for (final c in contents.reversed) {
+      if (c['role'] != 'user') continue;
+      final texts = ((c['parts'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((p) => p['text'])
+          .whereType<String>();
+      if (texts.isEmpty) continue;
+      userText = texts.join(' ').toLowerCase();
+      break;
+    }
+    if (userText.isEmpty) return false;
+
+    // Si l'utilisateur a lui-même écrit en anglais sans marqueurs français, l'anglais est légitime
+    final userHasFr = _frMarkers.hasMatch(userText) || _frAccents.hasMatch(userText);
+    if (!userHasFr && _enStopwords.allMatches(userText).length >= 2) {
+      return false;
+    }
+
+    // Vérifier si la réponse est en prose anglaise sans français
+    final enMatches = _enStopwords.allMatches(text).length;
+    final hasFrInReply = _frMarkers.hasMatch(text) || _frAccents.hasMatch(text);
+
+    return enMatches >= 3 && !hasFrInReply;
+  }
 
   /// Qwen2.5 a été entraîné surtout sur du chinois : en pleine phrase française
   /// il lui arrive de basculer (« …à côté de la讨论中… »), puis de finir sa
@@ -717,6 +765,11 @@ class LocalAiAgentService implements AiBackend {
     }
     return true;
   }
+
+  /// Dérive de langue globale (bascule inopinée en chinois OU en anglais).
+  static bool hasLanguageDrift(
+      AiApiResponse r, List<Map<String, dynamic>> contents) =>
+      driftedToChinese(r, contents) || driftedToEnglish(r, contents);
 
   /// Notes déposées dans [AiApiResponse.notes] quand un garde-fou intervient.
   static const noteTextCallRecovered = 'appel_en_texte:recupere';
@@ -756,7 +809,7 @@ class LocalAiAgentService implements AiBackend {
     String? systemPrompt,
   }) async {
     var r = await _send(contents, functionDeclarations, systemPrompt);
-    for (var i = 0; i < maxLanguageRetries && driftedToChinese(r, contents); i++) {
+    for (var i = 0; i < maxLanguageRetries && hasLanguageDrift(r, contents); i++) {
       final again = await _send(
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');
       r = _afterRetry(r, again);
@@ -810,7 +863,7 @@ class LocalAiAgentService implements AiBackend {
         onDelta, shouldCancel);
     // La nouvelle tentative n'est pas streamée : elle remplace d'un coup
     // l'aperçu en cours, qui montrait la réponse dérivée.
-    for (var i = 0; i < maxLanguageRetries && driftedToChinese(r, contents); i++) {
+    for (var i = 0; i < maxLanguageRetries && hasLanguageDrift(r, contents); i++) {
       if (shouldCancel?.call() ?? false) break;
       final again = await _send(
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');

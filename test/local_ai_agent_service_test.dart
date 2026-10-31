@@ -627,6 +627,99 @@ void main() {
     });
   });
 
+  group('dérive en anglais', () {
+    const deriveEn =
+        'I encountered an error while attempting to generate the G-code from the STEP file. '
+        'The delay exceeded the maximum allowed time of 120 seconds. Please check the file.';
+    const propreFr =
+        'J\'ai rencontré une erreur lors de la génération du G-code depuis le fichier STEP : '
+        'le délai maximal de 120 secondes a été dépassé. Vérifie le fichier.';
+
+    List<Map<String, dynamic>> question(String t) => [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': t}
+            ]
+          }
+        ];
+
+    AiApiResponse reponse(String t, {String finish = 'STOP'}) => AiApiResponse(
+        parts: [
+          {'text': t}
+        ],
+        finishReason: finish,
+        totalTokens: 100);
+
+    test('détecte une réponse anglaise à une question française', () {
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(deriveEn), question('Charge ce fichier STEP et prépare le G-code.')),
+          isTrue);
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(propreFr), question('Charge ce fichier STEP et prépare le G-code.')),
+          isFalse);
+    });
+
+    test('si l\'opérateur écrit en anglais, la réponse en anglais est autorisée', () {
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(deriveEn), question('Please generate the G-code for this STEP file.')),
+          isFalse);
+    });
+
+    test('détecte la dérive même après un retour d\'outil (ex: erreur CAM)', () {
+      final contents = [
+        ...question('Charge ce fichier STEP et prépare le G-code.'),
+        {
+          'role': 'model',
+          'parts': [
+            {
+              'functionCall': {
+                'name': 'run_step_pipeline',
+                'args': {'file_path': 'test.step'}
+              }
+            }
+          ]
+        },
+        {
+          'role': 'user',
+          'parts': [
+            {
+              'functionResponse': {
+                'name': 'run_step_pipeline',
+                'response': {
+                  'error': 'Délai dépassé (120 s) lors de la génération CAM'
+                }
+              }
+            }
+          ]
+        },
+      ];
+      expect(
+          LocalAiAgentService.driftedToEnglish(reponse(deriveEn), contents),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(deriveEn), contents),
+          isTrue);
+    });
+
+    test('hasLanguageDrift couvre aussi bien le chinois que l\'anglais', () {
+      final qFr = question('Quelle est la vitesse ?');
+      expect(
+          LocalAiAgentService.hasLanguageDrift(
+              reponse('讨论中。我已经生成了预览。'), qFr),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(deriveEn), qFr),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(propreFr), qFr),
+          isFalse);
+    });
+  });
+
   group('appel d\'outil écrit en texte', () {
     // Relevé sur Qwen2.5-7B, longue discussion : la balise d'ouverture est
     // remplacée par un mot sans rapport, le serveur ne la reconnaît pas, et
