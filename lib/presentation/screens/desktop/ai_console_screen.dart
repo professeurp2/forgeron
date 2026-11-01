@@ -260,15 +260,15 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   Future<void> _pickStepFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['step', 'stp'],
-      dialogTitle: tr('Charger une pièce (STEP)'),
+      allowedExtensions: ['step', 'stp', 'stl'],
+      dialogTitle: tr('Charger une pièce (STEP ou STL)'),
     );
     final path = result?.files.single.path;
     if (path == null) return; // annulé
 
-    ref.read(aiArtifactsProvider.notifier).loadStep(path);
+    ref.read(aiArtifactsProvider.notifier).pickNewPart(path);
     ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
-          'Charge ce fichier STEP et prépare le G-code de finition.\n\nFichier : $path',
+          'Charge cette pièce et prépare le G-code de finition.\n\nFichier : $path',
         );
     setState(() => _atBottom = true);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
@@ -1511,7 +1511,7 @@ class _Composer extends StatelessWidget {
             Row(
               children: [
                 Tooltip(
-                  message: tr('Charger une pièce (fichier STEP)'),
+                  message: tr('Charger une pièce (STEP ou STL)'),
                   child: fluent.IconButton(
                     icon: Icon(fluent.FluentIcons.attach,
                         color: fc.textSecondary, size: 16),
@@ -2008,7 +2008,7 @@ class _StepCard extends ConsumerWidget {
           const SizedBox(height: 10),
           fluent.Button(
             onPressed: onPickStep,
-            child: Text(tr('Charger un STEP')),
+            child: Text(tr('Charger une pièce')),
           ),
         ] else ...[
           Text(
@@ -2053,6 +2053,14 @@ class _StepCard extends ConsumerWidget {
                   'triangles': s.preview!.triangles,
                 },
               ),
+            ),
+          ],
+          // Toujours là : sinon, une fois une pièce chargée, plus moyen d'en changer.
+          if (!s.loading) ...[
+            const SizedBox(height: 8),
+            fluent.Button(
+              onPressed: onPickStep,
+              child: Text(tr('Changer de pièce')),
             ),
           ],
         ],
@@ -2213,7 +2221,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                tr('Du fichier STEP au G-code'),
+                tr('Du fichier STEP ou STL au G-code'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: fc.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
@@ -2229,7 +2237,7 @@ class _EmptyState extends StatelessWidget {
                 onPressed: onPickStep,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(tr('Charger un fichier STEP')),
+                  child: Text(tr('Charger une pièce (STEP ou STL)')),
                 ),
               ),
               const SizedBox(height: 22),

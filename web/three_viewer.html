@@ -680,7 +680,29 @@
         function pivotDepth() {
             return declaredPivotDepth != null ? declaredPivotDepth : stockHeight() + PIVOT_TO_TABLE_MM;
         }
-        function placeStock() { cAxis.position.z = pivotDepth() - stockHeight(); }
+        function placeStock() {
+            cAxis.position.z = pivotDepth() - stockHeight();
+            syncPieceFrame();
+        }
+
+        // Repère pièce du programme : sommet du brut sur l'axe C. Pièce et parcours y
+        // vivent, donc ils suivent le plateau et les axes A/C. Sans machine affichée,
+        // il se confond avec l'origine de la scène.
+        const pieceFrame = new THREE.Group();
+        pieceFrame.matrixAutoUpdate = false;
+        scene.add(pieceFrame);
+
+        function syncPieceFrame() {
+            if (typeof pieceFrame === 'undefined') return;
+            pieceFrame.matrix.identity();
+            if (machineGroup.visible) {
+                workpiece.mesh.updateWorldMatrix(true, false);
+                pieceFrame.matrix.copy(workpiece.mesh.matrixWorld)
+                    .multiply(new THREE.Matrix4().makeTranslation(0, 0, stockHeight()));
+            }
+            pieceFrame.matrixWorldNeedsUpdate = true;
+            requestRender();
+        }
         placeStock();
 
         const currentMachine = { x: 0, y: 0, z: 0, a: 0, c: 0 };
@@ -714,6 +736,17 @@
             cutQueue.length = 0;
             lastCutIndex = 0;
             cutCursor = null;
+            updateStockLook();
+        }
+
+        // Avant toute coupe, le brut plein cacherait la pièce : on le rend translucide.
+        function updateStockLook() {
+            const seeThrough = !!partMesh && !cutCursor && lastCutIndex === 0;
+            matWorkpiece.transparent = seeThrough;
+            matWorkpiece.opacity = seeThrough ? 0.3 : 1;
+            matWorkpiece.depthWrite = !seeThrough;
+            matWorkpiece.needsUpdate = true;
+            requestRender();
         }
 
         function pathPoint(i) {
@@ -747,7 +780,10 @@
             if (index <= 0) return;
             const n = pathLength();
             if (n > 0 && pathIsInPieceFrame()) {
-                if (!cutCursor) cutCursor = pathPoint(Math.min(lastCutIndex, n - 1));
+                if (!cutCursor) {
+                    cutCursor = pathPoint(Math.min(lastCutIndex, n - 1));
+                    updateStockLook();
+                }
                 for (let b = lastCutIndex + 1; b <= Math.min(index, n - 1); b++) {
                     const to = pathPoint(b);
                     cutQueue.push([cutCursor, to]);
@@ -865,6 +901,7 @@
             yAxis.position.y = -m.y;
             aAxis.rotation.x = m.a * Math.PI / 180;
             cAxis.rotation.z = m.c * Math.PI / 180;
+            syncPieceFrame();
 
             if (isCutting) {
                 matLedRing.color.setHex(0xff6b35);
@@ -915,6 +952,7 @@
         document.getElementById('mode-btn').onclick = () => {
             const m = machineGroup.visible;
             machineGroup.visible = !m;
+            syncPieceFrame();
             document.getElementById('mode-text').innerText = m ? 'Outil' : 'Machine';
             requestRender();
         };
@@ -979,7 +1017,7 @@
 
         // --- PRÉVISUALISATION DU PARCOURS D'OUTIL (ZÉRO FUITE VRAM) ---
         const toolpathGroup = new THREE.Group();
-        scene.add(toolpathGroup);
+        pieceFrame.add(toolpathGroup);
         const pathMaterial = new THREE.LineBasicMaterial({ vertexColors: true });
         let pathLines = null;
         let vectorLines = null;
@@ -1089,7 +1127,7 @@
 
         // --- MAILLAGE DE PIÈCE (STEP facettisé) ---
         const partGroup = new THREE.Group();
-        scene.add(partGroup);
+        pieceFrame.add(partGroup);
         const matPart = new THREE.MeshStandardMaterial({
             color: 0xd9dde1,
             metalness: 0.35,
@@ -1106,6 +1144,7 @@
             partGroup.remove(partMesh);
             partMesh.geometry.dispose();
             partMesh = null;
+            updateStockLook();
             requestRender();
         }
 
@@ -1125,7 +1164,17 @@
             }
             geo.computeVertexNormals();
             partMesh = new THREE.Mesh(geo, matPart);
+            // Un STEP brut garde les coordonnées de sa CAO : on le pose à l'affichage
+            // sur l'axe C, sommet au zéro. Seule l'image bouge : la comparaison, elle,
+            // refuse un modèle hors du repère du programme.
+            geo.computeBoundingBox();
+            const box = geo.boundingBox;
+            const cx = (box.min.x + box.max.x) / 2;
+            const cy = (box.min.y + box.max.y) / 2;
+            const inFrame = Math.abs(box.max.z) < 0.5 && Math.abs(cx) < 0.5 && Math.abs(cy) < 0.5;
+            if (!inFrame) partMesh.position.set(-cx, -cy, -box.max.z);
             partGroup.add(partMesh);
+            updateStockLook();
 
             const nTri = data.indices ? (data.indices.length / 3) : (data.vertices.length / 9);
             debug('PIÈCE CAO : ' + nTri + ' TRIANGLES');
@@ -1134,8 +1183,9 @@
         }
 
         function fitCameraTo(obj) {
-            obj.geometry.computeBoundingBox();
-            const bb = obj.geometry.boundingBox;
+            syncPieceFrame();
+            pieceFrame.updateMatrixWorld(true);
+            const bb = new THREE.Box3().setFromObject(obj);
             const center = new THREE.Vector3();
             const size = new THREE.Vector3();
             bb.getCenter(center);
@@ -1152,6 +1202,7 @@
             if (!s) return;
             if (typeof s.machine === 'boolean') {
                 machineGroup.visible = s.machine;
+                syncPieceFrame();
                 floorGridGroup.visible = s.machine;
             }
             if (typeof s.toolpath === 'boolean') toolpathGroup.visible = s.toolpath;
@@ -1318,6 +1369,7 @@
             } finally {
                 if (savedVis) {
                     machineGroup.visible = savedVis.machine;
+                    syncPieceFrame();
                     floorGridGroup.visible = savedVis.floor;
                     toolpathGroup.visible = savedVis.toolpath;
                     partGroup.visible = savedVis.part;
