@@ -45,6 +45,28 @@ console.log('fraise plate');
   chk('perçage plat', pct(removed(d), hole) < 1, removed(d).toFixed(1));
 }
 
+console.log('passe en pente : rien sous l\'outil au-delà de la passe');
+{
+  const s = new DexelStock({ shape: 'cuboid', size: [40, 40, 20], h: H });
+  s.sweep([0, 0, 25], [5, 0, 15], { radius: 3, type: 'flat' });
+  const end = s.topAt(7.5, 0);
+  chk('après le bout bas, fond à la hauteur du bout', Math.abs(end.z - (15 - 20)) < 1e-6, end.z.toFixed(3));
+  const start = s.topAt(-2.5, 0);
+  chk('derrière le bout haut, rien n\'est coupé', start.z === 0, start.z.toFixed(3));
+  const ramp = new DexelStock({ shape: 'cuboid', size: [40, 40, 20], h: H });
+  ramp.sweep([-15, 0, 23], [15, 0, 13], { radius: 3, type: 'flat' });
+  const mid = ramp.topAt(0, 0);
+  const expected = 23 - (10 * (mid.x + 15)) / 30 - 20;
+  chk('au milieu, le fond suit la pente', Math.abs(mid.z - expected) < 1e-6, mid.z.toFixed(3));
+
+  // Micro-mouvement à direction quelconque : ne doit pas creuser.
+  const m = new DexelStock({ shape: 'cuboid', size: [40, 40, 20], h: H });
+  m.sweep([0, 0, 15], [0, 0, 15], { radius: 3, type: 'flat' });
+  const v0 = m.volume();
+  m.sweep([0, 0, 15], [0.0005, 0, 15.0009], { radius: 3, type: 'flat' });
+  chk('un micro-mouvement ne change presque rien', Math.abs(m.volume() - v0) < 2, (m.volume() - v0).toFixed(2));
+}
+
 console.log('fraise boule');
 {
   // Plongée de 6 mm : cylindre de 3 mm + demi-sphère.

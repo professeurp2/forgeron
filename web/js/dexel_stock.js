@@ -167,6 +167,11 @@
       const top0 = add(tip0, u, L);
       const top1 = add(tip1, u, L);
 
+      // L'outil entier reste au-dessus du brut selon son axe : rien à faire. Évite de
+      // parcourir toutes les droites pendant un rembobinage de C en l'air.
+      const reach = Math.max(...this._corners().map((q) => dot(q, u)));
+      if (dot(c0, u) - r > reach && dot(c1, u) - r > reach) return;
+
       const prism = _prism(c0, c1, u, r);
       for (let axis = 0; axis < 3; axis++) {
         const [a, b] = this._others(axis);
@@ -189,11 +194,64 @@
               const s = _capsule(o, d, c0, c1, r);
               if (s) this._subtract(axis, ia, ib, s[0], s[1]);
             }
-            const p = _rayPrism(o, d, prism);
-            if (p) this._subtract(axis, ia, ib, p[0], p[1]);
+            for (const p of _rayPrism(o, d, prism)) this._subtract(axis, ia, ib, p[0], p[1]);
           }
         }
       }
+    }
+
+    _corners() {
+      const [sx, sy, sz] = this.size;
+      const out = [];
+      for (const x of [-sx / 2, sx / 2]) {
+        for (const y of [-sy / 2, sy / 2]) {
+          for (const z of [0, sz]) out.push([x, y, z]);
+        }
+      }
+      return out;
+    }
+
+    // Un bloc G-code : pose = [x, y, z pointe en repère pièce (Z=0 au dessus du brut),
+    // A, C]. FluidNC interpole les axes MACHINE en ligne droite : quand la table
+    // tourne, la pointe décrit une courbe sur la pièce. On suit donc les axes machine,
+    // par tranches à axe outil constant. [pivotDepth] : pivot A sous le zéro pièce.
+    sweepBlock(from, to, tool, pivotDepth) {
+      const H = this.size[2];
+      const turn = Math.max(Math.abs(to[3] - from[3]), Math.abs(to[4] - from[4]));
+      if (turn < 1e-9) {
+        this.sweep([from[0], from[1], from[2] + H], [to[0], to[1], to[2] + H], tool,
+          toolAxisInPiece(to[3], to[4]));
+        return;
+      }
+      const m0 = pieceToMachine(from, pivotDepth);
+      const m1 = pieceToMachine(to, pivotDepth);
+      const steps = Math.ceil(turn);
+      let prev = from;
+      for (let i = 1; i <= steps; i++) {
+        const u = i / steps;
+        const m = [0, 1, 2].map((k) => m0[k] + (m1[k] - m0[k]) * u);
+        const a = from[3] + (to[3] - from[3]) * u;
+        const c = from[4] + (to[4] - from[4]) * u;
+        const next = machineToPiece(m, a, c, pivotDepth);
+        const mid = [(prev[3] + a) / 2, (prev[4] + c) / 2];
+        this.sweep([prev[0], prev[1], prev[2] + H], [next[0], next[1], next[2] + H], tool,
+          toolAxisInPiece(mid[0], mid[1]));
+        prev = [next[0], next[1], next[2], a, c];
+      }
+    }
+
+    // Hauteur du dessus de la matière sur la droite Z la plus proche, en repère pièce.
+    topAt(x, y) {
+      const i = Math.round((x - this.origin[0]) / this.h);
+      const j = Math.round((y - this.origin[1]) / this.h);
+      if (i < 0 || j < 0 || i >= this.n[0] || j >= this.n[1]) return null;
+      const line = this.lines[2][i + j * this.n[0]];
+      if (!line || !line.length) return null;
+      return {
+        x: this.coord(0, i),
+        y: this.coord(1, j),
+        z: line[line.length - 1] - this.size[2],
+      };
     }
 
     _inside(i, j, k) {
@@ -292,6 +350,32 @@
     }
   }
 
+  // Même chaîne que pipeline/kinematics.py, G54 au dessus de la pièce :
+  // machine = (0, 0, -D) + Rx(A)·( Rz(C)·p + (0, 0, D) )
+  function pieceToMachine(pose, D) {
+    const a = (pose[3] * Math.PI) / 180;
+    const c = (pose[4] * Math.PI) / 180;
+    const x = Math.cos(c) * pose[0] - Math.sin(c) * pose[1];
+    const y = Math.sin(c) * pose[0] + Math.cos(c) * pose[1];
+    const z = pose[2] + D;
+    return [x, Math.cos(a) * y - Math.sin(a) * z, Math.sin(a) * y + Math.cos(a) * z - D];
+  }
+
+  function machineToPiece(m, aDeg, cDeg, D) {
+    const a = (aDeg * Math.PI) / 180;
+    const c = (cDeg * Math.PI) / 180;
+    const tz = m[2] + D;
+    const y = Math.cos(a) * m[1] + Math.sin(a) * tz;
+    const z = -Math.sin(a) * m[1] + Math.cos(a) * tz - D;
+    return [Math.cos(c) * m[0] + Math.sin(c) * y, -Math.sin(c) * m[0] + Math.cos(c) * y, z];
+  }
+
+  function toolAxisInPiece(aDeg, cDeg) {
+    const a = (aDeg * Math.PI) / 180;
+    const c = (cDeg * Math.PI) / 180;
+    return [Math.sin(c) * Math.sin(a), Math.cos(c) * Math.sin(a), Math.cos(a)];
+  }
+
   // Sphère, cylindre fini : extrêmes de la droite dans la capsule [a, b], rayon r.
   function _capsule(o, d, a, b, r) {
     let tMin = Infinity;
@@ -331,7 +415,10 @@
     return tMax > tMin ? [tMin, tMax] : null;
   }
 
-  // Volume balayé par un cylindre d'axe u, sans plafond, dont le fond suit [c0, c1].
+  // Volume balayé par un cylindre d'axe u, sans plafond, dont le fond suit [c0, c1] :
+  // un cylindre à chaque bout, posé sur son propre fond, et entre les deux un prisme
+  // à fond incliné. Le fond incliné ne vaut QUE sur la longueur de la passe : prolongé
+  // au-delà du bout d'une passe en pente, il creuserait sous l'outil.
   function _prism(c0, c1, u, r) {
     const seed = Math.abs(u[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
     let e1 = cross(u, seed);
@@ -339,101 +426,99 @@
     e1 = [e1[0] / l1, e1[1] / l1, e1[2] / l1];
     const e2 = cross(u, e1);
     const s = sub(c1, c0);
-    const w = cross(u, s);
-    let n = u;
-    let p = dot(s, u) >= 0 ? c0 : c1;
-    if (dot(w, w) > 1e-12) {
+    const sx = dot(s, e1);
+    const sy = dot(s, e2);
+    let n = null;
+    const ll = Math.sqrt(sx * sx + sy * sy);
+    if (ll > 1e-9) {
+      // Normale au plan qui contient la passe et la direction transverse.
+      const ax = [e1[0] * sx / ll + e2[0] * sy / ll, e1[1] * sx / ll + e2[1] * sy / ll,
+        e1[2] * sx / ll + e2[2] * sy / ll];
+      const w = cross(u, ax);
       n = cross(s, w);
       const ln = Math.sqrt(dot(n, n));
       n = [n[0] / ln, n[1] / ln, n[2] / ln];
       if (dot(n, u) < 0) n = [-n[0], -n[1], -n[2]];
-      p = c0;
     }
-    return { c0, e1, e2, r, n, p, sx: dot(s, e1), sy: dot(s, e2) };
+    return { c0, c1, u, e1, e2, r, n, sx, sy, ll };
   }
 
+  // Limite [t0, t1] au demi-espace au-dessus du plan (p, n).
+  function _clipAbove(t0, t1, o, d, p, n) {
+    const dn = dot(d, n);
+    const pn = dot(sub(o, p), n);
+    if (Math.abs(dn) < 1e-12) return pn < 0 ? null : [t0, t1];
+    if (dn > 0) t0 = Math.max(t0, -pn / dn);
+    else t1 = Math.min(t1, -pn / dn);
+    return t1 > t0 ? [t0, t1] : null;
+  }
+
+  // Intervalles de la droite dans le volume : jusqu'à trois morceaux convexes.
   function _rayPrism(o, d, P) {
+    const out = [];
     const rel = sub(o, P.c0);
     const ox = dot(rel, P.e1);
     const oy = dot(rel, P.e2);
     const dx = dot(d, P.e1);
     const dy = dot(d, P.e2);
     const r2 = P.r * P.r;
-    let t0;
-    let t1;
     const planar = dx * dx + dy * dy;
-    if (planar < 1e-12) {
-      // Droite parallèle à l'axe : dedans ou dehors de la forme plane.
-      const ll = P.sx * P.sx + P.sy * P.sy;
-      let f = ll > 1e-18 ? (ox * P.sx + oy * P.sy) / ll : 0;
-      f = Math.max(0, Math.min(1, f));
-      const gx = ox - f * P.sx;
-      const gy = oy - f * P.sy;
-      if (gx * gx + gy * gy > r2) return null;
-      t0 = -Infinity;
-      t1 = Infinity;
-    } else {
-      let lo = Infinity;
-      let hi = -Infinity;
-      const take = (t) => { if (t < lo) lo = t; if (t > hi) hi = t; };
-      const circle = (cx, cy) => {
-        const fx = ox - cx;
-        const fy = oy - cy;
+
+    const disk = (cx, cy, base) => {
+      const fx = ox - cx;
+      const fy = oy - cy;
+      let t0 = -Infinity;
+      let t1 = Infinity;
+      if (planar < 1e-12) {
+        if (fx * fx + fy * fy > r2) return;
+      } else {
         const b = fx * dx + fy * dy;
-        const c = fx * fx + fy * fy - r2;
-        const q = b * b - planar * c;
+        const q = b * b - planar * (fx * fx + fy * fy - r2);
         if (q < 0) return;
-        const s = Math.sqrt(q);
-        take((-b - s) / planar);
-        take((-b + s) / planar);
-      };
-      circle(0, 0);
-      circle(P.sx, P.sy);
-      const ll = Math.sqrt(P.sx * P.sx + P.sy * P.sy);
-      if (ll > 1e-9) {
-        // Rectangle entre les deux cercles.
-        const ax = P.sx / ll;
-        const ay = P.sy / ll;
-        const nx = -ay;
-        const ny = ax;
-        const along0 = ox * ax + oy * ay;
-        const alongD = dx * ax + dy * ay;
-        const across0 = ox * nx + oy * ny;
-        const acrossD = dx * nx + dy * ny;
-        let a = -Infinity;
-        let b = Infinity;
-        const slab = (o0, dd, lo2, hi2) => {
-          if (Math.abs(dd) < 1e-12) {
-            if (o0 < lo2 || o0 > hi2) { a = 1; b = 0; }
-            return;
-          }
-          const u0 = (lo2 - o0) / dd;
-          const u1 = (hi2 - o0) / dd;
-          a = Math.max(a, Math.min(u0, u1));
-          b = Math.min(b, Math.max(u0, u1));
-        };
-        slab(along0, alongD, 0, ll);
-        slab(across0, acrossD, -P.r, P.r);
-        if (a <= b) { take(a); take(b); }
+        const sq = Math.sqrt(q);
+        t0 = (-b - sq) / planar;
+        t1 = (-b + sq) / planar;
       }
-      if (!(hi > lo)) return null;
-      t0 = lo;
-      t1 = hi;
+      const c = _clipAbove(t0, t1, o, d, base, P.u);
+      if (c) out.push(c);
+    };
+    disk(0, 0, P.c0);
+    if (P.sx * P.sx + P.sy * P.sy > 1e-18 || dot(sub(P.c1, P.c0), P.u) !== 0) {
+      disk(P.sx, P.sy, P.c1);
     }
-    // Au-dessus du plan de fond.
-    const dn = dot(d, P.n);
-    const pn = dot(sub(o, P.p), P.n);
-    if (Math.abs(dn) < 1e-12) {
-      if (pn < 0) return null;
-    } else if (dn > 0) {
-      t0 = Math.max(t0, -pn / dn);
-    } else {
-      t1 = Math.min(t1, -pn / dn);
+
+    if (P.n) {
+      const ax = P.sx / P.ll;
+      const ay = P.sy / P.ll;
+      const along0 = ox * ax + oy * ay;
+      const alongD = dx * ax + dy * ay;
+      const across0 = -ox * ay + oy * ax;
+      const acrossD = -dx * ay + dy * ax;
+      let t0 = -Infinity;
+      let t1 = Infinity;
+      const slab = (o0, dd, lo, hi) => {
+        if (Math.abs(dd) < 1e-12) {
+          if (o0 < lo || o0 > hi) { t0 = 1; t1 = 0; }
+          return;
+        }
+        const u0 = (lo - o0) / dd;
+        const u1 = (hi - o0) / dd;
+        t0 = Math.max(t0, Math.min(u0, u1));
+        t1 = Math.min(t1, Math.max(u0, u1));
+      };
+      slab(along0, alongD, 0, P.ll);
+      slab(across0, acrossD, -P.r, P.r);
+      if (t1 > t0) {
+        const c = _clipAbove(t0, t1, o, d, P.c0, P.n);
+        if (c) out.push(c);
+      }
     }
-    return t1 > t0 ? [t0, t1] : null;
+    return out;
   }
 
   root.DexelStock = DexelStock;
   root.DEXEL_CHUNK = CHUNK;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { DexelStock };
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { DexelStock, machineToPiece, pieceToMachine, toolAxisInPiece };
+  }
 })(typeof window !== 'undefined' ? window : globalThis);

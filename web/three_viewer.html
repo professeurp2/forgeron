@@ -695,29 +695,9 @@
             }
         }
 
-        function toolAxisInPiece(aDeg, cDeg) {
-            const a = aDeg * Math.PI / 180;
-            const c = cDeg * Math.PI / 180;
-            return [Math.sin(c) * Math.sin(a), Math.cos(c) * Math.sin(a), Math.cos(a)];
-        }
-
         function runCut(from, to) {
-            const H = stockHeight();
-            const tool = { radius: currentToolRadius, type: currentToolType };
-            // Quand l'axe tourne, on coupe par petites tranches à axe constant.
-            const turn = Math.max(Math.abs(to[3] - from[3]), Math.abs(to[4] - from[4]));
-            const steps = Math.max(1, Math.ceil(turn / 2));
-            for (let i = 0; i < steps; i++) {
-                const u0 = i / steps;
-                const u1 = (i + 1) / steps;
-                const mix = (k, u) => from[k] + (to[k] - from[k]) * u;
-                workpiece.stock.sweep(
-                    [mix(0, u0), mix(1, u0), mix(2, u0) + H],
-                    [mix(0, u1), mix(1, u1), mix(2, u1) + H],
-                    tool,
-                    toolAxisInPiece(mix(3, (u0 + u1) / 2), mix(4, (u0 + u1) / 2)),
-                );
-            }
+            workpiece.stock.sweepBlock(
+                from, to, { radius: currentToolRadius, type: currentToolType }, pivotDepth());
         }
 
         function stockTick() {
