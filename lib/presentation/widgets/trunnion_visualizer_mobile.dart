@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../application/providers/gcode_provider.dart' show programPivotDepthProvider;
 import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
 import '../../application/providers/viewer_snapshot_provider.dart';
@@ -241,7 +242,11 @@ class _MobileTrunnionVisualizerState
         overrideIdx ?? (useSim ? sim.currentToolpathIndex : widget.activeIndex);
     _post({
       'type': 'update_machine',
-      'payload': {'mPos': pos, 'activeIndex': idx},
+      'payload': {
+        'mPos': pos,
+        'activeIndex': idx,
+        'pivotDepth': ref.read(programPivotDepthProvider),
+      },
     });
   }
 

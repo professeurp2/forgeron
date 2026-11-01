@@ -676,13 +676,42 @@
         // --- BRUT VOXELISÉ & INTERPOLATION CINÉMATIQUE ---
         const workpiece = new VoxelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, 28, matWorkpiece, 'cylinder');
 
+        // --- ZÉRO PIÈCE ---
+        // Même chaîne que pipeline/kinematics.py : G54 sur le dessus du brut et sur
+        // l'axe C à A=C=0, pivot A à D sous ce zéro. Sans pivot déclaré par le
+        // programme : D = hauteur du brut + distance pivot-plateau mesurée.
+        const PIVOT_TO_TABLE_MM = 8;
+        const TOOL_TIP_BELOW_ZAXIS = 91;   // pointe du foret, dans le repère de zAxis
+        const PIVOT_Z_IN_SCENE = 10 + 6 + 40; // xAxis + trunnionBase + aAxis
+        let declaredPivotDepth = null;
+
+        function stockHeight() { return workpiece.nz * workpiece.voxelSize; }
+        function pivotDepth() {
+            return declaredPivotDepth != null ? declaredPivotDepth : stockHeight() + PIVOT_TO_TABLE_MM;
+        }
+        function placeStock() { cAxis.position.z = pivotDepth() - stockHeight(); }
+        placeStock();
+
         const currentMachine = { x: 0, y: 0, z: 0, a: 0, c: 0 };
         const targetMachine  = { x: 0, y: 0, z: 0, a: 0, c: 0 };
         let activeToolpathIndex = 0;
         let currentToolRadius = 3.0;
 
+        function toolTipWorld() {
+            zAxis.updateWorldMatrix(true, false);
+            return zAxis.localToWorld(new THREE.Vector3(0, 0, -TOOL_TIP_BELOW_ZAXIS));
+        }
+
+        // Pointe d'outil dans le repère pièce, lue sur le graphe de scène : c'est ce
+        // que les tests comparent au rejeu du pipeline.
+        window.forgeronTipInPiece = () => {
+            workpiece.mesh.updateWorldMatrix(true, false);
+            const p = workpiece.mesh.worldToLocal(toolTipWorld());
+            return [p.x, p.y, p.z - stockHeight()];
+        };
+
         function applyMachineCoords(m, isCutting) {
-            zAxis.position.z = 200 + m.z;
+            zAxis.position.z = PIVOT_Z_IN_SCENE + pivotDepth() + TOOL_TIP_BELOW_ZAXIS + m.z;
             xAxis.position.x = -m.x;
             yAxis.position.y = -m.y;
             aAxis.rotation.x = m.a * Math.PI / 180;
@@ -692,10 +721,12 @@
                 matLedRing.color.setHex(0xff6b35);
                 cutSpark.visible = true;
                 toolBit.rotation.z += 0.45;
-                const currentPos = new THREE.Vector3();
-                toolBit.getWorldPosition(currentPos);
-                currentPos.z -= 11;
-                workpiece.cut(currentPos, currentToolRadius);
+                // cut() passe par les matrices du brut : elles doivent suivre ce bloc,
+                // pas la dernière image rendue, sinon la coupe tombe à côté.
+                workpiece.mesh.updateWorldMatrix(true, false);
+                const ballCentre = toolTipWorld();
+                ballCentre.z += currentToolRadius;
+                workpiece.cut(ballCentre, currentToolRadius);
             } else {
                 matLedRing.color.setHex(0x3fb950);
                 cutSpark.visible = false;
@@ -704,6 +735,11 @@
 
         function updateMachineStatus(payload) {
             const m = payload.mPos || [0, 0, 0, 0, 0];
+            const declared = payload.pivotDepth != null ? payload.pivotDepth : null;
+            if (declared !== declaredPivotDepth) {
+                declaredPivotDepth = declared;
+                placeStock();
+            }
             targetMachine.x = m[0] || 0;
             targetMachine.y = m[1] || 0;
             targetMachine.z = m[2] || 0;
@@ -1198,6 +1234,7 @@
                     break;
                 case 'configure_stock':
                     workpiece.configure(payload && payload.shape, payload && payload.dimensions);
+                    placeStock();
                     if (payload && typeof payload.toolDiameter === 'number' && payload.toolDiameter > 0) {
                         currentToolRadius = payload.toolDiameter / 2.0;
                     }

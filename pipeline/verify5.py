@@ -321,6 +321,26 @@ def verify(
     return report
 
 
+def replay_reference(gcode: str, tr: Trunnion) -> list[tuple[int, float, float, float, float]]:
+    """(ligne, pointe X Y Z dans le repère pièce, temps cumulé en s) en fin de bloc.
+
+    Référence que le rejeu Dart et le simulateur doivent retrouver : une seule
+    vérité sur « où est l'outil » et sur la durée du programme.
+    """
+    rates = np.array([MAX_RATE[k] for k in "XYZAC"])
+    rows = []
+    elapsed = 0.0
+    for m in parse_moves(gcode):
+        delta = m.end - m.start
+        t = float((np.abs(delta) / rates).max())
+        if not m.rapid and m.feed > 0:
+            t = max(t, float(np.linalg.norm(delta)) / m.feed)
+        elapsed += t * 60.0
+        tip = _centres_in_piece(m.end[None, :], 0.0, tr)[0]
+        rows.append((m.line, float(tip[0]), float(tip[1]), float(tip[2]), elapsed))
+    return rows
+
+
 def is_safe(report: dict) -> bool:
     """Le programme peut-il être proposé pour un essai à vide ?"""
     return (

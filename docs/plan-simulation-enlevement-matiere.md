@@ -63,6 +63,7 @@ Chaque jalon apporte quelque chose d'utilisable seul.
 | # | Contenu | Preuve de fin de jalon |
 |---|---|---|
 | **S0** | **Rejeu commun** : le programme devient une liste d'échantillons (position, A, C, temps), produite par le pipeline ou un port Dart de `verify5`, puis envoyée au visualiseur. Fin du `z -= 11` et des constantes décoratives | Pointe d'outil à moins de 0,01 mm du rejeu Python sur `test/fixtures/dome5_continu.nc` |
+| | **S0 fait le 1ᵉʳ nov.** Durées et cinématique communes à `verify5` et à l'app (`gcode_replay.dart`, écart de durée < 0,5 s). Scène 3D calée sur le G54 et le pivot du programme : écart à la pointe du rejeu Python < 0,000001 mm sur 50 blocs contrôlés dans le navigateur. Le rendu reste en cubes, la vraie forme d'outil et le balayage sont S1. | |
 | **S1** | **Vraie coupe 3 axes** : tri-dexel, fraise boule et plate, balayage entre deux points. Rendu par maillage extrait | Volume enlevé sur une poche connue : écart < 1 %. Aucune passe manquante à vitesse × 100 |
 | **S2** | **5 axes** : balayage avec A et C dans le repère pièce, découpé assez fin pour que la corde reste sur la pièce | Dôme : écart simulé / théorique sous la résolution de la grille |
 | **S3** | **Écart au modèle** : carte de couleur reste / manque / pénétration ; le modèle vient du STEP ou STL | Défaut volontaire de 0,5 mm retrouvé au bon endroit |

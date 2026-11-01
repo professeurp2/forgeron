@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/gcode_replay.dart';
 import 'gcode_provider.dart';
 
 /// État d'exécution du simulateur d'usinage 5 axes.
@@ -274,23 +275,15 @@ class SimulationController extends StateNotifier<SimulationState> {
       final dx = cur[0] - prev[0];
       final dy = cur[1] - prev[1];
       final dz = cur[2] - prev[2];
-      final da = (cur[3] - prev[3]).abs();
-      final dc = (cur[4] - prev[4]).abs();
       final linearDist = math.sqrt(dx * dx + dy * dy + dz * dz);
-      // Distance équivalente incluant la rotation A/C pour les passes purement rotatives
-      final effDist = math.max(linearDist, (da + dc * 0.25) * 0.35);
       final isRapid = cur[5] == 0.0;
 
       final rawLine = i < indices.length ? indices[i] : 0;
-      final modalFeed = modals[rawLine]?.feedrate ?? 0.0;
-      final feedMmPerMin = isRapid
-          ? 1500.0
-          : (modalFeed > 1.0 ? modalFeed : 240.0);
-
-      final segSec = effDist > 1e-5
-          ? (effDist / (feedMmPerMin / 60.0)).clamp(0.002, 30.0)
-          : 0.002;
-      totalSec += segSec;
+      totalSec += GcodeReplay.blockSeconds(
+        prev,
+        cur,
+        modals[rawLine]?.feedrate ?? 0.0,
+      );
       cumTimes[i] = totalSec;
 
       if (isRapid) {

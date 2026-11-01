@@ -186,6 +186,14 @@ final renderToolpathProvider = Provider<List<List<double>>>((ref) {
   ];
 });
 
+/// Distance du pivot A sous le zéro pièce, si le programme chargé la déclare.
+/// Le visualiseur s'en sert pour placer le brut là où le programme l'attend.
+final programPivotDepthProvider = Provider<double?>((ref) {
+  final lines = ref.watch(gcodeProvider.select((s) => s.allLines));
+  return KinematicsService.fromProgramHeader(lines.take(30).join('\n'))
+      ?.pivotToTableOffset;
+});
+
 List<double> _transformPoint(KinematicsService kinematics, List<double> p) {
   final tip = kinematics.forward(Vector3(p[0], p[1], p[2]), p[3], p[4]);
   return [tip.x, tip.y, tip.z, p[3], p[4], p[5]];
