@@ -47,6 +47,59 @@ void main() {
     });
   });
 
+  group('AutoDiscoveryService — répondre en HTTP ne fait pas un contrôleur', () {
+    /// La page d'accueil, et ce que l'appareil répond à `/command?plain=$I`.
+    http.Client device(String home, {String? command}) {
+      return MockClient((request) async {
+        if (request.url.path == '/command') {
+          expect(request.url.queryParameters['plain'], r'$I');
+          return command == null
+              ? http.Response('Not found', 404)
+              : http.Response(command, 200);
+        }
+        return http.Response(home, 200);
+      });
+    }
+
+    test('refuse le portail captif d\'une box', () async {
+      final service = AutoDiscoveryService(
+        client: device('<title>Error 302: Hotspot redirect</title>'),
+      );
+      expect(await service.probeIp('192.168.88.1'), isNull);
+    });
+
+    test('refuse un appareil qui répond 200 à tout sans se nommer', () async {
+      const page = '<html>Administration du routeur</html>';
+      final service = AutoDiscoveryService(client: device(page, command: page));
+      expect(await service.probeIp('192.168.88.1'), isNull);
+    });
+
+    test('le mot esp32 ou webui ne suffit plus', () async {
+      final service = AutoDiscoveryService(client: device('<html>ESP32 WebUI</html>'));
+      expect(await service.probeIp('192.168.1.40'), isNull);
+    });
+
+    test('accepte une interface muette qui répond FluidNC à \$I', () async {
+      final service = AutoDiscoveryService(
+        client: device(
+          '<html><script src=app.js></script></html>',
+          command: '[VER:3.9 FluidNC v3.9.5:]\n[OPT:VNMH]\nok\n',
+        ),
+      );
+      final found = await service.probeIp('192.168.0.1');
+      expect(found?.firmwareInfo, 'FluidNC');
+    });
+
+    test('un réseau muet à \$I ne bloque pas le refus', () async {
+      final service = AutoDiscoveryService(
+        client: MockClient((request) async => request.url.path == '/command'
+            ? throw Exception('coupé')
+            : http.Response('<html></html>', 200)),
+      );
+      expect(await service.probeIp('192.168.1.40'), isNull);
+    });
+  });
+
   group('Esp32CamRepository — le contrôleur n\'est jamais une caméra', () {
     test('un 200 seul ne suffit pas à identifier une caméra', () async {
       // Exactement ce que renverrait un appareil quelconque du réseau : sans
