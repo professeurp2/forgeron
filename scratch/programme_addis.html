@@ -1,0 +1,532 @@
+<title>Programme Addis Abeba</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;600;700&family=Archivo:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+/* Layout: three-phase vertical timeline, dark-first (Forgeron identity) */
+:root {
+  --ground: #14171c;
+  --card: #1c2028;
+  --card-border: #2a2f3a;
+  --forge: #ff6a1a;
+  --forge-dim: rgba(255, 106, 26, 0.13);
+  --fg: #e4ddd5;
+  --muted: #7a7672;
+  --success: #52b788;
+  --warning: #f5a623;
+  --danger: #e05c5c;
+  --tag-bg: #22262f;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground: #f2ede8;
+    --card: #ffffff;
+    --card-border: #dad4ce;
+    --forge: #d4520a;
+    --forge-dim: rgba(212, 82, 10, 0.09);
+    --fg: #1a1714;
+    --muted: #80776f;
+    --success: #2d7a52;
+    --warning: #a06700;
+    --danger: #bf3030;
+    --tag-bg: #ece5de;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --ground: #f2ede8;
+  --card: #ffffff;
+  --card-border: #dad4ce;
+  --forge: #d4520a;
+  --forge-dim: rgba(212, 82, 10, 0.09);
+  --fg: #1a1714;
+  --muted: #80776f;
+  --success: #2d7a52;
+  --warning: #a06700;
+  --danger: #bf3030;
+  --tag-bg: #ece5de;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ground);
+  color: var(--fg);
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px;
+  max-width: 680px;
+  margin-inline: auto;
+}
+
+/* ── HEADER ── */
+.eyebrow {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--forge);
+  margin-bottom: 6px;
+}
+h1 {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  text-wrap: balance;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+
+/* ── CHECKLIST ── */
+.checklist-box {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 28px;
+}
+.box-title {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.cl { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.cl-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.cl-item input[type="checkbox"] {
+  margin-top: 1px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--forge);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.cl-item.checked label { text-decoration: line-through; color: var(--muted); }
+label { cursor: pointer; }
+.cl-note { font-size: 12px; color: var(--muted); display: block; margin-top: 1px; }
+
+/* ── LEGEND ── */
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.leg { display: flex; align-items: center; gap: 5px; }
+.leg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── PHASE ── */
+.phase { margin-bottom: 36px; }
+.phase-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+.phase-num {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.phase-title {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+.phase-dates {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── WEEK NOTE ── */
+.week-note {
+  padding: 10px 14px;
+  background: var(--tag-bg);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.week-note strong { color: var(--forge); }
+
+/* ── DAYS ── */
+.days { display: flex; flex-direction: column; gap: 6px; }
+
+.day { background: var(--card); border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
+.day-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.day-hd:hover { background: var(--forge-dim); }
+.day.open > .day-hd { background: var(--forge-dim); border-bottom: 1px solid var(--card-border); }
+.day-lbl {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 78px;
+  font-variant-numeric: tabular-nums;
+}
+.day-title { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.tag {
+  font-family: 'Saira Condensed', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--tag-bg);
+  color: var(--muted);
+}
+.tag.u { background: rgba(224, 92, 92, 0.14); color: var(--danger); }
+.tag.d { background: var(--forge-dim); color: var(--forge); }
+.tag.p { background: rgba(82, 183, 136, 0.12); color: var(--success); }
+.tag.t { background: rgba(245, 166, 35, 0.11); color: var(--warning); }
+
+.day-body { padding: 0 14px 14px; display: none; }
+.day.open > .day-body { display: block; }
+
+/* ── TASKS ── */
+.tasks { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+.task { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4; }
+.td { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.td.r { background: var(--danger); }
+.td.o { background: var(--forge); }
+.td.g { background: var(--success); }
+.td.y { background: var(--warning); }
+.task-text { flex: 1; min-width: 0; }
+.tnote { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── MILESTONE BAR ── */
+.milestone {
+  margin-top: 12px;
+  padding: 9px 12px;
+  background: var(--forge-dim);
+  border-left: 3px solid var(--forge);
+  border-radius: 0 4px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@media (max-width: 400px) {
+  .phase-dates { margin-left: 0; }
+  .day-hd { gap: 8px; }
+}
+
+/* focus */
+.day-hd:focus-visible { outline: 2px solid var(--forge); outline-offset: -2px; }
+</style>
+
+<p class="eyebrow">Forgeron · Lamine SACKO</p>
+<h1>Programme Addis Abeba</h1>
+<p class="subtitle">METI UniPods Bootcamp &amp; PAYF'26 · 9–20 novembre 2026</p>
+
+<!-- CHECKLIST PRÉ-DÉPART -->
+<div class="checklist-box">
+  <div class="box-title">Avant de partir — liste de contrôle</div>
+  <ul class="cl" id="cl">
+    <li class="cl-item"><input type="checkbox" id="c1"><label for="c1"><strong>Email Betelihem TEKLU (PNUD)</strong> — transport de la machine<span class="cl-note">Question bloquante. Si la machine ne peut pas voyager, le plan Demo Day change.</span></label></li>
+    <li class="cl-item"><input type="checkbox" id="c2"><label for="c2"><strong>Email Natan Addisu TAFESE (UA)</strong> — réponse expo PAYF + formulaire profil + photo</label></li>
+    <li class="cl-item"><input type="checkbox" id="c3"><label for="c3"><strong>Email coordinateur UniPods</strong> — soirée PAYF (quelle nuit ? transport ?)</label></li>
+    <li class="cl-item"><input type="checkbox" id="c4"><label for="c4">Inscription délégué PAYF — lien accréditation AU<span class="cl-note">Siège UA = site sécurisé. Sans badge, pas d'entrée même pour la soirée.</span></label></li>
+    <li class="cl-item"><input type="checkbox" id="c5" checked><label for="c5">Carnet vaccination fièvre jaune ✓</label></li>
+    <li class="cl-item"><input type="checkbox" id="c6"><label for="c6">Adaptateur électrique (prises C / F / L) + veste chaude<span class="cl-note">Nuits à 7 °C à Addis en novembre.</span></label></li>
+    <li class="cl-item"><input type="checkbox" id="c7"><label for="c7">Imprimer 50 brochures + 100 cartes de visite Forgeron</label></li>
+    <li class="cl-item"><input type="checkbox" id="c8"><label for="c8">Préparer caisse transport machine (selon réponse PNUD)</label></li>
+    <li class="cl-item"><input type="checkbox" id="c9"><label for="c9">G-code carte d'Afrique — simulation validée sur laptop</label></li>
+  </ul>
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:#e05c5c"></div>Urgent</div>
+  <div class="leg"><div class="leg-dot" style="background:#ff6a1a"></div>Machine / démo</div>
+  <div class="leg"><div class="leg-dot" style="background:#52b788"></div>PAYF / expo</div>
+  <div class="leg"><div class="leg-dot" style="background:#f5a623"></div>Voyage / logistique</div>
+</div>
+
+<!-- ═══ PHASE 1 ═══ -->
+<div class="phase">
+  <div class="phase-hd">
+    <span class="phase-num">Phase 01</span>
+    <span class="phase-title">Pré-départ</span>
+    <span class="phase-dates">1 – 8 nov</span>
+  </div>
+  <div class="days">
+
+    <div class="day open">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Sam 1 nov</span>
+        <span class="day-title">Emails prioritaires</span>
+        <div class="tags"><span class="tag u">Urgent</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td r"></div><div class="task-text">Email <strong>Betelihem TEKLU</strong> (PNUD) — transport et douane pour la machine<span class="tnote">Envoie aujourd'hui. La réponse conditionne tout le reste.</span></div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Email <strong>Natan Addisu TAFESE</strong> (UA) — réponse expo PAYF<span class="tnote">Joindre le formulaire de profil rempli + photo JPEG. Remplir les ⟦ ⟧ avec tes vraies quantités.</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day open">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Dim 2 nov</span>
+        <span class="day-title">Coordination PAYF / bootcamp</span>
+        <div class="tags"><span class="tag p">PAYF</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Email coordinateur UniPods — quelle soirée PAYF est prévue ? Comment s'y rend-on ?</div></li>
+          <li class="task"><div class="td r"></div><div class="task-text">Trouver et compléter le formulaire d'inscription délégué PAYF<span class="tnote">Demander le lien à youth@africanunion.org si non reçu.</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">3 – 5 nov</span>
+        <span class="day-title">Réponse transport + matériaux expo</span>
+        <div class="tags"><span class="tag t">Logistique</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td y"></div><div class="task-text">Attendre réponse Betelihem — confirmer ou infirmer le transport machine</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Si machine confirmée : préparer caisse, peser, mesurer, coordonner avec PNUD</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Si machine impossible : préparer démo simulation offline (laptop + tablettes)</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Imprimer 50 brochures A5 + 100 cartes de visite</div></li>
+          <li class="task"><div class="td y"></div><div class="task-text">Acheter adaptateur (prises C/F/L Éthiopie) + veste chaude</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">6 – 7 nov</span>
+        <span class="day-title">Préparation technique finale</span>
+        <div class="tags"><span class="tag d">Machine</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Tester l'agent IA complet — backend Gemini en ligne + Ollama local</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Valider le G-code de la carte d'Afrique en simulation complète</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Mettre à jour l'app Flutter sur les deux tablettes Android</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Vérifier que la vidéo YouTube est publique et jouable hors Mali</div></li>
+          <li class="task"><div class="td y"></div><div class="task-text">Charger tous les appareils — laptop, tablettes, téléphone, powerbank</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Sam 8 nov</span>
+        <span class="day-title">Départ Bamako → Addis Abeba</span>
+        <div class="tags"><span class="tag t">Voyage</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td y"></div><div class="task-text">Vol depuis Bamako (BKO) — confirmer l'heure exacte avec le billet PNUD</div></li>
+          <li class="task"><div class="td y"></div><div class="task-text">Carnet vaccination fièvre jaune dans le bagage cabine (jamais en soute)</div></li>
+          <li class="task"><div class="td y"></div><div class="task-text">Vérifier visa Éthiopie — eVisa ou visa à l'arrivée avec passeport malien</div></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ PHASE 2 ═══ -->
+<div class="phase">
+  <div class="phase-hd">
+    <span class="phase-num">Phase 02</span>
+    <span class="phase-title">Bootcamp — Semaine 1</span>
+    <span class="phase-dates">9 – 15 nov</span>
+  </div>
+  <p class="week-note"><strong>Ethiopian AI Institute</strong> · 08:30 – 17:00 chaque jour · Sprint technique Forgeron</p>
+  <div class="days">
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Dim 9 nov</span>
+        <span class="day-title">Jour 1 — Arrivée &amp; installation</span>
+        <div class="tags"><span class="tag d">Machine</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Installer la machine sur le poste de travail assigné</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Tester connexion locale ESP32 ↔ app sur le réseau de l'Institut</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Rencontrer les autres innovateurs — pitch Forgeron en 3 phrases (EN)</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Repérer les mentors machine tools / robotique (connexions METI/Japon)</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">10 – 14 nov</span>
+        <span class="day-title">Jours 2–6 — Sprint technique</span>
+        <div class="tags"><span class="tag d">Machine</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Exécuter le backlog P0 de <code>docs/addis/03-plan-adaptation.md</code></div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Démo interne quotidienne — montrer une nouvelle capacité chaque jour</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Préparer le pitch Demo Day : 3 min présentation + démo live machine</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Sessions de mentorat — 3 questions prêtes : prix pilote, atelier partenaire, réseau Japan</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Réseautage — cartes de visite, LinkedIn, WhatsApp des contacts pertinents</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Sam 15 nov</span>
+        <span class="day-title">Jour 7 — Répétition &amp; coordination PAYF</span>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Répéter la démo carte d'Afrique — durée, angle caméra, scénario opérateur</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Confirmer avec le coordinateur : quelle soirée PAYF, quelle heure, quel transport</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Vérifier l'état du stand expo PAYF (banner livré ? tablette en place ?)</div></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ PHASE 3 ═══ -->
+<div class="phase">
+  <div class="phase-hd">
+    <span class="phase-num">Phase 03</span>
+    <span class="phase-title">Bootcamp S2 + PAYF + Demo Day</span>
+    <span class="phase-dates">16 – 20 nov</span>
+  </div>
+  <p class="week-note">⚠️ <strong>Chevauchement</strong> : PAYF (09:00–17:00, siège UA) et Bootcamp (08:30–17:00, EAI) — 4 jours communs. <strong>Une seule soirée PAYF</strong> autorisée. Demo Day 20 nov n'est pas impacté.</p>
+  <div class="days">
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">16 – 17 nov</span>
+        <span class="day-title">Jours 8–9 — Sprint + soirée PAYF</span>
+        <div class="tags"><span class="tag p">PAYF</span><span class="tag d">Machine</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Bootcamp 08:30–17:00 — sprint final, polish de la démo</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Soirée PAYF (lun 16 ou mar 17, à confirmer) — AU HQ : présenter Forgeron aux délégués africains</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Stand expo PAYF actif en continu (tablette + banner) — visible les 4 jours sans présence physique permanente</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">18 – 19 nov</span>
+        <span class="day-title">Jours 10–11 — Préparation finale Demo Day</span>
+        <div class="tags"><span class="tag d">Machine</span></div>
+      </div>
+      <div class="day-body">
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Répétition complète Demo Day : pitch 3 min + démo live machine + questions</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text"><strong>Usiner la carte d'Afrique</strong> — pièce finale prête pour le 20</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Filmer la démo pour réseaux sociaux (LinkedIn, YouTube)</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Préparer les slides de suivi post-bootcamp (30 jours)</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="day open">
+      <div class="day-hd" role="button" tabindex="0" onclick="tog(this)" onkeydown="key(event,this)">
+        <span class="day-lbl">Jeu 20 nov</span>
+        <span class="day-title">DEMO DAY — Forgeron</span>
+        <div class="tags"><span class="tag d">Live</span></div>
+      </div>
+      <div class="day-body">
+        <div class="milestone">🔥 Objectif : la carte d'Afrique, usinée en direct devant les jurés METI, les mentors et les partenaires japonais.</div>
+        <ul class="tasks">
+          <li class="task"><div class="td o"></div><div class="task-text">Monter le stand — machine + laptop + 2 tablettes + brochures + pièce de référence</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Démo live de l'agent IA — commande vocale → confirmation opérateur → usinage</div></li>
+          <li class="task"><div class="td o"></div><div class="task-text">Présenter la pièce finale : carte d'Afrique + pitch <em>« Fabriqué ici. Pas importé. »</em></div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Photographier la pièce usinée — pour mettre à jour l'explainer vidéo</div></li>
+          <li class="task"><div class="td g"></div><div class="task-text">Collecter les contacts des partenaires industriels japonais présents</div></li>
+          <li class="task"><div class="td y"></div><div class="task-text">Vol retour Addis → Bamako (date à confirmer avec PNUD)</div></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function tog(hd) {
+  const day = hd.parentElement;
+  day.classList.toggle('open');
+}
+function key(e, hd) {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(hd); }
+}
+
+const KEY = 'forgeron_cl_v1';
+function saveCL() {
+  const s = {};
+  document.querySelectorAll('#cl input').forEach(cb => { s[cb.id] = cb.checked; });
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {}
+  updateCL();
+}
+function loadCL() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || '{}');
+    document.querySelectorAll('#cl input').forEach(cb => { if (s[cb.id]) cb.checked = true; });
+  } catch(e) {}
+  updateCL();
+}
+function updateCL() {
+  document.querySelectorAll('.cl-item').forEach(li => {
+    const cb = li.querySelector('input');
+    li.classList.toggle('checked', !!(cb && cb.checked));
+  });
+}
+document.querySelectorAll('#cl input').forEach(cb => cb.addEventListener('change', saveCL));
+loadCL();
+</script>
