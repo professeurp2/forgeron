@@ -95,10 +95,14 @@
         this.lines.push(arr);
       }
       this.dirty = new Set();
+      this.markAllDirty();
+      this.initialVolume = this.volume();
+    }
+
+    markAllDirty() {
       for (let i = 0; i < this.chunks[0] * this.chunks[1] * this.chunks[2]; i++) {
         this.dirty.add(i);
       }
-      this.initialVolume = this.volume();
     }
 
     // Volume par les droites Z : somme des longueurs × surface d'une maille.

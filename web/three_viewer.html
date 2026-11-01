@@ -29,6 +29,22 @@
             pointer-events: none;
             z-index: 900;
         }
+        #dev-legend {
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            z-index: 1000;
+            max-width: 260px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: rgba(14, 17, 23, 0.84);
+            color: #d9dde1;
+            font: 11px/1.5 monospace;
+        }
+        #dev-legend[hidden] { display: none; }
+        #dev-legend .dev-row { display: flex; align-items: center; gap: 6px; }
+        #dev-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        #dev-report { margin-top: 6px; white-space: pre-line; }
         #debug {
             font-size: 10px;
             font-weight: 700;
@@ -187,7 +203,18 @@
         <div id="vc-label" data-view="ISOMETRIC">ISOMETRIC</div>
     </div>
 
+    <div id="dev-legend" hidden>
+        <div class="dev-row"><i style="background:#e5484d"></i>Pénétration dans la pièce</div>
+        <div class="dev-row"><i style="background:#30a46c"></i>Conforme</div>
+        <div class="dev-row"><i style="background:#3b82f6"></i>Matière à enlever</div>
+        <div id="dev-report"></div>
+    </div>
+
     <div class="btn-container" id="floating-controls">
+        <button id="dev-btn" title="Comparer le brut usiné au modèle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+            <span>Écart</span>
+        </button>
         <button id="reset-btn" title="Réinitialiser le brut et la vue">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span>Brut</span>
@@ -208,6 +235,7 @@
     <script src="js/three.min.js"></script>
     <script src="js/OrbitControls.js"></script>
     <script src="js/dexel_stock.js"></script>
+    <script src="js/part_model.js"></script>
     <script>
         const debugEl = document.getElementById('debug');
         const debug = (msg) => { if (debugEl) debugEl.innerText = msg; };
@@ -217,6 +245,34 @@
 
         // --- BRUT : matière tri-dexel (js/dexel_stock.js) et son maillage par morceaux ---
         const STOCK_RESOLUTION = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 96 : 160;
+
+        const matDeviation = new THREE.MeshStandardMaterial({
+            vertexColors: true, metalness: 0.05, roughness: 0.7,
+        });
+
+        // Vert sous la résolution du brut, bleu pour la matière restante (saturé à
+        // 2 mm), rouge pour une pénétration (saturé à 0,5 mm).
+        function deviationColors(positions, part, H, resolution) {
+            const tol = Math.max(0.05, resolution / 2);
+            const out = new Float32Array(positions.length);
+            const mix = (from, to, t, o) => {
+                out[o] = from[0] + (to[0] - from[0]) * t;
+                out[o + 1] = from[1] + (to[1] - from[1]) * t;
+                out[o + 2] = from[2] + (to[2] - from[2]) * t;
+            };
+            const GREEN = [0.19, 0.64, 0.42];
+            const BLUE = [0.23, 0.51, 0.96];
+            const RED = [0.9, 0.28, 0.3];
+            const GREY = [0.45, 0.47, 0.5];
+            for (let i = 0; i < positions.length; i += 3) {
+                const d = part.signed(positions[i], positions[i + 1], positions[i + 2] - H, 3);
+                if (d >= 3) mix(GREY, GREY, 0, i);
+                else if (d > tol) mix(GREEN, BLUE, Math.min(1, (d - tol) / 2), i);
+                else if (d >= -tol) mix(GREEN, GREEN, 0, i);
+                else mix(RED, RED, Math.min(1, 0.6 + (-d - tol) / 1.25), i);
+            }
+            return out;
+        }
 
         class DexelWorkpiece {
             constructor(parent, size, material, shape) {
@@ -289,9 +345,21 @@
                     m.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                     m.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
                     m.geometry.computeVertexNormals();
+                    if (this.deviationPart) {
+                        m.geometry.setAttribute('color', new THREE.BufferAttribute(
+                            deviationColors(positions, this.deviationPart, this.size.z, this.stock.h), 3));
+                    }
+                    m.material = this.deviationPart ? matDeviation : this.material;
                     requestRender();
                 }
                 return dirty.size > 0;
+            }
+
+            // [part] : modèle à comparer, ou null pour revenir à la couleur du brut.
+            showDeviation(part) {
+                this.deviationPart = part;
+                this.stock.markAllDirty();
+                requestRender();
             }
 
             getStats() {
@@ -695,6 +763,69 @@
             }
         }
 
+        // --- ÉCART AU MODÈLE ---
+        let partData = null;
+        let partModel = null;
+        let deviationOn = false;
+        let deviationReportDue = false;
+
+        function setDeviationReport(text) {
+            document.getElementById('dev-report').textContent = text;
+        }
+
+        function ensurePartModel() {
+            if (!partModel && partData) partModel = new PartModel(partData.vertices, partData.indices);
+            return partModel;
+        }
+
+        function setDeviation(on) {
+            deviationOn = !!on;
+            const legend = document.getElementById('dev-legend');
+            legend.hidden = !deviationOn;
+            if (!deviationOn) {
+                workpiece.showDeviation(null);
+                return;
+            }
+            const part = ensurePartModel();
+            if (!part) {
+                workpiece.showDeviation(null);
+                setDeviationReport('Aucun modèle chargé : rien à comparer.');
+                return;
+            }
+            if (!part.inProgramFrame()) {
+                // On ne devine pas un repère : une carte fausse serait pire que pas de carte.
+                workpiece.showDeviation(null);
+                setDeviationReport('Modèle hors du repère du programme (sommet à Z=0, centré sur C) : pas de comparaison.');
+                return;
+            }
+            workpiece.showDeviation(part);
+            deviationReportDue = true;
+        }
+
+        // Bilan exact, sur les bords de matière du brut : aussi lisible par les essais.
+        window.forgeronDeviationReport = () => {
+            const part = ensurePartModel();
+            if (!part || !part.inProgramFrame()) return null;
+            return compareStock(workpiece.stock, part, { tol: Math.max(0.05, workpiece.stock.h / 2) });
+        };
+
+        function refreshDeviationReport() {
+            const r = window.forgeronDeviationReport();
+            if (!r) return;
+            const at = (p) => p ? ` (X${p[0].toFixed(1)} Y${p[1].toFixed(1)} Z${p[2].toFixed(1)})` : '';
+            const pen = r.penetrationMaxMm === null
+                ? 'Pénétration : non mesurable, modèle ouvert'
+                : `Pénétration max : ${r.penetrationMaxMm.toFixed(2)} mm${at(r.penetrationAu)}`;
+            setDeviationReport(
+                `${pen}\n` +
+                // La mesure s'arrête à 3 mm du modèle : au-delà, seul un minimum est connu.
+                (r.modeleFerme ? 'Reste max : ' : 'Écart max, sans signe : ') +
+                (r.resteMaxMm >= 2.99 ? '3 mm ou plus' : `${r.resteMaxMm.toFixed(2)} mm`) +
+                `\nTolérance : ${r.tolMm.toFixed(2)} mm, grille du brut`);
+        }
+
+        document.getElementById('dev-btn').onclick = () => setDeviation(!deviationOn);
+
         function runCut(from, to) {
             workpiece.stock.sweepBlock(
                 from, to, { radius: currentToolRadius, type: currentToolType }, pivotDepth());
@@ -706,8 +837,15 @@
                 const [from, to] = cutQueue.shift();
                 runCut(from, to);
             }
-            workpiece.flush(5);
-            if (cutQueue.length) requestRender();
+            const moreMesh = workpiece.flush(5);
+            if (cutQueue.length) {
+                requestRender();
+                deviationReportDue = deviationOn;
+            } else if (deviationOn && deviationReportDue && !moreMesh && workpiece.deviationPart) {
+                // Le bilan ne se calcule qu'à l'arrêt de la coupe : il parcourt tout le brut.
+                deviationReportDue = false;
+                refreshDeviationReport();
+            }
         }
 
         // Pour les essais : tout traiter d'un coup, puis lire l'état du brut.
@@ -973,6 +1111,9 @@
 
         function loadMesh(data) {
             clearMesh();
+            partData = data && data.vertices && data.vertices.length >= 9 ? data : null;
+            partModel = null;
+            if (deviationOn) setDeviation(true);
             if (!data || !data.vertices || data.vertices.length < 9) {
                 debug('MAILLAGE VIDE');
                 return;
@@ -1250,6 +1391,9 @@
                     if (payload && typeof payload.toolDiameter === 'number' && payload.toolDiameter > 0) {
                         currentToolRadius = payload.toolDiameter / 2.0;
                     }
+                    break;
+                case 'set_deviation':
+                    setDeviation(typeof payload === 'boolean' ? payload : !!(payload && payload.show));
                     break;
                 case 'reset_stock':
                     workpiece.reset();

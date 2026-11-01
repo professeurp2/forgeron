@@ -156,6 +156,7 @@ flutter:
     - web/js/three.min.js
     - web/js/OrbitControls.js
     - web/js/dexel_stock.js
+    - web/js/part_model.js
     - assets/logo.png
     - assets/images/tools/
     - assets/audio/
