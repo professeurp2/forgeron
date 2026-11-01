@@ -28,13 +28,15 @@ class ThreeViewerAssetCache {
       rootBundle.loadString('web/three_viewer.html'),
       rootBundle.loadString('web/js/three.min.js'),
       rootBundle.loadString('web/js/OrbitControls.js'),
+      rootBundle.loadString('web/js/dexel_stock.js'),
       _loadStlBase64Safe('assets/A-axis.STL'),
     ]);
 
     final html = results[0] as String;
     final threeJs = results[1] as String;
     final orbitJs = results[2] as String;
-    final aAxisStlB64 = results[3] as String;
+    final dexelJs = results[3] as String;
+    final aAxisStlB64 = results[4] as String;
 
     final assembled = html
         .replaceFirst(
@@ -44,6 +46,10 @@ class ThreeViewerAssetCache {
         .replaceFirst(
           '<script src="js/OrbitControls.js"></script>',
           '<script>$orbitJs</script>',
+        )
+        .replaceFirst(
+          '<script src="js/dexel_stock.js"></script>',
+          '<script>$dexelJs</script>',
         )
         .replaceFirst(
           '__A_AXIS_STL_BASE64__',

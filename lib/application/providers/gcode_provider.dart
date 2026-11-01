@@ -194,6 +194,13 @@ final programPivotDepthProvider = Provider<double?>((ref) {
       ?.pivotToTableOffset;
 });
 
+/// Forme de l'outil annoncée par le programme : fraise boule si l'en-tête le dit,
+/// fraise plate sinon (cas des programmes CAM du dépôt).
+final programToolTypeProvider = Provider<String>((ref) {
+  final lines = ref.watch(gcodeProvider.select((s) => s.allLines));
+  return lines.take(30).join('\n').toUpperCase().contains('BOULE') ? 'ball' : 'flat';
+});
+
 List<double> _transformPoint(KinematicsService kinematics, List<double> p) {
   final tip = kinematics.forward(Vector3(p[0], p[1], p[2]), p[3], p[4]);
   return [tip.x, tip.y, tip.z, p[3], p[4], p[5]];

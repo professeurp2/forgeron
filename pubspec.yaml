@@ -155,6 +155,7 @@ flutter:
     - web/three_viewer.html
     - web/js/three.min.js
     - web/js/OrbitControls.js
+    - web/js/dexel_stock.js
     - assets/logo.png
     - assets/images/tools/
     - assets/audio/

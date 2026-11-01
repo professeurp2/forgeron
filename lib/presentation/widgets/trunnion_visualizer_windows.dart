@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_windows/webview_windows.dart';
 
-import '../../application/providers/gcode_provider.dart' show programPivotDepthProvider;
+import '../../application/providers/gcode_provider.dart' show programPivotDepthProvider, programToolTypeProvider;
 import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
 import '../../application/providers/viewer_snapshot_provider.dart';
@@ -265,6 +265,8 @@ class _WindowsTrunnionVisualizerState
         'mPos': pos,
         'activeIndex': idx,
         'pivotDepth': ref.read(programPivotDepthProvider),
+        'toolType': ref.read(programToolTypeProvider),
+        'simulated': useSim,
       },
     });
   }

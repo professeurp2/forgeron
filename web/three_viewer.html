@@ -207,6 +207,7 @@
 
     <script src="js/three.min.js"></script>
     <script src="js/OrbitControls.js"></script>
+    <script src="js/dexel_stock.js"></script>
     <script>
         const debugEl = document.getElementById('debug');
         const debug = (msg) => { if (debugEl) debugEl.innerText = msg; };
@@ -214,174 +215,96 @@
         let needsRender = true;
         function requestRender() { needsRender = true; }
 
-        // --- VOXEL WORKPIECE HAUTE PERFORMANCE (Cylindre / Cuboïde + updateRange) ---
-        class VoxelWorkpiece {
-            constructor(parent, size, res, material, shape = 'cylinder') {
-                this.parent = parent;
+        // --- BRUT : matière tri-dexel (js/dexel_stock.js) et son maillage par morceaux ---
+        const STOCK_RESOLUTION = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 96 : 160;
+
+        class DexelWorkpiece {
+            constructor(parent, size, material, shape) {
                 this.material = material;
-                this.res = res;
                 this.shape = shape;
-                this.size = { x: size.x || 35, y: size.y || 35, z: size.z || 25 };
-                this.dummy = new THREE.Object3D();
-                this.matrix = new THREE.Matrix4();
-                this._buildMesh();
+                this.size = { x: size.x, y: size.y, z: size.z };
+                this.mesh = new THREE.Group();
+                parent.add(this.mesh);
+                this.chunkMeshes = new Map();
+                this._build();
             }
 
-            _buildMesh() {
-                if (this.mesh) {
-                    this.parent.remove(this.mesh);
-                    if (this.mesh.geometry) this.mesh.geometry.dispose();
-                    this.mesh = null;
+            _build() {
+                for (const m of this.chunkMeshes.values()) {
+                    this.mesh.remove(m);
+                    m.geometry.dispose();
                 }
-                const maxXY = Math.max(this.size.x, this.size.y);
-                this.voxelSize = maxXY / this.res;
-                this.nx = Math.max(4, Math.ceil(this.size.x / this.voxelSize));
-                this.ny = Math.max(4, Math.ceil(this.size.y / this.voxelSize));
-                this.nz = Math.max(4, Math.ceil(this.size.z / this.voxelSize));
-                this.count = this.nx * this.ny * this.nz;
-
-                const geo = new THREE.BoxGeometry(this.voxelSize, this.voxelSize, this.voxelSize);
-                this.mesh = new THREE.InstancedMesh(geo, this.material, this.count);
-                this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                this.states = new Uint8Array(this.count);
-                this.reset();
-                this.parent.add(this.mesh);
+                this.chunkMeshes.clear();
+                const { x, y, z } = this.size;
+                this.stock = new DexelStock({
+                    shape: this.shape,
+                    size: [x, y, z],
+                    h: Math.max(x, y, z) / STOCK_RESOLUTION,
+                });
+                requestRender();
             }
 
             configure(shape, dims) {
-                const newShape = shape || this.shape;
+                const nextShape = shape || this.shape;
                 const sx = (dims && dims[0]) ? dims[0] : this.size.x;
                 const sy = (dims && dims[1]) ? dims[1] : sx;
                 const sz = (dims && dims[2]) ? dims[2] : this.size.z;
-                const sizeChanged = Math.abs(sx - this.size.x) > 0.1 ||
-                                    Math.abs(sy - this.size.y) > 0.1 ||
-                                    Math.abs(sz - this.size.z) > 0.1;
-                this.shape = newShape;
+                const changed = nextShape !== this.shape || Math.abs(sx - this.size.x) > 0.01 ||
+                    Math.abs(sy - this.size.y) > 0.01 || Math.abs(sz - this.size.z) > 0.01;
+                this.shape = nextShape;
                 this.size = { x: sx, y: sy, z: sz };
-                if (sizeChanged) {
-                    this._buildMesh();
-                } else {
-                    this.reset();
-                }
-                requestRender();
+                if (changed) this._build(); else this.reset();
             }
 
             reset() {
-                if (!this.mesh) return;
-                let i = 0;
-                let activeCount = 0;
-                const ox = -(this.nx * this.voxelSize) / 2;
-                const oy = -(this.ny * this.voxelSize) / 2;
-                const rx = this.size.x / 2;
-                const ry = this.size.y / 2;
-                const isCyl = this.shape === 'cylinder';
-
-                for (let x = 0; x < this.nx; x++) {
-                    const px = ox + (x + 0.5) * this.voxelSize;
-                    for (let y = 0; y < this.ny; y++) {
-                        const py = oy + (y + 0.5) * this.voxelSize;
-                        const insideCyl = !isCyl || ((px * px) / (rx * rx) + (py * py) / (ry * ry) <= 1.0);
-                        for (let z = 0; z < this.nz; z++) {
-                            const pz = (z + 0.5) * this.voxelSize;
-                            if (insideCyl) {
-                                this.dummy.position.set(px, py, pz);
-                                this.dummy.scale.set(1, 1, 1);
-                                this.dummy.updateMatrix();
-                                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                                this.states[i] = 1;
-                                activeCount++;
-                            } else {
-                                this.matrix.makeScale(0, 0, 0);
-                                this.mesh.setMatrixAt(i, this.matrix);
-                                this.states[i] = 0;
-                            }
-                            i++;
-                        }
-                    }
-                }
-                this.initialVoxels = activeCount;
-                this.mesh.instanceMatrix.updateRange.offset = 0;
-                this.mesh.instanceMatrix.updateRange.count = -1;
-                this.mesh.instanceMatrix.needsUpdate = true;
+                this.stock.reset();
                 requestRender();
             }
 
+            // Reconstruit les morceaux touchés, dans le temps accordé. Rend true s'il en reste.
+            flush(budgetMs) {
+                const end = performance.now() + budgetMs;
+                const dirty = this.stock.dirty;
+                for (const id of dirty) {
+                    if (performance.now() > end) break;
+                    dirty.delete(id);
+                    const { positions, indices } = this.stock.extractChunk(id);
+                    let m = this.chunkMeshes.get(id);
+                    if (!indices.length) {
+                        if (m) {
+                            this.mesh.remove(m);
+                            m.geometry.dispose();
+                            this.chunkMeshes.delete(id);
+                        }
+                        continue;
+                    }
+                    if (!m) {
+                        m = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
+                        m.castShadow = true;
+                        this.chunkMeshes.set(id, m);
+                        this.mesh.add(m);
+                    }
+                    m.geometry.dispose();
+                    m.geometry = new THREE.BufferGeometry();
+                    m.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    m.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+                    m.geometry.computeVertexNormals();
+                    requestRender();
+                }
+                return dirty.size > 0;
+            }
+
             getStats() {
-                if (!this.states || !this.initialVoxels) {
-                    return {
-                        shape: this.shape,
-                        dimensionsMm: [this.size.x, this.size.y, this.size.z],
-                        initialVoxels: 0,
-                        remainingVoxels: 0,
-                        removedPct: 0,
-                    };
-                }
-                let rem = 0;
-                for (let i = 0; i < this.states.length; i++) {
-                    if (this.states[i] === 1) rem++;
-                }
-                const pct = Math.max(0, Math.min(100, ((this.initialVoxels - rem) * 100) / this.initialVoxels));
+                const initial = this.stock.initialVolume;
+                const left = this.stock.volume();
                 return {
                     shape: this.shape,
                     dimensionsMm: [this.size.x, this.size.y, this.size.z],
-                    initialVoxels: this.initialVoxels,
-                    remainingVoxels: rem,
-                    removedPct: Math.round(pct * 10) / 10,
+                    resolutionMm: this.stock.h,
+                    initialVolumeMm3: initial,
+                    remainingVolumeMm3: left,
+                    removedPct: initial > 0 ? Math.round(((initial - left) / initial) * 1000) / 10 : 0,
                 };
-            }
-
-            cut(worldToolPos, radius) {
-                if (!this.mesh || !this.mesh.visible) return;
-                const local = this.mesh.worldToLocal(worldToolPos.clone());
-                const halfX = (this.nx * this.voxelSize) / 2 + radius;
-                const halfY = (this.ny * this.voxelSize) / 2 + radius;
-                const maxZ = this.nz * this.voxelSize + radius;
-                // Court-circuit immédiat hors de la boîte englobante du brut
-                if (local.x < -halfX || local.x > halfX ||
-                    local.y < -halfY || local.y > halfY ||
-                    local.z < -radius || local.z > maxZ) {
-                    return;
-                }
-
-                const rSq = radius * radius;
-                const ox = -(this.nx * this.voxelSize) / 2;
-                const oy = -(this.ny * this.voxelSize) / 2;
-                const iMinX = Math.max(0, Math.floor((local.x - radius - ox) / this.voxelSize));
-                const iMaxX = Math.min(this.nx - 1, Math.ceil((local.x + radius - ox) / this.voxelSize));
-                const iMinY = Math.max(0, Math.floor((local.y - radius - oy) / this.voxelSize));
-                const iMaxY = Math.min(this.ny - 1, Math.ceil((local.y + radius - oy) / this.voxelSize));
-                const iMinZ = Math.max(0, Math.floor((local.z - radius) / this.voxelSize));
-                const iMaxZ = Math.min(this.nz - 1, Math.ceil((local.z + radius) / this.voxelSize));
-
-                let minChanged = this.count;
-                let maxChanged = -1;
-                for (let x = iMinX; x <= iMaxX; x++) {
-                    const dx = (ox + (x + 0.5) * this.voxelSize) - local.x;
-                    const dxSq = dx * dx;
-                    for (let y = iMinY; y <= iMaxY; y++) {
-                        const dy = (oy + (y + 0.5) * this.voxelSize) - local.y;
-                        const dxySq = dxSq + dy * dy;
-                        if (dxySq >= rSq) continue;
-                        for (let z = iMinZ; z <= iMaxZ; z++) {
-                            const idx = x * (this.ny * this.nz) + y * this.nz + z;
-                            if (this.states[idx] === 0) continue;
-                            const dz = ((z + 0.5) * this.voxelSize) - local.z;
-                            if (Math.abs(dz) < radius) {
-                                this.states[idx] = 0;
-                                this.matrix.makeScale(0, 0, 0);
-                                this.mesh.setMatrixAt(idx, this.matrix);
-                                if (idx < minChanged) minChanged = idx;
-                                if (idx > maxChanged) maxChanged = idx;
-                            }
-                        }
-                    }
-                }
-                if (maxChanged >= minChanged) {
-                    this.mesh.instanceMatrix.updateRange.offset = minChanged * 16;
-                    this.mesh.instanceMatrix.updateRange.count = (maxChanged - minChanged + 1) * 16;
-                    this.mesh.instanceMatrix.needsUpdate = true;
-                    requestRender();
-                }
             }
         }
 
@@ -674,7 +597,7 @@
         cAxis.add(platter);
 
         // --- BRUT VOXELISÉ & INTERPOLATION CINÉMATIQUE ---
-        const workpiece = new VoxelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, 28, matWorkpiece, 'cylinder');
+        const workpiece = new DexelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, matWorkpiece, 'cylinder');
 
         // --- ZÉRO PIÈCE ---
         // Même chaîne que pipeline/kinematics.py : G54 sur le dessus du brut et sur
@@ -685,7 +608,7 @@
         const PIVOT_Z_IN_SCENE = 10 + 6 + 40; // xAxis + trunnionBase + aAxis
         let declaredPivotDepth = null;
 
-        function stockHeight() { return workpiece.nz * workpiece.voxelSize; }
+        function stockHeight() { return workpiece.size.z; }
         function pivotDepth() {
             return declaredPivotDepth != null ? declaredPivotDepth : stockHeight() + PIVOT_TO_TABLE_MM;
         }
@@ -710,6 +633,114 @@
             return [p.x, p.y, p.z - stockHeight()];
         };
 
+        // --- COUPE ---
+        // Chaque bloc franchi depuis le dernier passage est coupé en entier : même à
+        // vitesse ×100, aucune passe n'est sautée. Le calcul avance par tranches de
+        // temps à chaque image, l'écran reste fluide et la file se rattrape.
+        const cutQueue = [];
+        let lastCutIndex = 0;
+        let cutCursor = null;       // dernière position coupée : x, y, z pièce, a, c
+        let currentToolType = 'ball';
+
+        function resetCut() {
+            cutQueue.length = 0;
+            lastCutIndex = 0;
+            cutCursor = null;
+        }
+
+        function pathPoint(i) {
+            const flat = Array.isArray(lastToolpath[0]);
+            const at = (k) => flat ? lastToolpath[i][k] : lastToolpath[i * 6 + k];
+            return [at(0), at(1), at(2), at(3) || 0, at(4) || 0];
+        }
+
+        function pathLength() {
+            if (!lastToolpath) return 0;
+            return Array.isArray(lastToolpath[0]) ? lastToolpath.length : Math.floor(lastToolpath.length / 6);
+        }
+
+        // Le parcours est en repère pièce si le programme déclare son pivot ou s'il
+        // reste à A=C=0. Sinon on ne sait pas où est son zéro, et on ne coupe que
+        // d'après la position simulée.
+        function pathIsInPieceFrame() {
+            if (declaredPivotDepth != null) return true;
+            for (let i = 0; i < pathLength(); i++) {
+                const p = pathPoint(i);
+                if (p[3] !== 0 || p[4] !== 0) return false;
+            }
+            return true;
+        }
+
+        function queueCut(index, m, simulated) {
+            if (index < lastCutIndex) {
+                workpiece.reset();
+                resetCut();
+            }
+            if (index <= 0) return;
+            const n = pathLength();
+            if (n > 0 && pathIsInPieceFrame()) {
+                if (!cutCursor) cutCursor = pathPoint(Math.min(lastCutIndex, n - 1));
+                for (let b = lastCutIndex + 1; b <= Math.min(index, n - 1); b++) {
+                    const to = pathPoint(b);
+                    cutQueue.push([cutCursor, to]);
+                    cutCursor = to;
+                }
+                lastCutIndex = Math.max(lastCutIndex, index);
+            }
+            if (simulated) {
+                const t = window.forgeronTipInPiece();
+                const live = [t[0], t[1], t[2], m.a, m.c];
+                if (cutCursor) cutQueue.push([cutCursor, live]);
+                cutCursor = live;
+            }
+        }
+
+        function toolAxisInPiece(aDeg, cDeg) {
+            const a = aDeg * Math.PI / 180;
+            const c = cDeg * Math.PI / 180;
+            return [Math.sin(c) * Math.sin(a), Math.cos(c) * Math.sin(a), Math.cos(a)];
+        }
+
+        function runCut(from, to) {
+            const H = stockHeight();
+            const tool = { radius: currentToolRadius, type: currentToolType };
+            // Quand l'axe tourne, on coupe par petites tranches à axe constant.
+            const turn = Math.max(Math.abs(to[3] - from[3]), Math.abs(to[4] - from[4]));
+            const steps = Math.max(1, Math.ceil(turn / 2));
+            for (let i = 0; i < steps; i++) {
+                const u0 = i / steps;
+                const u1 = (i + 1) / steps;
+                const mix = (k, u) => from[k] + (to[k] - from[k]) * u;
+                workpiece.stock.sweep(
+                    [mix(0, u0), mix(1, u0), mix(2, u0) + H],
+                    [mix(0, u1), mix(1, u1), mix(2, u1) + H],
+                    tool,
+                    toolAxisInPiece(mix(3, (u0 + u1) / 2), mix(4, (u0 + u1) / 2)),
+                );
+            }
+        }
+
+        function stockTick() {
+            const end = performance.now() + 8;
+            while (cutQueue.length && performance.now() < end) {
+                const [from, to] = cutQueue.shift();
+                runCut(from, to);
+            }
+            workpiece.flush(5);
+            if (cutQueue.length) requestRender();
+        }
+
+        // Pour les essais : tout traiter d'un coup, puis lire l'état du brut.
+        window.forgeronFinishCut = () => {
+            while (cutQueue.length) {
+                const [from, to] = cutQueue.shift();
+                runCut(from, to);
+            }
+            workpiece.flush(1e6);
+            requestRender();
+            return workpiece.getStats();
+        };
+
         function applyMachineCoords(m, isCutting) {
             zAxis.position.z = PIVOT_Z_IN_SCENE + pivotDepth() + TOOL_TIP_BELOW_ZAXIS + m.z;
             xAxis.position.x = -m.x;
@@ -721,12 +752,6 @@
                 matLedRing.color.setHex(0xff6b35);
                 cutSpark.visible = true;
                 toolBit.rotation.z += 0.45;
-                // cut() passe par les matrices du brut : elles doivent suivre ce bloc,
-                // pas la dernière image rendue, sinon la coupe tombe à côté.
-                workpiece.mesh.updateWorldMatrix(true, false);
-                const ballCentre = toolTipWorld();
-                ballCentre.z += currentToolRadius;
-                workpiece.cut(ballCentre, currentToolRadius);
             } else {
                 matLedRing.color.setHex(0x3fb950);
                 cutSpark.visible = false;
@@ -746,7 +771,11 @@
             targetMachine.a = m[3] || 0;
             targetMachine.c = m[4] || 0;
             activeToolpathIndex = payload.activeIndex || 0;
+            if (payload.toolType === 'ball' || payload.toolType === 'flat') {
+                currentToolType = payload.toolType;
+            }
             applyMachineCoords(targetMachine, activeToolpathIndex > 0);
+            queueCut(activeToolpathIndex, targetMachine, payload.simulated === true);
             currentMachine.x = targetMachine.x;
             currentMachine.y = targetMachine.y;
             currentMachine.z = targetMachine.z;
@@ -758,6 +787,7 @@
         // --- CONTRÔLES BOUTONS & VIEWCUBE ---
         document.getElementById('reset-btn').onclick = () => {
             workpiece.reset();
+            resetCut();
             setCameraPreset('ISOMETRIC');
         };
         document.getElementById('cabin-btn').onclick = () => {
@@ -854,6 +884,7 @@
 
         function loadToolpath(pointsData) {
             lastToolpath = pointsData;
+            resetCut();
             clearToolpath();
             if (!pointsData || pointsData.length === 0) {
                 debug('PARCOURS VIDE');
@@ -1234,6 +1265,7 @@
                     break;
                 case 'configure_stock':
                     workpiece.configure(payload && payload.shape, payload && payload.dimensions);
+                    resetCut();
                     placeStock();
                     if (payload && typeof payload.toolDiameter === 'number' && payload.toolDiameter > 0) {
                         currentToolRadius = payload.toolDiameter / 2.0;
@@ -1241,6 +1273,7 @@
                     break;
                 case 'reset_stock':
                     workpiece.reset();
+                    resetCut();
                     break;
                 case 'set_enclosure':
                     enclosureGroup.visible = typeof payload === 'boolean' ? payload : !!(payload && payload.show);
@@ -1284,6 +1317,8 @@
                     needsRender = true;
                 }
             }
+
+            stockTick();
 
             if (needsRender) {
                 renderer.render(scene, camera);
