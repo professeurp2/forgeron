@@ -147,10 +147,10 @@ class MedicalImplantService {
         python,
         args,
         workingDirectory: pipelineDir.path,
-      ).timeout(const Duration(seconds: 120));
+      ).timeout(const Duration(minutes: 15));
     } on TimeoutException {
       throw const MedicalImplantException(
-        'Délai dépassé (120 s) lors de la génération du parcours d\'implant médical.',
+        'Délai dépassé (15 min) lors de la génération et du rejeu du parcours.',
       );
     }
 

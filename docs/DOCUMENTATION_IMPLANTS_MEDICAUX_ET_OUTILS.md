@@ -128,3 +128,4 @@ alors même qu'un usinage était activement en cours sur la CNC.
 - `test/gcode_tool_extractor_test.dart` : 14/14 tests passés avec succès (support des programmes mono-outil sans `M6`, en-têtes français et anglais).
 - `test/program_tools_pipeline_test.dart` : vérification complète de la chaîne d'outils et de l'adaptation FluidNC.
 - `pipeline/test_medical_implant.py` : 100% de réussite sur la chaîne complète PEEK, STEP, STL, cotes certifiées et garde-fous.
+

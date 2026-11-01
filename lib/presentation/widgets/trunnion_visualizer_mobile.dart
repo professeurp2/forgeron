@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../application/providers/viewer_snapshot_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/utils/three_viewer_asset_cache.dart';
 import 'viewer_scene.dart';
@@ -55,9 +57,15 @@ class _MobileTrunnionVisualizerState
   /// (corrige le bug de reconstruction 3D à 60 Hz sur Android).
   String? _lastThemeSent;
 
+  late final String _handleId = 'mob_3d_${identityHashCode(this)}';
+  late final ViewerSnapshotService _snapshotService;
+  final Map<String, Completer<ViewerSnapshotResult?>> _pendingSnapshots = {};
+  int _snapSeq = 0;
+
   @override
   void initState() {
     super.initState();
+    _snapshotService = ref.read(viewerSnapshotServiceProvider);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
@@ -66,10 +74,21 @@ class _MobileTrunnionVisualizerState
         onMessageReceived: (msg) {
           try {
             final data = jsonDecode(msg.message);
+            if (data['type'] == 'snapshot_result' && data is Map) {
+              _resolveSnapshot(data);
+              return;
+            }
             if (data['type'] == 'viewer_ready') {
               if (_isReady || !mounted) return;
               setState(() => _isReady = true);
               _lastThemeSent = null;
+              _snapshotService.register(
+                ViewerSnapshotHandle(
+                  id: _handleId,
+                  describeScene: () => widget.scene.toJson(),
+                  capture: _captureSnapshot,
+                ),
+              );
               _sendScene();
               _sendStockConfig(ref.read(simulationProvider));
               _sendMesh();
@@ -84,6 +103,63 @@ class _MobileTrunnionVisualizerState
         },
       );
     _loadViewer();
+  }
+
+  void _resolveSnapshot(Map<dynamic, dynamic> data) {
+    final reqId = data['requestId']?.toString() ?? '';
+    final completer = _pendingSnapshots.remove(reqId);
+    if (completer == null || completer.isCompleted) return;
+    final bytes = ViewerSnapshotService.decodeDataUrlPng(data['dataUrl'] as String?);
+    if (bytes == null) {
+      completer.complete(null);
+      return;
+    }
+    completer.complete(
+      ViewerSnapshotResult(
+        pngBytes: bytes,
+        source: 'webgl_3d',
+        width: (data['width'] as num?)?.toInt(),
+        height: (data['height'] as num?)?.toInt(),
+        metrics: (data['metrics'] as Map?)?.cast<String, dynamic>() ?? const {},
+      ),
+    );
+  }
+
+  Future<ViewerSnapshotResult?> _captureSnapshot({
+    String? cameraPreset,
+    Map<String, dynamic>? temporaryScene,
+    String? hudBanner,
+  }) {
+    if (!_isReady || !mounted) return Future.value(null);
+    final reqId = '${_handleId}_${++_snapSeq}';
+    final completer = Completer<ViewerSnapshotResult?>();
+    _pendingSnapshots[reqId] = completer;
+    _post({
+      'type': 'capture_snapshot',
+      'payload': {
+        'requestId': reqId,
+        'cameraPreset': ?cameraPreset,
+        'temporaryScene': ?temporaryScene,
+        'hudBanner': ?hudBanner,
+      },
+    });
+    return completer.future.timeout(
+      const Duration(seconds: 4),
+      onTimeout: () {
+        _pendingSnapshots.remove(reqId);
+        return null;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _snapshotService.unregister(_handleId);
+    for (final c in _pendingSnapshots.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pendingSnapshots.clear();
+    super.dispose();
   }
 
   Future<void> _loadViewer() async {

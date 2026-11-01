@@ -175,7 +175,9 @@ final renderToolpathProvider = Provider<List<List<double>>>((ref) {
   if (!usesRotary) return raw;
 
   final config = ref.watch(trunnionConfigProvider);
-  final kinematics =
+  // Un programme qui déclare son pivot sait mieux que la config où est son zéro.
+  final header = ref.read(gcodeProvider).allLines.take(30).join('\n');
+  final kinematics = KinematicsService.fromProgramHeader(header) ??
       KinematicsService(pivotToTableOffset: config.pivotToTableOffset);
 
   return [

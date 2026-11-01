@@ -1,5 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:vector_math/vector_math_64.dart';
+
+import 'kinematics_service.dart';
+
 /// Critique automatique d'un programme G-code, destinée à l'agent IA.
 ///
 /// L'agent ne produit jamais de coordonnées : il confie la génération à une
@@ -66,6 +70,7 @@ class GcodeCritic {
     var moves = 0, mixedBlocks = 0, jerkyBlocks = 0, noFeedBlocks = 0;
     var worstFeedLoss = 1.0;
     int? worstFeedLine;
+    final pieceKinematics = KinematicsService.fromProgramHeader(gcode);
 
     for (var i = 0; i < lines.length; i++) {
       final raw = lines[i].split('(').first.split(';').first.trim();
@@ -140,6 +145,15 @@ class GcodeCritic {
       }
       final angular = math.sqrt(math.pow(na - a, 2) + math.pow(nc - c, 2));
 
+      // Sans RTCP, l'outil peut rester presque immobile en machine pendant que la
+      // table l'emmène sur la pièce : quand le programme déclare son pivot, c'est
+      // le déplacement dans le repère PIÈCE qui compte pour l'avance.
+      if (pieceKinematics != null && !isArc && angular > 1e-9) {
+        final from = pieceKinematics.forward(Vector3(x, y, z), a, c);
+        final to = pieceKinematics.forward(Vector3(nx, ny, nz), na, nc);
+        linear = (to - from).length;
+      }
+
       if (linear > 1e-9 || angular > 1e-9) {
         moves++;
 
@@ -147,7 +161,8 @@ class GcodeCritic {
         // GRBL mesure un bloc sur √(mm² + deg²). Quand les deux sont présents,
         // le F écrit se répartit entre eux : l'avance linéaire réelle vaut
         // F × linéaire / mixte. C'est le piège qui a divisé une avance par 45.
-        if (linear > 1e-9 && angular > 1e-9) {
+        // Un G0 ne coupe pas : tourner en l'air à la hauteur de sécurité est normal.
+        if (!isRapid && linear > 1e-9 && angular > 1e-9) {
           mixedBlocks++;
           final mixed = math.sqrt(linear * linear + angular * angular);
           final ratio = linear / mixed;
@@ -157,7 +172,9 @@ class GcodeCritic {
           }
         }
 
-        if (linear > 1e-9 && angular / linear > maxDegPerMm) jerkyBlocks++;
+        if (!isRapid && linear > 1e-9 && angular / linear > maxDegPerMm) {
+          jerkyBlocks++;
+        }
         if (isLinear && feed <= 0) noFeedBlocks++;
 
         final effective = isRapid ? maxFeed : (feed > 0 ? feed : maxFeed);

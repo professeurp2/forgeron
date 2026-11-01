@@ -33,6 +33,19 @@ class KinematicsService {
     Vector3? pivot,
   }) : pivot = pivot ?? Vector3.zero();
 
+  static final _declaredPivot = RegExp(r'PIVOT A (\d+(?:\.\d+)?) MM');
+
+  /// Les programmes de `pipeline/continuous5.py` ont leur G54 au sommet de la
+  /// pièce et déclarent la distance du pivot A sous ce zéro. Rend la cinématique
+  /// correspondante, ou null si le programme ne dit rien.
+  static KinematicsService? fromProgramHeader(String gcode) {
+    final head = gcode.length > 2000 ? gcode.substring(0, 2000) : gcode;
+    final m = _declaredPivot.firstMatch(head);
+    if (m == null) return null;
+    final depth = double.parse(m.group(1)!);
+    return KinematicsService(pivotToTableOffset: depth, pivot: Vector3(0, 0, -depth));
+  }
+
   /// --- CINÉMATIQUE DIRECTE ---
   /// Position de la pointe d'outil dans le repère PIÈCE à partir des
   /// coordonnées MACHINE (X, Y, Z, A, C).

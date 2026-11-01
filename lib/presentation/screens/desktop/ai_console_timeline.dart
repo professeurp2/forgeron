@@ -113,6 +113,7 @@ const _toolLabels = <String, String>{
   'run_machining_simulation': 'Simulation d\'usinage 3D & analyse de collisions',
   'control_simulation': 'Pilotage du simulateur 3D / ViewCube',
   'switch_simulator_camera_tab': 'Bascule Simulateur 3D / Caméra',
+  'capture_workspace_view': 'Capture visuelle (Simulateur / Parcours / Caméra)',
 };
 
 /// La table ci-dessus est `const` : la traduction se fait ici, au moment de
@@ -169,6 +170,11 @@ String resultSummary(String toolName, String result) {
       if (toolName == 'download_scan_result') {
         final fmt = data['format']?.toString().toUpperCase() ?? '';
         return 'Modèle $fmt récupéré';
+      }
+      if (toolName == 'capture_workspace_view') {
+        final tgt = data['target'] ?? 'auto';
+        final src = data['source'] ?? 'état';
+        return 'Vue $tgt · $src';
       }
     }
   } catch (_) {

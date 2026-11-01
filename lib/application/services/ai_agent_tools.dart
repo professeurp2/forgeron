@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/fluidnc/grbl_parser.dart';
 import '../providers/reco3d_provider.dart';
+import '../providers/machine_provider.dart';
 import '../providers/simulation_provider.dart';
+import '../providers/viewer_snapshot_provider.dart';
 import '../providers/ai_agent_settings_provider.dart';
 import '../providers/ai_artifacts_provider.dart';
 import '../providers/camera_provider.dart';
@@ -1753,6 +1755,300 @@ class AiToolCatalog {
         return jsonEncode({
           'ok': true,
           'active_tab': isCam ? 'camera' : 'simulator',
+        });
+      },
+    ),
+
+    AiTool(
+      name: 'capture_workspace_view',
+      description:
+          'Prend une capture d\'écran visuelle (image PNG/JPEG + télémesures exactes) '
+          'pour voir ce qui se passe réellement dans le simulateur 3D d\'usinage '
+          '("simulator"), le tracé 3D du parcours d\'outil ("toolpath"), l\'aperçu 3D '
+          'de la pièce CAO ("part"), la caméra physique ESP32-CAM ("camera") ou '
+          'l\'écran complet de l\'application ("screen"). Permet d\'orienter la vue '
+          '3D via camera_preset avant la capture.',
+      category: null,
+      producesImage: true,
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'target': {
+            'type': 'string',
+            'enum': ['auto', 'simulator', 'toolpath', 'part', 'camera', 'screen'],
+            'description':
+                'Cible à capturer : "simulator" (jumeau 5 axes + brut voxelisé + outil), '
+                '"toolpath" (tracé G0/G1 isolé sans cabine), "part" (maillage CAO STEP/STL), '
+                '"camera" (caméra atelier ESP32-CAM), "screen" (interface Flutter), '
+                'ou "auto" (choisit la vue active la plus pertinente).',
+          },
+          'camera_preset': {
+            'type': 'string',
+            'enum': ['ISOMETRIC', 'TOP', 'FRONT', 'RIGHT', 'LEFT', 'BACK'],
+            'description':
+                'Orientation optionnelle de la caméra 3D avant la prise de vue '
+                '(ex: TOP pour centrage XY, FRONT/RIGHT pour dégagements Z, ISOMETRIC pour vue globale).',
+          },
+        },
+      },
+      execute: (args, ref) async {
+        final rawTarget = ((args['target'] as String?) ?? 'auto').trim().toLowerCase();
+        final rawPreset = (args['camera_preset'] as String?)?.trim().toUpperCase();
+        final validPreset = (rawPreset != null && CameraPreset.values.contains(rawPreset))
+            ? rawPreset
+            : null;
+
+        final snapshotSvc = ref.read(viewerSnapshotServiceProvider);
+        final gcode = ref.read(gcodeProvider);
+        final sim = ref.read(simulationProvider);
+        final artifacts = ref.read(aiArtifactsProvider);
+        final machine = ref.read(machineRepositoryProvider).currentState;
+
+        final String effectiveTarget;
+        if (rawTarget == 'auto') {
+          if (gcode.toolpath.isNotEmpty || sim.isSimulating) {
+            effectiveTarget = 'simulator';
+          } else if (artifacts.step?.preview != null) {
+            effectiveTarget = 'part';
+          } else if (snapshotSvc.has3dHandle) {
+            effectiveTarget = 'simulator';
+          } else {
+            effectiveTarget = 'screen';
+          }
+        } else {
+          effectiveTarget = rawTarget;
+        }
+
+        // Calcul des bornes exactes du parcours d'outil chargé (s'il existe)
+        Map<String, dynamic> buildToolpathSummary() {
+          final pts = gcode.toolpath;
+          if (pts.isEmpty) {
+            return {
+              'loaded': false,
+              'pointsCount': 0,
+              'linesCount': gcode.allLines.length,
+              'tools': const <Map<String, dynamic>>[],
+            };
+          }
+          double minX = pts.first[0], maxX = pts.first[0];
+          double minY = pts.first[1], maxY = pts.first[1];
+          double minZ = pts.first[2], maxZ = pts.first[2];
+          double minA = pts.first.length > 3 ? pts.first[3] : 0.0;
+          double maxA = minA;
+          double minC = pts.first.length > 4 ? pts.first[4] : 0.0;
+          double maxC = minC;
+          int rapidCount = 0;
+          int cutCount = 0;
+
+          for (int i = 0; i < pts.length; i++) {
+            final p = pts[i];
+            if (p[0] < minX) minX = p[0];
+            if (p[0] > maxX) maxX = p[0];
+            if (p[1] < minY) minY = p[1];
+            if (p[1] > maxY) maxY = p[1];
+            if (p[2] < minZ) minZ = p[2];
+            if (p[2] > maxZ) maxZ = p[2];
+            if (p.length > 3) {
+              if (p[3] < minA) minA = p[3];
+              if (p[3] > maxA) maxA = p[3];
+            }
+            if (p.length > 4) {
+              if (p[4] < minC) minC = p[4];
+              if (p[4] > maxC) maxC = p[4];
+            }
+            if (i > 0) {
+              final isRapid = (p.length > 5 ? p[5] : 1.0) == 0.0;
+              if (isRapid) {
+                rapidCount++;
+              } else {
+                cutCount++;
+              }
+            }
+          }
+
+          double r1(double v) => (v * 10).roundToDouble() / 10.0;
+          return {
+            'loaded': true,
+            'fileName': artifacts.gcode?.fileName,
+            'linesCount': gcode.allLines.length,
+            'pointsCount': pts.length,
+            'rapidSegmentsG0': rapidCount,
+            'cuttingSegmentsG1': cutCount,
+            'boundsMm': {
+              'x': [r1(minX), r1(maxX)],
+              'y': [r1(minY), r1(maxY)],
+              'z': [r1(minZ), r1(maxZ)],
+              'aDeg': [r1(minA), r1(maxA)],
+              'cDeg': [r1(minC), r1(maxC)],
+            },
+            'tools': gcode.tools
+                .map((t) => {
+                      'toolNumber': t.number,
+                      if (t.description != null) 'description': t.description,
+                      if (t.diameterMm != null) 'diameterMm': t.diameterMm,
+                    })
+                .toList(),
+          };
+        }
+
+        final simAnalysis = gcode.toolpath.isNotEmpty
+            ? ref.read(simulationProvider.notifier).analyzeCurrentProgram()
+            : <String, dynamic>{
+                'status': sim.status.name,
+                'progressPct': sim.progressPct,
+                'stockShape': sim.stockShape.wire,
+                'stockDimensionsMm': sim.stockDimensions,
+                'toolDiameterMm': sim.toolDiameter,
+                'collisions': sim.collisionCount,
+                'warnings': sim.warningCount,
+              };
+
+        Uint8List? imageBytes;
+        String imageMime = 'image/png';
+        String source = 'telemetry_only';
+        Map<String, dynamic> sceneMetrics = const {};
+        String? cameraDiagnostic;
+
+        if (effectiveTarget == 'camera') {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(simulationProvider.notifier).setActiveTab(ConsoleRightTab.camera);
+          ref.read(visualizerModeProvider.notifier).state = VisualizerMode.camera;
+
+          final isSimMode = ref.read(isSimulationModeProvider);
+          final camEnabled = ref.read(cameraEnabledProvider);
+          if (camEnabled) {
+            try {
+              imageBytes = await ref.read(cameraRepositoryProvider).snapshot();
+              imageMime = 'image/jpeg';
+              source = 'esp32_camera';
+            } catch (e) {
+              cameraDiagnostic = 'Échec de capture ESP32-CAM : $e';
+            }
+          } else {
+            final feed = ref.read(cameraFeedProvider);
+            if (feed.hasFrame && feed.frame != null) {
+              imageBytes = feed.frame;
+              imageMime = 'image/jpeg';
+              source = 'esp32_camera_cached';
+              cameraDiagnostic = 'Dernière trame caméra mise en cache (flux direct interrompu).';
+            } else {
+              cameraDiagnostic = isSimMode
+                  ? 'Mode simulation actif : aucune caméra physique ESP32-CAM connectée.'
+                  : 'Caméra ESP32-CAM (${ref.read(cameraIpProvider)}) hors ligne ou non détectée.';
+              final fallbackScreen = await snapshotSvc.captureScreen();
+              if (fallbackScreen != null) {
+                imageBytes = fallbackScreen.pngBytes;
+                imageMime = 'image/png';
+                source = 'flutter_screen_camera_offline';
+                sceneMetrics = fallbackScreen.metrics;
+              }
+            }
+          }
+        } else if (effectiveTarget == 'screen') {
+          final snap = await snapshotSvc.captureScreen();
+          if (snap != null) {
+            imageBytes = snap.pngBytes;
+            source = snap.source;
+            sceneMetrics = snap.metrics;
+          }
+        } else {
+          // Cible 3D : 'simulator', 'toolpath' ou 'part'
+          if (effectiveTarget == 'part' && artifacts.step?.preview != null) {
+            ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
+          } else {
+            ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+            ref.read(simulationProvider.notifier).setActiveTab(ConsoleRightTab.simulator);
+            ref.read(visualizerModeProvider.notifier).state = VisualizerMode.simulation3d;
+          }
+
+          if (validPreset != null) {
+            ref.read(simulationProvider.notifier).setCameraPreset(validPreset);
+          }
+
+          final Map<String, dynamic>? tempScene = switch (effectiveTarget) {
+            'toolpath' => const {
+                'machine': false,
+                'workpiece': false,
+                'part': false,
+                'toolpath': true,
+              },
+            'part' => const {
+                'machine': false,
+                'workpiece': false,
+                'toolpath': false,
+                'part': true,
+              },
+            _ => null,
+          };
+
+          final latestSim = ref.read(simulationProvider);
+          final pos = (latestSim.isSimulating || latestSim.status == SimulationStatus.completed)
+              ? latestSim.simulatedMPos
+              : machine.mPos;
+          final labelTarget = switch (effectiveTarget) {
+            'toolpath' => 'PARCOURS 3D',
+            'part' => 'PIÈCE CAO 3D',
+            _ => 'SIMULATEUR 5X',
+          };
+          final presetLabel = validPreset ?? latestSim.cameraPreset;
+          final hudBanner =
+              '$labelTarget | VUE $presetLabel | '
+              'X:${pos[0].toStringAsFixed(1)} Y:${pos[1].toStringAsFixed(1)} Z:${pos[2].toStringAsFixed(1)} '
+              'A:${(pos.length > 3 ? pos[3] : 0.0).toStringAsFixed(1)}° '
+              'C:${(pos.length > 4 ? pos[4] : 0.0).toStringAsFixed(1)}° | '
+              'SIM:${latestSim.progressPct.toStringAsFixed(0)}%';
+
+          var snap = await snapshotSvc.capture3d(
+            target: effectiveTarget,
+            cameraPreset: validPreset,
+            temporaryScene: tempScene,
+            hudBanner: hudBanner,
+          );
+          snap ??= await snapshotSvc.captureScreen();
+
+          if (snap != null) {
+            imageBytes = snap.pngBytes;
+            source = snap.source;
+            sceneMetrics = snap.metrics;
+          }
+        }
+
+        if (imageBytes != null && imageBytes.isNotEmpty) {
+          ref.read(aiToolImageProvider.notifier).state = AiToolImage(
+            bytes: imageBytes,
+            mimeType: imageMime,
+          );
+        }
+
+        final latestSim = ref.read(simulationProvider);
+        final stepPreview = artifacts.step?.preview;
+        return jsonEncode({
+          'ok': true,
+          'captured': imageBytes != null && imageBytes.isNotEmpty,
+          'target': effectiveTarget,
+          'source': source,
+          if (imageBytes != null) 'imageSizeBytes': imageBytes.length,
+          'cameraDiagnostic': ?cameraDiagnostic,
+          'machine': machineStateMap(machine),
+          'simulation': {
+            ...simAnalysis,
+            'progressPct': (latestSim.progressPct * 10).roundToDouble() / 10.0,
+            'simulatedMPos': latestSim.simulatedMPos,
+            'cameraPreset': validPreset ?? latestSim.cameraPreset,
+            'activeTab': latestSim.activeTab.name,
+          },
+          'toolpath': buildToolpathSummary(),
+          if (stepPreview != null)
+            'part': {
+              'fileName': artifacts.step!.fileName,
+              'sizeLabel': stepPreview.sizeLabel,
+              'volumeMm3': stepPreview.volume.round(),
+              'triangles': stepPreview.triangles,
+            },
+          if (sceneMetrics.isNotEmpty) 'scene3d': sceneMetrics,
+          'note': imageBytes != null
+              ? 'Capture visuelle jointe à ce tour avec ses télémesures.'
+              : 'Rendu graphique hors-écran non monté : utilise les télémesures exactes ci-dessus.',
         });
       },
     ),

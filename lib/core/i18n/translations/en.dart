@@ -679,4 +679,5 @@ const Map<String, String> kEn = <String, String>{
   '✓ G43 H{} appliqué': '✓ G43 H{} applied',
   '❌ Erreur : {}': '❌ Error: {}',
   '❌ Erreur upload: {}': '❌ Upload error: {}',
+  'Capture visuelle (Simulateur / Parcours / Caméra)': 'Visual snapshot (Simulator / Toolpath / Camera)',
 };

@@ -9,6 +9,7 @@ import 'package:webview_windows/webview_windows.dart';
 
 import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../application/providers/viewer_snapshot_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/utils/three_viewer_asset_cache.dart';
 import 'viewer_scene.dart';
@@ -63,9 +64,15 @@ class _WindowsTrunnionVisualizerState
   StreamSubscription<dynamic>? _messageSub;
   StreamSubscription<LoadingState>? _loadingSub;
 
+  late final String _handleId = 'win_3d_${identityHashCode(this)}';
+  late final ViewerSnapshotService _snapshotService;
+  final Map<String, Completer<ViewerSnapshotResult?>> _pendingSnapshots = {};
+  int _snapSeq = 0;
+
   @override
   void initState() {
     super.initState();
+    _snapshotService = ref.read(viewerSnapshotServiceProvider);
     unawaited(_initPlatformState());
   }
 
@@ -76,9 +83,12 @@ class _WindowsTrunnionVisualizerState
       _messageSub = _controller.webMessage.listen((message) {
         try {
           final data = message is String ? jsonDecode(message) : message;
-          if (data is Map &&
-              (data['type'] == 'viewer_ready' || data['type'] == 'ready')) {
-            _markReady();
+          if (data is Map) {
+            if (data['type'] == 'viewer_ready' || data['type'] == 'ready') {
+              _markReady();
+            } else if (data['type'] == 'snapshot_result') {
+              _resolveSnapshot(data);
+            }
           }
         } catch (e) {
           debugPrint('[Visualizer] message illisible : $e');
@@ -109,6 +119,13 @@ class _WindowsTrunnionVisualizerState
     if (_isReady || !mounted) return;
     setState(() => _isReady = true);
     _lastThemeSent = null;
+    _snapshotService.register(
+      ViewerSnapshotHandle(
+        id: _handleId,
+        describeScene: () => widget.scene.toJson(),
+        capture: _captureSnapshot,
+      ),
+    );
     _sendScene();
     _sendStockConfig(ref.read(simulationProvider));
     _sendMesh();
@@ -116,6 +133,55 @@ class _WindowsTrunnionVisualizerState
     _sendLimits();
     _toggleVectors();
     _updateMachine();
+  }
+
+  void _resolveSnapshot(Map<dynamic, dynamic> data) {
+    final reqId = data['requestId']?.toString() ?? '';
+    final completer = _pendingSnapshots.remove(reqId);
+    if (completer == null || completer.isCompleted) return;
+    final bytes =
+        ViewerSnapshotService.decodeDataUrlPng(data['dataUrl'] as String?);
+    if (bytes == null) {
+      completer.complete(null);
+      return;
+    }
+    completer.complete(
+      ViewerSnapshotResult(
+        pngBytes: bytes,
+        source: 'webgl_3d',
+        width: (data['width'] as num?)?.toInt(),
+        height: (data['height'] as num?)?.toInt(),
+        metrics:
+            (data['metrics'] as Map?)?.cast<String, dynamic>() ?? const {},
+      ),
+    );
+  }
+
+  Future<ViewerSnapshotResult?> _captureSnapshot({
+    String? cameraPreset,
+    Map<String, dynamic>? temporaryScene,
+    String? hudBanner,
+  }) {
+    if (!_isReady || !mounted) return Future.value(null);
+    final reqId = '${_handleId}_${++_snapSeq}';
+    final completer = Completer<ViewerSnapshotResult?>();
+    _pendingSnapshots[reqId] = completer;
+    _post({
+      'type': 'capture_snapshot',
+      'payload': {
+        'requestId': reqId,
+        'cameraPreset': ?cameraPreset,
+        'temporaryScene': ?temporaryScene,
+        'hudBanner': ?hudBanner,
+      },
+    });
+    return completer.future.timeout(
+      const Duration(seconds: 4),
+      onTimeout: () {
+        _pendingSnapshots.remove(reqId);
+        return null;
+      },
+    );
   }
 
   void _post(Map<String, dynamic> data) {
@@ -260,6 +326,11 @@ class _WindowsTrunnionVisualizerState
 
   @override
   void dispose() {
+    _snapshotService.unregister(_handleId);
+    for (final c in _pendingSnapshots.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pendingSnapshots.clear();
     _messageSub?.cancel();
     _loadingSub?.cancel();
     _controller.dispose();

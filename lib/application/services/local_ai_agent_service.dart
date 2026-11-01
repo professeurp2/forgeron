@@ -666,6 +666,21 @@ class LocalAiAgentService implements AiBackend {
     }
   }
 
+  /// Libère la VRAM de ce modèle sur Ollama (`keep_alive: 0`) avant de charger
+  /// un second modèle local (ex. passage pilote `forgeron-qwen` → vision
+  /// `gemma3n` sur un GPU portable de 4–6 Go). Ignoré si non supporté.
+  Future<void> evictFromMemory() async {
+    try {
+      await _client
+          .post(
+            Uri.parse('$baseUrl/api/generate'),
+            headers: const {'content-type': 'application/json'},
+            body: jsonEncode({'model': model, 'keep_alive': 0}),
+          )
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
   @override
   String get unreachableMessage =>
       'Le serveur IA local ne répond pas ($baseUrl). Vérifie qu\'il est '

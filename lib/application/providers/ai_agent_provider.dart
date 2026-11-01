@@ -12,6 +12,7 @@ import '../services/docs_prefetch.dart';
 import '../services/live_state_block.dart';
 import '../services/ai_turn_journal.dart';
 import '../services/local_ai_agent_service.dart';
+import '../services/ollama_discovery.dart';
 import '../services/ai_agent_tools.dart';
 import '../services/guarded_backend.dart';
 import '../services/tool_router.dart';
@@ -1041,8 +1042,38 @@ class AiAgentController extends StateNotifier<AiChatState> {
       'dans le visualiseur 3D. Rappelle honnêtement que la géométrie est approximative tant que '
       'l\'échelle n\'est pas certifiée par mire.';
 
+  /// Spécialiste inspection visuelle : capture d'écran du simulateur 3D,
+  /// du parcours d'outil, de la pièce CAO, de la caméra ESP32-CAM et de l'écran.
+  static const _promptVision =
+      'INSPECTION VISUELLE & CAPTURE D\'ÉCRAN : '
+      'Quand l\'opérateur te demande de prendre une capture d\'écran, de regarder '
+      'ou de vérifier ce qui se passe dans le simulateur 3D, le parcours d\'outil, '
+      'l\'aperçu de la pièce, la caméra ou l\'écran, utilise capture_workspace_view '
+      '(target: "simulator" pour le jumeau 5 axes et l\'enlèvement de matière, '
+      '"toolpath" pour le tracé G0/G1 dégagé, "part" pour le maillage CAO, '
+      '"camera" pour l\'ESP32-CAM, ou "screen" pour l\'interface complète ; '
+      'camera_preset optionnel: "ISOMETRIC", "TOP", "FRONT", "RIGHT"). '
+      'Appuie ton constat sur l\'image capturée ET les mesures exactes fournies, '
+      'sans jamais inventer ce qu\'une caméra hors ligne ne montre pas. ';
+
   static const _systemPrompt =
-      '$_promptIdentity$_promptGcodeFiles$_promptRules$_promptCam$_promptScan';
+      '$_promptIdentity$_promptGcodeFiles$_promptRules$_promptCam$_promptScan$_promptVision';
+
+  /// Prompt système COMPACT pour le modèle d'images (gemma3n…) : sa fenêtre de
+  /// contexte Ollama par défaut est petite, et le prompt complet (identité,
+  /// règles, cinématique, journal) avec une image la saturait. Le modèle
+  /// décrivait alors la machine du prompt au lieu des pixels de la capture.
+  @visibleForTesting
+  static const visionSystemPrompt =
+      'Tu es l\'œil de Forgeron, l\'assistant d\'une fraiseuse CNC 5 axes trunnion '
+      '(X, Y, Z linéaires, berceau basculant A, plateau rotatif C). '
+      'On te montre une capture d\'écran (simulateur 3D, parcours d\'outil G0 rouge / '
+      'G1 vert, pièce CAO, caméra atelier ou interface) avec ses télémesures exactes. '
+      'Décris UNIQUEMENT ce que montrent réellement les pixels et les télémesures : '
+      'position de l\'outil, avancement de l\'usinage, matière restante, anomalies '
+      'visibles (collision, outil hors brut, parcours incohérent). Cite les valeurs '
+      'chiffrées des télémesures. N\'invente rien qui ne soit ni visible ni mesuré. '
+      'Réponds en quelques phrases claires pour un opérateur non technicien.';
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
   /// ne se lisent pas dans la cinématique). Les VALEURS chiffrées, elles, sont
@@ -1100,6 +1131,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _promptGcodeFiles: {'fichiers', 'programme'},
     _promptCam: {'cao', 'simulation'},
     _promptScan: {'scan'},
+    _promptVision: {'camera', 'simulation', 'cao'},
   };
 
   /// Prompt fixe d'un tour routé vers les groupes [groups] : le tronc commun
@@ -1111,7 +1143,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     String section(String text) =>
         _specialistSections[text]!.any(groups.contains) ? text : '';
     return '$_promptIdentity${section(_promptGcodeFiles)}$_promptRules'
-        '${section(_promptCam)}${section(_promptScan)}'
+        '${section(_promptCam)}${section(_promptScan)}${section(_promptVision)}'
         '\n\n$_machineSpecs\n\n$_docsRule';
   }
 
@@ -1268,31 +1300,112 @@ class AiAgentController extends StateNotifier<AiChatState> {
   // ── Modèle pour les images ────────────────────────────────────────────────
 
   AiBackend? _visionService;
+  String? _autoProbedVisionUrl;
 
   /// Pose un faux modèle d'images (tests du contrôleur).
   @visibleForTesting
   void debugUseVisionBackend(AiBackend backend) => _visionService = backend;
 
-  /// Modèle local qui lit les images, s'il est réglé ET différent du principal ;
+  /// Modèle local qui lit les images, s'il est réglé (ou auto-détecté sur le
+  /// même serveur Ollama, ex. `gemma3n:latest`) ET différent du principal ;
   /// `null` sinon (le principal s'en charge, ou aucune image n'est lisible).
   Future<AiBackend?> _ensureVisionService() async {
     final settings = _ref.read(aiAgentSettingsProvider);
     // En ligne, Gemini lit les images lui-même : pas de modèle d'images local.
     final url = settings.usesLocal ? settings.localBaseUrl : '';
-    final name = settings.localVisionModel;
-    if (_visionService != null && (url.isEmpty || name.isEmpty)) {
-      // Un faux posé par un test reste ; un vrai service dont le réglage a été
-      // vidé est abandonné.
-      if (_visionService is! LocalAiAgentService) return _visionService;
-      _visionService!.dispose();
-      _visionService = null;
+    var name = settings.localVisionModel;
+    if (_visionService != null && _visionService is! LocalAiAgentService) {
+      // Un faux posé par un test reste prioritaire.
+      return _visionService;
+    }
+    if (url.isNotEmpty &&
+        name.isEmpty &&
+        _autoProbedVisionUrl != url &&
+        (_service == null || _service is LocalAiAgentService)) {
+      _autoProbedVisionUrl = url;
+      try {
+        final norm = LocalAiAgentService.normalizeBaseUrl(url);
+        final disc = OllamaDiscovery(
+          probeTimeout: const Duration(milliseconds: 1200),
+        );
+        final srv = await disc.probe(norm);
+        if (srv != null) {
+          final full = await disc.describe(srv);
+          final rec = OllamaDiscovery.recommendVision(
+            full.models,
+            main: settings.localModel,
+          );
+          if (rec != null) {
+            name = rec.name;
+            _ref
+                .read(aiAgentSettingsProvider.notifier)
+                .setLocalVisionModel(name);
+          }
+        }
+      } catch (_) {}
+    }
+    if (url.isEmpty || name.isEmpty || name == settings.localModel) {
+      if (_visionService != null) {
+        _visionService!.dispose();
+        _visionService = null;
+      }
       return null;
     }
-    if (url.isEmpty || name.isEmpty || name == settings.localModel) return null;
     if (_visionService != null && _visionService!.model == name) return _visionService;
     _visionService?.dispose();
     final info = await LocalAiAgentService.probe(url, name);
     return _visionService = LocalAiAgentService(baseUrl: url, model: name, info: info);
+  }
+
+  /// Enrichit une copie superficielle de `_contents` pour un modèle de vision
+  /// sans outils (`gemma3n`, etc.) lorsque le dernier tour provient d'un outil
+  /// visuel (`capture_workspace_view` / `get_camera_snapshot`). Les templates
+  /// Jinja des modèles purement visuels ignorent souvent les messages `role: tool`
+  /// d'OpenAI : injecter le résumé JSON en texte à côté de l'image garantit
+  /// que le modèle lit à la fois les pixels ET les coordonnées exactes, sans
+  /// toucher à `_contents`.
+  List<Map<String, dynamic>> _contentsForVision() {
+    if (_contents.isEmpty) return _contents;
+    final last = _contents.last;
+    final parts = last['parts'];
+    if (last['role'] != 'user' || parts is! List) return _contents;
+    final hasInline = parts.any((p) => p is Map && p.containsKey('inlineData'));
+    if (!hasInline) return _contents;
+    final frParts = parts
+        .whereType<Map>()
+        .where((p) => p.containsKey('functionResponse'))
+        .toList();
+    if (frParts.isEmpty) return _contents;
+    final summaries = <String>[];
+    for (final fr in frParts) {
+      final inner = fr['functionResponse'];
+      if (inner is Map) {
+        final resp = inner['response'];
+        final resText = (resp is Map && resp['result'] != null)
+            ? '${resp['result']}'
+            : jsonEncode(resp ?? const {});
+        summaries.add(resText);
+      }
+    }
+    if (summaries.isEmpty) return _contents;
+    return [
+      ..._contents.sublist(0, _contents.length - 1),
+      {
+        ...last,
+        'parts': [
+          ...parts,
+          {
+            'text': '[Télémesures exactes au moment de la capture : '
+                '${summaries.join(' | ')}]\n'
+                'Décris précisément ce que montre cette capture d\'écran ET '
+                'cite les valeurs clés des télémesures ci-dessus (coordonnées '
+                'des axes X/Y/Z/A/C, avancement ou pourcentage de brut coupé, '
+                'outil actif, collisions éventuelles) pour répondre directement '
+                'en français à l\'opérateur.',
+          },
+        ],
+      },
+    ];
   }
 
   /// Joint à l'image ce qu'en a dit le modèle d'images, pour les tours
@@ -1739,8 +1852,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // Un tour qui porte une image va au modèle d'images (s'il y en a un), SANS
     // outils : il décrit, il n'agit pas. Les tours de texte restent au modèle
     // principal, qui pilote la machine.
-    final vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
-    final service = vision ?? baseService;
+    var vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
+    var service = vision ?? baseService;
     _turnGroups = null; // reposé par _declarationsFor pour un tour avec outils
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
     // facturée (et comptée dans le quota gratuit) à chaque tour.
@@ -1755,8 +1868,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final clock = Stopwatch()..start();
     _latestStreamingText = null;
     var lastDeltaEmit = DateTime.fromMillisecondsSinceEpoch(0);
+    void onStreamDelta(String partial) {
+      if (_cancelled) return;
+      _latestStreamingText = partial;
+      final now = DateTime.now();
+      if (now.difference(lastDeltaEmit).inMilliseconds >= 40) {
+        lastDeltaEmit = now;
+        state = state.copyWith(streamingText: partial);
+      }
+    }
+
     try {
-      final declarations = vision != null
+      var declarations = vision != null
           ? const <Map<String, dynamic>>[]
           : _declarationsFor(service);
       final groups = _turnGroups;
@@ -1764,22 +1887,53 @@ class AiAgentController extends StateNotifier<AiChatState> {
           specialists: vision != null
               ? const ['images']
               : (groups == null ? const [] : (groups.toList()..sort())));
-      final response = await service.streamMessages(
-        contents: _contents,
-        functionDeclarations: declarations,
-        systemPrompt: _buildSystemPrompt(),
-        // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
-        onDelta: (partial) {
-          if (_cancelled) return;
-          _latestStreamingText = partial;
-          final now = DateTime.now();
-          if (now.difference(lastDeltaEmit).inMilliseconds >= 40) {
-            lastDeltaEmit = now;
-            state = state.copyWith(streamingText: partial);
-          }
-        },
-        shouldCancel: () => _cancelled || _epoch != epoch,
-      );
+      if (vision is LocalAiAgentService &&
+          baseService is LocalAiAgentService &&
+          vision.model != baseService.model) {
+        await baseService.evictFromMemory();
+      }
+      AiApiResponse response;
+      try {
+        response = await service.streamMessages(
+          contents: vision != null ? _contentsForVision() : _contents,
+          functionDeclarations: declarations,
+          systemPrompt: vision != null
+              ? '$visionSystemPrompt\n\n${_languageEnforcementBlock()}'
+              : _buildSystemPrompt(),
+          // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
+          onDelta: onStreamDelta,
+          shouldCancel: () => _cancelled || _epoch != epoch,
+        );
+      } catch (_) {
+        // Repli résilient : si le modèle de vision échoue (ex. saturation VRAM
+        // CUDA au chargement simultané sur portable) sur une capture d'outil qui
+        // porte déjà ses télémesures JSON complètes, le pilote principal répond
+        // sans interrompre l'opérateur.
+        final lastParts = _contents.isNotEmpty
+            ? (_contents.last['parts'] as List? ?? const [])
+            : const [];
+        final isToolCapture =
+            lastParts.any((p) => p is Map && p.containsKey('functionResponse'));
+        if (vision == null || !isToolCapture || _cancelled || _epoch != epoch) {
+          rethrow;
+        }
+        vision = null;
+        service = baseService;
+        _latestStreamingText = null;
+        declarations = _declarationsFor(service);
+        response = await service.streamMessages(
+          contents: _contents,
+          functionDeclarations: declarations,
+          systemPrompt: _buildSystemPrompt(),
+          onDelta: onStreamDelta,
+          shouldCancel: () => _cancelled || _epoch != epoch,
+        );
+      }
+      if (vision is LocalAiAgentService &&
+          baseService is LocalAiAgentService &&
+          vision.model != baseService.model) {
+        unawaited(vision.evictFromMemory());
+      }
 
       // La discussion a changé pendant l'appel : cette réponse appartient à un
       // fil qui n'est plus ouvert, on la laisse tomber sans rien écrire.

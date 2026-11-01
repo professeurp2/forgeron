@@ -269,6 +269,7 @@
             reset() {
                 if (!this.mesh) return;
                 let i = 0;
+                let activeCount = 0;
                 const ox = -(this.nx * this.voxelSize) / 2;
                 const oy = -(this.ny * this.voxelSize) / 2;
                 const rx = this.size.x / 2;
@@ -288,6 +289,7 @@
                                 this.dummy.updateMatrix();
                                 this.mesh.setMatrixAt(i, this.dummy.matrix);
                                 this.states[i] = 1;
+                                activeCount++;
                             } else {
                                 this.matrix.makeScale(0, 0, 0);
                                 this.mesh.setMatrixAt(i, this.matrix);
@@ -297,10 +299,35 @@
                         }
                     }
                 }
+                this.initialVoxels = activeCount;
                 this.mesh.instanceMatrix.updateRange.offset = 0;
                 this.mesh.instanceMatrix.updateRange.count = -1;
                 this.mesh.instanceMatrix.needsUpdate = true;
                 requestRender();
+            }
+
+            getStats() {
+                if (!this.states || !this.initialVoxels) {
+                    return {
+                        shape: this.shape,
+                        dimensionsMm: [this.size.x, this.size.y, this.size.z],
+                        initialVoxels: 0,
+                        remainingVoxels: 0,
+                        removedPct: 0,
+                    };
+                }
+                let rem = 0;
+                for (let i = 0; i < this.states.length; i++) {
+                    if (this.states[i] === 1) rem++;
+                }
+                const pct = Math.max(0, Math.min(100, ((this.initialVoxels - rem) * 100) / this.initialVoxels));
+                return {
+                    shape: this.shape,
+                    dimensionsMm: [this.size.x, this.size.y, this.size.z],
+                    initialVoxels: this.initialVoxels,
+                    remainingVoxels: rem,
+                    removedPct: Math.round(pct * 10) / 10,
+                };
             }
 
             cut(worldToolPos, radius) {
@@ -970,10 +997,157 @@
             requestRender();
         }
 
-        document.getElementById('fs-btn').onclick = () => {
-            const msg = JSON.stringify({ type: 'toggle_fullscreen' });
+        function postHostMessage(obj) {
+            const msg = JSON.stringify(obj);
+            if (window.ForgeronChannel) window.ForgeronChannel.postMessage(msg);
             if (window.ForgeronBridge) window.ForgeronBridge.postMessage(msg);
             if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg);
+            if (window.parent && window.parent !== window) {
+                try { window.parent.postMessage(obj, '*'); } catch (_) {}
+            }
+        }
+
+        function captureSnapshot(opts) {
+            opts = opts || {};
+            const requestId = opts.requestId || ('snap_' + Date.now());
+            const tempScene = (opts.temporaryScene && typeof opts.temporaryScene === 'object')
+                ? opts.temporaryScene
+                : null;
+
+            const savedVis = tempScene ? {
+                machine: machineGroup.visible,
+                floor: floorGridGroup.visible,
+                toolpath: toolpathGroup.visible,
+                part: partGroup.visible,
+                workpiece: workpiece.mesh ? workpiece.mesh.visible : false,
+                enclosure: enclosureGroup.visible,
+                camPos: camera.position.clone(),
+                target: controls.target.clone(),
+                vcLabel: (document.getElementById('vc-label') && document.getElementById('vc-label').innerText) || 'ISOMETRIC',
+            } : null;
+
+            try {
+                if (tempScene) {
+                    applyScene(tempScene);
+                    if (!machineGroup.visible && partGroup.visible && partMesh) {
+                        fitCameraTo(partMesh);
+                    } else if (!machineGroup.visible && toolpathGroup.visible && pathLines) {
+                        fitCameraTo(pathLines);
+                    }
+                }
+
+                if (opts.cameraPreset) {
+                    setCameraPreset(opts.cameraPreset);
+                }
+                if (camTween) {
+                    camera.position.copy(camTween.endPos);
+                    camTween = null;
+                    controls.update();
+                    syncViewCube();
+                }
+
+                renderer.render(scene, camera);
+                needsRender = false;
+
+                const srcW = Math.max(1, renderer.domElement.width);
+                const srcH = Math.max(1, renderer.domElement.height);
+                const scale = Math.min(1, 1024 / Math.max(srcW, srcH));
+                const outW = Math.max(64, Math.round(srcW * scale));
+                const outH = Math.max(64, Math.round(srcH * scale));
+
+                const off = document.createElement('canvas');
+                off.width = outW;
+                off.height = outH;
+                const ctx = off.getContext('2d');
+
+                const isLight = document.body.classList.contains('light-studio');
+                const grad = ctx.createLinearGradient(0, 0, 0, outH);
+                if (isLight) {
+                    grad.addColorStop(0, '#f8fafc');
+                    grad.addColorStop(1, '#e2e8f0');
+                } else {
+                    grad.addColorStop(0, '#1e2533');
+                    grad.addColorStop(1, '#0e1117');
+                }
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, outW, outH);
+                ctx.drawImage(renderer.domElement, 0, 0, outW, outH);
+
+                const stock = workpiece.getStats();
+                const tpPts = lastToolpath
+                    ? (Array.isArray(lastToolpath[0]) ? lastToolpath.length : Math.floor(lastToolpath.length / 6))
+                    : 0;
+                const camLabel = (document.getElementById('vc-label') && document.getElementById('vc-label').innerText) || 'ISOMETRIC';
+                const hudText = opts.hudBanner || (
+                    `VUE ${camLabel} | X:${currentMachine.x.toFixed(1)} Y:${currentMachine.y.toFixed(1)} Z:${currentMachine.z.toFixed(1)} A:${currentMachine.a.toFixed(1)}° C:${currentMachine.c.toFixed(1)}°` +
+                    (tpPts > 0 ? ` | PARCOURS:${tpPts} pts` : '') +
+                    ((workpiece.mesh && workpiece.mesh.visible) ? ` | BRUT COUPÉ:${stock.removedPct}%` : '')
+                );
+
+                ctx.font = 'bold 12px monospace';
+                const textW = Math.min(outW - 24, ctx.measureText(hudText).width + 20);
+                ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.78)' : 'rgba(14, 17, 23, 0.82)';
+                ctx.fillRect(10, 10, textW, 24);
+                ctx.strokeStyle = theme.primary || '#ff6b35';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(10, 10, textW, 24);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(hudText, 20, 26, outW - 44);
+
+                const metrics = {
+                    stock,
+                    machinePos: { ...currentMachine },
+                    activeToolpathIndex,
+                    toolDiameterMm: Math.round(currentToolRadius * 200) / 100,
+                    toolpathPoints: tpPts,
+                    hasPartMesh: !!partMesh,
+                    visibleLayers: {
+                        machine: machineGroup.visible,
+                        enclosure: enclosureGroup.visible,
+                        toolpath: toolpathGroup.visible,
+                        part: partGroup.visible,
+                        workpiece: !!(workpiece.mesh && workpiece.mesh.visible),
+                    },
+                    cameraPreset: camLabel,
+                    hudBanner: hudText,
+                };
+
+                const dataUrl = off.toDataURL('image/png');
+                postHostMessage({
+                    type: 'snapshot_result',
+                    requestId,
+                    dataUrl,
+                    width: outW,
+                    height: outH,
+                    metrics,
+                });
+            } catch (err) {
+                postHostMessage({
+                    type: 'snapshot_result',
+                    requestId,
+                    error: String(err),
+                });
+            } finally {
+                if (savedVis) {
+                    machineGroup.visible = savedVis.machine;
+                    floorGridGroup.visible = savedVis.floor;
+                    toolpathGroup.visible = savedVis.toolpath;
+                    partGroup.visible = savedVis.part;
+                    if (workpiece.mesh) workpiece.mesh.visible = savedVis.workpiece;
+                    enclosureGroup.visible = savedVis.enclosure;
+                    camera.position.copy(savedVis.camPos);
+                    controls.target.copy(savedVis.target);
+                    const lbl = document.getElementById('vc-label');
+                    if (lbl) lbl.innerText = savedVis.vcLabel;
+                    controls.update();
+                    syncViewCube();
+                    requestRender();
+                }
+            }
+        }
+
+        document.getElementById('fs-btn').onclick = () => {
+            postHostMessage({ type: 'toggle_fullscreen' });
         };
 
         window.handleMessage = window.handleFlutterMessage = (rawData) => {
@@ -1034,6 +1208,9 @@
                 case 'set_enclosure':
                     enclosureGroup.visible = typeof payload === 'boolean' ? payload : !!(payload && payload.show);
                     requestRender();
+                    break;
+                case 'capture_snapshot':
+                    captureSnapshot(payload);
                     break;
                 case 'reset_camera':
                     if (partGroup.visible && partMesh) {

@@ -36,16 +36,14 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
-import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 
-from dropcutter import height_map
-from gen_surface5 import SurfaceParams, f3
-from kinematics import Trunnion, normals_from_height_map, orient, piece_to_machine
+from continuous5 import Params, checked_program, f3
 from stl_io import read_stl, write_stl
+from verify5 import is_safe
 
 
 def read_3d_file(path: str | Path, step_deflection: float = 0.01) -> np.ndarray:
@@ -66,15 +64,36 @@ def read_3d_file(path: str | Path, step_deflection: float = 0.01) -> np.ndarray:
     lower = path_str.lower()
     tris: np.ndarray
 
-    if lower.endswith((".step", ".stp")):
-        base_path = Path(path_str).with_suffix("")
+    is_step = lower.endswith((".step", ".stp"))
+    cache_npz_path: Path | None = None
+    src_stat = None
+
+    if is_step:
+        src_file = Path(path_str)
+        src_stat = src_file.stat()
+        base_path = src_file.with_suffix("")
+        cache_npz_path = base_path.parent / f"{base_path.name}_step_cache.npz"
+        if cache_npz_path.is_file():
+            try:
+                with np.load(cache_npz_path) as cached:
+                    if (
+                        int(cached["mtime_ns"]) == src_stat.st_mtime_ns
+                        and int(cached["size"]) == src_stat.st_size
+                    ):
+                        return np.asarray(cached["tris"], dtype=np.float64)
+            except Exception:
+                pass
+
         apercu_path = base_path.parent / f"{base_path.name}_apercu.json"
         loaded = False
         if apercu_path.is_file():
             try:
                 with open(apercu_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                if "vertices" in data and "indices" in data and len(data["indices"]) > 0:
+                # Un aperçu de pièce PRÉPARÉE (mise à l'échelle, réorientée) n'est pas la
+                # géométrie du fichier : le relire ferait perdre le facteur d'échelle.
+                if (data.get("deflection", 0) > 0 and "vertices" in data and "indices" in data
+                        and len(data["indices"]) > 0):
                     pts = np.asarray(data["vertices"], dtype=np.float64).reshape(-1, 3)
                     faces = np.asarray(data["indices"], dtype=np.int64).reshape(-1, 3)
                     tris = pts[faces]
@@ -83,11 +102,17 @@ def read_3d_file(path: str | Path, step_deflection: float = 0.01) -> np.ndarray:
                 loaded = False
 
         if not loaded:
-            from step_io import read_step
+            from step_io import bounding_box, read_step
             from step_preview import tessellate
 
             shape = read_step(path_str)
-            verts, idxs = tessellate(shape, step_deflection)
+            xmin, ymin, zmin, xmax, ymax, zmax = bounding_box(shape)
+            span = max(xmax - xmin, ymax - ymin, zmax - zmin, 1e-6)
+            # Flèche adaptative : conserve step_deflection (0.01 mm) sur les petites
+            # pièces, mais évite la facettisation pathologique (> 90 s) sur les STEP
+            # non mis à l'échelle (> 500 mm) tout en garantissant < 0.08 mm après auto-fit.
+            eff_deflection = max(float(step_deflection), span * 0.0008)
+            verts, idxs = tessellate(shape, eff_deflection)
             pts = np.asarray(verts, dtype=np.float64).reshape(-1, 3)
             faces = np.asarray(idxs, dtype=np.int64).reshape(-1, 3)
             tris = pts[faces]
@@ -106,6 +131,17 @@ def read_3d_file(path: str | Path, step_deflection: float = 0.01) -> np.ndarray:
                 pts_s, faces_s = fast_simplification.simplify(pts_uniq, faces_arr, target_reduction=target_red)
                 if len(faces_s) > 0:
                     tris = pts_s[faces_s].astype(np.float64)
+        except Exception:
+            pass
+
+    if is_step and cache_npz_path is not None and src_stat is not None:
+        try:
+            np.savez_compressed(
+                cache_npz_path,
+                tris=tris.astype(np.float32),
+                mtime_ns=np.int64(src_stat.st_mtime_ns),
+                size=np.int64(src_stat.st_size),
+            )
         except Exception:
             pass
 
@@ -486,7 +522,6 @@ class ImplantCutConfig:
     stepover: float | None = None
     stock_leave: float = 0.3
     five_axis: bool = True
-    z_safe: float = 20.0
     feed_cap: float = 500.0
     lot_id: str = "LOT-MED-AUTO"
     patient_ref: str = "PAT-ANONYME"
@@ -496,7 +531,8 @@ class ImplantCutConfig:
 def generate_implant_program(
     prep: PreparedMesh,
     cfg: ImplantCutConfig = ImplantCutConfig(),
-    tr: Trunnion = Trunnion(),
+    *,
+    fit_travel: bool = False,
 ) -> tuple[str, dict]:
     """Génère le programme complet d'usinage médical (ébauche + finition)."""
     mat_key = cfg.material_id.lower().strip()
@@ -530,182 +566,53 @@ def generate_implant_program(
     ap = min(cfg.ap if cfg.ap and cfg.ap > 0 else mat.ap_max, mat.ap_max)
     ae = min(cfg.ae if cfg.ae and cfg.ae > 0 else mat.ae_max, mat.ae_max)
     stepover = cfg.stepover if cfg.stepover and cfg.stepover > 0 else mat.stepover
-    rho = cfg.tool_dia / 2.0
-
-    # 1. Carte de hauteur Drop-Cutter (centre de la bille) et normales
-    grid_step = min(stepover, ae)
-    xs, ys, Z = height_map(prep.triangles, rho=rho, step=grid_step)
-    normals = normals_from_height_map(xs, ys, Z)
-
-    # Hauteur de la POINTE d'outil en 3 axes (A=0, C=0) : centre bille - rho
-    Z_tip = Z - rho
-    finite_mask = np.isfinite(Z_tip)
-    if not np.any(finite_mask):
-        raise ValueError("Aucun point de contact outil trouvé sur le maillage.")
-
-    z_min_cut = float(np.min(Z_tip[finite_mask]))
-    z_top_stock = 0.0
-
-    # ── Étape 1 : Ébauche 3 axes par couches Z (respecte ap et ae) ──────────
-    rough_lines: list[str] = []
-    rough_min = 0.0
-    n_rough_layers = max(1, int(math.ceil(abs(z_min_cut) / ap)))
-    rough_row_step = max(1, int(round(ae / (ys[1] - ys[0])))) if len(ys) > 1 else 1
-    rough_segments = 0
-
-    for layer_idx in range(1, n_rough_layers + 1):
-        z_layer = max(-layer_idx * ap, z_min_cut)
-        layer_has_cuts = False
-        for row_k, j in enumerate(range(0, len(ys), rough_row_step)):
-            y_val = float(ys[j])
-            row_z = Z_tip[j, :] + cfg.stock_leave
-            # On enlève la matière là où la surface + surépaisseur est sous z_layer
-            # (et où il y a effectivement un triangle sous ce point XY).
-            cut_mask = np.isfinite(Z_tip[j, :]) & (row_z < z_layer)
-            if not np.any(cut_mask):
-                continue
-
-            idxs = np.where(cut_mask)[0]
-            x_start = float(xs[idxs[0]])
-            x_end = float(xs[idxs[-1]])
-            if row_k % 2 == 1:
-                x_start, x_end = x_end, x_start
-
-            if not layer_has_cuts:
-                rough_lines.append(
-                    f"(EBAUCHE COUCHE {layer_idx}/{n_rough_layers} - Z{f3(z_layer)})"
-                )
-                layer_has_cuts = True
-
-            rough_lines.append(f"G0 X{f3(x_start)} Y{f3(y_val)}")
-            rough_lines.append(f"G1 Z{f3(z_layer)} F{f3(mat.feed_plunge)}")
-            dist = abs(x_end - x_start)
-            if dist > 1e-6:
-                rough_lines.append(f"G1 X{f3(x_end)} Y{f3(y_val)} F{f3(mat.feed_rough)}")
-                rough_min += dist / mat.feed_rough
-            rough_lines.append(f"G0 Z{f3(min(z_top_stock + 1.0, z_layer + 2.0))}")
-            rough_min += 2.0 / mat.feed_plunge
-            rough_segments += 1
-
-    rough_lines.append(f"G0 Z{f3(cfg.z_safe)}")
-
-    # ── Étape 2 : Finition 5 axes continu (ou 3 axes) sur la surface exacte ─
-    surf_params = SurfaceParams(
+    # Ébauche et finition viennent du générateur vérifié par rejeu : un programme
+    # que le rejeu refuse n'est jamais écrit.
+    params = Params(
         tool_dia=cfg.tool_dia,
+        ap=ap,
+        ae=ae,
         stepover=stepover,
-        step_along=stepover,
+        stock_leave=cfg.stock_leave,
+        feed_rough=mat.feed_rough,
+        feed_plunge=mat.feed_plunge,
         v_surface=mat.v_surface,
         feed_cap=cfg.feed_cap,
-        feed_link=min(200.0, mat.feed_rough),
-        z_safe=cfg.z_safe,
         spindle=mat.spindle_rpm,
         five_axis=cfg.five_axis,
     )
+    tp, _, check, tris_final, fit_factor = checked_program(prep.triangles, params, fit_travel=fit_travel)
+    if not is_safe(check):
+        raise ValueError(
+            "le rejeu du programme a échoué : "
+            f"{check['blocs_penetrant_piece']} bloc(s) dans la pièce "
+            f"(max {check['penetration_max_mm']} mm), "
+            f"{check['blocs_penetrant_table']} dans la table, "
+            f"{check['collisions_queue']} collision(s) de queue d'outil, "
+            f"{check['collisions_porte_outil']} de porte-outil, "
+            f"excursion {check['excursion_mm']} pour des courses "
+            f"{check['courses_mm']}, A {check['a_deg']}, C {check['c_deg']}."
+        )
 
-    row_step = max(1, int(round(surf_params.stepover / (ys[1] - ys[0])))) if len(ys) > 1 else 1
-    col_step = max(1, int(round(surf_params.step_along / (xs[1] - xs[0])))) if len(xs) > 1 else 1
-
-    finish_lines: list[str] = []
+    st_r, st_f = tp.stats["ebauche"], tp.stats["finition"]
+    rough_lines, finish_lines = tp.rough, tp.finish
+    rough_min, finish_min = float(st_r["duree_min"]), float(st_f["duree_min"])
+    n_rough_layers, rough_segments = st_r["couches"], st_r["segments"]
+    n_points = st_f["points"]
+    a_min_seen, a_max_seen = st_f["a_deg"]
     warnings: list[str] = []
-    finish_min = 0.0
-    n_points = 0
-    n_jerky = 0
-    a_min_seen, a_max_seen = 0.0, 0.0
-
-    prev_machine: np.ndarray | None = None
-    prev_contact: np.ndarray | None = None
-    prev_a = prev_c = 0.0
-    first = True
-
-    for row_i, j in enumerate(range(0, len(ys), row_step)):
-        cols = range(0, len(xs), col_step)
-        if row_i % 2:
-            cols = reversed(list(cols))
-
-        for i in cols:
-            zc = Z[j, i]
-            if not np.isfinite(zc):
-                continue
-
-            centre = np.array([xs[i], ys[j], zc])
-            n = normals[j, i]
-            contact = centre - rho * n
-
-            if cfg.five_axis:
-                a, c = orient(n)
-                # Limiter l'inclinaison A à ±65° sur un implant en plaque pour
-                # éviter toute collision porte-outil / plateau tout en gardant
-                # l'outil hors de sa pointe à vitesse nulle.
-                a = float(np.clip(a, -65.0, 65.0))
-                # Zone de singularité du trunnion (|A| < 5°, cf. TrunnionConfig) :
-                # près de l'horizontale, l'azimut C est indéterminé et ferait
-                # tourner le plateau de 180° pour rien.
-                if abs(a) < 5.0 and not first:
-                    c = prev_c
-                while c - prev_c > 180.0:
-                    c -= 360.0
-                while prev_c - c > 180.0:
-                    c += 360.0
-                # Lissage cinématique : borne la rotation par pas à 1,2 deg/mm
-                # de déplacement sur la pièce pour que la norme composite GRBL
-                # √(mm² + deg²) n'écrase jamais l'avance linéaire (ratio ≥ 0,64).
-                if not first and prev_contact is not None:
-                    step_mm = max(float(np.linalg.norm(contact - prev_contact)), 0.1)
-                    max_ang = 1.2 * step_mm
-                    da, dc = a - prev_a, c - prev_c
-                    ang_norm = math.hypot(da, dc)
-                    if ang_norm > max_ang:
-                        scale_ang = max_ang / ang_norm
-                        a = prev_a + da * scale_ang
-                        c = prev_c + dc * scale_ang
-                machine = piece_to_machine(centre, a, c, tr) - np.array([0.0, 0.0, rho])
-            else:
-                a, c = 0.0, prev_c
-                machine = centre - np.array([0.0, 0.0, rho])
-
-            a_min_seen, a_max_seen = min(a_min_seen, a), max(a_max_seen, a)
-
-            if first:
-                if cfg.five_axis:
-                    finish_lines.append(f"G0 A{f3(a)} C{f3(c)}")
-                finish_lines += [
-                    f"G0 X{f3(machine[0])} Y{f3(machine[1])}",
-                    f"G1 Z{f3(machine[2])} F{f3(surf_params.feed_link)}",
-                ]
-                first = False
-            else:
-                d_machine = float(np.linalg.norm(machine - prev_machine))
-                d_contact = float(np.linalg.norm(contact - prev_contact))
-                d_ang = math.hypot(a - prev_a, c - prev_c)
-
-                if d_machine < 1e-9 and d_ang < 1e-9:
-                    continue
-
-                l_grbl = math.sqrt(d_machine**2 + d_ang**2)
-                l_real = max(d_contact, 1e-6)
-                feed = min(surf_params.v_surface * l_grbl / l_real, surf_params.feed_cap)
-                finish_min += l_grbl / feed
-
-                if d_contact > 1e-6 and d_ang / d_contact > surf_params.max_deg_per_mm:
-                    n_jerky += 1
-
-                words = f"X{f3(machine[0])} Y{f3(machine[1])} Z{f3(machine[2])}"
-                if cfg.five_axis:
-                    words += f" A{f3(a)} C{f3(c)}"
-                finish_lines.append(f"G1 {words} F{f3(feed)}")
-
-            prev_machine, prev_contact, prev_a, prev_c = machine, contact, a, c
-            n_points += 1
-
-    if n_jerky:
+    if tp.stats["surface_atteinte_pct"] < 90.0:
         warnings.append(
-            f"(AVIS : {n_jerky} BLOC(S) A FORTE ROTATION ANGULAIRE SUR COURTE DISTANCE)"
+            f"(AVIS : {tp.stats['surface_atteinte_pct']} POURCENT DE LA SURFACE ATTEINTE PAR LE DESSUS,"
+            f" {st_f['hors_portee_pct']} POURCENT HORS DE PORTEE, LE RESTE N EST PAS USINE)"
         )
 
     total_min = rough_min + finish_min
-    crest_mm = (stepover**2) / (8.0 * rho)
+    crest_mm = (stepover**2) / (8.0 * (cfg.tool_dia / 2.0))
     crest_um = crest_mm * 1000.0
-    sx, sy, sz = prep.prepared_size_mm
+    pts_final = tris_final.reshape(-1, 3)
+    sx, sy, sz = (float(v) for v in pts_final.max(axis=0) - pts_final.min(axis=0))
+    z_safe = tp.z_safe
 
     head = [
         "(FORGERON - CHAINE IMPLANT MEDICAL SUR MESURE - ISO 13485)",
@@ -726,9 +633,9 @@ def generate_implant_program(
         f"T1 M6 (FRAISE BOULE DIAM {f3(cfg.tool_dia)} MM - {mat.nom.upper()})",
         "M5",
         "M9 (INTERDICTION D ARROSAGE - BIOCOMPATIBILITE POLYMERE)",
-        f"G0 Z{f3(cfg.z_safe)}",
-        f"M0 (VERIFIER BRUT {mat.id.upper()}, FRAISE BOULE DIAM {f3(cfg.tool_dia)}"
-        " PROPRE ET DEGRAISSEE, ZERO PIECE G54 AU CENTRE SOMMET)",
+        f"G0 Z{f3(z_safe)}",
+        f"M0 (VERIFIER BRUT {mat.id.upper()}, FRAISE BOULE DIAM {f3(cfg.tool_dia)} PROPRE.",
+        f" A0 C0 : G54 X Y SUR L AXE C, Z SUR LE DESSUS, PIVOT A {f3(tp.trunnion.pivot_to_table)} MM DESSOUS)",
         f"M3 S{mat.spindle_rpm}",
         "G4 P1 (MONTEE EN REGIME 1 SUR 3)",
         "G4 P1 (MONTEE EN REGIME 2 SUR 3)",
@@ -737,7 +644,7 @@ def generate_implant_program(
     ]
     tail = [
         "(DEGAGEMENT ET FIN DE LOT MEDICAL)",
-        f"G0 Z{f3(cfg.z_safe)}",
+        f"G0 Z{f3(z_safe)}",
         "M9",
         "M5",
         "M30",
@@ -767,8 +674,8 @@ def generate_implant_program(
         "stepover_mm": stepover,
         "surepaisseur_ebauche_mm": cfg.stock_leave,
         "dimensions_initiales_mm": [round(x, 3) for x in prep.initial_size_mm],
-        "dimensions_preparees_mm": [round(x, 3) for x in prep.prepared_size_mm],
-        "facteur_echelle": round(prep.scale_factor, 5),
+        "dimensions_preparees_mm": [round(x, 3) for x in (sx, sy, sz)],
+        "facteur_echelle": round(prep.scale_factor * fit_factor, 5),
         "reoriente_a_plat": prep.reoriented,
         "volume_mm3": round(prep.volume_mm3, 2),
         "trous_maillage_aretes": prep.open_edges_count,
@@ -778,7 +685,10 @@ def generate_implant_program(
         "crete_um": round(crest_um, 2),
         "a_min_deg": round(a_min_seen, 2),
         "a_max_deg": round(a_max_seen, 2),
-        "blocs_brusques": n_jerky,
+        "surface_atteinte_pct": tp.stats["surface_atteinte_pct"],
+        "hors_portee_pct": st_f["hors_portee_pct"],
+        "pivot_sous_zero_mm": tp.stats["pivot_sous_zero_mm"],
+        "verification_rejeu": check,
         "duree_ebauche_min": round(rough_min, 2),
         "duree_finition_min": round(finish_min, 2),
         "duree_totale_min": round(total_min, 2),
@@ -787,7 +697,23 @@ def generate_implant_program(
         "avertissements": warnings,
         "operations": ["Ebauche_3Axes_Z", "Finition_Surface_Anatomique"],
     }
+    report["_triangles_finaux"] = tris_final
     return gcode, report
+
+
+def _with_final_geometry(prep: PreparedMesh, report: dict) -> PreparedMesh:
+    """La pièce a pu être réduite pour tenir dans les courses : aperçu, STL préparé
+    et dossier doivent décrire ce qui sera réellement usiné."""
+    tris = report.pop("_triangles_finaux")
+    pts = tris.reshape(-1, 3)
+    size = pts.max(axis=0) - pts.min(axis=0)
+    return replace(
+        prep,
+        triangles=tris,
+        prepared_size_mm=(float(size[0]), float(size[1]), float(size[2])),
+        scale_factor=float(report["facteur_echelle"]),
+        volume_mm3=_signed_volume(tris),
+    )
 
 
 def _sha256_file(path: str | Path) -> str:
@@ -882,8 +808,9 @@ def stl_to_implant_gcode(
         auto_orient=auto_orient,
         target_length_mm=target_length_mm,
     )
+    gcode, report = generate_implant_program(prep, cfg, fit_travel=True)
+    prep = _with_final_geometry(prep, report)
     preview_dict = build_stl_preview_dict(stl_path, prep)
-    gcode, report = generate_implant_program(prep, cfg)
     base = stl_path.rsplit(".", 1)[0]
     out_nc = base + "_implant.nc"
     dossier = build_medical_dossier(
@@ -978,12 +905,13 @@ def main() -> int:
         return 1
 
     base = args.stl.rsplit(".", 1)[0]
-    preview_path = args.sortie if args.apercu_seul and args.sortie else base + "_apercu.json"
-    preview_data = build_stl_preview_dict(args.stl, prep)
-    with open(preview_path, "w", encoding="utf-8") as f:
-        json.dump(preview_data, f, ensure_ascii=False)
+    # Ne jamais écraser <base>_apercu.json (cache géométrique brut de step_preview.py)
+    # lors d'une génération CAM complète : on écrit l'aperçu préparé dans _implant_apercu.json.
+    preview_path = (args.sortie or base + "_apercu.json") if args.apercu_seul else (base + "_implant_apercu.json")
 
     if args.apercu_seul:
+        with open(preview_path, "w", encoding="utf-8") as f:
+            json.dump(build_stl_preview_dict(args.stl, prep), f, ensure_ascii=False)
         print(f"aperçu STL -> {preview_path}")
         return 0
 
@@ -1001,10 +929,13 @@ def main() -> int:
     )
 
     try:
-        gcode, report = generate_implant_program(prep, cfg)
+        gcode, report = generate_implant_program(prep, cfg, fit_travel=not args.sans_auto_fit)
     except ValueError as exc:
         print(f"REFUS : {exc}")
         return 1
+    prep = _with_final_geometry(prep, report)
+    with open(preview_path, "w", encoding="utf-8") as f:
+        json.dump(build_stl_preview_dict(args.stl, prep), f, ensure_ascii=False)
 
     out_nc = args.sortie or base + "_implant.nc"
     with open(out_nc, "w", encoding="utf-8") as f:

@@ -40,6 +40,7 @@ import '../../application/providers/activity_log_provider.dart';
 import '../../application/providers/critical_event_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
+import '../../application/providers/viewer_snapshot_provider.dart';
 
 import '../../application/services/audio_service.dart';
 import '../../core/i18n/app_localizations.dart';
@@ -150,11 +151,14 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
-    return TutorialOverlay(
-      child: ResponsiveLayout(
-        mobile: _buildMobileScaffold(selectedIndex),
-        tablet: _buildDesktopScaffold(selectedIndex, false),
-        desktop: _buildDesktopScaffold(selectedIndex, _isSidebarExpanded),
+    return RepaintBoundary(
+      key: ref.watch(viewerSnapshotServiceProvider).screenRepaintBoundaryKey,
+      child: TutorialOverlay(
+        child: ResponsiveLayout(
+          mobile: _buildMobileScaffold(selectedIndex),
+          tablet: _buildDesktopScaffold(selectedIndex, false),
+          desktop: _buildDesktopScaffold(selectedIndex, _isSidebarExpanded),
+        ),
       ),
     );
   }

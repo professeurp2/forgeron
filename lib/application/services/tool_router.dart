@@ -114,6 +114,7 @@ class ToolRouter {
         'get_reco3d_status', 'start_machine_scan', 'get_scan_job_status',
         'download_scan_result',
         'run_machining_simulation', 'control_simulation',
+        'capture_workspace_view',
       },
       keywords: [
         'step', 'stp', 'apercu', 'preview', '3d', 'parcours', 'toolpath',
@@ -128,6 +129,7 @@ class ToolRouter {
         'run_machining_simulation',
         'control_simulation',
         'switch_simulator_camera_tab',
+        'capture_workspace_view',
         'analyze_gcode',
       },
       keywords: [
@@ -137,10 +139,16 @@ class ToolRouter {
       ],
     ),
     'camera': ToolGroup(
-      tools: {'get_camera_snapshot', 'switch_simulator_camera_tab'},
+      tools: {
+        'get_camera_snapshot',
+        'capture_workspace_view',
+        'switch_simulator_camera_tab',
+      },
       keywords: [
         'camera', 'photo', 'image', 'zone de coupe', 'montre', 'vois', 'regarde',
         'snapshot', 'cutting area', 'show me',
+        'capture', 'screenshot', 'ecran', 'screen', 'visuel', 'visuellement',
+        'que se passe', 'ce qui se passe', 'inspecte',
       ],
     ),
     'scan': ToolGroup(
