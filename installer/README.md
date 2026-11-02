@@ -52,3 +52,4 @@ powershell -ExecutionPolicy Bypass -File tool\build_single_exe.ps1 -SkipFlutterB
 
 - `dist\Forgeron_CNC_5Axis_Setup_v1.0.exe` : Installateur principal avec assistant moderne en français et en anglais, création de raccourci Bureau et Menu Démarrer.
 - `dist\Forgeron_CNC_5Axis_Setup_v1.0-*.bin` : Tranches de données compressées (Inno Setup avec `DiskSpanning=yes` et `DiskSliceSize=max`).
+
