@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import subprocess
 import sys
 import uuid
@@ -42,7 +43,9 @@ from models import (
 from provenance import build_provenance, save_provenance_file
 from runners import LocalEnginesRunner, Runner
 
-STORAGE_DIR = RECO3D_DIR / "storage"
+# Dans l'installation Windows, le dossier du programme n'est pas forcément
+# inscriptible : le superviseur redirige les jobs vers le profil utilisateur.
+STORAGE_DIR = Path(os.environ.get("FORGERON_RECO3D_STORAGE") or (RECO3D_DIR / "storage"))
 
 
 class JobState:

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -24,7 +25,24 @@ from models import JobMode, JobStage, ScaleReference
 
 StageCallback = Callable[[JobStage, float, str], Awaitable[None]]
 
-VENV_PYTHON = Path(__file__).resolve().parents[2] / "pipeline" / ".venv312" / "Scripts" / "python.exe"
+def _resolve_python() -> Path:
+    """Interpréteur qui exécute reconstruct.py.
+
+    Ordre : `FORGERON_PYTHON` (posé par le superviseur de l'installation
+    Windows, qui embarque son propre Python), puis le venv du dépôt, puis
+    l'interpréteur qui fait tourner ce service — dans le paquet installé, c'est
+    le même Python, avec OCP/trimesh/scipy déjà présents.
+    """
+    env = os.environ.get("FORGERON_PYTHON")
+    if env:
+        return Path(env)
+    repo_venv = Path(__file__).resolve().parents[2] / "pipeline" / ".venv312" / "Scripts" / "python.exe"
+    if repo_venv.exists():
+        return repo_venv
+    return Path(sys.executable)
+
+
+VENV_PYTHON = _resolve_python()
 RECONSTRUCT_SCRIPT = Path(__file__).resolve().parent / "reconstruct.py"
 
 

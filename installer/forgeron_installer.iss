@@ -1,5 +1,5 @@
 ; Script Inno Setup pour Forgeron CNC 5-Axes
-; Génère un installateur exécutable autonome unique (.exe)
+; Génère un installateur autonome complet unifié (tout le système : Front Flutter, Back Python/OCP/reco3d/Meshroom, Serveur IA Ollama et Modèles)
 
 #define MyAppName "Forgeron CNC 5-Axes"
 #define MyAppVersion "1.0.0"
@@ -20,11 +20,13 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist
 OutputBaseFilename=Forgeron_CNC_5Axis_Setup_v1.0
-Compression=lzma2/ultra64
+DiskSpanning=yes
+DiskSliceSize=max
+Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
-SetupIconFile=..\assets\icon\icon_square.ico
+SetupIconFile=..\windows\runner\resources\app_icon.ico
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -34,10 +36,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; Binaires Flutter Release Windows
-Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Pipelines CAO/CAM Python embarqués
-Source: "..\pipeline\*"; DestDir: "{app}\pipeline"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.venv*,__pycache__,*.pyc"
+; Tout le système unifié dans staging (Flutter Release, pipeline, reco3d, Meshroom, Python embarqué, Ollama et modèles IA)
+Source: "..\dist\staging\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

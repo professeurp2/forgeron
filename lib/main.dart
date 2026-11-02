@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'application/providers/ai_artifacts_provider.dart';
 import 'application/services/ai_window_channel.dart';
+import 'application/services/bundled_runtime.dart';
 import 'core/i18n/app_language.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/fallback_localizations.dart';
@@ -64,6 +65,10 @@ Future<void> main(List<String> args) async {
     container.read(prefsRestoreNoticeProvider.notifier).state = prefsReport;
   }
   if (_isDesktopPlatform) _listenToSubWindows(container);
+
+  // Installation Windows (installer/) : démarre Ollama et reco3d embarqués,
+  // arrêtés d'eux-mêmes à la fermeture. Sans effet en développement.
+  if (_isDesktopPlatform) unawaited(BundledRuntime.instance.startServices());
 
   runApp(UncontrolledProviderScope(
     container: container,

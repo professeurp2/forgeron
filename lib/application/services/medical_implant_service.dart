@@ -147,6 +147,7 @@ class MedicalImplantService {
         python,
         args,
         workingDirectory: pipelineDir.path,
+        environment: PipelineLocator.environment,
       ).timeout(const Duration(minutes: 15));
     } on TimeoutException {
       throw const MedicalImplantException(

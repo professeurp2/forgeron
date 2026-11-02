@@ -66,6 +66,7 @@ class StepPreviewService {
       python,
       args,
       workingDirectory: pipelineDir.path,
+      environment: PipelineLocator.environment,
     ).timeout(
       _timeout,
       onTimeout: () => throw const StepPreviewException(

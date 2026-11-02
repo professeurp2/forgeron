@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/bundled_runtime.dart';
 import '../services/local_ai_agent_service.dart';
 
 /// Catégories d'actions que l'agent IA peut exécuter sur la machine.
@@ -175,6 +176,16 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
     final data = prefs.getString(_storageKey);
     if (data != null) {
       state = AiAgentSettings.fromJson(jsonDecode(data) as Map<String, dynamic>);
+    } else if (BundledRuntime.instance.hasOllama) {
+      // Premier lancement de l'installation Windows : Ollama et ses modèles
+      // sont embarqués sur ce PC, on les propose d'office plutôt que Gemini.
+      // Rien n'est enregistré tant que l'opérateur ne touche à rien.
+      final bundle = BundledRuntime.instance;
+      state = state.copyWith(
+        localBaseUrl: BundledRuntime.ollamaUrl,
+        localModel: bundle.defaultChatModel,
+        localVisionModel: bundle.defaultVisionModel,
+      );
     }
   }
 
