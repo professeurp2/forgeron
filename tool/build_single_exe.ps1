@@ -162,7 +162,7 @@ if (-not $isccPaths) {
     exit 1
 }
 
-$iscc = $isccPaths[0]
+$iscc = if ($isccPaths -is [array]) { $isccPaths[0] } else { [string]$isccPaths }
 Write-Host "  Inno Setup trouvé : $iscc" -ForegroundColor Green
 Write-Host "  Lancement de la compilation Inno Setup (peut prendre quelques minutes)..." -ForegroundColor Yellow
 
