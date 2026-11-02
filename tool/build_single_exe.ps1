@@ -131,6 +131,14 @@ if (Test-Path $srcModels) {
         }
     }
 
+    # Copie de manifests-v2 et metadata si présents (évite les migrations au runtime)
+    if (Test-Path "$srcModels\manifests-v2") {
+        Copy-Item "$srcModels\manifests-v2" -Destination "$ollamaStaging\models\manifests-v2" -Recurse -Force
+    }
+    if (Test-Path "$srcModels\metadata") {
+        Copy-Item "$srcModels\metadata" -Destination "$ollamaStaging\models\metadata" -Recurse -Force
+    }
+
     $blobCount = $neededBlobs.Count
     Write-Host "  Copie de $blobCount blob(s) de modèle vers staging..." -ForegroundColor Gray
     $copied = 0

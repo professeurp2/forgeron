@@ -36,6 +36,7 @@ import argparse
 import ctypes
 import datetime
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -176,6 +177,63 @@ class Service:
             self.proc = None
 
 
+def _prepare_ollama_models(ollama_dir: Path) -> Path:
+    """Retourne le dossier des modèles Ollama, garanti inscriptible.
+
+    Dans une installation Windows sous `C:\Program Files`, l'utilisateur
+    standard n'a pas les droits d'écriture. Ollama 0.40+ a besoin d'écrire
+    (création de `manifests-v2`, verrous, etc.). Si le dossier
+    `runtime/ollama/models` n'est pas inscriptible, on prépare un miroir
+    dans `%LOCALAPPDATA%\Forgeron\ollama\models` :
+    - `blobs/` est lié par une jonction NTFS (0 octet copié, instantané) ;
+    - `manifests/` et `manifests-v2/` sont copiés (fichiers légers en Ko).
+    """
+    models_dir = ollama_dir / "models"
+    if not models_dir.exists():
+        return models_dir
+
+    # Test d'inscriptibilité
+    try:
+        test_file = models_dir / f".write_test_{os.getpid()}"
+        test_file.touch()
+        test_file.unlink()
+        return models_dir
+    except OSError:
+        pass
+
+    # Non inscriptible -> redirection vers %LOCALAPPDATA%\Forgeron\ollama\models
+    user_models = _data_dir() / "ollama" / "models"
+    user_models.mkdir(parents=True, exist_ok=True)
+
+    # Jonction pour les blobs volumineux (14 Go sans duplication de disque)
+    blobs_src = models_dir / "blobs"
+    blobs_dst = user_models / "blobs"
+    if blobs_src.exists() and not blobs_dst.exists():
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(blobs_dst), str(blobs_src)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+        except Exception as e:
+            log(f"Échec création jonction blobs : {e}")
+
+    # Copie des manifestes et métadonnées (fichiers légers en Ko)
+    for sub in ["manifests", "manifests-v2", "metadata"]:
+        s = models_dir / sub
+        d = user_models / sub
+        if s.exists():
+            try:
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            except Exception as e:
+                log(f"Copie {sub} vers {d} : {e}")
+
+    log(f"Modèles Ollama redirigés vers dossier inscriptible : {user_models}")
+    return user_models
+
+
 def build_services(app_dir: Path) -> List[Service]:
     services: List[Service] = []
     base_env = dict(os.environ)
@@ -184,10 +242,11 @@ def build_services(app_dir: Path) -> List[Service]:
     ollama_dir = app_dir / "runtime" / "ollama"
     ollama_exe = ollama_dir / "ollama.exe"
     if ollama_exe.exists():
+        models_dir = _prepare_ollama_models(ollama_dir)
         env = dict(base_env)
         env.update(
             {
-                "OLLAMA_MODELS": str(ollama_dir / "models"),
+                "OLLAMA_MODELS": str(models_dir),
                 # 0.0.0.0 : le téléphone de l'atelier interroge aussi ce PC
                 # (réglage « serveur IA local » = http://<ip-du-pc>:11434).
                 "OLLAMA_HOST": f"0.0.0.0:{OLLAMA_PORT}",

@@ -35,6 +35,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[Dirs]
+; Autorise les utilisateurs standards à écrire dans les dossiers locaux d'inférence et de calcul
+Name: "{app}\runtime\ollama"; Permissions: users-modify
+Name: "{app}\runtime\ollama\models"; Permissions: users-modify
+Name: "{app}\tool\reco3d\storage"; Permissions: users-modify
+
 [Files]
 ; Tout le système unifié dans staging (Flutter Release, pipeline, reco3d, Meshroom, Python embarqué, Ollama et modèles IA)
 Source: "..\dist\staging\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
