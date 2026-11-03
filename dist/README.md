@@ -1,155 +1,155 @@
-# Forgeron CNC 5-Axes — Guide de Distribution & Configuration Mobile
+# Forgeron CNC 5-Axes — Distribution Guide & Mobile Configuration
 
-Ce dossier contient les livrables d'installation autonome, les commandes de génération et les procédures de mise en route de l'application **Forgeron CNC 5-Axes** (Windows et Android).
-
----
-
-## 💿 1. Fichier Principal Recommandé : Image Disque Unique `.ISO`
-
-Pour déployer l'application sur un autre PC Windows sans risque d'égarer des fichiers compagnons :
-
-| Fichier | Taille | Rôle |
-| :--- | :--- | :--- |
-| **`Forgeron_CNC_5Axis_v1.0.iso`** | **~14,5 Go** | **Fichier unique complet autonome** (contient l'installateur, l'archive des modèles IA, les dépendances C++, Python/OCP et le lanceur automatique). |
-
-### 🚀 Utilisation sur le PC cible :
-1. Copiez **uniquement** le fichier `Forgeron_CNC_5Axis_v1.0.iso` sur une clé USB ou un disque externe.
-2. Sur le PC hôte, faites un **simple double-clic** sur le fichier `.iso`. Windows l'ouvre immédiatement comme un lecteur virtuel nommé **`FORGERON_CNC`**.
-3. Lancez l'installation en double-cliquant sur `Forgeron_CNC_5Axis_Setup_v1.0.exe` ou `INSTALLER_FORGERON.cmd`.
-4. Une fois l'installation terminée, faites un clic droit sur le lecteur virtuel dans l'Explorateur Windows > **Éjecter**.
+This folder contains the standalone offline installation packages, build commands, and initial setup procedures for the **Forgeron CNC 5-Axes** application (Windows & Android).
 
 ---
 
-## 📦 2. Fichiers d'Installation Séparés (Alternative)
+## 💿 1. Recommended Main Deliverable: Single `.ISO` Disc Image
 
-Pour les besoins où les fichiers doivent être manipulés hors conteneur ISO :
+To deploy the application on another Windows PC without the risk of losing companion files:
 
-| Fichier | Taille | Rôle |
+| File | Size | Description |
 | :--- | :--- | :--- |
-| **`Forgeron_CNC_5Axis_Setup_v1.0.exe`** | ~3,6 Mo | Programme d'installation avec carrousel promotionnel et vérification des prérequis. |
-| **`Forgeron_CNC_5Axis_Setup_v1.0-1.bin`** | ~14,5 Go | Archive de données compressée contenant l'application et les modèles IA. |
+| **`Forgeron_CNC_5Axis_v1.0.iso`** | **~14.5 GB** | **Complete standalone single file** (contains the installer, offline AI models archive, C++ runtime dependencies, Python/OCP, and automatic launcher). |
+
+### 🚀 Usage on Target PC:
+1. Copy **only** the `Forgeron_CNC_5Axis_v1.0.iso` file onto a USB flash drive or external hard drive.
+2. On the target PC, simply **double-click** the `.iso` file. Windows 10/11 will instantly mount it as a virtual DVD drive named **`FORGERON_CNC`**.
+3. Launch the setup wizard by double-clicking `Forgeron_CNC_5Axis_Setup_v1.0.exe` or `INSTALLER_FORGERON.cmd`.
+4. Once installation is complete, right-click the virtual drive in Windows Explorer > **Eject**.
+
+---
+
+## 📦 2. Alternative Separate Installation Files
+
+For environments requiring files to be handled outside an ISO container:
+
+| File | Size | Description |
+| :--- | :--- | :--- |
+| **`Forgeron_CNC_5Axis_Setup_v1.0.exe`** | ~3.6 MB | Setup wizard with promotional showcase carousel and prerequisite checks. |
+| **`Forgeron_CNC_5Axis_Setup_v1.0-1.bin`** | ~14.5 GB | Compressed data archive containing the offline application and AI models. |
 
 > [!IMPORTANT]
-> Si vous utilisez ce mode, le fichier `.exe` et le fichier `.bin` doivent impérativement se trouver dans le **même répertoire**.
+> When using this method, both the `.exe` and `.bin` files must strictly remain in the **same directory**.
 
 ---
 
-## 📱 3. Application Mobile Android (.APK) — Installation & Configuration Initiale
+## 📱 3. Android Mobile Application (.APK) — Installation & Initial Setup
 
-L'application Forgeron est également disponible au format **APK** pour smartphones et tablettes Android d'atelier, permettant le pilotage tactile de la machine, la commande vocale et l'assistance par vision IA.
+The Forgeron application is also available as an **APK** for workshop Android smartphones and tablets, offering responsive touch control, bilingual voice commands, and multimodal AI vision assistance.
 
-### A. Génération et Installation de l'APK
-1. **Compilation (depuis le terminal du projet) :**
+### A. Building & Installing the APK
+1. **Compilation (from project root terminal):**
    ```bash
    flutter build apk --release
    ```
-   *L'exécutable généré se trouve dans : `build/app/outputs/flutter-apk/app-release.apk`.*
-2. **Transfert & Installation :**
-   - Transférez le fichier `.apk` sur votre appareil Android (via câble USB, WhatsApp, Google Drive ou partage local).
-   - Ouvrez le fichier sur votre appareil et autorisez *« L'installation depuis cette source »* si Android affiche une invite de sécurité.
-   - Acceptez les autorisations au premier lancement :
-     - 📷 **Appareil photo (Caméra) :** Pour l'analyse visuelle des pièces brutes, la vérification des outils et la détection d'usure.
-     - 🎙️ **Microphone :** Pour la dictée et les commandes vocales en atelier (français / bambara).
-     - 📡 **Réseau local (Wi-Fi) :** Pour communiquer avec l'ESP32 de la machine CNC (FluidNC).
+   *The generated package is located at: `build/app/outputs/flutter-apk/app-release.apk`.*
+2. **Transfer & Installation:**
+   - Transfer the `.apk` file to your Android device (via USB cable, WhatsApp, Google Drive, or local share).
+   - Tap the file to install and allow *« Install unknown apps »* if prompted by Android security settings.
+   - Grant the required permissions on first launch:
+     - 📷 **Camera:** For visual inspection of raw stock, tool verification, and machining defect analysis.
+     - 🎙️ **Microphone:** For workshop dictation and voice commands (French / Bambara).
+     - 📡 **Local Network (Wi-Fi):** To communicate directly with the FluidNC ESP32 CNC controller.
 
 ---
 
-### B. Configuration Initiale : Ajout de la Clé API Gemini
+### B. Initial Setup: Adding the Gemini API Key
 
-Pour activer l'intelligence artificielle avancée (analyse multimodale, compréhension du langage naturel, génération de code G assistée), l'application utilise l'API Google Gemini.
+To enable advanced multimodal reasoning, natural language command parsing, and assisted G-code generation, the application interfaces with the Google Gemini API.
 
-#### 🔑 Votre Clé API Gemini :
-> Insérez votre clé API personnelle dans l'emplacement ci-dessous :
+#### 🔑 Your Gemini API Key:
+> Paste your personal API key into the placeholder below:
 ```text
-CLE_API_GEMINI: VOTRE_CLE_API_ICI
+GEMINI_API_KEY: YOUR_API_KEY_HERE
 ```
 
-*(Vous pouvez obtenir ou renouveler une clé gratuitement sur [Google AI Studio](https://aistudio.google.com/app/apikey)).*
+*(You can generate or renew a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey)).*
 
 ---
 
-#### 🛠️ Procédure pas à pas dans l'application :
+#### 🛠️ Step-by-Step In-App Setup:
 
-1. **Ouvrir les Réglages :**  
-   Depuis l'écran principal de l'application Forgeron sur votre téléphone, touchez l'icône **Réglages** (⚙️) située dans le coin supérieur droit ou dans le menu de navigation.
+1. **Open Application Settings:**  
+   From the main screen of the Forgeron mobile app, tap the **Settings** gear icon (⚙️) in the top-right corner or navigation menu.
 
-   <!-- Emplacement Capture d'écran 1 : Écran d'accueil et accès aux réglages -->
-   ![Accès aux Réglages](docs/screenshots/android_01_menu_settings.png)
+   <!-- Screenshot Placeholder 1: Home screen and settings access -->
+   ![Access to Settings](docs/screenshots/android_01_menu_settings.png)
 
-2. **Accéder à la section « Agent IA » :**  
-   Dans la liste des réglages, sélectionnez le menu **Agent IA**.
+2. **Navigate to "AI Agent":**  
+   From the settings menu list, tap **AI Agent** (Agent IA).
 
-   <!-- Emplacement Capture d'écran 2 : Menu Agent IA -->
-   ![Menu Agent IA](docs/screenshots/android_02_ai_settings.png)
+   <!-- Screenshot Placeholder 2: AI Agent settings menu -->
+   ![AI Agent Settings](docs/screenshots/android_02_ai_settings.png)
 
-3. **Saisir la Clé API Gemini :**  
-   - Faites défiler jusqu'à la section **Clé API Gemini**.
-   - Collez votre clé API dans le champ de saisie textuel.
-   - Appuyez sur le bouton **Enregistrer**.
+3. **Enter the Gemini API Key:**  
+   - Scroll down to the **Gemini API Key** section.
+   - Paste your API key into the text field.
+   - Tap the **Save** (Enregistrer) button.
 
-   <!-- Emplacement Capture d'écran 3 : Saisie et enregistrement de la clé API -->
-   ![Saisie de la Clé API Gemini](docs/screenshots/android_03_enter_gemini_key.png)
+   <!-- Screenshot Placeholder 3: Entering and saving the API key -->
+   ![Entering the Gemini API Key](docs/screenshots/android_03_enter_gemini_key.png)
 
-4. **Validation et Activation :**  
-   - Un message de confirmation s'affiche : *« Clé API enregistrée »*.
-   - La clé est chiffrée et conservée en toute sécurité dans le stockage matériel (*Android Keystore*).
-   - L'agent bascule automatiquement sur le moteur Gemini.
+4. **Validation & Secure Storage:**  
+   - A confirmation banner will appear: *« API Key saved »*.
+   - The key is securely encrypted inside the device hardware keystore (*Android Keystore*).
+   - The AI agent automatically activates the cloud Gemini engine.
 
-   <!-- Emplacement Capture d'écran 4 : Confirmation et statut actif -->
-   ![Confirmation de la Clé API](docs/screenshots/android_04_key_confirmed.png)
+   <!-- Screenshot Placeholder 4: API key confirmation -->
+   ![Confirmation of API Key](docs/screenshots/android_04_key_confirmed.png)
 
-5. **Tester la discussion avec l'Agent :**  
-   - Retournez sur l'onglet **Assistant IA**.
-   - La pastille en haut confirme le statut actif de l'agent.
-   - Envoyez un premier message (ex: *« Bonjour, peux-tu analyser l'état de ma fraiseuse ? »*) ou prenez une photo d'une pièce brute pour vérifier le bon fonctionnement.
+5. **Test AI Agent Interaction:**  
+   - Return to the **AI Assistant** tab.
+   - The indicator badge at the top will confirm the active agent status.
+   - Send an initial prompt (e.g., *« Hello, can you check the machine status? »*) or snap a photo of raw stock to verify the multimodal pipeline.
 
-   <!-- Emplacement Capture d'écran 5 : Discussion et vision active -->
-   ![Test de l'Assistant IA Mobile](docs/screenshots/android_05_chat_test.png)
-
----
-
-### C. Connexion à la CNC depuis l'APK
-1. Connectez votre smartphone au réseau Wi-Fi de l'atelier (ou directement au point d'accès Wi-Fi de la machine émis par l'ESP32).
-2. Rendez-vous dans l'onglet **Connexion** de l'application.
-3. Touchez **Scanner le réseau** ou entrez l'adresse IP de la machine (ex: `192.168.4.1` ou `192.168.1.150`).
-4. Touchez **Connecter** : la télémétrie en temps réel (coordonnées X/Y/Z/A/B, broche, alarmes) s'affiche immédiatement.
+   <!-- Screenshot Placeholder 5: Active chat and vision test -->
+   ![Testing Mobile AI Assistant](docs/screenshots/android_05_chat_test.png)
 
 ---
 
-## 🛠️ 4. Commandes pour Générer le Build Windows et l'ISO
+### C. Connecting to the CNC Machine from the APK
+1. Connect your smartphone to the workshop Wi-Fi network (or directly to the machine's ESP32 Wi-Fi Access Point).
+2. Go to the **Connection** (Connexion) tab in the app.
+3. Tap **Scan Network** or manually enter the CNC controller IP address (e.g., `192.168.4.1` or `192.168.1.150`).
+4. Tap **Connect**: real-time kinematics telemetry (X/Y/Z/A/B coordinates, spindle state, alarms) will display immediately.
 
-Toutes les commandes de build Windows s'exécutent depuis PowerShell à la racine du projet `forgeron` :
+---
 
-### A. Commande complète de bout en bout (Recommandée)
-Recompile Flutter Windows Release, prépare l'environnement Python/OCP, intègre Ollama et les modèles IA, lance Inno Setup et génère automatiquement le fichier `.iso` unique :
+## 🛠️ 4. Build Commands (Windows Installer & ISO)
+
+All Windows build commands should be executed from a PowerShell prompt at the root of the `forgeron` project:
+
+### A. Full End-to-End Build Command (Recommended)
+Recompiles the Flutter client in Windows Release mode, packages the standalone Python/OCP runtime, bundles the Ollama server and AI models, runs Inno Setup compression, and automatically generates the single `.iso` image:
 ```powershell
 powershell -ExecutionPolicy Bypass -File tool\build_single_exe.ps1
 ```
 
-### B. Commande rapide (sans recompiler Flutter)
-Si le code Flutter n'a pas changé et que vous souhaitez uniquement reconstruire l'installateur et l'image `.iso` :
+### B. Fast Build Command (Skipping Flutter Compilation)
+If Flutter source code has not changed and you only need to rebuild the installer and the `.iso` image:
 ```powershell
 powershell -ExecutionPolicy Bypass -File tool\build_single_exe.ps1 -SkipFlutterBuild
 ```
 
-### C. Régénération express de l'image `.ISO` seule (~25 secondes)
-Si l'installateur (`.exe` et `.bin`) est déjà présent dans ce dossier `dist/` et que vous souhaitez simplement recréer l'image disque `.iso` :
+### C. Express ISO Re-generation (~25 seconds)
+If the installer (`.exe` and `.bin`) is already built in `dist/` and you only want to generate or regenerate the `.iso` disk image:
 ```powershell
 powershell -ExecutionPolicy Bypass -File tool\create_iso.ps1
 ```
 
 ---
 
-## 🔍 5. Dépannage Rapide
+## 🔍 5. Troubleshooting & Diagnostics
 
-- **L'application Windows se ferme au lancement sur un nouveau PC :**  
-  Les bibliothèques Microsoft Visual C++ 2015–2022 (`msvcp140.dll`, `vcruntime140.dll`, etc.) sont intégrées directement dans le paquet. En cas d'anomalie, consultez le journal de diagnostic :  
+- **Windows application closes immediately after launch on a clean PC:**  
+  All required Microsoft Visual C++ 2015–2022 runtimes (`msvcp140.dll`, `vcruntime140.dll`, etc.) are bundled directly within the package. In case of any startup issue, review the diagnostic log:  
   `%LOCALAPPDATA%\Forgeron\logs\startup.log`
-- **Simulation 3D Windows indisponible :**  
-  Installez le composant gratuit [Microsoft Edge WebView2 Evergreen Runtime](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
-- **L'Agent IA Mobile n'obtient pas de réponse :**  
-  Vérifiez que votre smartphone a bien accès à Internet (Wi-Fi ou données mobiles 4G/5G) pour joindre l'API Gemini, et que votre clé API n'a pas expiré.
+- **Windows 3D simulation unavailable:**  
+  Install the free [Microsoft Edge WebView2 Evergreen Runtime](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
+- **Mobile AI Agent not responding:**  
+  Ensure your smartphone has an active Internet connection (Wi-Fi or cellular data) to reach the Gemini API endpoint, and verify that your Gemini API key has not expired.
 
 ---
 
-*Projet Forgeron CNC 5-Axes — ENI Unipods Bamako.*
+*Forgeron CNC 5-Axes Project — ENI Unipods Bamako.*

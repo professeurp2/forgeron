@@ -1,109 +1,109 @@
 ================================================================================
-           FORGERON CNC 5-AXES — GUIDE DE DISTRIBUTION & CONFIGURATION
+           FORGERON CNC 5-AXES — DISTRIBUTION GUIDE & CONFIGURATION
 ================================================================================
-Version : 1.0.0 (Production Windows & Android)
-Éditeur : Projet Forgeron — ENI Unipods
+Version : 1.0.0 (Windows & Android Production Release)
+Publisher : Forgeron Project — ENI Unipods
 
 --------------------------------------------------------------------------------
-1. FICHIER PRINCIPAL RECOMMANDÉ : IMAGE DISQUE UNIQUE .ISO
+1. RECOMMENDED MAIN DELIVERABLE: SINGLE .ISO DISC IMAGE
 --------------------------------------------------------------------------------
 
-Pour déployer Forgeron sur un PC Windows sans risque d'égarer de fichier :
+To deploy Forgeron on a Windows PC without the risk of losing companion files:
 
-  -> dist\Forgeron_CNC_5Axis_v1.0.iso (~14,5 Go)
+  -> dist\Forgeron_CNC_5Axis_v1.0.iso (~14.5 GB)
 
-UTILISATION SUR LE PC CIBLE :
-1. Copiez UNIQUEMENT "Forgeron_CNC_5Axis_v1.0.iso" sur votre clé USB.
-2. Sur le PC hôte, faites un simple DOUBLE-CLIC sur le fichier .iso.
-   Windows le monte automatiquement comme un lecteur virtuel "FORGERON_CNC".
-3. Lancez "Forgeron_CNC_5Axis_Setup_v1.0.exe" ou "INSTALLER_FORGERON.cmd".
-4. Une fois l'installation terminée, clic droit sur le lecteur > "Éjecter".
-
---------------------------------------------------------------------------------
-2. FICHIERS SÉPARÉS ALTERNATIFS (WINDOWS)
---------------------------------------------------------------------------------
-
-- Forgeron_CNC_5Axis_Setup_v1.0.exe      (~3,6 Mo)  : Programme d'installation
-- Forgeron_CNC_5Axis_Setup_v1.0-1.bin   (~14,5 Go) : Archive de données unifiée
-(Ces deux fichiers doivent obligatoirement rester dans le même répertoire).
+USAGE ON TARGET PC:
+1. Copy ONLY "Forgeron_CNC_5Axis_v1.0.iso" to your USB drive.
+2. On the target PC, simply DOUBLE-CLICK the .iso file.
+   Windows mounts it automatically as a virtual drive named "FORGERON_CNC".
+3. Run "Forgeron_CNC_5Axis_Setup_v1.0.exe" or "INSTALLER_FORGERON.cmd".
+4. When installation finishes, right-click the virtual drive > "Eject".
 
 --------------------------------------------------------------------------------
-3. APPLICATION MOBILE ANDROID (.APK) — INSTALLATION & CONFIGURATION
+2. ALTERNATIVE SEPARATE INSTALLATION FILES (WINDOWS)
 --------------------------------------------------------------------------------
 
-A. COMPILATION & INSTALLATION DE L'APK :
-1. Pour compiler l'application Android :
+- Forgeron_CNC_5Axis_Setup_v1.0.exe      (~3.6 MB) : Setup installer wizard
+- Forgeron_CNC_5Axis_Setup_v1.0-1.bin   (~14.5 GB) : Unified data archive
+(Both files must strictly remain in the same directory).
+
+--------------------------------------------------------------------------------
+3. ANDROID MOBILE APPLICATION (.APK) — INSTALLATION & SETUP
+--------------------------------------------------------------------------------
+
+A. COMPILING & INSTALLING THE APK:
+1. To compile the Android APK:
    flutter build apk --release
-   (Fichier généré : build/app/outputs/flutter-apk/app-release.apk)
-2. Transférez le fichier .apk sur votre smartphone ou tablette d'atelier.
-3. Autorisez l'installation d'applications inconnues si demandé.
-4. Acceptez les autorisations au premier lancement :
-   - Caméra     : Inspection visuelle des pièces brutes et outils par l'IA.
-   - Microphone : Dictée et commandes vocales (français / bambara).
-   - Wi-Fi      : Connexion directe à l'ESP32 FluidNC de la fraiseuse.
+   (Generated file: build/app/outputs/flutter-apk/app-release.apk)
+2. Transfer the .apk file to your workshop Android smartphone or tablet.
+3. Allow installation from unknown sources if prompted.
+4. Grant required permissions on first launch:
+   - Camera     : Visual inspection of raw stock and tools by the AI.
+   - Microphone : Voice dictation and workshop commands (French / Bambara).
+   - Wi-Fi      : Direct connection to the FluidNC ESP32 CNC controller.
 
-B. CONFIGURATION INITIALE DE LA CLÉ API GEMINI :
+B. INITIAL SETUP: ADDING THE GEMINI API KEY:
 
-Pour bénéficier de l'IA multimodale distante (texte + vision), configurez votre
-clé API personnelle Google Gemini (gratuite sur https://aistudio.google.com) :
+To enable multimodal AI assistance (text + vision), configure your personal
+Google Gemini API key (free at https://aistudio.google.com):
 
 ----------------------------------------------------------------------
-CLE_API_GEMINI: VOTRE_CLE_API_ICI
+GEMINI_API_KEY: YOUR_API_KEY_HERE
 ----------------------------------------------------------------------
 
-PROCÉDURE DANS L'APPLICATION MOBILE :
-1. Ouvrez l'application Forgeron sur votre téléphone / tablette.
-2. Touchez l'icône "Réglages" (engrenage en haut à droite).
-   [CAPTURE 1 : Accès aux réglages de l'application]
-3. Sélectionnez le menu "Agent IA".
-   [CAPTURE 2 : Menu Agent IA]
-4. Faites défiler jusqu'à la section "Clé API Gemini".
-5. Collez votre clé API dans le champ textuel et touchez "Enregistrer".
-   [CAPTURE 3 : Saisie de la clé API Gemini]
-6. Un message confirme : "Clé API enregistrée".
-   La clé est chiffrée dans le trousseau sécurisé de l'appareil (Keystore).
-   [CAPTURE 4 : Confirmation d'enregistrement]
-7. Rendez-vous dans l'onglet "Assistant IA" et testez un message ou une photo.
-   [CAPTURE 5 : Discussion et vision active avec l'agent]
+STEP-BY-STEP IN-APP SETUP:
+1. Open the Forgeron app on your phone / tablet.
+2. Tap the "Settings" gear icon (top right corner).
+   [SCREENSHOT 1: Accessing application settings]
+3. Select "AI Agent" (Agent IA).
+   [SCREENSHOT 2: AI Agent settings menu]
+4. Scroll down to the "Gemini API Key" section.
+5. Paste your API key into the text field and tap "Save" (Enregistrer).
+   [SCREENSHOT 3: Entering the Gemini API key]
+6. A banner confirms: "API Key saved".
+   The key is stored encrypted in the device hardware keystore (Android Keystore).
+   [SCREENSHOT 4: Key confirmation]
+7. Go to the "AI Assistant" tab and send a message or capture a photo.
+   [SCREENSHOT 5: Active chat and vision testing]
 
-C. CONNEXION À LA MACHINE CNC DEPUIS L'APK :
-1. Connectez le smartphone au Wi-Fi de l'atelier ou au point d'accès de la CNC.
-2. Ouvrez l'onglet "Connexion".
-3. Touchez "Scanner" ou entrez l'adresse IP de la fraiseuse (ex: 192.168.4.1).
-4. Touchez "Connecter" pour afficher la télémétrie en temps réel.
+C. CONNECTING TO THE CNC MACHINE FROM THE APK:
+1. Connect your smartphone to the workshop Wi-Fi or machine AP.
+2. Open the "Connection" tab.
+3. Tap "Scan Network" or enter the CNC controller IP (e.g., 192.168.4.1).
+4. Tap "Connect" to view real-time telemetry and motion controls.
 
 --------------------------------------------------------------------------------
-4. COMMANDES POUR CONSTRUIRE LE BUILD WINDOWS ET L'IMAGE .ISO
+4. BUILD COMMANDS (WINDOWS INSTALLER & ISO IMAGE)
 --------------------------------------------------------------------------------
 
-Toutes les commandes s'exécutent depuis PowerShell à la racine du projet :
+All commands run from PowerShell at the root of the project:
 
-A. COMMANDE COMPLÈTE DE BOUT EN BOUT (Recommandée) :
-   Compile Flutter Release, prépare Python/OCP, intègre Ollama et les modèles IA,
-   compresse l'installateur et crée le fichier unique .ISO :
+A. FULL END-TO-END BUILD COMMAND (Recommended):
+   Compiles Flutter Release, prepares Python/OCP, bundles Ollama & models,
+   runs Inno Setup compression, and produces the single .ISO image:
    
    powershell -ExecutionPolicy Bypass -File tool\build_single_exe.ps1
 
-B. COMMANDE RAPIDE (Sans recompiler Flutter) :
-   Génère l'installateur et l'image ISO avec les binaires déjà compilés :
+B. FAST BUILD COMMAND (Without recompiling Flutter):
+   Builds the installer and ISO image with pre-compiled Flutter binaries:
    
    powershell -ExecutionPolicy Bypass -File tool\build_single_exe.ps1 -SkipFlutterBuild
 
-C. RÉGÉNÉRATION EXPRESS DE L'IMAGE .ISO SEULE (~25 secondes) :
-   Recrée l'image ISO à partir des fichiers .exe et .bin déjà présents :
+C. EXPRESS ISO RE-GENERATION (~25 seconds):
+   Rebuilds the ISO image from existing .exe and .bin files in dist/:
    
    powershell -ExecutionPolicy Bypass -File tool\create_iso.ps1
 
 --------------------------------------------------------------------------------
-5. DIAGNOSTIC ET DÉPANNAGE
+5. DIAGNOSTICS & TROUBLESHOOTING
 --------------------------------------------------------------------------------
 
-- Crash Windows au lancement : Les DLLs VC++ (msvcp140.dll...) sont embarquées.
-  Consultez le journal : %LOCALAPPDATA%\Forgeron\logs\startup.log
-- Simulation 3D Windows      : Requiert Microsoft Edge WebView2 Evergreen Runtime.
-- Agent IA Mobile muet       : Vérifiez la connexion Internet du smartphone et
-  la validité de la clé API Gemini saisie.
+- Windows app closes immediately: VC++ runtimes (msvcp140.dll...) are bundled.
+  Check the diagnostic log at: %LOCALAPPDATA%\Forgeron\logs\startup.log
+- Windows 3D simulation: Requires Microsoft Edge WebView2 Evergreen Runtime.
+- Mobile AI silent: Verify your phone's Internet connectivity and that your
+  Gemini API key is valid.
 
 ================================================================================
-                        PROJET FORGERON — ENI UNIPODS
+                        FORGERON PROJECT — ENI UNIPODS
 ================================================================================
