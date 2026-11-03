@@ -4,20 +4,24 @@ Ce document décrit pas à pas la procédure d'installation et de mise en route 
 
 ---
 
-## 📦 1. Contenu du Paquet d'Installation
+## 💿 1. Format de Distribution — Fichier Unique `.ISO`
 
-L'installateur autonome complet est composé de deux fichiers indispensables (technologie Inno Setup Disk Spanning) :
+Pour une simplicité maximale de transfert et de déploiement en atelier, l'intégralité du système est désormais livrée en **un seul fichier autonome** :
 
-1. **`Forgeron_CNC_5Axis_Setup_v1.0.exe`** (~3 à 25 Mo) : Le programme d'installation interactif avec carrousel promotionnel et vérification des prérequis système.
-2. **`Forgeron_CNC_5Axis_Setup_v1.0-1.bin`** (~14,5 Go compressé) : L'archive contenant l'intégralité du système unifié hors-ligne :
-   - L'application cliente native Flutter Release (64 bits) avec ses dépendances C++ (MSVCP140, VCRUNTIME140).
-   - L'environnement portable complet Python 3.12 (moteur géométrique OpenCASCADE/OCP, solveurs cinématiques, Uvicorn, FastAPI, Trimesh, Scipy).
-   - Le moteur d'intelligence artificielle locale **Ollama** avec ses bibliothèques d'accélération matérielle (CUDA, Vulkan, DirectML).
-   - Les modèles d'IA embarqués : **`forgeron-qwen`** (7B) et **`gemma3n`** (vision).
-   - Le service de reconstruction 3D photogrammétrique **Reco3D** et **Meshroom**.
+📁 **`Forgeron_CNC_5Axis_v1.0.iso`** (~14,5 Go)
 
-> [!IMPORTANT]  
-> Les deux fichiers (`.exe` et `.bin`) doivent impérativement se trouver dans le **même dossier** avant de lancer l'installation (sur une clé USB, un disque dur externe ou dans votre dossier `Téléchargements`).
+### Pourquoi une image disque `.ISO` ?
+- **Un seul fichier à copier :** Finis les risques d'oubli ou d'égarement du fichier archive `.bin`. Vous ne transférez qu'un seul fichier sur votre clé USB ou disque externe.
+- **Ouverture native sous Windows 10 et 11 :** Aucun logiciel tiers (type Daemon Tools ou WinRAR) n'est nécessaire. Un simple **double-clic** sur le `.iso` l'ouvre instantanément comme un lecteur DVD virtuel.
+- **Intégration d'autorun et d'icône :** Le lecteur virtuel apparaît avec l'icône officielle de Forgeron et le nom `FORGERON_CNC`.
+- **Contenu embarqué à 100 % hors-ligne :**
+  - L'application cliente native Flutter Release (64 bits) avec ses dépendances C++ (MSVCP140, VCRUNTIME140).
+  - L'environnement portable complet Python 3.12 (moteur géométrique OpenCASCADE/OCP, solveurs cinématiques, Uvicorn, FastAPI, Trimesh, Scipy).
+  - Le moteur d'intelligence artificielle locale **Ollama** avec ses bibliothèques d'accélération matérielle (CUDA, Vulkan, DirectML).
+  - Les modèles d'IA embarqués : **`forgeron-qwen`** (7B) et **`gemma3n`** (vision).
+  - Le service de reconstruction 3D photogrammétrique **Reco3D** et **Meshroom**.
+
+*(Pour les environnements nécessitant des fichiers séparés, la paire `Forgeron_CNC_5Axis_Setup_v1.0.exe` et `Forgeron_CNC_5Axis_Setup_v1.0-1.bin` reste également disponible dans `dist/`).*
 
 ---
 
@@ -36,26 +40,32 @@ L'installateur autonome complet est composé de deux fichiers indispensables (te
 
 ---
 
-## 🚀 3. Étapes d'Installation
+## 🚀 3. Étapes d'Installation Simplifiées
 
-1. **Téléchargement / Copie des fichiers :**  
-   Copiez `Forgeron_CNC_5Axis_Setup_v1.0.exe` et `Forgeron_CNC_5Axis_Setup_v1.0-1.bin` dans le même dossier sur le PC cible.
+1. **Copie du fichier :**  
+   Copiez le fichier unique **`Forgeron_CNC_5Axis_v1.0.iso`** sur le PC cible (via clé USB, disque externe ou réseau).
 
-2. **Lancement de l'installateur :**  
-   Double-cliquez sur `Forgeron_CNC_5Axis_Setup_v1.0.exe`.
-   - Si Windows SmartScreen affiche un avertissement, cliquez sur **Informations complémentaires** puis sur **Exécuter quand même**.
+2. **Montage du disque virtuel :**  
+   Faites un **double-clic** sur le fichier `Forgeron_CNC_5Axis_v1.0.iso`.  
+   Windows l'ouvre immédiatement comme un nouveau lecteur de disque nommé **`FORGERON_CNC`**.
 
-3. **Assistant d'installation :**  
+3. **Lancement de l'installateur :**  
+   Double-cliquez sur :
+   - **`Forgeron_CNC_5Axis_Setup_v1.0.exe`** ou sur **`INSTALLER_FORGERON.cmd`**.
+   - Si Windows SmartScreen affiche un filtre de protection, cliquez sur **Informations complémentaires** puis sur **Exécuter quand même**.
+
+4. **Assistant d'installation :**  
    - Choisissez la langue d'installation (**Français** ou **English**).
    - Choisissez le dossier de destination (par défaut : `C:\Program Files\Forgeron\`).
    - Cochez l'option pour créer une icône sur le **Bureau** (recommandé).
    - Cliquez sur **Installer**.
 
-4. **Décompression et intégration :**  
-   Pendant l'extraction des fichiers (~2 à 5 minutes selon les performances de votre SSD/disque), un **carrousel visuel interactif** présente les points forts et capacités industrielles du projet Forgeron (fraisage 5 axes accessible, IA locale bilingue français/bambara, jumeau numérique 3D temps réel, sécurité active ForceGuard).
+5. **Décompression et intégration :**  
+   Pendant l'extraction des fichiers (~2 à 4 minutes), un **carrousel visuel interactif** présente les points forts et capacités industrielles du projet Forgeron (fraisage 5 axes accessible, IA locale bilingue français/bambara, jumeau numérique 3D temps réel, sécurité active ForceGuard).
 
-5. **Fin de l'installation :**  
-   Une fois l'installation terminée, cochez **Lancer Forgeron** puis cliquez sur **Terminer**.
+6. **Fin de l'installation :**  
+   - Une fois l'installation terminée, cochez **Lancer Forgeron** puis cliquez sur **Terminer**.
+   - Vous pouvez ensuite faire un clic-droit sur le lecteur virtuel dans l'explorateur Windows et cliquer sur **Éjecter**.
 
 ---
 
@@ -112,12 +122,9 @@ Après le premier lancement :
 
 ### Q : L'application se ferme automatiquement quelques secondes après le lancement sur un nouveau PC.
 - **Causes et solutions :**
-  1. **Composants Visual C++ :** Les bibliothèques requises (`msvcp140.dll`, `vcruntime140.dll`, etc.) sont désormais intégrées directement à côté de `forgeron.exe` et déployées par l'installateur.
+  1. **Composants Visual C++ :** Les bibliothèques requises (`msvcp140.dll`, `vcruntime140.dll`, etc.) sont intégrées directement à côté de `forgeron.exe` et déployées par l'installateur.
   2. **Diagnostic immédiat :** Ouvrez le dossier `%LOCALAPPDATA%\Forgeron\logs\` (tapez cette adresse dans l'explorateur Windows) et consultez le fichier `startup.log`. Toutes les étapes de démarrage du moteur Flutter et de l'initialisation Dart y sont tracées avec l'heure exacte et le message d'erreur précis le cas échéant.
   3. **Composant WebView2 :** Si la fenêtre principale s'affiche mais que la vue 3D affiche « Simulateur 3D indisponible », installez le composant gratuit [Microsoft Edge WebView2 Evergreen Runtime](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
-
-### Q : L'installateur indique que le fichier `.bin` est introuvable.
-- **Solution :** Assurez-vous que le fichier `Forgeron_CNC_5Axis_Setup_v1.0-1.bin` se trouve exactement dans le même répertoire que `Forgeron_CNC_5Axis_Setup_v1.0.exe`.
 
 ### Q : L'agent IA indique une erreur de connexion au serveur local (HTTP 500 ou 503).
 - **Solution :**

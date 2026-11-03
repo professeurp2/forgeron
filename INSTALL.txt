@@ -6,14 +6,20 @@ Système : Windows 10 (1903+) / Windows 11 (64 bits)
 Éditeur : Projet Forgeron — ENI Unipods
 
 --------------------------------------------------------------------------------
-1. FICHIERS D'INSTALLATION REQUIS
+1. DISTRIBUTION EN UN SEUL FICHIER IMAGE DISQUE (.ISO)
 --------------------------------------------------------------------------------
 
-L'installateur complet nécessite DEUX fichiers indispensables placés dans le
-MÊME dossier (sur clé USB, disque dur externe ou dans Téléchargements) :
+Pour une simplicité maximale, l'intégralité du système est livrée en UN SEUL
+fichier autonome :
 
-  1. Forgeron_CNC_5Axis_Setup_v1.0.exe      (~3 à 25 Mo)
-  2. Forgeron_CNC_5Axis_Setup_v1.0-1.bin   (~14,5 Go compressé)
+  -> Forgeron_CNC_5Axis_v1.0.iso (~14,5 Go)
+
+AVANTAGES :
+- Un seul fichier à copier sur clé USB ou disque dur externe.
+- Zéro risque de perdre ou d'oublier le fichier d'archive .bin.
+- Montage instantané sous Windows 10 et 11 d'un simple DOUBLE-CLIC (aucun
+  logiciel externe requis).
+- Intègre l'icône Forgeron et un lanceur automatique (autorun).
 
 LE SYSTÈME COMPLET EST EMBARQUÉ HORS-LIGNE :
 - Client Flutter Release avec dépendances natives C++
@@ -36,23 +42,27 @@ LE SYSTÈME COMPLET EST EMBARQUÉ HORS-LIGNE :
   * Microsoft Visual C++ 2015-2022 (x64) : Intégré directement dans le dossier
     d'installation et configuré automatiquement par l'assistant d'installation.
   * Microsoft Edge WebView2 Runtime : Requis pour la simulation 3D interactive
-    (préinstallé sur Windows 10/11 ou installable gratuitement).
+    (généralement préinstallé sous Windows 10/11 ou installable gratuitement).
 
 --------------------------------------------------------------------------------
 3. ÉTAPES D'INSTALLATION
 --------------------------------------------------------------------------------
 
-1. Copiez les deux fichiers (.exe et .bin) dans le même répertoire.
-2. Double-cliquez sur "Forgeron_CNC_5Axis_Setup_v1.0.exe".
+1. Copiez le fichier unique "Forgeron_CNC_5Axis_v1.0.iso" sur le PC.
+2. Double-cliquez sur "Forgeron_CNC_5Axis_v1.0.iso".
+   Windows ouvre automatiquement un nouveau lecteur nommé "FORGERON_CNC".
+3. Dans le lecteur, double-cliquez sur "Forgeron_CNC_5Axis_Setup_v1.0.exe"
+   ou "INSTALLER_FORGERON.cmd".
    (Si Windows SmartScreen affiche un avertissement, cliquez sur
    "Informations complémentaires" puis "Exécuter quand même").
-3. Choisissez la langue (Français ou English).
-4. Définissez le dossier d'installation (ex: C:\Program Files\Forgeron\).
-5. Cochez l'option pour créer un raccourci sur le Bureau.
-6. Cliquez sur "Installer".
+4. Choisissez la langue (Français ou English).
+5. Définissez le dossier d'installation (ex: C:\Program Files\Forgeron\).
+6. Cochez l'option pour créer un raccourci sur le Bureau.
+7. Cliquez sur "Installer".
    Durant l'installation, un carrousel visuel interactif présente les
    innovations et fonctionnalités du projet Forgeron.
-7. En fin d'installation, cochez "Lancer Forgeron" puis cliquez sur "Terminer".
+8. En fin d'installation, cochez "Lancer Forgeron" puis cliquez sur "Terminer".
+9. Vous pouvez faire un clic droit sur le lecteur virtuel > "Éjecter".
 
 --------------------------------------------------------------------------------
 4. FONCTIONNEMENT AUTOMATIQUE DES SERVICES (SANS TERMINAL)
@@ -97,17 +107,13 @@ Au démarrage de l'application Forgeron :
 --------------------------------------------------------------------------------
 
 Q : L'application se ferme immédiatement après le lancement sur un nouveau PC.
-R : 1. Les dépendances C++ (msvcp140.dll, vcruntime140.dll) sont désormais
-       embarquées directement dans le dossier d'installation de Forgeron.
+R : 1. Les dépendances C++ (msvcp140.dll, vcruntime140.dll) sont embarquées
+       directement dans le dossier d'installation de Forgeron.
     2. Ouvrez l'explorateur Windows et tapez : %LOCALAPPDATA%\Forgeron\logs\
        Consultez le fichier "startup.log" : il consigne avec précision chaque
        étape de lancement et l'erreur exacte en cas d'interruption.
     3. Si la fenêtre s'ouvre mais que le simulateur affiche une indisponibilité,
        installez le runtime gratuit Microsoft Edge WebView2.
-
-Q : L'installateur indique que le fichier .bin est introuvable.
-R : Placez impérativement Forgeron_CNC_5Axis_Setup_v1.0-1.bin dans le même
-    dossier que Forgeron_CNC_5Axis_Setup_v1.0.exe.
 
 Q : L'assistant IA indique une erreur de connexion.
 R : Attendez quelques secondes que le modèle soit chargé en VRAM. Si un

@@ -1,9 +1,10 @@
 # Script PowerShell d'empaquetage complet et unifié de Forgeron CNC 5-Axes
 # Génère l'installateur autonome complet (Front Flutter, Back Python/OCP/reco3d/Meshroom, Ollama et modèles IA)
-# Résultat : dist\Forgeron_CNC_5Axis_Setup_v1.0.exe (+ fichiers .bin associés)
+# Résultat : dist\Forgeron_CNC_5Axis_Setup_v1.0.exe (+ fichiers .bin) et dist\Forgeron_CNC_5Axis_v1.0.iso (Fichier unique)
 
 param (
-    [switch]$SkipFlutterBuild = $false
+    [switch]$SkipFlutterBuild = $false,
+    [switch]$SkipIso = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,18 +21,18 @@ $outputDir = "$rootDir\dist"
 
 # 1. Compilation Flutter Windows Release
 if (-not $SkipFlutterBuild) {
-    Write-Host "`n[1/5] Compilation de l'application Flutter Windows Release..." -ForegroundColor Yellow
+    Write-Host "`n[1/6] Compilation de l'application Flutter Windows Release..." -ForegroundColor Yellow
     flutter build windows --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERREUR] Échec de la compilation Flutter." -ForegroundColor Red
         exit 1
     }
 } else {
-    Write-Host "`n[1/5] Compilation Flutter sautée (-SkipFlutterBuild)." -ForegroundColor Gray
+    Write-Host "`n[1/6] Compilation Flutter sautée (-SkipFlutterBuild)." -ForegroundColor Gray
 }
 
 # 2. Préparation du dossier d'empaquetage Staging
-Write-Host "`n[2/5] Préparation de l'arborescence de staging unifiée..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Préparation de l'arborescence de staging unifiée..." -ForegroundColor Yellow
 if (Test-Path $stagingDir) {
     Write-Host "  Nettoyage de l'ancien dossier de staging..." -ForegroundColor Gray
     Remove-Item -Recurse -Force $stagingDir
@@ -101,7 +102,7 @@ Get-ChildItem -Path "$rootDir\tool\reco3d" -Exclude "storage", "__pycache__", "*
 New-Item -ItemType Directory -Force -Path "$reco3dStaging\storage" | Out-Null
 
 # 3. Préparation de l'environnement Python portable embarqué (runtime/python)
-Write-Host "`n[3/5] Préparation du runtime Python 3.12 portable autonome (OCP, uvicorn, scipy...)..." -ForegroundColor Yellow
+Write-Host "`n[3/6] Préparation du runtime Python 3.12 portable autonome (OCP, uvicorn, scipy...)..." -ForegroundColor Yellow
 $pyRuntimeDir = "$stagingDir\runtime\python"
 New-Item -ItemType Directory -Force -Path "$pyRuntimeDir\Lib\site-packages" | Out-Null
 
@@ -128,7 +129,7 @@ New-Item -ItemType Directory -Force -Path "$stagingDir\runtime" | Out-Null
 Copy-Item "$rootDir\installer\forgeron_services.py" -Destination "$stagingDir\runtime\forgeron_services.py" -Force
 
 # 4. Préparation de l'IA locale (Ollama + modèles forgeron-qwen et gemma3n)
-Write-Host "`n[4/5] Embarquement du serveur Ollama et des modèles IA sélectionnés..." -ForegroundColor Yellow
+Write-Host "`n[4/6] Embarquement du serveur Ollama et des modèles IA sélectionnés..." -ForegroundColor Yellow
 $ollamaStaging = "$stagingDir\runtime\ollama"
 New-Item -ItemType Directory -Force -Path "$ollamaStaging\models\manifests" | Out-Null
 New-Item -ItemType Directory -Force -Path "$ollamaStaging\models\blobs" | Out-Null
@@ -196,7 +197,7 @@ if (Test-Path $srcModels) {
 }
 
 # 5. Compilation Inno Setup (.exe + .bin)
-Write-Host "`n[5/5] Génération de l'installateur autonome via Inno Setup Compiler..." -ForegroundColor Yellow
+Write-Host "`n[5/6] Génération de l'installateur autonome via Inno Setup Compiler..." -ForegroundColor Yellow
 $isccPaths = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
@@ -220,13 +221,26 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+# 6. Génération de l'image disque unique .ISO (un seul fichier autonome)
+if (-not $SkipIso) {
+    Write-Host "`n[6/6] Génération de l'image disque unique .ISO (fichier unique autonome)..." -ForegroundColor Yellow
+    & "$rootDir\tool\create_iso.ps1" -DistDir $outputDir -IsoFileName "Forgeron_CNC_5Axis_v1.0.iso"
+} else {
+    Write-Host "`n[6/6] Création de l'ISO sautée (-SkipIso)." -ForegroundColor Gray
+}
+
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "   BUILD DU SYSTÈME UNIFIÉ FORGERON RÉUSSI AVEC SUCCÈS   " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
-Get-ChildItem -Path $outputDir -Filter "Forgeron_CNC_5Axis_Setup*" | ForEach-Object {
+Get-ChildItem -Path $outputDir -Filter "Forgeron_CNC_5Axis*" | ForEach-Object {
     $sizeMB = [math]::Round($_.Length / 1MB, 2)
-    Write-Host "  -> $($_.FullName) ($sizeMB Mo)" -ForegroundColor Cyan
+    $sizeGB = [math]::Round($_.Length / 1GB, 2)
+    if ($sizeGB -ge 1) {
+        Write-Host "  -> $($_.FullName) ($sizeGB Go)" -ForegroundColor Cyan
+    } else {
+        Write-Host "  -> $($_.FullName) ($sizeMB Mo)" -ForegroundColor Cyan
+    }
 }
 
 Write-Host "==========================================================" -ForegroundColor Green
