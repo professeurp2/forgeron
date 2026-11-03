@@ -43,6 +43,40 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 Write-Host "  Copie des binaires Flutter..." -ForegroundColor Gray
 Copy-Item -Path "$rootDir\build\windows\x64\runner\Release\*" -Destination $stagingDir -Recurse -Force
 
+# Intégration locale des dépendances Microsoft Visual C++ Runtime (évite la fermeture automatique au lancement sur PC cible)
+Write-Host "  Intégration du runtime Microsoft Visual C++ (MSVCP140, VCRUNTIME140...)..." -ForegroundColor Gray
+$crtDirCandidates = @(
+    "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Redist\MSVC\14.51.36231\x64\Microsoft.VC145.CRT",
+    (Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*\x64\*" -and $_.FullName -notlike "*onecore*" -and $_.FullName -notlike "*debug*" } | Select-Object -First 1).FullName,
+    (Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*\x64\*" -and $_.FullName -notlike "*onecore*" -and $_.FullName -notlike "*debug*" } | Select-Object -First 1).FullName
+) | Where-Object { $_ -and (Test-Path $_) }
+
+$crtDir = if ($crtDirCandidates) { $crtDirCandidates[0] } else { $null }
+
+if ($crtDir -and (Test-Path $crtDir)) {
+    Write-Host "    Source CRT trouvée : $crtDir" -ForegroundColor Gray
+    Copy-Item -Path "$crtDir\*.dll" -Destination $stagingDir -Force
+} else {
+    Write-Host "    Fallback CRT depuis C:\Windows\System32..." -ForegroundColor DarkYellow
+    Copy-Item -Path "C:\Windows\System32\msvcp140*.dll" -Destination $stagingDir -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path "C:\Windows\System32\vcruntime140*.dll" -Destination $stagingDir -Force -ErrorAction SilentlyContinue
+}
+
+# Préparation du redistribuable VC++ pour Inno Setup (exécuté si manquant sur PC cible)
+$vcRedistCandidates = @(
+    "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Redist\MSVC\14.51.36231\vc_redist.x64.exe",
+    (Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "vc_redist.x64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName,
+    (Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "vc_redist.x64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+) | Where-Object { $_ -and (Test-Path $_) }
+
+$vcRedistExe = if ($vcRedistCandidates) { $vcRedistCandidates[0] } else { $null }
+$installerRedistDir = "$rootDir\installer\redist"
+New-Item -ItemType Directory -Force -Path $installerRedistDir | Out-Null
+if ($vcRedistExe -and (Test-Path $vcRedistExe)) {
+    Write-Host "    Source vc_redist.x64.exe trouvée : $vcRedistExe" -ForegroundColor Gray
+    Copy-Item -Path $vcRedistExe -Destination "$installerRedistDir\vc_redist.x64.exe" -Force
+}
+
 # Manifeste du bundle Forgeron
 $bundleManifest = @{
     version = "1.0.0"
@@ -79,6 +113,11 @@ Write-Host "  Source Python : $srcPy" -ForegroundColor Gray
 Copy-Item "$srcPy\python*.exe", "$srcPy\*.dll" -Destination $pyRuntimeDir -Force
 Copy-Item "$srcPy\DLLs" -Destination $pyRuntimeDir -Recurse -Force
 Get-ChildItem "$srcPy\Lib" -Exclude "test", "site-packages" | Copy-Item -Destination "$pyRuntimeDir\Lib" -Recurse -Force
+
+# Copie des DLLs CRT dans runtime/python pour garantir l'indépendance de Python
+if ($crtDir -and (Test-Path $crtDir)) {
+    Copy-Item -Path "$crtDir\*.dll" -Destination $pyRuntimeDir -Force
+}
 
 # Copie des packages du venv312 (OCP, OpenCASCADE, uvicorn, fastapi, trimesh, scipy...)
 Write-Host "  Copie des paquets Python spécialisés depuis pipeline/.venv312..." -ForegroundColor Gray

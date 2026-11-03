@@ -1,81 +1,58 @@
 ================================================================================
-          GUIDE D'INSTALLATION — FORGERON CNC 5-AXES (WINDOWS)
+          GUIDE D'INSTALLATION ET DE DÉPANNAGE — FORGERON CNC 5-AXES
 ================================================================================
-Distribution Autonome Unifiée - Version 1.0.0 (Hors-Ligne)
-Projet Forgeron — Fabrication Numérique et Usinage 5 Axes
-
-Ce paquet d'installation est 100 % autonome : il intègre l'ensemble du système
-(interface utilisateur Flutter, moteurs CAO/FAO OpenCASCADE, scan 3D Meshroom,
-serveur d'inférence IA Ollama et modèles pré-calibrés).
-AUCUNE CONNEXION INTERNET N'EST REQUISE POUR L'INSTALLATION OU L'UTILISATION.
+Version : 1.0.0 (Production Windows 64-bit)
+Système : Windows 10 (1903+) / Windows 11 (64 bits)
+Éditeur : Projet Forgeron — ENI Unipods
 
 --------------------------------------------------------------------------------
-1. CONFIGURATION SYSTÈME REQUISE
+1. FICHIERS D'INSTALLATION REQUIS
 --------------------------------------------------------------------------------
 
-- Système d'exploitation : Windows 10 (64-bit) ou Windows 11 (64-bit)
-- Processeur (CPU)       : Intel Core i5 / AMD Ryzen 5 (4 cœurs ou supérieur)
-- Mémoire vive (RAM)     : 8 Go minimum (16 Go à 32 Go recommandés)
-- Carte Graphique (GPU)  : 
-  * Recommandé : GPU dédié NVIDIA (RTX 3060, 3070, 4060...) avec 6 à 8 Go VRAM
-    pour une inférence IA temps réel ultra-rapide.
-  * Compatible : GPU intégré (Intel UHD/Iris Xe) ou processeur multi-cœur via
-    le fallback automatique Vulkan / CPU.
-- Espace disque libre    : 25 Go minimum (35 Go recommandés sur SSD)
-- Réseau                 : Wi-Fi ou câble Ethernet pour dialoguer avec l'ESP32
-                           FluidNC de la fraiseuse.
+L'installateur complet nécessite DEUX fichiers indispensables placés dans le
+MÊME dossier (sur clé USB, disque dur externe ou dans Téléchargements) :
+
+  1. Forgeron_CNC_5Axis_Setup_v1.0.exe      (~3 à 25 Mo)
+  2. Forgeron_CNC_5Axis_Setup_v1.0-1.bin   (~14,5 Go compressé)
+
+LE SYSTÈME COMPLET EST EMBARQUÉ HORS-LIGNE :
+- Client Flutter Release avec dépendances natives C++
+- Environnement Python 3.12 autonome (OpenCASCADE OCP, Uvicorn, FastAPI, Scipy)
+- Serveur IA Ollama autonome avec bibliothèques CUDA/Vulkan
+- Modèles d'intelligence artificielle : forgeron-qwen (7B) et gemma3n (Vision)
+- Serveur photogrammétrique Reco3D & Meshroom
 
 --------------------------------------------------------------------------------
-2. FICHIERS DU PAQUET D'INSTALLATION
+2. PRÉREQUIS SYSTÈME
 --------------------------------------------------------------------------------
 
-Le programme d'installation est composé de DEUX fichiers indissociables :
-
-  1. Forgeron_CNC_5Axis_Setup_v1.0.exe (~3,6 Mo)
-     -> Le programme d'installation exécutable avec assistant graphique.
-
-  2. Forgeron_CNC_5Axis_Setup_v1.0-1.bin (~14,5 Go)
-     -> L'archive de données compressée contenant tout le système.
-
-IMPORTANT :
-Ces deux fichiers DOIVENT OBLIGATOIREMENT être placés dans le même dossier
-(sur votre disque dur ou votre clé USB). Ne renommez aucun des deux fichiers.
+- Système : Windows 10 (version 1903 minimum) ou Windows 11 (64 bits).
+- Processeur (CPU) : Intel Core i5 / AMD Ryzen 5 recommandé.
+- RAM : 16 Go recommandés (8 Go minimum).
+- Espace disque libre : 25 Go minimum (SSD très fortement conseillé).
+- GPU : NVIDIA GTX 1060 / RTX avec pilotes à jour recommandé (CUDA).
+  À défaut, le mode CPU + Vulkan est automatiquement utilisé.
+- Composants système :
+  * Microsoft Visual C++ 2015-2022 (x64) : Intégré directement dans le dossier
+    d'installation et configuré automatiquement par l'assistant d'installation.
+  * Microsoft Edge WebView2 Runtime : Requis pour la simulation 3D interactive
+    (préinstallé sur Windows 10/11 ou installable gratuitement).
 
 --------------------------------------------------------------------------------
-3. ÉTAPES D'INSTALLATION PAS À PAS
+3. ÉTAPES D'INSTALLATION
 --------------------------------------------------------------------------------
 
-Étape 1 : Copie des fichiers
-  Placez "Forgeron_CNC_5Axis_Setup_v1.0.exe" et "Forgeron_CNC_5Axis_Setup_v1.0-1.bin"
-  dans un même répertoire sur votre PC (ex: Téléchargements ou Bureau).
-
-Étape 2 : Lancement
-  Faites un double-clic sur "Forgeron_CNC_5Axis_Setup_v1.0.exe".
-  
-  * Note SmartScreen Windows :
-    Si Windows affiche "Windows a protégé votre ordinateur" :
-    1. Cliquez sur le lien "Informations complémentaires".
-    2. Cliquez sur le bouton "Exécuter quand même".
-    (Avertissement standard sous Windows pour les exécutables industriels
-    non signés par un certificat commercial public payant).
-
-Étape 3 : Choix de la langue
-  Sélectionnez votre langue d'installation (Français ou Anglais) puis validez.
-
-Étape 4 : Dossier de destination
-  L'emplacement par défaut est : C:\Program Files\Forgeron
-  Vous pouvez choisir un autre disque si nécessaire (ex: D:\Forgeron).
-
-Étape 5 : Raccourcis
-  Laissez cochée l'option "Créer une icône sur le Bureau" pour un accès direct.
-
-Étape 6 : Installation & Carrousel promotionnel
-  Cliquez sur "Installer". Pendant la décompression (environ 3 à 5 minutes selon
-  votre disque SSD), un carrousel visuel présente automatiquement les atouts
-  majeurs de Forgeron (5 axes, IA bilingue Bambara/Français, Jumeau 3D, Sécurité).
-
-Étape 7 : Fin de l'installation
-  Cochez "Lancer Forgeron CNC 5-Axes" et cliquez sur "Terminer".
+1. Copiez les deux fichiers (.exe et .bin) dans le même répertoire.
+2. Double-cliquez sur "Forgeron_CNC_5Axis_Setup_v1.0.exe".
+   (Si Windows SmartScreen affiche un avertissement, cliquez sur
+   "Informations complémentaires" puis "Exécuter quand même").
+3. Choisissez la langue (Français ou English).
+4. Définissez le dossier d'installation (ex: C:\Program Files\Forgeron\).
+5. Cochez l'option pour créer un raccourci sur le Bureau.
+6. Cliquez sur "Installer".
+   Durant l'installation, un carrousel visuel interactif présente les
+   innovations et fonctionnalités du projet Forgeron.
+7. En fin d'installation, cochez "Lancer Forgeron" puis cliquez sur "Terminer".
 
 --------------------------------------------------------------------------------
 4. FONCTIONNEMENT AUTOMATIQUE DES SERVICES (SANS TERMINAL)
@@ -109,11 +86,36 @@ Au démarrage de l'application Forgeron :
 --------------------------------------------------------------------------------
 
 - Dossier du programme    : C:\Program Files\Forgeron\
-- Journaux d'activité     : %LOCALAPPDATA%\Forgeron\logs\ (services.log, ollama.log)
+- Journaux d'activité     : %LOCALAPPDATA%\Forgeron\logs\
+  * startup.log  : Journal de diagnostic du démarrage (natif C++ et Dart)
+  * services.log : Journal du superviseur Python (Ollama, Reco3D)
+  * ollama.log   : Journal du serveur d'inférence IA locale
 - Fichiers temporaires 3D : %LOCALAPPDATA%\Forgeron\reco3d\storage\
 
 --------------------------------------------------------------------------------
-7. DÉSINSTALLATION
+7. DÉPANNAGE ET DIAGNOSTIC RAPIDE
+--------------------------------------------------------------------------------
+
+Q : L'application se ferme immédiatement après le lancement sur un nouveau PC.
+R : 1. Les dépendances C++ (msvcp140.dll, vcruntime140.dll) sont désormais
+       embarquées directement dans le dossier d'installation de Forgeron.
+    2. Ouvrez l'explorateur Windows et tapez : %LOCALAPPDATA%\Forgeron\logs\
+       Consultez le fichier "startup.log" : il consigne avec précision chaque
+       étape de lancement et l'erreur exacte en cas d'interruption.
+    3. Si la fenêtre s'ouvre mais que le simulateur affiche une indisponibilité,
+       installez le runtime gratuit Microsoft Edge WebView2.
+
+Q : L'installateur indique que le fichier .bin est introuvable.
+R : Placez impérativement Forgeron_CNC_5Axis_Setup_v1.0-1.bin dans le même
+    dossier que Forgeron_CNC_5Axis_Setup_v1.0.exe.
+
+Q : L'assistant IA indique une erreur de connexion.
+R : Attendez quelques secondes que le modèle soit chargé en VRAM. Si un
+    Ollama externe était déjà actif sur le PC, fermez-le pour laisser Forgeron
+    utiliser sa version dédiée.
+
+--------------------------------------------------------------------------------
+8. DÉSINSTALLATION
 --------------------------------------------------------------------------------
 
 Pour désinstaller proprement Forgeron :

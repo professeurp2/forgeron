@@ -74,3 +74,5 @@ tool/reco3d/bin/
 
 dist/
 scratch/
+
+installer/redist/

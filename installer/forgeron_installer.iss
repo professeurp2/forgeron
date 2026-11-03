@@ -53,6 +53,8 @@ Source: "..\installer\assets\slide5.bmp"; Flags: dontcopy
 
 ; Tout le système unifié dans staging (Flutter Release, pipeline, reco3d, Meshroom, Python embarqué, Ollama et modèles IA)
 Source: "..\dist\staging\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Redistribuable Microsoft Visual C++ 2015-2022 x64 (exécuté si absent sur le poste hôte)
+Source: "..\installer\redist\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion; Check: NeedsVCRedist
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -60,6 +62,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/passive /norestart"; Check: NeedsVCRedist; StatusMsg: "Installation des bibliothèques Microsoft Visual C++..."; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
@@ -230,5 +233,55 @@ begin
     CurrentSlide := (CurrentSlide mod TotalSlides) + 1;
     ShowSlide(CurrentSlide);
     LastSlideTick := NowTick;
+  end;
+end;
+
+function NeedsVCRedist: Boolean;
+var
+  Installed: Cardinal;
+begin
+  Result := True;
+  // Vérifie si le redistribuable Visual C++ 2015-2022 x64 est déjà installé
+  if RegQueryDWordValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) then
+  begin
+    if Installed = 1 then
+      Result := False;
+  end;
+end;
+
+function IsWebView2Installed: Boolean;
+var
+  Version: String;
+begin
+  Result := RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) or
+            RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) or
+            RegQueryStringValue(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version);
+  if Result and (Version = '') then
+    Result := False;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  MsgFr, MsgEn: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if not IsWebView2Installed then
+    begin
+      MsgFr := 'Remarque importante :'#13#10#13#10 +
+               'Le composant Microsoft Edge WebView2 Runtime n''a pas été détecté sur cet ordinateur.'#13#10 +
+               'L''application Forgeron fonctionnera normalement, mais le module de visualisation 3D ' +
+               'nécessite WebView2 pour afficher la cinématique 5 axes.'#13#10#13#10 +
+               'Vous pouvez l''installer ultérieurement via Windows Update ou sur le site de Microsoft si la 3D est souhaitée.';
+      MsgEn := 'Important Notice:'#13#10#13#10 +
+               'Microsoft Edge WebView2 Runtime was not detected on this computer.'#13#10 +
+               'Forgeron will operate normally, but the 3D visualization module ' +
+               'requires WebView2 to render 5-axis toolpaths and machine motion.'#13#10#13#10 +
+               'You can install it later via Windows Update or Microsoft''s website if 3D rendering is needed.';
+      if ActiveLanguage = 'french' then
+        MsgBox(MsgFr, mbInformation, MB_OK)
+      else
+        MsgBox(MsgEn, mbInformation, MB_OK);
+    end;
   end;
 end;
