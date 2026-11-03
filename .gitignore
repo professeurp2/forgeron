@@ -72,7 +72,11 @@ tool/reco3d/bin/
 # Dossiers temporaires de pytest (tool/reco3d)
 .pytest_temp/
 
-dist/
+dist/*
+!dist/README.md
+!dist/README.txt
+!dist/INSTALL.txt
+!dist/INSTALL.md
 scratch/
 
 installer/redist/
