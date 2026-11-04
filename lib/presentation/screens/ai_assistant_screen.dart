@@ -14,11 +14,14 @@ import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
+import '../../core/utils/speech_error_message.dart';
 import '../../core/utils/voice_locale.dart';
 import '../../application/providers/lexicon_provider.dart';
 import '../../application/providers/workspace_provider.dart';
 import '../widgets/special_chars_row.dart';
 import 'ai_agent_settings_screen.dart';
+import 'machine_scan_screen.dart';
+import 'remote_chat_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de chat avec l'agent IA — reprend le pattern visuel du terminal MDI
@@ -124,33 +127,43 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               setState(() => _listening = false);
             }
           },
-          onError: (_) {
-            if (mounted) setState(() => _listening = false);
+          onError: (e) {
+            if (!mounted) return;
+            setState(() => _listening = false);
+            _showSpeechError(speechErrorMessage(e.errorMsg));
           },
         );
     if (!ok) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(tr('Reconnaissance vocale indisponible sur cet appareil.'))),
-        );
-      }
+      _showSpeechError(speechInitFailedMessage(
+          windows: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows));
       return;
     }
     setState(() => _listening = true);
-    // La liste des langues reconnues dépend de l'appareil : on prend la plus
-    // proche de la langue de l'agent, et on laisse le moteur choisir la
-    // sienne si elle est absente plutôt que d'échouer.
-    _sttLocaleId ??= bestVoiceLocale(
-      _wantedVoiceTag,
-      (await _speech.locales()).map((l) => l.localeId),
-      fallbacks: const ['fr-FR', 'en-US'],
-    );
-    await _speech.listen(
-      onResult: (r) {
-        if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
-      },
-      listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+    try {
+      // La liste des langues reconnues dépend de l'appareil : on prend la plus
+      // proche de la langue de l'agent, et on laisse le moteur choisir la
+      // sienne si elle est absente plutôt que d'échouer.
+      _sttLocaleId ??= bestVoiceLocale(
+        _wantedVoiceTag,
+        (await _speech.locales()).map((l) => l.localeId),
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
+      await _speech.listen(
+        onResult: (r) {
+          if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
+        },
+        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+      );
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _listening = false);
+      _showSpeechError(speechErrorMessage(e.code));
+    }
+  }
+
+  void _showSpeechError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
     );
   }
 
@@ -184,7 +197,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
   Future<void> _speak(String text) async {
     final clean = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), ' bloc de code ')
+        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
         .replaceAll(RegExp(r'[*_`#>]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -292,10 +305,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   /// Copie un texte dans le presse-papiers (avec confirmation).
-  void _copy(String text, [String label = 'Message copié']) {
+  // `label` est nullable plutôt que de porter sa valeur par défaut : une
+  // valeur par défaut doit être une constante, et tr() n'en est pas une.
+  void _copy(String text, [String? label]) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(label), duration: const Duration(seconds: 1)),
+      SnackBar(
+          content: Text(label ?? tr('Message copié')),
+          duration: const Duration(seconds: 1)),
     );
   }
 
@@ -756,6 +773,24 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             ),
           ),
           IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RemoteChatScreen()),
+            ),
+            tooltip: tr('Chat du PC (même discussion sur les deux appareils)'),
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.phonelink_rounded, color: fc.textSecondary),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MachineScanScreen()),
+            ),
+            tooltip: tr('Scan en machine (caméras + axes A/C)'),
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.threed_rotation, color: fc.textSecondary),
+          ),
+          IconButton(
             onPressed: () =>
                 ref.read(aiAgentControllerProvider.notifier).newConversation(),
             tooltip: tr('Nouvelle discussion'),
@@ -832,7 +867,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         widgets.add(_CodeBlock(
           fc: fc,
           block: block,
-          onCopy: () => _copy(block.text, 'Code copié'),
+          onCopy: () => _copy(block.text, tr('Code copié')),
           onSave: () => _saveGcode(block.text),
         ));
       } else {
@@ -1097,7 +1132,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       color = fc.textDisabled;
     }
     final label = m.allExhausted
-        ? 'Quota atteint (tous les modèles)'
+        ? tr('Quota atteint (tous les modèles)')
         : '${m.active.label} · $used/$limit · $remaining restantes';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
@@ -1365,15 +1400,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final enabled = canType && !busy;
     final String hint;
     if (!canType) {
-      hint = 'Agent désactivé — voir paramètres';
+      hint = tr('Agent désactivé — voir paramètres');
     } else if (chat.pendingConfirmation != null) {
-      hint = 'Confirme ou refuse l\'action ci-dessus';
+      hint = tr('Confirme ou refuse l\'action ci-dessus');
     } else if (chat.isProcessing) {
-      hint = 'L\'agent réfléchit…';
+      hint = tr('L\'agent réfléchit…');
     } else if (!agentEnabled) {
-      hint = 'Commande simple : « état de la machine », « arrête »…';
+      hint = tr('Commande simple : « état de la machine », « arrête »…');
     } else {
-      hint = 'Écris à l\'agent…';
+      hint = tr('Écris à l\'agent…');
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1582,7 +1617,7 @@ class _CodeBlockState extends State<_CodeBlock> {
               children: [
                 Expanded(
                   child: Text(
-                    tr(lines.length > 1 ? '{} · {} lignes' : '{} · {} ligne',
+                    tr(lines.length > 1 ? tr('{} · {} lignes') : tr('{} · {} ligne'),
                         [label, lines.length]),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1592,9 +1627,9 @@ class _CodeBlockState extends State<_CodeBlock> {
                         letterSpacing: 0.5),
                   ),
                 ),
-                _action(fc, Icons.copy_rounded, 'Copier', widget.onCopy),
+                _action(fc, Icons.copy_rounded, tr('Copier'), widget.onCopy),
                 if (isGcode)
-                  _action(fc, Icons.save_alt_rounded, 'Enregistrer',
+                  _action(fc, Icons.save_alt_rounded, tr('Enregistrer'),
                       widget.onSave),
               ],
             ),
@@ -1737,8 +1772,8 @@ class _ConversationSheet extends ConsumerWidget {
                           subtitle: Text(
                             tr(
                                 c.messageCount > 1
-                                    ? '{} messages · {}'
-                                    : '{} message · {}',
+                                    ? tr('{} messages · {}')
+                                    : tr('{} message · {}'),
                                 [c.messageCount, _fmtDate(c.updatedAt)]),
                             style: TextStyle(
                                 color: fc.textDisabled, fontSize: 10.5),
@@ -1939,7 +1974,7 @@ class _ToolResultTileState extends State<_ToolResultTile> {
                   ),
                   const SizedBox(width: 6),
                   if (running)
-                    Text('en cours…',
+                    Text(tr('en cours…'),
                         style: TextStyle(color: fc.textDisabled, fontSize: 10))
                   else if (!isError)
                     Icon(Icons.check, size: 13, color: fc.success),

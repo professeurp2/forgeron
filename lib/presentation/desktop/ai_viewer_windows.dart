@@ -10,6 +10,7 @@ import '../../application/services/ai_window_channel.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../widgets/viewer_scene.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Les deux fenêtres 3D détachées de l'agent IA.
 ///
@@ -128,10 +129,9 @@ class _DockButtonState extends State<_DockButton> {
     setState(() => _busy = false);
     await displayInfoBar(context, builder: (ctx, close) {
       return InfoBar(
-        title: const Text('Retour impossible'),
-        content: const Text(
-          'La fenêtre principale n\'a plus cette pièce en mémoire '
-          '(discussion changée ou effacée). Cette fenêtre reste ouverte.',
+        title: Text(tr('Retour impossible')),
+        content: Text(
+          tr('La fenêtre principale n\'a plus cette pièce en mémoire (discussion changée ou effacée). Cette fenêtre reste ouverte.'),
         ),
         severity: InfoBarSeverity.warning,
         onClose: close,
@@ -143,7 +143,7 @@ class _DockButtonState extends State<_DockButton> {
   Widget build(BuildContext context) {
     final fc = widget.fc;
     return Tooltip(
-      message: 'Ouvrir dans la fenêtre principale',
+      message: tr('Ouvrir dans la fenêtre principale'),
       child: Button(
         onPressed: _busy ? null : _dock,
         style: ButtonStyle(
@@ -161,7 +161,7 @@ class _DockButtonState extends State<_DockButton> {
             else
               Icon(Icons.open_in_browser_rounded, size: 14, color: fc.textSecondary),
             const SizedBox(width: 8),
-            const Text('Fenêtre principale', style: TextStyle(fontSize: 11.5)),
+            Text(tr('Fenêtre principale'), style: TextStyle(fontSize: 11.5)),
           ],
         ),
       ),
@@ -220,7 +220,7 @@ class StepPreviewWindow extends StatelessWidget {
       return _ViewerFrame(
         title: title,
         info: const {},
-        child: const Center(child: Text('Aucun maillage à afficher.')),
+        child: Center(child: Text(tr('Aucun maillage à afficher.'))),
       );
     }
 
@@ -295,13 +295,13 @@ class _ToolpathWindowState extends ConsumerState<ToolpathWindow> {
       return _ViewerFrame(
         title: title,
         info: const {},
-        child: Center(child: Text('Parcours illisible : $_error')),
+        child: Center(child: Text(tr('Parcours illisible : {}', [_error]))),
       );
     }
     if (_loading) {
       return _ViewerFrame(
         title: title,
-        subtitle: 'Analyse du programme…',
+        subtitle: tr('Analyse du programme…'),
         info: const {},
         child: const Center(child: ProgressRing()),
       );

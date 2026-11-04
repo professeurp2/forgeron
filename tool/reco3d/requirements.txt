@@ -1,0 +1,31 @@
+# Dépendances du service reco3d (photos -> maillage / STEP).
+# Environnement : pipeline/.venv312 (Python 3.12).
+# Installation :  pipeline/.venv312/Scripts/python.exe -m pip install -r tool/reco3d/requirements.txt
+# Versions épinglées = celles installées et vérifiées le 2026-10-25.
+
+# --- Service HTTP ---
+fastapi==0.162.0
+starlette==1.10.0
+python-multipart==0.0.32      # téléversement des photos (multipart/form-data)
+pydantic==2.14.1
+uvicorn[standard]             # serveur ASGI pour lancer le service (non figé : à installer puis épingler)
+
+# --- Reconstruction (mode gen) et post-traitement du maillage ---
+numpy==2.5.4
+scipy==1.18.1
+scikit-image==0.26.0
+trimesh==5.2.0
+pillow==13.0.0
+fast-simplification           # décimation du maillage avant export STEP (optionnel ; non figé)
+
+# --- Tests ---
+pytest==9.1.1
+httpx==0.28.1                 # requis par starlette.testclient
+
+# --- Fourni par l'environnement pipeline, PAS installé par ce fichier ---
+# OCP (OpenCASCADE / pythonocc) : géométrie STEP (step_io, step_to_gcode, detect_axis).
+#   Déjà présent dans pipeline/.venv312 (installé séparément, p. ex. cadquery-ocp).
+# Meshroom (meshroom_batch) : photogrammétrie du mode « photo ». Binaire dans
+#   tool/reco3d/bin/ (ignoré par git) — voir tool/reco3d/setup_meshroom.py.
+# TRELLIS / SF3D : moteur IA du mode « concept » — À BRANCHER (cf. docs §3.2),
+#   non encore intégré ; ajouter ici ses dépendances le moment venu.

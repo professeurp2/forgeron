@@ -1,0 +1,246 @@
+# Script PowerShell d'empaquetage complet et unifié de Forgeron CNC 5-Axes
+# Génère l'installateur autonome complet (Front Flutter, Back Python/OCP/reco3d/Meshroom, Ollama et modèles IA)
+# Résultat : dist\Forgeron_CNC_5Axis_Setup_v1.0.exe (+ fichiers .bin) et dist\Forgeron_CNC_5Axis_v1.0.iso (Fichier unique)
+
+param (
+    [switch]$SkipFlutterBuild = $false,
+    [switch]$SkipIso = $false
+)
+
+$ErrorActionPreference = "Stop"
+
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "   FORGERON CNC 5-AXES - CRÉATION DU BUILD UNIFIÉ (.EXE)   " -ForegroundColor Cyan
+Write-Host "==========================================================" -ForegroundColor Cyan
+
+$rootDir = (Resolve-Path "$PSScriptRoot\..").Path
+Set-Location $rootDir
+
+$stagingDir = "$rootDir\dist\staging"
+$outputDir = "$rootDir\dist"
+
+# 1. Compilation Flutter Windows Release
+if (-not $SkipFlutterBuild) {
+    Write-Host "`n[1/6] Compilation de l'application Flutter Windows Release..." -ForegroundColor Yellow
+    flutter build windows --release
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERREUR] Échec de la compilation Flutter." -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "`n[1/6] Compilation Flutter sautée (-SkipFlutterBuild)." -ForegroundColor Gray
+}
+
+# 2. Préparation du dossier d'empaquetage Staging
+Write-Host "`n[2/6] Préparation de l'arborescence de staging unifiée..." -ForegroundColor Yellow
+if (Test-Path $stagingDir) {
+    Write-Host "  Nettoyage de l'ancien dossier de staging..." -ForegroundColor Gray
+    Remove-Item -Recurse -Force $stagingDir
+}
+New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
+New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+
+# Copie des fichiers Flutter Release
+Write-Host "  Copie des binaires Flutter..." -ForegroundColor Gray
+Copy-Item -Path "$rootDir\build\windows\x64\runner\Release\*" -Destination $stagingDir -Recurse -Force
+
+# Intégration locale des dépendances Microsoft Visual C++ Runtime (évite la fermeture automatique au lancement sur PC cible)
+Write-Host "  Intégration du runtime Microsoft Visual C++ (MSVCP140, VCRUNTIME140...)..." -ForegroundColor Gray
+$crtDirCandidates = @(
+    "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Redist\MSVC\14.51.36231\x64\Microsoft.VC145.CRT",
+    (Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*\x64\*" -and $_.FullName -notlike "*onecore*" -and $_.FullName -notlike "*debug*" } | Select-Object -First 1).FullName,
+    (Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*\x64\*" -and $_.FullName -notlike "*onecore*" -and $_.FullName -notlike "*debug*" } | Select-Object -First 1).FullName
+) | Where-Object { $_ -and (Test-Path $_) }
+
+$crtDir = if ($crtDirCandidates) { $crtDirCandidates[0] } else { $null }
+
+if ($crtDir -and (Test-Path $crtDir)) {
+    Write-Host "    Source CRT trouvée : $crtDir" -ForegroundColor Gray
+    Copy-Item -Path "$crtDir\*.dll" -Destination $stagingDir -Force
+} else {
+    Write-Host "    Fallback CRT depuis C:\Windows\System32..." -ForegroundColor DarkYellow
+    Copy-Item -Path "C:\Windows\System32\msvcp140*.dll" -Destination $stagingDir -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path "C:\Windows\System32\vcruntime140*.dll" -Destination $stagingDir -Force -ErrorAction SilentlyContinue
+}
+
+# Préparation du redistribuable VC++ pour Inno Setup (exécuté si manquant sur PC cible)
+$vcRedistCandidates = @(
+    "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Redist\MSVC\14.51.36231\vc_redist.x64.exe",
+    (Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "vc_redist.x64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName,
+    (Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "vc_redist.x64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+) | Where-Object { $_ -and (Test-Path $_) }
+
+$vcRedistExe = if ($vcRedistCandidates) { $vcRedistCandidates[0] } else { $null }
+$installerRedistDir = "$rootDir\installer\redist"
+New-Item -ItemType Directory -Force -Path $installerRedistDir | Out-Null
+if ($vcRedistExe -and (Test-Path $vcRedistExe)) {
+    Write-Host "    Source vc_redist.x64.exe trouvée : $vcRedistExe" -ForegroundColor Gray
+    Copy-Item -Path $vcRedistExe -Destination "$installerRedistDir\vc_redist.x64.exe" -Force
+}
+
+# Manifeste du bundle Forgeron
+$bundleManifest = @{
+    version = "1.0.0"
+    chat_model = "forgeron-qwen"
+    vision_model = "gemma3n:latest"
+    bundled_services = @("ollama", "reco3d")
+    built_at = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+} | ConvertTo-Json -Depth 3
+Set-Content -Path "$stagingDir\forgeron_bundle.json" -Value $bundleManifest -Encoding UTF8
+
+# Copie du pipeline CAO/CAM Python
+Write-Host "  Copie des modules pipeline..." -ForegroundColor Gray
+$pipelineStaging = "$stagingDir\pipeline"
+New-Item -ItemType Directory -Force -Path $pipelineStaging | Out-Null
+Get-ChildItem -Path "$rootDir\pipeline" -Exclude "*.venv*", "__pycache__", "*.pyc" | Copy-Item -Destination $pipelineStaging -Recurse -Force
+
+# Copie de reco3d (avec Meshroom)
+Write-Host "  Copie du service reco3d et photogrammétrie Meshroom..." -ForegroundColor Gray
+$reco3dStaging = "$stagingDir\tool\reco3d"
+New-Item -ItemType Directory -Force -Path $reco3dStaging | Out-Null
+Get-ChildItem -Path "$rootDir\tool\reco3d" -Exclude "storage", "__pycache__", "*.pyc", ".pytest*" | Copy-Item -Destination $reco3dStaging -Recurse -Force
+New-Item -ItemType Directory -Force -Path "$reco3dStaging\storage" | Out-Null
+
+# 3. Préparation de l'environnement Python portable embarqué (runtime/python)
+Write-Host "`n[3/6] Préparation du runtime Python 3.12 portable autonome (OCP, uvicorn, scipy...)..." -ForegroundColor Yellow
+$pyRuntimeDir = "$stagingDir\runtime\python"
+New-Item -ItemType Directory -Force -Path "$pyRuntimeDir\Lib\site-packages" | Out-Null
+
+$srcPy = "$env:LOCALAPPDATA\Programs\Python\Python312"
+if (-not (Test-Path $srcPy)) {
+    $srcPy = (Get-Command python.exe).Source | Split-Path -Parent
+}
+Write-Host "  Source Python : $srcPy" -ForegroundColor Gray
+Copy-Item "$srcPy\python*.exe", "$srcPy\*.dll" -Destination $pyRuntimeDir -Force
+Copy-Item "$srcPy\DLLs" -Destination $pyRuntimeDir -Recurse -Force
+Get-ChildItem "$srcPy\Lib" -Exclude "test", "site-packages" | Copy-Item -Destination "$pyRuntimeDir\Lib" -Recurse -Force
+
+# Copie des DLLs CRT dans runtime/python pour garantir l'indépendance de Python
+if ($crtDir -and (Test-Path $crtDir)) {
+    Copy-Item -Path "$crtDir\*.dll" -Destination $pyRuntimeDir -Force
+}
+
+# Copie des packages du venv312 (OCP, OpenCASCADE, uvicorn, fastapi, trimesh, scipy...)
+Write-Host "  Copie des paquets Python spécialisés depuis pipeline/.venv312..." -ForegroundColor Gray
+Copy-Item "$rootDir\pipeline\.venv312\Lib\site-packages\*" -Destination "$pyRuntimeDir\Lib\site-packages" -Recurse -Force
+
+# Copie du script superviseur des services d'arrière-plan
+New-Item -ItemType Directory -Force -Path "$stagingDir\runtime" | Out-Null
+Copy-Item "$rootDir\installer\forgeron_services.py" -Destination "$stagingDir\runtime\forgeron_services.py" -Force
+
+# 4. Préparation de l'IA locale (Ollama + modèles forgeron-qwen et gemma3n)
+Write-Host "`n[4/6] Embarquement du serveur Ollama et des modèles IA sélectionnés..." -ForegroundColor Yellow
+$ollamaStaging = "$stagingDir\runtime\ollama"
+New-Item -ItemType Directory -Force -Path "$ollamaStaging\models\manifests" | Out-Null
+New-Item -ItemType Directory -Force -Path "$ollamaStaging\models\blobs" | Out-Null
+
+$srcOllama = "$env:LOCALAPPDATA\Programs\Ollama"
+if (Test-Path "$srcOllama\ollama.exe") {
+    Write-Host "  Copie des binaires Ollama (CUDA + Vulkan)..." -ForegroundColor Gray
+    Copy-Item "$srcOllama\ollama.exe" -Destination $ollamaStaging -Force
+    # Copie de lib/ollama en excluant rocm_v7_1 pour optimiser la taille
+    $libOllamaDest = "$ollamaStaging\lib\ollama"
+    New-Item -ItemType Directory -Force -Path $libOllamaDest | Out-Null
+    Get-ChildItem "$srcOllama\lib\ollama" -Exclude "rocm_v7_1" | Copy-Item -Destination $libOllamaDest -Recurse -Force
+} else {
+    Write-Host "  [ATTENTION] Ollama non trouvé dans $srcOllama." -ForegroundColor DarkYellow
+}
+
+# Modèles IA sélectionnés : forgeron-qwen et gemma3n
+$srcModels = "$env:USERPROFILE\.ollama\models"
+$targetModels = @(
+    "registry.ollama.ai\library\forgeron-qwen\latest",
+    "registry.ollama.ai\library\gemma3n\latest"
+)
+
+if (Test-Path $srcModels) {
+    Write-Host "  Copie des manifestes et blobs des modèles IA (forgeron-qwen & gemma3n)..." -ForegroundColor Gray
+    $neededBlobs = @{}
+    foreach ($mRel in $targetModels) {
+        $mPath = "$srcModels\manifests\$mRel"
+        if (Test-Path $mPath) {
+            $destMPath = "$ollamaStaging\models\manifests\$mRel"
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destMPath) | Out-Null
+            Copy-Item $mPath -Destination $destMPath -Force
+
+            $json = Get-Content $mPath | ConvertFrom-Json
+            if ($json.config.digest) { $neededBlobs[$json.config.digest] = $true }
+            foreach ($layer in $json.layers) {
+                if ($layer.digest) { $neededBlobs[$layer.digest] = $true }
+            }
+        }
+    }
+
+    # Copie de manifests-v2 et metadata si présents (évite les migrations au runtime)
+    if (Test-Path "$srcModels\manifests-v2") {
+        Copy-Item "$srcModels\manifests-v2" -Destination "$ollamaStaging\models\manifests-v2" -Recurse -Force
+    }
+    if (Test-Path "$srcModels\metadata") {
+        Copy-Item "$srcModels\metadata" -Destination "$ollamaStaging\models\metadata" -Recurse -Force
+    }
+
+    $blobCount = $neededBlobs.Count
+    Write-Host "  Copie de $blobCount blob(s) de modèle vers staging..." -ForegroundColor Gray
+    $copied = 0
+    foreach ($digest in $neededBlobs.Keys) {
+        $blobFileName = $digest -replace ':', '-'
+        $srcBlob = "$srcModels\blobs\$blobFileName"
+        $destBlob = "$ollamaStaging\models\blobs\$blobFileName"
+        if (Test-Path $srcBlob) {
+            Copy-Item $srcBlob -Destination $destBlob -Force
+            $copied++
+        }
+    }
+    Write-Host "  $copied / $blobCount blobs copiés avec succès." -ForegroundColor Green
+} else {
+    Write-Host "  [ATTENTION] Dossier modèles non trouvé dans $srcModels." -ForegroundColor DarkYellow
+}
+
+# 5. Compilation Inno Setup (.exe + .bin)
+Write-Host "`n[5/6] Génération de l'installateur autonome via Inno Setup Compiler..." -ForegroundColor Yellow
+$isccPaths = @(
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    "C:\Program Files\Inno Setup 6\ISCC.exe",
+    (Get-Command iscc.exe -ErrorAction SilentlyContinue).Path
+) | Where-Object { $_ -and (Test-Path $_) }
+
+if (-not $isccPaths) {
+    Write-Host "[ERREUR] Inno Setup Compiler (ISCC.exe) introuvable." -ForegroundColor Red
+    exit 1
+}
+
+$iscc = if ($isccPaths -is [array]) { $isccPaths[0] } else { [string]$isccPaths }
+Write-Host "  Inno Setup trouvé : $iscc" -ForegroundColor Green
+Write-Host "  Lancement de la compilation Inno Setup (peut prendre quelques minutes)..." -ForegroundColor Yellow
+
+& $iscc "$rootDir\installer\forgeron_installer.iss"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERREUR] Échec de la compilation Inno Setup (Code $LASTEXITCODE)." -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+# 6. Génération de l'image disque unique .ISO (un seul fichier autonome)
+if (-not $SkipIso) {
+    Write-Host "`n[6/6] Génération de l'image disque unique .ISO (fichier unique autonome)..." -ForegroundColor Yellow
+    & "$rootDir\tool\create_iso.ps1" -DistDir $outputDir -IsoFileName "Forgeron_CNC_5Axis_v1.0.iso"
+} else {
+    Write-Host "`n[6/6] Création de l'ISO sautée (-SkipIso)." -ForegroundColor Gray
+}
+
+Write-Host "`n==========================================================" -ForegroundColor Green
+Write-Host "   BUILD DU SYSTÈME UNIFIÉ FORGERON RÉUSSI AVEC SUCCÈS   " -ForegroundColor Green
+Write-Host "==========================================================" -ForegroundColor Green
+
+Get-ChildItem -Path $outputDir -Filter "Forgeron_CNC_5Axis*" | ForEach-Object {
+    $sizeMB = [math]::Round($_.Length / 1MB, 2)
+    $sizeGB = [math]::Round($_.Length / 1GB, 2)
+    if ($sizeGB -ge 1) {
+        Write-Host "  -> $($_.FullName) ($sizeGB Go)" -ForegroundColor Cyan
+    } else {
+        Write-Host "  -> $($_.FullName) ($sizeMB Mo)" -ForegroundColor Cyan
+    }
+}
+
+Write-Host "==========================================================" -ForegroundColor Green

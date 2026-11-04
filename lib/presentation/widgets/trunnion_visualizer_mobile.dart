@@ -1,33 +1,31 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../application/providers/gcode_provider.dart' show programPivotDepthProvider, programToolTypeProvider;
+import '../../application/providers/simulation_provider.dart';
 import '../../application/providers/theme_provider.dart';
+import '../../application/providers/viewer_snapshot_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/utils/three_viewer_asset_cache.dart';
 import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
 import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Android / iOS** (`webview_flutter`).
-///
-/// Auparavant, ces plateformes tombaient sur l'implémentation `webview_windows`
-/// (via `dart.library.io`, vrai sur Windows *et* Android) : le plugin n'existe
-/// pas sur Android, donc le simulateur était mort dans l'APK.
-///
-/// Même mécanisme que la version Windows : le HTML est chargé depuis le bundle
-/// et three.js y est **inliné**, pour un fonctionnement 100 % hors ligne.
 class MobileTrunnionVisualizer extends ConsumerStatefulWidget {
   final List<double> mPos;
   final List<double>? targetPos;
   final List<List<double>>? toolpath;
   final int activeIndex;
   final bool showVectors;
+
   /// Courses X/Y/Z reelles (mm). `null` = inconnues (aucune enveloppe).
   final List<double>? machineLimits;
 
-  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`, tel
-  /// que produit par `pipeline/step_preview.py`). `null` = aucune pièce.
+  /// Maillage de la pièce chargée (`{vertices: [...], indices: [...]}`).
   final Map<String, dynamic>? partMesh;
 
   /// Ce que la scène montre — voir [ViewerScene].
@@ -56,25 +54,44 @@ class _MobileTrunnionVisualizerState
   bool _isReady = false;
   String? _error;
 
+  /// Garde de thème pour éviter de renvoyer `set_theme` à chaque `build()`
+  /// (corrige le bug de reconstruction 3D à 60 Hz sur Android).
+  String? _lastThemeSent;
+
+  late final String _handleId = 'mob_3d_${identityHashCode(this)}';
+  late final ViewerSnapshotService _snapshotService;
+  final Map<String, Completer<ViewerSnapshotResult?>> _pendingSnapshots = {};
+  int _snapSeq = 0;
+
   @override
   void initState() {
     super.initState();
+    _snapshotService = ref.read(viewerSnapshotServiceProvider);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
-      // Canal JS → Dart : la page signale qu'elle est prête.
       ..addJavaScriptChannel(
         'ForgeronChannel',
         onMessageReceived: (msg) {
           try {
             final data = jsonDecode(msg.message);
+            if (data['type'] == 'snapshot_result' && data is Map) {
+              _resolveSnapshot(data);
+              return;
+            }
             if (data['type'] == 'viewer_ready') {
-              // La page répète son annonce quelques fois (l'hôte peut
-              // s'abonner après le premier tour) : on ne pousse l'état
-              // complet qu'une seule fois.
               if (_isReady || !mounted) return;
               setState(() => _isReady = true);
+              _lastThemeSent = null;
+              _snapshotService.register(
+                ViewerSnapshotHandle(
+                  id: _handleId,
+                  describeScene: () => widget.scene.toJson(),
+                  capture: _captureSnapshot,
+                ),
+              );
               _sendScene();
+              _sendStockConfig(ref.read(simulationProvider));
               _sendMesh();
               _sendToolpath();
               _updateMachine();
@@ -89,22 +106,66 @@ class _MobileTrunnionVisualizerState
     _loadViewer();
   }
 
+  void _resolveSnapshot(Map<dynamic, dynamic> data) {
+    final reqId = data['requestId']?.toString() ?? '';
+    final completer = _pendingSnapshots.remove(reqId);
+    if (completer == null || completer.isCompleted) return;
+    final bytes = ViewerSnapshotService.decodeDataUrlPng(data['dataUrl'] as String?);
+    if (bytes == null) {
+      completer.complete(null);
+      return;
+    }
+    completer.complete(
+      ViewerSnapshotResult(
+        pngBytes: bytes,
+        source: 'webgl_3d',
+        width: (data['width'] as num?)?.toInt(),
+        height: (data['height'] as num?)?.toInt(),
+        metrics: (data['metrics'] as Map?)?.cast<String, dynamic>() ?? const {},
+      ),
+    );
+  }
+
+  Future<ViewerSnapshotResult?> _captureSnapshot({
+    String? cameraPreset,
+    Map<String, dynamic>? temporaryScene,
+    String? hudBanner,
+  }) {
+    if (!_isReady || !mounted) return Future.value(null);
+    final reqId = '${_handleId}_${++_snapSeq}';
+    final completer = Completer<ViewerSnapshotResult?>();
+    _pendingSnapshots[reqId] = completer;
+    _post({
+      'type': 'capture_snapshot',
+      'payload': {
+        'requestId': reqId,
+        'cameraPreset': ?cameraPreset,
+        'temporaryScene': ?temporaryScene,
+        'hudBanner': ?hudBanner,
+      },
+    });
+    return completer.future.timeout(
+      const Duration(seconds: 4),
+      onTimeout: () {
+        _pendingSnapshots.remove(reqId);
+        return null;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _snapshotService.unregister(_handleId);
+    for (final c in _pendingSnapshots.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pendingSnapshots.clear();
+    super.dispose();
+  }
+
   Future<void> _loadViewer() async {
     try {
-      String html = await rootBundle.loadString('web/three_viewer.html');
-      final three = await rootBundle.loadString('web/js/three.min.js');
-      final orbit = await rootBundle.loadString('web/js/OrbitControls.js');
-
-      // Inline des scripts : pas de requête réseau, fonctionne hors ligne.
-      html = html.replaceFirst(
-        '<script src="js/three.min.js"></script>',
-        '<script>$three</script>',
-      );
-      html = html.replaceFirst(
-        '<script src="js/OrbitControls.js"></script>',
-        '<script>$orbit</script>',
-      );
-
+      final html = await ThreeViewerAssetCache.getInlinedHtml();
       await _controller.loadHtmlString(html);
     } catch (e) {
       debugPrint('[Visualizer] échec du chargement : $e');
@@ -112,10 +173,9 @@ class _MobileTrunnionVisualizerState
     }
   }
 
-  /// Dart → JS : la page expose `handleMessage(data)` au scope global.
   void _post(Map<String, dynamic> data) {
     if (!_isReady) return;
-    _controller.runJavaScript('handleMessage(${jsonEncode(data)})');
+    _controller.runJavaScript('window.handleMessage(${jsonEncode(data)})');
   }
 
   @override
@@ -125,14 +185,31 @@ class _MobileTrunnionVisualizerState
 
     if (oldWidget.scene != widget.scene) _sendScene();
     if (!identical(oldWidget.partMesh, widget.partMesh)) _sendMesh();
-    if (oldWidget.toolpath != widget.toolpath) _sendToolpath();
+    if (!identical(oldWidget.toolpath, widget.toolpath)) _sendToolpath();
     if (oldWidget.showVectors != widget.showVectors) _toggleVectors();
-    if (oldWidget.machineLimits != widget.machineLimits) _sendLimits();
-    _updateMachine();
+    if (!listEquals(oldWidget.machineLimits, widget.machineLimits)) {
+      _sendLimits();
+    }
+    if (oldWidget.activeIndex != widget.activeIndex ||
+        !listEquals(oldWidget.mPos, widget.mPos)) {
+      _updateMachine();
+    }
   }
 
   void _sendScene() =>
       _post({'type': 'set_scene', 'payload': widget.scene.toJson()});
+
+  void _sendStockConfig(SimulationState sim) {
+    _post({
+      'type': 'configure_stock',
+      'payload': {
+        'shape': sim.stockShape.wire,
+        'dimensions': sim.stockDimensions,
+        'toolDiameter': sim.toolDiameter,
+      },
+    });
+    _post({'type': 'set_enclosure', 'payload': sim.showEnclosure});
+  }
 
   void _sendMesh() {
     final mesh = widget.partMesh;
@@ -145,24 +222,35 @@ class _MobileTrunnionVisualizerState
 
   void _sendToolpath() {
     final tp = widget.toolpath;
-    if (tp == null || tp.isEmpty) return;
-    final payload = tp
-        .map((p) => [
-              p.length > 0 ? p[0] : 0.0,
-              p.length > 1 ? p[1] : 0.0,
-              p.length > 2 ? p[2] : 0.0,
-              p.length > 3 ? p[3] : 0.0,
-              p.length > 4 ? p[4] : 0.0,
-              p.length > 5 ? p[5] : 1.0,
-            ])
-        .toList();
-    _post({'type': 'load_toolpath', 'payload': payload});
+    if (tp == null || tp.isEmpty) {
+      _post({'type': 'clear_toolpath'});
+      return;
+    }
+    _post({
+      'type': 'load_toolpath',
+      'payload': ThreeViewerAssetCache.flattenToolpath(tp),
+    });
   }
 
-  void _updateMachine() => _post({
-        'type': 'update_machine',
-        'payload': {'mPos': widget.mPos, 'activeIndex': widget.activeIndex},
-      });
+  void _updateMachine([List<double>? overrideMPos, int? overrideIdx]) {
+    final sim = ref.read(simulationProvider);
+    final useSim = overrideMPos != null ||
+        sim.isSimulating ||
+        sim.status == SimulationStatus.completed;
+    final pos = overrideMPos ?? (useSim ? sim.simulatedMPos : widget.mPos);
+    final idx =
+        overrideIdx ?? (useSim ? sim.currentToolpathIndex : widget.activeIndex);
+    _post({
+      'type': 'update_machine',
+      'payload': {
+        'mPos': pos,
+        'activeIndex': idx,
+        'pivotDepth': ref.read(programPivotDepthProvider),
+        'toolType': ref.read(programToolTypeProvider),
+        'simulated': useSim,
+      },
+    });
+  }
 
   void _toggleVectors() =>
       _post({'type': 'toggle_vectors', 'payload': widget.showVectors});
@@ -177,6 +265,25 @@ class _MobileTrunnionVisualizerState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SimulationState>(simulationProvider, (prev, next) {
+      if (!_isReady) return;
+      if (prev?.stockResetSeq != next.stockResetSeq ||
+          prev?.toolDiameter != next.toolDiameter) {
+        _sendStockConfig(next);
+      }
+      if (prev?.showEnclosure != next.showEnclosure) {
+        _post({'type': 'set_enclosure', 'payload': next.showEnclosure});
+      }
+      if (prev?.cameraCommandSeq != next.cameraCommandSeq) {
+        _post({'type': 'set_camera_preset', 'payload': next.cameraPreset});
+      }
+      if (next.isSimulating ||
+          next.status == SimulationStatus.completed ||
+          (prev?.isSimulating == true && !next.isSimulating)) {
+        _updateMachine(next.simulatedMPos, next.currentToolpathIndex);
+      }
+    });
+
     if (_error != null) {
       return Center(
         child: Padding(
@@ -192,10 +299,14 @@ class _MobileTrunnionVisualizerState
 
     final isDark = isDarkTheme(context, ref.watch(themeModeProvider));
     if (_isReady) {
-      _post({
-        'type': 'set_theme',
-        'payload': viewerThemePayload(context.fc, isDark),
-      });
+      final payload = jsonEncode(viewerThemePayload(context.fc, isDark));
+      if (payload != _lastThemeSent) {
+        _lastThemeSent = payload;
+        _post({
+          'type': 'set_theme',
+          'payload': jsonDecode(payload),
+        });
+      }
     }
 
     return WebViewWidget(controller: _controller);

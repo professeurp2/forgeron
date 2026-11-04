@@ -20,9 +20,22 @@ const kLexiconAsset = 'assets/lexicon/lexique.json';
 /// seul + chemin rapide de l'arrêt d'urgence), et l'écran des réglages dit
 /// pourquoi.
 class LexiconLoad {
-  const LexiconLoad({this.lexicon, this.issues = const [], this.failure});
+  const LexiconLoad({
+    this.lexicon,
+    this.issues = const [],
+    this.failure,
+    this.glossaries = const {},
+  });
 
   final CommandLexicon? lexicon;
+
+  /// Vocabulaire vérifié par langue, prêt à poser dans le prompt système.
+  ///
+  /// Le lexique sert à COMPRENDRE l'opérateur ; ce glossaire sert à l'autre
+  /// sens — donner au modèle des mots sourcés pour RÉPONDRE, au lieu de le
+  /// laisser en forger. C'est ce qui remplace l'interdiction d'écrire en
+  /// bambara : des mots dont on sait d'où ils viennent.
+  final Map<String, String> glossaries;
 
   /// Tous les constats de validation (avertissements compris).
   final List<LexiconIssue> issues;
@@ -64,10 +77,87 @@ LexiconLoad loadLexiconFromSource(String source) {
     return LexiconLoad(
       lexicon: CommandLexicon.fromJson(json),
       issues: validation.issues,
+      glossaries: buildGlossaries(json),
     );
   } catch (e) {
     return LexiconLoad(failure: 'lexique illisible : $e');
   }
+}
+
+/// Libellé français de chaque rôle du lexique, pour que le glossaire se lise
+/// comme un dictionnaire plutôt que comme une structure de données.
+const _roleLabels = <String, String>{
+  'stop': 'arrêter',
+  'start': 'démarrer, allumer',
+  'pause': 'mettre en pause',
+  'show': 'montrer, dire',
+  'home': "prise d'origine",
+  'move': 'déplacer, aller',
+  'machine': 'la machine',
+  'etat': "l'état",
+  'all': 'tout',
+  'urgent': 'tout de suite',
+  'alarm': 'danger, au secours',
+  'questions': 'mots interrogatifs',
+  'feed': 'vitesse',
+  'directions': 'directions',
+  'negations': 'négations',
+};
+
+/// Construit, par langue, un glossaire des mots VÉRIFIÉS.
+///
+/// N'inclut que les langues dont le lexique porte des sources : un mot sans
+/// provenance n'a rien à faire dans un prompt qui sert à produire du texte
+/// pour un opérateur. Le statut de relecture est annoncé tel quel — le
+/// modèle doit savoir qu'il travaille sur un brouillon.
+Map<String, String> buildGlossaries(Map<String, dynamic> json) {
+  final out = <String, String>{};
+  final langs = (json['languages'] as Map?)?.cast<String, dynamic>() ?? {};
+
+  for (final code in langs.keys) {
+    final l = (langs[code] as Map).cast<String, dynamic>();
+    if (code == 'fr' || code == 'en') continue; // langue source, inutile
+    if ((l['sources'] as List?)?.isEmpty ?? true) continue;
+
+    final lignes = <String>[];
+    void ajoute(String role, Object? mots) {
+      if (mots is! List || mots.isEmpty) return;
+      final libelle = _roleLabels[role] ?? role;
+      lignes.add('$libelle : ${mots.join(', ')}');
+    }
+
+    final actions = (l['actions'] as Map?)?.cast<String, dynamic>() ?? {};
+    for (final r in actions.keys) {
+      ajoute(r, actions[r]);
+    }
+    final objets = (l['objects'] as Map?)?.cast<String, dynamic>() ?? {};
+    for (final r in objets.keys) {
+      ajoute(r, objets[r]);
+    }
+    for (final r in ['urgent', 'alarm', 'directions', 'negations', 'feed']) {
+      ajoute(r, l[r]);
+    }
+
+    final nombres = (l['numbers'] as Map?)?.cast<String, dynamic>();
+    final unites = (nombres?['units'] as Map?)?.cast<String, dynamic>();
+    if (unites != null && unites.isNotEmpty) {
+      lignes.add('nombres : '
+          '${unites.entries.map((e) => '${e.key}=${e.value}').join(', ')}');
+    }
+    if (lignes.isEmpty) continue;
+
+    final statut = '${l['status'] ?? kLexiconDraft}';
+    final relu = l['reviewed_by'] == null
+        ? 'non relu par un locuteur'
+        : 'relu par ${l['reviewed_by']}';
+    out[code] = '=== MOTS ${('${l['name'] ?? code}').toUpperCase()} '
+        'VÉRIFIÉS ($statut, $relu) ===\n'
+        'Sers-toi de ces mots-là quand tu réponds dans cette langue. '
+        "N'en invente pas d'autres : si une idée te manque, dis-la en "
+        'français plutôt que de forger un mot.\n'
+        '${lignes.join('\n')}';
+  }
+  return out;
 }
 
 /// Source du texte du lexique : la ressource embarquée. Les tests la remplacent

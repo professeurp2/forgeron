@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/trajectory_validator.dart';
 import '../../core/utils/gcode_parser.dart';
+import '../../domain/models/machining_mode.dart';
+import '../../domain/models/trunnion_config.dart';
 import '../services/force_guard_service.dart';
 import 'gcode_provider.dart';
 import 'machining_mode_provider.dart';
@@ -20,6 +22,67 @@ final streamStallProvider = StateProvider<String?>((ref) => null);
 /// SÉCURITÉ : l'UI doit alerter — la machine n'est PAS arrêtée.
 final estopFailedProvider = StateProvider<bool>((ref) => false);
 
+class _StreamPrepInput {
+  final List<String> allLines;
+  final List<List<double>> toolpath;
+  final List<int> toolpathLineIndices;
+  final TrunnionConfig config;
+  final MachiningMode mode;
+
+  const _StreamPrepInput({
+    required this.allLines,
+    required this.toolpath,
+    required this.toolpathLineIndices,
+    required this.config,
+    required this.mode,
+  });
+}
+
+class _StreamPrepOutput {
+  final ValidationResult validation;
+  final List<String> guardedLines;
+  final int clampedCount;
+  final int blockedCount;
+
+  const _StreamPrepOutput({
+    required this.validation,
+    required this.guardedLines,
+    required this.clampedCount,
+    required this.blockedCount,
+  });
+}
+
+_StreamPrepOutput _prepareStreamSync(_StreamPrepInput input) {
+  final result = TrajectoryValidator.validate(
+    AnalyzedGCode(
+      lines: input.allLines,
+      toolpath: input.toolpath,
+      modalStates: const {},
+      toolpathLineIndices: input.toolpathLineIndices,
+    ),
+    config: input.config,
+  );
+  if (!result.isValid) {
+    return _StreamPrepOutput(
+      validation: result,
+      guardedLines: const [],
+      clampedCount: 0,
+      blockedCount: 0,
+    );
+  }
+  final guard = ForceGuardService(
+    mode: input.mode,
+    config: input.config,
+  );
+  final lines = input.allLines.map(guard.processLine).toList();
+  return _StreamPrepOutput(
+    validation: result,
+    guardedLines: lines,
+    clampedCount: guard.clampedCount,
+    blockedCount: guard.blockedCount,
+  );
+}
+
 class StreamingController extends StateNotifier<bool> {
   final Ref _ref;
 
@@ -27,7 +90,6 @@ class StreamingController extends StateNotifier<bool> {
 
   Future<ValidationResult> startStream() async {
     debugPrint('[StreamingController] 🟢 startStream() appelé ! state = $state');
-    // ── Guard : ne pas lancer si déjà en cours ────────────────────────────
     if (state) {
       debugPrint('[StreamingController] ⚠️ Ignoré car streaming déjà en cours (state=true).');
       return ValidationResult.success();
@@ -39,10 +101,6 @@ class StreamingController extends StateNotifier<bool> {
       return ValidationResult.error('Aucun programme G-Code chargé', 0);
     }
 
-    // ── Guard : G-code adapté mais BLOQUÉ ─────────────────────────────────
-    // L'adaptateur (au chargement) a détecté des codes CAM que FluidNC ne peut
-    // pas exécuter et qu'on ne peut pas traduire ici (RTCP, compensation de
-    // rayon MACHINE G41/G42, cycle non géré) → à corriger dans le post CAM.
     if (gcodeState.adaptBlocking) {
       final why = gcodeState.adaptWarnings
           .where((w) => w.contains('⚠️'))
@@ -56,45 +114,35 @@ class StreamingController extends StateNotifier<bool> {
     }
 
     debugPrint('[StreamingController] 🔍 Validation Lookahead de ${gcodeState.allLines.length} lignes...');
-    // 1. Validation Lookahead avant de commencer
-    final result = TrajectoryValidator.validate(
-      AnalyzedGCode(
-        lines: gcodeState.allLines,
-        toolpath: gcodeState.toolpath,
-        modalStates: {},
-        toolpathLineIndices: gcodeState.toolpathLineIndices,
-      ),
+    final prepInput = _StreamPrepInput(
+      allLines: gcodeState.allLines,
+      toolpath: gcodeState.toolpath,
+      toolpathLineIndices: gcodeState.toolpathLineIndices,
       config: _ref.read(trunnionConfigProvider),
+      mode: _ref.read(machiningModeProvider),
     );
 
-    if (!result.isValid) {
-      debugPrint('[StreamingController] ❌ Validation échouée : ${result.errorMessage}');
-      return result;
+    final prep = gcodeState.allLines.length > 500
+        ? await compute(_prepareStreamSync, prepInput)
+        : _prepareStreamSync(prepInput);
+
+    if (!prep.validation.isValid) {
+      debugPrint('[StreamingController] ❌ Validation échouée : ${prep.validation.errorMessage}');
+      return prep.validation;
     }
 
-    // 2. ── ForceGuard : bridage des efforts selon le mode d'usinage ────────
-    // Appliqué ICI, en amont : le character-counting du service de streaming
-    // doit compter exactement les octets qui partent sur le fil.
-    // (Auparavant le ForceGuard était injectable mais n'était JAMAIS branché :
-    //  le bridage ne s'appliquait donc jamais, malgré ce qu'affichait l'UI.)
-    final guard = ForceGuardService(
-      mode: _ref.read(machiningModeProvider),
-      config: _ref.read(trunnionConfigProvider),
-    );
-    final lines = gcodeState.allLines.map(guard.processLine).toList();
-    if (guard.clampedCount > 0 || guard.blockedCount > 0) {
+    if (prep.clampedCount > 0 || prep.blockedCount > 0) {
       debugPrint(
-        '[ForceGuard] ⚡ ${guard.clampedCount} ligne(s) bridée(s), '
-        '${guard.blockedCount} ligne(s) A/C bloquée(s).',
+        '[ForceGuard] ⚡ ${prep.clampedCount} ligne(s) bridée(s), '
+        '${prep.blockedCount} ligne(s) A/C bloquée(s).',
       );
     }
 
-    // 3. Démarrer le streaming — l'état revient à false via onComplete/onStall
     debugPrint('[StreamingController] ✅ Validation réussie. Lancement de sendGCodeBatch...');
     _ref.read(streamStallProvider.notifier).state = null;
     state = true;
     await _ref.read(machineRepositoryProvider).sendGCodeBatch(
-      lines,
+      prep.guardedLines,
       onComplete: () {
         debugPrint('[StreamingController] 🏁 onComplete appelé ! Fin du flux.');
         if (mounted) state = false;

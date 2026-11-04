@@ -33,8 +33,8 @@ class DiscoveredDevice {
 ///   2. Scan du sous-réseau local (/24) par rafales parallèles
 ///   3. Écoute mDNS (si disponible)
 ///
-/// Chaque IP candidate est testée par un GET HTTP rapide.
-/// FluidNC répond avec une page web contenant "FluidNC" ou "Grbl".
+/// Chaque IP candidate est testée par un GET HTTP rapide, et n'est retenue que si
+/// sa page d'accueil ou sa réponse à `$I` nomme FluidNC ou GRBL.
 class AutoDiscoveryService {
   final http.Client _client;
   final Duration _timeout;
@@ -89,22 +89,19 @@ class AutoDiscoveryService {
         if (deviceKind == 'camera' || body.contains('forgeron-device')) {
           return null;
         }
-        // FluidNC renvoie une page HTML contenant "fluidnc" ou "grbl"
-        // ou au minimum un serveur web fonctionnel
-        String? firmware;
-        if (body.contains('fluidnc')) {
-          firmware = 'FluidNC';
-        } else if (body.contains('grbl')) {
-          firmware = 'GRBL';
-        } else if (body.contains('esp32') || body.contains('webui')) {
-          firmware = 'ESP32 WebUI';
-        }
+        // Répondre en HTTP ne fait pas un contrôleur : une box ou une imprimante
+        // répondent aussi, et le scan s'auto-connecte au premier trouvé. On exige
+        // que l'appareil se dise FluidNC ou GRBL. La page d'accueil peut ne pas le
+        // dire (interface compressée) : dans ce cas, on lui demande sa version.
+        final firmware =
+            _firmwareIn(body) ?? await _askFirmware(ip, port);
+        if (firmware == null) return null;
 
         return DiscoveredDevice(
           ip: ip,
           httpPort: port,
           wsPort: 80,
-          firmwareInfo: firmware ?? 'HTTP ${response.statusCode}',
+          firmwareInfo: firmware,
           responseTime: sw.elapsed,
         );
       }
@@ -112,6 +109,31 @@ class AutoDiscoveryService {
       // IP non joignable ou timeout — normal pendant un scan
     }
     return null;
+  }
+
+  static String? _firmwareIn(String lowerBody) {
+    if (lowerBody.contains('fluidnc')) return 'FluidNC';
+    if (lowerBody.contains('grbl')) return 'GRBL';
+    return null;
+  }
+
+  /// `$I` : lecture seule, le contrôleur répond par sa version sans rien bouger.
+  Future<String?> _askFirmware(String ip, int port) async {
+    try {
+      final uri = Uri(
+        scheme: 'http',
+        host: ip,
+        port: port,
+        path: '/command',
+        queryParameters: {'plain': r'$I'},
+      );
+      final response = await _client.get(uri).timeout(_timeout);
+      if (response.statusCode >= 300) return null;
+      final body = response.body.toLowerCase();
+      return _firmwareIn(body) ?? (body.contains('[ver:') ? 'GRBL' : null);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Lance un scan complet du réseau local.

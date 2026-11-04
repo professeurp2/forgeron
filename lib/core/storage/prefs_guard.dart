@@ -98,27 +98,24 @@ class PrefsFileGuard {
   File get dailyBackup => File('$_base.daily.bak');
 
   /// Classe le contenu d'un fichier de préférences.
-  static PrefsFileState inspect(List<int> bytes) {
-    if (bytes.isEmpty) return PrefsFileState.empty;
-    if (bytes.every((b) => b == 0)) return PrefsFileState.zeroed;
+  static PrefsFileState inspect(List<int> bytes) =>
+      _inspectWithKeyCount(bytes).$1;
+
+  /// Classe le contenu et retourne le nombre de clés en une seule passe
+  /// `utf8.decode` + `jsonDecode` (évite de parser deux fois 80+ Ko).
+  static (PrefsFileState, int?) _inspectWithKeyCount(List<int> bytes) {
+    if (bytes.isEmpty) return (PrefsFileState.empty, null);
+    if (bytes.every((b) => b == 0)) return (PrefsFileState.zeroed, null);
     try {
       final text = utf8.decode(bytes);
-      if (text.trim().isEmpty) return PrefsFileState.empty;
-      return jsonDecode(text) is Map<String, dynamic>
-          ? PrefsFileState.valid
-          : PrefsFileState.invalid;
+      if (text.trim().isEmpty) return (PrefsFileState.empty, null);
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        return (PrefsFileState.valid, decoded.length);
+      }
+      return (PrefsFileState.invalid, null);
     } catch (_) {
-      return PrefsFileState.invalid;
-    }
-  }
-
-  /// Nombre de clés d'un contenu sain, `null` sinon.
-  static int? _keyCount(List<int> bytes) {
-    try {
-      final j = jsonDecode(utf8.decode(bytes));
-      return j is Map ? j.length : null;
-    } catch (_) {
-      return null;
+      return (PrefsFileState.invalid, null);
     }
   }
 
@@ -143,13 +140,14 @@ class PrefsFileGuard {
     for (final candidate in [backup, dailyBackup]) {
       if (!await candidate.exists()) continue;
       final bytes = await candidate.readAsBytes();
-      if (inspect(bytes) != PrefsFileState.valid) continue;
+      final (candidateState, keyCount) = _inspectWithKeyCount(bytes);
+      if (candidateState != PrefsFileState.valid) continue;
       await _atomicWrite(main, bytes);
       return PrefsGuardReport(
         PrefsGuardAction.restored,
         state,
         restoredFrom: candidate.uri.pathSegments.last,
-        keys: _keyCount(bytes),
+        keys: keyCount,
       );
     }
 
@@ -171,8 +169,9 @@ class PrefsFileGuard {
     } catch (_) {
       return false; // verrouillé un instant : la minute suivante
     }
-    if (inspect(bytes) != PrefsFileState.valid) return false;
-    if ((_keyCount(bytes) ?? 0) == 0) return false;
+    final (fileState, keyCount) = _inspectWithKeyCount(bytes);
+    if (fileState != PrefsFileState.valid) return false;
+    if ((keyCount ?? 0) == 0) return false;
 
     await _atomicWrite(backup, bytes);
 

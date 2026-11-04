@@ -1,0 +1,19 @@
+{
+  "_comment": "Caméras embarquées pour le scan en machine (doc §12). UN SEUL format, 1 caméra en simulation -> 5 en production. 'pose' = extrinsèque 4x4 (repère caméra -> zéro machine), null tant que non calibrée (jalon 5.2). 'intrinsics' = matrice K + distorsion, null tant que non calibrée. 'url' = endpoint de capture JPEG de l'ESP32-CAM (polling, pas MJPEG).",
+  "cameras": [
+    {
+      "id": "cam0",
+      "url": "http://192.168.0.50/capture",
+      "pose": null,
+      "intrinsics": null,
+      "simulation": true,
+      "note": "ESP32-CAM AI-Thinker OV2640 sur l'AP FluidNC. Bring-up jalon 5.0 : cette seule caméra suffit."
+    }
+  ],
+  "_placeholders_production": [
+    {"id": "cam1", "url": "http://192.168.0.51/capture", "pose": null, "intrinsics": null, "simulation": false},
+    {"id": "cam2", "url": "http://192.168.0.52/capture", "pose": null, "intrinsics": null, "simulation": false},
+    {"id": "cam3", "url": "http://192.168.0.53/capture", "pose": null, "intrinsics": null, "simulation": false},
+    {"id": "cam4", "url": "http://192.168.0.54/capture", "pose": null, "intrinsics": null, "simulation": false}
+  ]
+}

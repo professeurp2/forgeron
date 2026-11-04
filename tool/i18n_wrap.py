@@ -30,7 +30,15 @@ RUN = '%s(?:\\s*%s)*' % (ONE, ONE)
 
 HEADS = [
     r"(?P<pre>(?<![\w.$])(?:const\s+)?Text\(\s*)",
-    r"(?P<pre>\b(?:title|tooltip|labelText|hintText|helperText|semanticLabel|label):\s*)",
+    # `subtitle:` manquait a la premiere passe : tous les sous-titres de
+    # l'ecran Parametres sont restes en francais dans les quinze langues.
+    r"(?P<pre>\b(?:title|subtitle|tooltip|labelText|hintText|helperText"
+    r"|semanticLabel|label|message|header|placeholder|caption):\s*)",
+    # Arguments positionnels des widgets maison : _sectionLabel(fc, 'MACHINE')
+    # n'etait attrape par aucun motif, puisque la chaine ne suit ni `Text(`
+    # ni un nom d'argument.
+    r"(?P<pre>(?<![\w.$])_(?:sectionLabel|section|chip|badge|pill|legend)"
+    r"\(\s*fc\s*,\s*)",
 ]
 MATCHERS = [re.compile(h + '(?P<run>' + RUN + ')') for h in HEADS]
 
@@ -152,10 +160,21 @@ def main():
                 if process(p, keys, report):
                     touched += 1
 
+    # FUSION, jamais remplacement. En ecrivant seulement les cles de la passe
+    # en cours, une seconde execution vidait le catalogue des 505 cles deja
+    # extraites — et avec lui le lien vers les quinze dictionnaires, qui
+    # seraient devenus des « cles inconnues » silencieusement ignorees.
+    ancien = set()
+    if os.path.exists('tool/i18n_keys.json'):
+        ancien = set(json.load(io.open('tool/i18n_keys.json',
+                                       encoding='utf-8')))
+    total_cles = ancien | keys
     io.open('tool/i18n_keys.json', 'w', encoding='utf-8').write(
-        json.dumps(sorted(keys), ensure_ascii=False, indent=1))
+        json.dumps(sorted(total_cles), ensure_ascii=False, indent=1))
     print('fichiers modifies :', touched)
-    print('cles produites    :', len(keys))
+    print('cles de cette passe:', len(keys),
+          '(%d nouvelles)' % len(keys - ancien))
+    print('catalogue total   :', len(total_cles))
     if report:
         print()
         print('a traiter a la main (%d) :' % len(report))

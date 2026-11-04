@@ -63,5 +63,17 @@ pipeline/*.stp
 # Rapports de Forgeron-Bench (copier les rapports retenus dans docs/addis/evidence/)
 /eval_reports/
 
-# Fichiers temporaires de tests
+# Service reco3d : images et resultats des jobs
+tool/reco3d/storage/
+tool/reco3d/bin/
+
+# Dossiers temporaires de pytest (tool/reco3d)
 .pytest_temp/
+
+dist/*
+!dist/README.md
+!dist/README.txt
+!dist/INSTALL.txt
+!dist/INSTALL.md
+
+installer/redist/

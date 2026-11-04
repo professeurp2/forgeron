@@ -379,7 +379,7 @@ class _MotorDisableButton extends ConsumerWidget {
     HapticFeedback.mediumImpact();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res.ok ? 'Moteurs coupés — axes libres.' : (res.message ?? 'Commande refusée')),
+        content: Text(res.ok ? tr('Moteurs coupés — axes libres.') : (res.message ?? 'Commande refusée')),
         backgroundColor: res.ok ? fc.warning : fc.danger,
         duration: const Duration(seconds: 2),
       ));

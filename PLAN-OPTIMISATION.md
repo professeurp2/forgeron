@@ -432,6 +432,67 @@ premiers critères sont lisibles sans rien instrumenter de plus.
 
 ## 6. Risques
 
+| Risque | Garde-fou |
+|---|---|
+| RANSAC mal réglé **invente** des faces analytiques (brique 1, §7) | Mesurer l'écart face↔maillage ; refuser et retomber sur le maillage si > tolérance. Jamais de surface inventée affichée comme mesurée. |
+| **G93 non supporté ou mal configuré** par FluidNC → avance folle (brique 3) | Valider le support G93 sur la carte, à vide, **avant toute matière** ; garder G94 en repli. |
+| Licence OpenCAMLib ambiguë (LGPL vs GPL) | Trancher la licence **avant** intégration dans Forgeron. |
+| Décrochage TB6600 si on pousse les avances optimisées | Rester sous les accélérations de la config (§0) ; protocole de mesure du décrochage avant toute hausse. |
+
+---
+
+## 7. Cap sur la génération STEP et G-code (recherche du 27/10/2026)
+
+Recherche open-source, dans le droit fil du §4 : **pas d'optimiseur global**, l'IA
+**ne calcule pas** — quatre **briques déterministes** indépendantes, chacune
+rendant un verdict structuré à l'agent (comme `GcodeCritic`).
+
+### Brique 1 — STEP analytique (maillage → B-rep usinable)
+
+L'adaptateur analytique **refuse le STEP facetté** (mesuré, jalon 0 de
+`docs/conception-photos-vers-step.md`). Le levier n'est pas « un STEP plus
+léger » mais **recouvrer des surfaces analytiques** (plans, cylindres, cônes) par
+*primitive fitting* RANSAC → l'adaptateur retrouve une révolution/prismatique.
+- Briques prêtes sur **OpenCASCADE** (ta pile OCP) : [Scancraft/MESHER](https://github.com/allanwrench28/MESHER), [STL2STEP-FC](https://github.com/FSMaker77/STL2STEP-FC) ; état de l'art : [Mesh2Brep (2025)](https://www.researchgate.net/publication/387764469_Mesh2Brep_B-Rep_Reconstruction_Via_Robust_Primitive_Fitting_and_Intersection-Aware_Constraints).
+- **Honnêteté** : efficace sur pièces **géométriques/prismatiques**, pas sur l'organique ni les courbes libres → le maître prismatique part en STEP analytique, la forme libre reste en maillage (brique 2).
+
+### Brique 2 — maillage → trajet (le chaînon manquant)
+
+Aujourd'hui, rien ne relie un maillage scanné à un générateur 5 axes (constaté au
+test de bout en bout). La référence est [OpenCAMLib](https://opencamlib.readthedocs.io/)
+(*drop-cutter*, dont `pipeline/dropcutter.py` est une version maison).
+- **Son arbre KD est obligatoire** : une boucle naïve sur 22 000 triangles est « inutilisable ».
+- **5 axes** : pas de simultané open-source clé en main. La voie réaliste ([FreeCAD devtalk](https://devtalk.freecad.org/t/links-and-background/2092)) est le **3+2 indexé** — tourner le maillage d'un angle A/C connu, reconstruire l'arbre, relancer le 3 axes. C'est précisément ton 3+2 **déjà validé machine**.
+
+### Brique 3 — post G93 (temps inverse) : la plus rentable et la plus sûre
+
+Le §0 l'a chiffré : en 5 axes **la rotation domine le temps**, et en G94 l'avance
+réelle tombe à ~8 % du F écrit sur un bloc mixte (§5). Le [G93 temps-inverse](https://docs.masso.com.au/supported-g-codes/g93-inverse-time-mode)
+met F = 1/temps par bloc → le contrôleur n'a plus à réconcilier mm et degrés →
+avance de coupe constante. Référence : [RapidRotary (G94→G93)](https://github.com/sgano/RapidRotary).
+**Prérequis : confirmer le support G93 de FluidNC/grbl, à vide.** Cible : avance
+réelle > 90 % du F écrit (§5).
+
+### Brique 4 — avance par engagement + simulation
+
+Pas d'outil open-source clé en main pour l'avance à enlèvement constant (c'est du
+commercial : Carveco, NCSIMUL Optitool). À **construire** : estimer l'engagement
+depuis le brut, mettre l'avance à l'échelle, **vérifier dans [CAMotics](https://camotics.org)**
+(simulateur open-source). Cible : −50 % sur la finition d'une pièce test (§5).
+Limite physique : l'inertie plafonne l'avance réelle en virage serré (§0).
+
+### Architecture — « multi-agent » = multi-spécialistes, pas multi-LLM
+
+L'intégration multi-agent proposée pour Forgeron se lit comme ces quatre briques
+**déterministes** orchestrées par **un routeur IA unique**, chaque action machine
+passant par les garde-fous existants (« l'IA propose, le code calcule, l'opérateur
+confirme, le matériel arrête »). **Pas** d'agents LLM qui se parlent : l'AP est
+hors-ligne, le modèle local est peu fiable sur l'appel d'outil, et chaque saut
+d'agent multiplie le maillon faible et la surface d'une action dangereuse. C'est
+le §4 (« pas d'optimiseur global », « l'IA ne calcule pas ») appliqué à la lettre.
+
+*Sources : [awesome-brep-reconstruction](https://github.com/Bigger-and-Stronger/awesome-brep-reconstruction), [Scancraft/MESHER](https://github.com/allanwrench28/MESHER), [STL2STEP-FC](https://github.com/FSMaker77/STL2STEP-FC), [Mesh2Brep](https://www.researchgate.net/publication/387764469_Mesh2Brep_B-Rep_Reconstruction_Via_Robust_Primitive_Fitting_and_Intersection-Aware_Constraints), [OpenCAMLib](https://opencamlib.readthedocs.io/), [FreeCAD devtalk](https://devtalk.freecad.org/t/links-and-background/2092), [RapidRotary](https://github.com/sgano/RapidRotary), [MASSO G93](https://docs.masso.com.au/supported-g-codes/g93-inverse-time-mode), [CAMotics](https://camotics.org).*
+
 **Le risque principal est de construire sur l'horloge fausse.** Toute brique
 d'optimisation écrite avant la brique 1 optimisera une grandeur qui n'est pas le
 temps réel, et le gain mesuré sera un artefact.

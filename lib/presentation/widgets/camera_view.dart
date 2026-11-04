@@ -36,7 +36,7 @@ class _CameraViewState extends ConsumerState<CameraView> {
       return _Placeholder(
         icon: Icons.videocam_off_outlined,
         title: tr('MODE SIMULATION'),
-        detail: 'Aucune caméra à simuler.',
+        detail: tr('Aucune caméra à simuler.'),
       );
     }
 

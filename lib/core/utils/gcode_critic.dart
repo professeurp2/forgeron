@@ -1,5 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:vector_math/vector_math_64.dart';
+
+import 'kinematics_service.dart';
+
 /// Critique automatique d'un programme G-code, destinée à l'agent IA.
 ///
 /// L'agent ne produit jamais de coordonnées : il confie la génération à une
@@ -29,6 +33,10 @@ class GcodeCritic {
   /// Sur cette machine les redémarrages thermiques surviennent vers 25-35 min.
   final double maxMinutes;
 
+  /// Mode d'usinage médical : interdit tout arrosage M7/M8 pour éviter la
+  /// contamination d'un polymère implantable ou d'un guide chirurgical.
+  final bool medicalMode;
+
   const GcodeCritic({
     this.maxX = 88.0,
     this.maxY = 150.0,
@@ -38,6 +46,7 @@ class GcodeCritic {
     this.maxFeed = 500.0,
     this.maxDegPerMm = 90.0,
     this.maxMinutes = 25.0,
+    this.medicalMode = false,
   });
 
   static final _word = <String, RegExp>{
@@ -61,11 +70,24 @@ class GcodeCritic {
     var moves = 0, mixedBlocks = 0, jerkyBlocks = 0, noFeedBlocks = 0;
     var worstFeedLoss = 1.0;
     int? worstFeedLine;
+    final pieceKinematics = KinematicsService.fromProgramHeader(gcode);
 
     for (var i = 0; i < lines.length; i++) {
       final raw = lines[i].split('(').first.split(';').first.trim();
       if (raw.isEmpty) continue;
       final u = raw.toUpperCase();
+
+      if (medicalMode && RegExp(r'(?:^|\s)M0?[78](?![0-9])').hasMatch(u)) {
+        findings.add(CriticFinding(
+          code: 'arrosage_interdit_en_medical',
+          severity: CriticSeverity.blocking,
+          line: i + 1,
+          message: 'Arrosage (M7/M8) interdit en usinage médical : un fluide '
+              'd\'atelier contamine les polymères biocompatibles (PEEK, '
+              'UHMWPE, PMMA).',
+          remedy: 'Remplacer M7/M8 par M9 (coupe à sec ou air médical filtré).',
+        ));
+      }
 
       // Temporisation : ni mouvement, ni avance.
       final dwell = RegExp(r'G0?4(?:\s|\b)[^;(]*?\bP\s*([0-9]*\.?[0-9]+)')
@@ -123,6 +145,15 @@ class GcodeCritic {
       }
       final angular = math.sqrt(math.pow(na - a, 2) + math.pow(nc - c, 2));
 
+      // Sans RTCP, l'outil peut rester presque immobile en machine pendant que la
+      // table l'emmène sur la pièce : quand le programme déclare son pivot, c'est
+      // le déplacement dans le repère PIÈCE qui compte pour l'avance.
+      if (pieceKinematics != null && !isArc && angular > 1e-9) {
+        final from = pieceKinematics.forward(Vector3(x, y, z), a, c);
+        final to = pieceKinematics.forward(Vector3(nx, ny, nz), na, nc);
+        linear = (to - from).length;
+      }
+
       if (linear > 1e-9 || angular > 1e-9) {
         moves++;
 
@@ -130,7 +161,8 @@ class GcodeCritic {
         // GRBL mesure un bloc sur √(mm² + deg²). Quand les deux sont présents,
         // le F écrit se répartit entre eux : l'avance linéaire réelle vaut
         // F × linéaire / mixte. C'est le piège qui a divisé une avance par 45.
-        if (linear > 1e-9 && angular > 1e-9) {
+        // Un G0 ne coupe pas : tourner en l'air à la hauteur de sécurité est normal.
+        if (!isRapid && linear > 1e-9 && angular > 1e-9) {
           mixedBlocks++;
           final mixed = math.sqrt(linear * linear + angular * angular);
           final ratio = linear / mixed;
@@ -140,7 +172,9 @@ class GcodeCritic {
           }
         }
 
-        if (linear > 1e-9 && angular / linear > maxDegPerMm) jerkyBlocks++;
+        if (!isRapid && linear > 1e-9 && angular / linear > maxDegPerMm) {
+          jerkyBlocks++;
+        }
         if (isLinear && feed <= 0) noFeedBlocks++;
 
         final effective = isRapid ? maxFeed : (feed > 0 ? feed : maxFeed);

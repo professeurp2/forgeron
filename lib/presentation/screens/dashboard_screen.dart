@@ -20,10 +20,12 @@ import '../widgets/visualizer_mode_toggle.dart';
 import '../../application/providers/camera_provider.dart';
 import '../../application/providers/machine_params_provider.dart';
 import '../widgets/trunnion_visualizer.dart';
+import '../widgets/simulation_control_panel.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
 import '../widgets/gcode_editor_dialog.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../application/providers/ai_artifacts_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD SCREEN — Layout premium 3 zones (Forgeron Design v2)
@@ -85,9 +87,16 @@ class _DashboardLayout extends ConsumerWidget {
 // ZONE CENTRALE
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _CenterZone extends ConsumerWidget {
+class _CenterZone extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CenterZone> createState() => _CenterZoneState();
+}
+
+class _CenterZoneState extends ConsumerState<_CenterZone> {
+  DateTime? _lastScrollTime;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(machineStateProvider).valueOrNull;
     final mPos = ref.watch(renderMPosProvider);
     final gcodeState = ref.watch(gcodeProvider);
@@ -199,7 +208,7 @@ class _CenterZone extends ConsumerWidget {
             // plus affiché nulle part, l'étape « jumeau numérique » pointait
             // donc le vide.
             key: TutorialKeys.trunnionViz,
-            margin: const EdgeInsets.all(12),
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
             decoration: BoxDecoration(
               color: context.fc.background,
               borderRadius: BorderRadius.circular(8),
@@ -224,6 +233,7 @@ class _CenterZone extends ConsumerWidget {
                           .resolveToolpathIndex(state?.activeLineIndex ?? 0),
                       showVectors: ref.watch(showVectorsProvider),
                       machineLimits: ref.watch(machineTravelProvider),
+                      partMesh: ref.watch(aiArtifactsProvider).step?.preview?.mesh,
                     ),
                   // Sélecteur CAM / 3D quand une caméra est configurée ;
                   // sinon le simple libellé de la vue.
@@ -282,9 +292,19 @@ class _CenterZone extends ConsumerWidget {
           ),
         ),
 
+        // ── Barre de simulation interactive (Lecture / Pause / Vitesse) ──
+        if (!isCamera)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: const CompactSimulationBar(dense: true),
+            ),
+          ),
+
         // ── Bas : 3 cartes (Programme / Historique / Avances) ────────────
         SizedBox(
-          height: 260,
+          height: 245,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Row(
@@ -302,12 +322,23 @@ class _CenterZone extends ConsumerWidget {
                           previous?.valueOrNull?.activeLineIndex ?? 0;
                       final newIndex = next.valueOrNull?.activeLineIndex ?? 0;
                       if (newIndex != oldIndex && scrollController.hasClients) {
-                        final targetOffset = (newIndex * 22.0) - 40;
-                        scrollController.animateTo(
-                          targetOffset > 0 ? targetOffset : 0,
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOut,
+                        final targetOffset = ((newIndex * 22.0) - 40).clamp(
+                          0.0,
+                          scrollController.position.maxScrollExtent,
                         );
+                        final now = DateTime.now();
+                        if (_lastScrollTime != null &&
+                            now.difference(_lastScrollTime!).inMilliseconds <
+                                150) {
+                          scrollController.jumpTo(targetOffset);
+                        } else {
+                          _lastScrollTime = now;
+                          scrollController.animateTo(
+                            targetOffset,
+                            duration: const Duration(milliseconds: 120),
+                            curve: Curves.easeOut,
+                          );
+                        }
                       }
                     });
 
@@ -367,7 +398,7 @@ class _CenterZone extends ConsumerWidget {
                                 ),
                               )
                             : SizedBox(
-                                height: 200,
+                                height: 185,
                                 child: ListView.builder(
                                   controller: scrollController,
                                   itemCount: gcodeState.allLines.length,
@@ -817,45 +848,45 @@ class _DroBig extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              fontFamily: 'JetBrains Mono',
-            ),
-          ),
-          // Meme lecture que sur mobile : la position dans la course, en clair.
-          if (travelFraction != null) ...[
-            const SizedBox(width: 7),
-            Text('${(travelFraction! * 100).round()}%',
-                style: TextStyle(
-                    color: nearEdge
-                        ? context.fc.warning
-                        : context.fc.textDisabled,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700)),
-          ],
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              display,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: color,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                fontFamily: 'JetBrains Mono',
-                shadows: [
-                  Shadow(color: color.withValues(alpha: 0.4), blurRadius: 12),
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+                // Meme lecture que sur mobile : la position dans la course, en clair.
+                if (travelFraction != null) ...[
+                  const SizedBox(width: 7),
+                  Text('${(travelFraction! * 100).round()}%',
+                      style: TextStyle(
+                          color: nearEdge
+                              ? context.fc.warning
+                              : context.fc.textDisabled,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700)),
                 ],
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    display,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'JetBrains Mono',
+                      shadows: [
+                        Shadow(color: color.withValues(alpha: 0.4), blurRadius: 12),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
           ),
         ],
       ),
@@ -929,16 +960,22 @@ class FullScreenVisualizer extends ConsumerWidget {
         if (isCamera)
           const CameraView()
         else
-          // Même oubli qu'en vue panneau : sans `toolpath`, agrandir le
-          // simulateur donnait une machine seule, sans son parcours.
-          TrunnionVisualizer(
-            mPos: mPos,
-            targetPos: state?.targetPos,
-            toolpath: ref.watch(renderToolpathProvider),
-            activeIndex:
-                gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
-            showVectors: ref.watch(showVectorsProvider),
-            machineLimits: ref.watch(machineTravelProvider),
+          Column(
+            children: [
+              Expanded(
+                child: TrunnionVisualizer(
+                  mPos: mPos,
+                  targetPos: state?.targetPos,
+                  toolpath: ref.watch(renderToolpathProvider),
+                  activeIndex:
+                      gcodeState.resolveToolpathIndex(state?.activeLineIndex ?? 0),
+                  showVectors: ref.watch(showVectorsProvider),
+                  machineLimits: ref.watch(machineTravelProvider),
+                  partMesh: ref.watch(aiArtifactsProvider).step?.preview?.mesh,
+                ),
+              ),
+              const CompactSimulationBar(),
+            ],
           ),
         Positioned(
           top: 16,

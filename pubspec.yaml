@@ -105,6 +105,9 @@ dependencies:
 dependency_overrides:
   webview_windows:
     path: third_party/webview_windows
+  # Dictée Windows : copie corrigée (résultats perdus, voir son README-FORGERON.md).
+  speech_to_text_windows:
+    path: third_party/speech_to_text_windows
 
 dev_dependencies:
   flutter_test:
@@ -152,6 +155,8 @@ flutter:
     - web/three_viewer.html
     - web/js/three.min.js
     - web/js/OrbitControls.js
+    - web/js/dexel_stock.js
+    - web/js/part_model.js
     - assets/logo.png
     - assets/images/tools/
     - assets/audio/

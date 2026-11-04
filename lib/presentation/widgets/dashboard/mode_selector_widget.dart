@@ -125,7 +125,7 @@ class ModeSelectorWidget extends ConsumerWidget {
                           ]
                         : [
                             TextSpan(
-                                text: 'AXES A/C VERROUILLÉS',
+                                text: tr('AXES A/C VERROUILLÉS'),
                                 style: TextStyle(
                                     color: accent,
                                     fontWeight: FontWeight.w900,
@@ -187,19 +187,19 @@ class ModeSelectorWidget extends ConsumerWidget {
     final accent = to5Ax ? fc.primary : fc.success;
 
     final description = to5Ax
-        ? 'Mode 5 axes simultanés. Les axes A et C seront déverrouillés et '
-            'le ForceGuard bornera l\'avance de sécurité.'
-        : 'Mode 3 axes (X, Y, Z). Les axes A et C seront verrouillés en '
-            'position actuelle.';
+        ? tr('Mode 5 axes simultanés. Les axes A et C seront déverrouillés et '
+            'le ForceGuard bornera l\'avance de sécurité.')
+        : tr('Mode 3 axes (X, Y, Z). Les axes A et C seront verrouillés en '
+            'position actuelle.');
 
     final chips = to5Ax
         ? [
-            _DialogStat('AVANCE MAX', '${newMode.maxFeedrate.toInt()}', 'mm/min'),
-            _DialogStat('R_max', '${newMode.maxResultantForce}', 'N'),
+            _DialogStat(tr('AVANCE MAX'), '${newMode.maxFeedrate.toInt()}', 'mm/min'),
+            _DialogStat(tr('R_max'), '${newMode.maxResultantForce}', 'N'),
           ]
         : [
-            _DialogStat('FORCE NOM.', '${newMode.nominalForce.toInt()}', 'N'),
-            _DialogStat('AXES A·C', 'LOCK', ''),
+            _DialogStat(tr('FORCE NOM.'), '${newMode.nominalForce.toInt()}', 'N'),
+            _DialogStat(tr('AXES A·C'), 'LOCK', ''),
           ];
 
     showDialog(
@@ -515,12 +515,16 @@ class _ForceStatTile extends StatelessWidget {
           Row(children: [
             Icon(icon, size: 12, color: accent),
             const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: fc.textDisabled,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    fontFamily: 'JetBrains Mono')),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: fc.textDisabled,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'JetBrains Mono')),
+            ),
           ]),
           const SizedBox(height: 4),
           Row(

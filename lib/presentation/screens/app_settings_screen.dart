@@ -11,6 +11,7 @@ import 'limit_switch_test_screen.dart';
 import 'limit_config_screen.dart';
 import 'connection_settings_screen.dart';
 import 'ai_agent_settings_screen.dart';
+import 'scan3d_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/i18n/app_language.dart';
 
@@ -45,7 +46,7 @@ class AppSettingsScreen extends ConsumerWidget {
         child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionLabel(fc, 'APPARENCE'),
+          _sectionLabel(fc, tr('APPARENCE')),
           _card(
             fc,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -244,14 +245,14 @@ class AppSettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          _sectionLabel(fc, 'MACHINE'),
+          _sectionLabel(fc, tr('MACHINE')),
           _navTile(
             context,
             fc,
             icon: Icons.auto_fix_high_rounded,
             color: fc.warning,
             title: tr('Assistant de mise en route'),
-            subtitle: 'Homing → cinématique → origine pièce, guidé',
+            subtitle: tr('Homing → cinématique → origine pièce, guidé'),
             screen: const SetupWizardScreen(),
           ),
           _navTile(
@@ -260,7 +261,7 @@ class AppSettingsScreen extends ConsumerWidget {
             icon: Icons.tune_rounded,
             color: fc.primary,
             title: tr('Calibration machine'),
-            subtitle: 'Cinématique des axes, homing, redémarrage ESP32',
+            subtitle: tr('Cinématique des axes, homing, redémarrage ESP32'),
             screen: const MachineCalibrationScreen(),
           ),
           _navTile(
@@ -269,7 +270,7 @@ class AppSettingsScreen extends ConsumerWidget {
             icon: Icons.sensors_rounded,
             color: fc.axisZ,
             title: tr('Test des fins de course'),
-            subtitle: 'Vérifie le câblage : presse chaque switch, vois l\'axe',
+            subtitle: tr('Vérifie le câblage : presse chaque switch, vois l\'axe'),
             screen: const LimitSwitchTestScreen(),
           ),
           _navTile(
@@ -278,7 +279,7 @@ class AppSettingsScreen extends ConsumerWidget {
             icon: Icons.settings_input_component_rounded,
             color: fc.danger,
             title: tr('Fins de course — config'),
-            subtitle: 'Pins, hard limits, soft limits (écrit dans FluidNC)',
+            subtitle: tr('Pins, hard limits, soft limits (écrit dans FluidNC)'),
             screen: const LimitConfigScreen(),
           ),
           _navTile(
@@ -287,7 +288,7 @@ class AppSettingsScreen extends ConsumerWidget {
             icon: Icons.wifi_rounded,
             color: fc.success,
             title: tr('Connexion ESP32'),
-            subtitle: 'Adresse de la carte, mode simulation, reconnexion',
+            subtitle: tr('Adresse de la carte, mode simulation, reconnexion'),
             screen: const ConnectionSettingsScreen(),
           ),
 
@@ -300,7 +301,7 @@ class AppSettingsScreen extends ConsumerWidget {
             icon: Icons.factory_rounded,
             color: fc.primary,
             title: tr('Mode atelier'),
-            subtitle: 'Affichage plein écran pour le poste de travail',
+            subtitle: tr('Affichage plein écran pour le poste de travail'),
             onTap: () {
               ref.read(isWorkshopModeProvider.notifier).state = true;
               Navigator.of(context).pop();
@@ -308,15 +309,24 @@ class AppSettingsScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 20),
-          _sectionLabel(fc, 'ASSISTANT'),
+          _sectionLabel(fc, tr('ASSISTANT')),
           _navTile(
             context,
             fc,
             icon: Icons.smart_toy_outlined,
             color: fc.secondary,
             title: tr('Agent IA'),
-            subtitle: 'Clé API, modèle, permissions, voix',
+            subtitle: tr('Clé API, modèle, permissions, voix'),
             screen: const AiAgentSettingsScreen(),
+          ),
+          _navTile(
+            context,
+            fc,
+            icon: Icons.camera_enhance_rounded,
+            color: fc.primary,
+            title: tr('Scan 3D — Photo vers Usinage'),
+            subtitle: tr('Reconstruction 3D locale sur PC GPU, métrique ou générative'),
+            screen: const Scan3dScreen(),
           ),
         ],
         ),

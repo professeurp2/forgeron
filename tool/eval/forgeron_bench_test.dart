@@ -160,6 +160,10 @@ void main() {
   // utiles au message. Désactivé par défaut ; adopté seulement si le banc le
   // justifie.
   final routing = env['BENCH_ROUTING'] == '1';
+  // Spécialistes (avec le routage) : le prompt fixe ne garde que le tronc
+  // commun et les sections des groupes retenus, comme l'application
+  // (`AiAgentController.specialistSystemPrompt`). `BENCH_SPECIALISTS=1`.
+  final specialists = routing && env['BENCH_SPECIALISTS'] == '1';
   // Frontal à lexique fermé (étude des langues locales) : un énoncé que le
   // lexique comprend sans réserve est exécuté SANS le modèle ; sinon le modèle
   // prend le relais. `BENCH_FRONT=lexique`. Désactivé par défaut.
@@ -270,6 +274,12 @@ void main() {
         final tr = await _runScenario(service, sc, declarations, systemPrompt,
             fastPath: fastPath,
             router: routing ? const ToolRouter() : null,
+            specialistPrompt: specialists && env['BENCH_PROMPT_FILE'] == null
+                // ignore: invalid_use_of_visible_for_testing_member
+                ? (groups) => '${AiAgentController.specialistSystemPrompt(groups)}'
+                    '\n\n$_dynamicTail'
+                    '${systemSuffix == null ? '' : '\n\n$systemSuffix'}'
+                : null,
             lexicon: lexicon,
             gate: gate,
             docs: docs,
@@ -306,6 +316,7 @@ void main() {
       options: {
         'chemin_rapide_arret_urgence': fastPath,
         'routage_outils': routing,
+        if (specialists) 'specialistes': true,
         if (lexicon != null) 'frontal_lexique': true,
         if (lexicon != null && gate) 'garde_refus_lexique': true,
         'suffixe_systeme': ?systemSuffix,
@@ -379,6 +390,7 @@ Future<BenchTrace> _runScenario(
   String systemPrompt, {
   bool fastPath = true,
   ToolRouter? router,
+  String Function(Set<String> groups)? specialistPrompt,
   CommandLexicon? lexicon,
   bool gate = false,
   Map<String, dynamic>? pivot,
@@ -451,7 +463,10 @@ Future<BenchTrace> _runScenario(
   final decls = docsPart == null
       ? declarations
       : declarations.where((d) => d['name'] != 'search_docs').toList();
+  // Groupes retenus au dernier routage (null : catalogue complet).
+  Set<String>? turnGroups;
   List<Map<String, dynamic>> declarationsForTurn() {
+    turnGroups = null;
     if (readOnlyOnly) {
       // Même règle que le produit (command_understanding.dart).
       return decls.where((d) => isReadOnlyToolName('${d['name']}')).toList();
@@ -470,6 +485,7 @@ Future<BenchTrace> _runScenario(
     };
     final routing =
         router.route(text: user ?? '', allTools: names, recentGroups: recent);
+    if (routing.routed) turnGroups = routing.groups;
     return decls.where((d) => routing.tools.contains('${d['name']}')).toList();
   }
 
@@ -482,7 +498,11 @@ Future<BenchTrace> _runScenario(
       final r = await service.sendMessages(
         contents: contents,
         functionDeclarations: turnDeclarations,
-        systemPrompt: promptForTurn,
+        systemPrompt: (specialistPrompt != null && turnGroups != null)
+            ? (docsPart == null
+                ? specialistPrompt(turnGroups!)
+                : '${specialistPrompt(turnGroups!)}\n\n$docsPart')
+            : promptForTurn,
       );
       tokens += r.totalTokens;
       notes.addAll(r.notes);

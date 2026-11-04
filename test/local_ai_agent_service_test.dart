@@ -627,6 +627,99 @@ void main() {
     });
   });
 
+  group('dérive en anglais', () {
+    const deriveEn =
+        'I encountered an error while attempting to generate the G-code from the STEP file. '
+        'The delay exceeded the maximum allowed time of 120 seconds. Please check the file.';
+    const propreFr =
+        'J\'ai rencontré une erreur lors de la génération du G-code depuis le fichier STEP : '
+        'le délai maximal de 120 secondes a été dépassé. Vérifie le fichier.';
+
+    List<Map<String, dynamic>> question(String t) => [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': t}
+            ]
+          }
+        ];
+
+    AiApiResponse reponse(String t, {String finish = 'STOP'}) => AiApiResponse(
+        parts: [
+          {'text': t}
+        ],
+        finishReason: finish,
+        totalTokens: 100);
+
+    test('détecte une réponse anglaise à une question française', () {
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(deriveEn), question('Charge ce fichier STEP et prépare le G-code.')),
+          isTrue);
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(propreFr), question('Charge ce fichier STEP et prépare le G-code.')),
+          isFalse);
+    });
+
+    test('si l\'opérateur écrit en anglais, la réponse en anglais est autorisée', () {
+      expect(
+          LocalAiAgentService.driftedToEnglish(
+              reponse(deriveEn), question('Please generate the G-code for this STEP file.')),
+          isFalse);
+    });
+
+    test('détecte la dérive même après un retour d\'outil (ex: erreur CAM)', () {
+      final contents = [
+        ...question('Charge ce fichier STEP et prépare le G-code.'),
+        {
+          'role': 'model',
+          'parts': [
+            {
+              'functionCall': {
+                'name': 'run_step_pipeline',
+                'args': {'file_path': 'test.step'}
+              }
+            }
+          ]
+        },
+        {
+          'role': 'user',
+          'parts': [
+            {
+              'functionResponse': {
+                'name': 'run_step_pipeline',
+                'response': {
+                  'error': 'Délai dépassé (120 s) lors de la génération CAM'
+                }
+              }
+            }
+          ]
+        },
+      ];
+      expect(
+          LocalAiAgentService.driftedToEnglish(reponse(deriveEn), contents),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(deriveEn), contents),
+          isTrue);
+    });
+
+    test('hasLanguageDrift couvre aussi bien le chinois que l\'anglais', () {
+      final qFr = question('Quelle est la vitesse ?');
+      expect(
+          LocalAiAgentService.hasLanguageDrift(
+              reponse('讨论中。我已经生成了预览。'), qFr),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(deriveEn), qFr),
+          isTrue);
+      expect(
+          LocalAiAgentService.hasLanguageDrift(reponse(propreFr), qFr),
+          isFalse);
+    });
+  });
+
   group('appel d\'outil écrit en texte', () {
     // Relevé sur Qwen2.5-7B, longue discussion : la balise d'ouverture est
     // remplacée par un mot sans rapport, le serveur ne la reconnaît pas, et
@@ -878,6 +971,54 @@ void main() {
       final content = msgs.single['content'] as List;
       expect(content.last['type'], 'image_url');
       expect(jsonEncode(msgs), isNot(contains('ne lit que du texte')));
+    });
+
+    test('image déjà décrite : le pilote reçoit la fiche, pas « tu ne peux pas la voir »',
+        () {
+      final fiche = LocalAiAgentService.imageFichePart(
+          'Une pièce cylindrique bridée, environ 40 mm.', 'gemma3n:latest');
+      final msgs = LocalAiAgentService.toOpenAiMessages([
+        {
+          'role': 'user',
+          'parts': [
+            {'text': 'Que vois-tu ?'},
+            png,
+            fiche,
+          ]
+        },
+      ], null, supportsImages: false);
+
+      final text = msgs.single['content'] as String;
+      expect(text, startsWith('Que vois-tu ?\n${LocalAiAgentService.imageFicheNote}'));
+      expect(text, contains('gemma3n:latest'));
+      expect(text, contains('Une pièce cylindrique bridée'));
+      expect(text, isNot(contains(LocalAiAgentService.imageNote)));
+      expect(jsonEncode(msgs), isNot(contains('image_url')));
+    });
+
+    test('un modèle qui lit les images reçoit l\'image ET la fiche', () {
+      final msgs = LocalAiAgentService.toOpenAiMessages([
+        {
+          'role': 'user',
+          'parts': [
+            png,
+            LocalAiAgentService.imageFichePart('Une fraise.', 'gemma3n:latest'),
+          ]
+        },
+      ], null);
+
+      final content = msgs.single['content'] as List;
+      expect(content.any((c) => c['type'] == 'image_url'), isTrue);
+      expect(jsonEncode(content), contains('Une fraise.'));
+    });
+
+    test('une fiche trop longue est tronquée', () {
+      final part = LocalAiAgentService.imageFichePart('x' * 5000, 'm');
+      final text = part['text'] as String;
+      expect(text, startsWith(LocalAiAgentService.imageFichePrefix));
+      expect(text.length,
+          lessThan(LocalAiAgentService.imageFicheMaxChars + 100));
+      expect(text, endsWith('…'));
     });
   });
 

@@ -494,7 +494,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
           ),
           // Actions compactes en icônes (évite le débordement sur mobile).
           if (_isEditing) ...[
-            _EditorAction(Icons.close_rounded, 'Annuler', context.fc.textDisabled,
+            _EditorAction(Icons.close_rounded, tr('Annuler'), context.fc.textDisabled,
                 () => setState(() => _isEditing = false)),
             _EditorAction(Icons.flash_on_rounded, 'Appliquer à la machine',
                 context.fc.success, _saveEditorContent),

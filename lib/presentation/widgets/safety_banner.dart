@@ -30,8 +30,8 @@ class SafetyBanner extends ConsumerWidget {
         icon: Icons.gpp_bad_rounded,
         title: tr('ARRÊT D\'URGENCE NON TRANSMIS'),
         detail:
-            'La liaison est coupée : la commande n\'est jamais partie. '
-            'La machine n\'est PAS arrêtée — coupez l\'alimentation physiquement.',
+            tr('La liaison est coupée : la commande n\'est jamais partie. '
+            'La machine n\'est PAS arrêtée — coupez l\'alimentation physiquement.'),
         onDismiss: () =>
             ref.read(estopFailedProvider.notifier).state = false,
       );

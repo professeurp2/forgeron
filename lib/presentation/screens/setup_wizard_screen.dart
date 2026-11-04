@@ -184,12 +184,12 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading(fc, Icons.shield_outlined, 'Avant de commencer',
-            'Cet assistant prépare la machine en 3 temps : zéro machine, cinématique, origine pièce. Vérifie ces points :'),
-        _checkItem(fc, online, 'Machine connectée (ESP32 en ligne)',
-            online ? null : 'Hors ligne — vérifie la connexion.'),
-        _checkItem(fc, true, 'Zone de travail dégagée (pas d\'obstacle)', null),
-        _checkItem(fc, true, 'Arrêt d\'urgence accessible', null),
+        _heading(fc, Icons.shield_outlined, tr('Avant de commencer'),
+            tr('Cet assistant prépare la machine en 3 temps : zéro machine, cinématique, origine pièce. Vérifie ces points :')),
+        _checkItem(fc, online, tr('Machine connectée (ESP32 en ligne)'),
+            online ? null : tr('Hors ligne — vérifie la connexion.')),
+        _checkItem(fc, true, tr('Zone de travail dégagée (pas d\'obstacle)'), null),
+        _checkItem(fc, true, tr('Arrêt d\'urgence accessible'), null),
       ],
     );
   }
@@ -220,16 +220,16 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading(fc, Icons.home_rounded, 'Zéro machine (homing)',
-            'La machine va toucher ses fins de course pour établir sa référence absolue. Étape indispensable avant de poser une origine pièce.'),
+        _heading(fc, Icons.home_rounded, tr('Zéro machine (homing)'),
+            tr('La machine va toucher ses fins de course pour établir sa référence absolue. Étape indispensable avant de poser une origine pièce.')),
         if (_homingDone)
           _statusBox(fc, fc.success, Icons.check_circle_rounded,
-              'Homing terminé — le zéro machine est établi.')
+              tr('Homing terminé — le zéro machine est établi.'))
         else if (homing)
-          _statusBox(fc, fc.primary, null, 'Homing en cours…', spinner: true)
+          _statusBox(fc, fc.primary, null, tr('Homing en cours…'), spinner: true)
         else
           _bigButton(fc, fc.axisZ, Icons.play_arrow_rounded,
-              'LANCER LE HOMING (\$H)', () {
+              tr('LANCER LE HOMING (\$H)'), () {
             ref.read(machineRepositoryProvider).home();
             setState(() {
               _homingLaunched = true;
@@ -253,8 +253,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading(fc, Icons.tune_rounded, 'Cinématique des axes',
-            'Vérifie que les dimensions/pas correspondent à ta machine. Sinon, ouvre la calibration pour les ajuster (et les enregistrer dans FluidNC).'),
+        _heading(fc, Icons.tune_rounded, tr('Cinématique des axes'),
+            tr('Vérifie que les dimensions/pas correspondent à ta machine. Sinon, ouvre la calibration pour les ajuster (et les enregistrer dans FluidNC).')),
         if (kin.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(12),
@@ -316,7 +316,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading(fc, Icons.gps_fixed_rounded, 'Origine pièce (WCS)',
+        _heading(fc, Icons.gps_fixed_rounded, tr('Origine pièce (WCS)'),
             'Choisis un système, amène l\'outil au point d\'origine avec le jog, puis pose le zéro (G10 L20).'),
         // Sélecteur WCS
         Wrap(

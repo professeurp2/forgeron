@@ -63,7 +63,13 @@ axes:
     # HOMING — ⚠️ VÉRIFIE positive_direction par un jog AVANT $H (sinon crash).
     # false = l'axe cherche son switch en direction NÉGATIVE (côté min).
     homing:
-      cycle: 2
+      # TEST DIAGNOSTIC (2026-09-17) : X était en cycle 2 AVEC Y, donc les
+      # deux moteurs bougeaient ensemble pendant $H alors que $HX ne bouge
+      # que X. C'est la seule différence entre « $H échoue » et « un par un
+      # ça passe ». Cycle propre → un seul moteur à la fois. Si $H passe
+      # maintenant, la cause est la simultanéité (courant/alim ou diaphonie
+      # sur la ligne du capteur), pas X lui-même.
+      cycle: 3
       positive_direction: false
       mpos_mm: 0.000
       feed_mm_per_min: 100.000
@@ -188,13 +194,19 @@ axes:
     # faux → A=0 ne tombait pas à l'horizontale). Course -88→+90.
     max_travel_mm: 178.000
     soft_limits: true
-    # HOMING A — capteur à l'extrémité NÉGATIVE. Contact réel = -88° de
-    # l'horizontale (mesuré ; l'ancien 95 était faux) → mpos_mm: -88 pour que A=0
-    # tombe pile à l'horizontale ET que le capteur = limite basse (plus de course
-    # "fantôme" au-delà du switch). positive_direction: false.
+    # HOMING A — Contact réel mesuré à -88° de l'horizontale (l'ancien 95 était
+    # faux) → mpos_mm: -88 pour que A=0 tombe pile à l'horizontale.
+    #
+    # positive_direction passé à true (2026-09-17) : le capteur est désormais
+    # traité comme l'extrémité POSITIVE de la course, A cherche donc son
+    # switch en montant.
+    # ⚠️ mpos_mm est resté à -88 : capteur côté positif, la fenêtre de soft
+    # limits devient mpos-course → mpos, soit -266→-88, et A=0 tombe dehors.
+    # Si le contact réel est maintenant à +90, mettre mpos_mm: 90.000.
+    # Vérif après $H : « G0 A0 » doit être accepté.
     homing:
-      cycle: 3
-      positive_direction: false
+      cycle: 4
+      positive_direction: true
       mpos_mm: -88.000
       feed_mm_per_min: 200.000
       seek_mm_per_min: 1000.000

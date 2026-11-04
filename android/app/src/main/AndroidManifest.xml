@@ -27,6 +27,10 @@
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
+    <!-- Capture photo / scan 3D (image_picker) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <!-- usesCleartextTraffic : FluidNC est joint en clair (ws:// sur le LAN de
          l'atelier), or Android 9+ bloque le trafic non chiffré par défaut.
          Sans ça, la connexion est refusée avant même d'atteindre la machine. -->
@@ -39,7 +43,6 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

@@ -14,6 +14,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
 import 'ai_sub_window_content.dart';
 import 'ai_viewer_windows.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// Racine Dart d'une fenêtre ouverte par `AiWindowLauncher` — un second
 /// moteur Flutter, indépendant de [ForgeronApp] (voir main.dart). Elle ne

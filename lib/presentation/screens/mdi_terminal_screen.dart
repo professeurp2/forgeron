@@ -45,7 +45,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
     _logLines.add((
       _formatTime(DateTime.now()),
       'INFO',
-      'Terminal prêt. En attente de trafic...',
+      tr('Terminal prêt. En attente de trafic...'),
     ));
 
     Future.microtask(() {
@@ -152,21 +152,21 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
 
   List<(IconData, String, Color)> get _macros => [
     (Icons.home, 'ORIGINES', context.fc.primary),
-    (Icons.gps_fixed, 'ZÉRO PIÈCE', context.fc.primary),
-    (Icons.sensors, 'PALPAGE Z', context.fc.secondary),
-    (Icons.rotate_right, 'BROCHE H', context.fc.success),
-    (Icons.stop_circle, 'ARRÊT B.', context.fc.error),
-    (Icons.rotate_left, 'BROCHE AH', context.fc.success),
-    (Icons.water_drop, 'ARROSAGE ON', context.fc.primary),
-    (Icons.water_drop_outlined, 'ARROSAGE OFF', context.fc.textDisabled),
+    (Icons.gps_fixed, tr('ZÉRO PIÈCE'), context.fc.primary),
+    (Icons.sensors, tr('PALPAGE Z'), context.fc.secondary),
+    (Icons.rotate_right, tr('BROCHE H'), context.fc.success),
+    (Icons.stop_circle, tr('ARRÊT B.'), context.fc.error),
+    (Icons.rotate_left, tr('BROCHE AH'), context.fc.success),
+    (Icons.water_drop, tr('ARROSAGE ON'), context.fc.primary),
+    (Icons.water_drop_outlined, tr('ARROSAGE OFF'), context.fc.textDisabled),
     (Icons.air, 'SOUFFLAGE', context.fc.secondary),
-    (Icons.vertical_align_top, 'Z SÉCU', context.fc.primary),
+    (Icons.vertical_align_top, tr('Z SÉCU'), context.fc.primary),
     (Icons.local_parking, 'PARKING', context.fc.textSecondary),
-    (Icons.build, 'CHG OUTIL', context.fc.warning),
+    (Icons.build, tr('CHG OUTIL'), context.fc.warning),
     (Icons.play_arrow, 'REPRENDRE', context.fc.success),
-    (Icons.pause, 'PAUSE', context.fc.warning),
-    (Icons.cancel, 'ANNULER', context.fc.error),
-    (Icons.lock_open, 'DÉBLOQUER', context.fc.primary),
+    (Icons.pause, tr('PAUSE'), context.fc.warning),
+    (Icons.cancel, tr('ANNULER'), context.fc.error),
+    (Icons.lock_open, tr('DÉBLOQUER'), context.fc.primary),
   ];
 
   @override
@@ -198,7 +198,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               // n'a jamais rien mesuré. À la place, la seule quantité que
               // cet écran connaisse vraiment — le nombre de lignes gardées.
               Text(
-                tr(_logLines.length > 1 ? '{} LIGNES' : '{} LIGNE',
+                tr(_logLines.length > 1 ? tr('{} LIGNES') : tr('{} LIGNE'),
                     [_logLines.length]),
                 style: TextStyle(
                   color: context.fc.textDisabled,

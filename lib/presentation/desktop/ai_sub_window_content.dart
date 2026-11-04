@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import '../../core/i18n/app_localizations.dart';
 
 /// Contenu d'une fenêtre « graphique » ouverte par l'agent IA. [payload]
 /// vient tel quel de `AiWindowLauncher.openChart` (labels/values/unit).
@@ -22,7 +23,7 @@ class ChartWindow extends StatelessWidget {
 
     if (values.isEmpty) {
       return ScaffoldPage(
-        content: Center(child: Text('Aucune donnée.', style: theme.typography.body)),
+        content: Center(child: Text(tr('Aucune donnée.'), style: theme.typography.body)),
       );
     }
 
@@ -39,7 +40,7 @@ class ChartWindow extends StatelessWidget {
           if (unit.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text('unité : $unit', style: theme.typography.caption),
+              child: Text(tr('unité : {}', [unit]), style: theme.typography.caption),
             ),
           Expanded(
             child: LineChart(
@@ -129,7 +130,7 @@ class GcodeWindow extends StatelessWidget {
           primaryItems: [
             CommandBarButton(
               icon: const Icon(FluentIcons.copy),
-              label: const Text('Copier'),
+              label: Text(tr('Copier')),
               onPressed: () => Clipboard.setData(ClipboardData(text: content)),
             ),
           ],
@@ -138,7 +139,7 @@ class GcodeWindow extends StatelessWidget {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$lineCount lignes', style: theme.typography.caption),
+          Text(tr('{} lignes', [lineCount]), style: theme.typography.caption),
           const SizedBox(height: 10),
           Expanded(
             child: Container(

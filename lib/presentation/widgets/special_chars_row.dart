@@ -25,6 +25,9 @@ class SpecialCharSet {
 /// de propre au bambara.
 const kBambaraChars = SpecialCharSet(
   id: 'bm',
+  // Donnee const : la traduction se fait a l'affichage (`tr(set.label)`
+  // plus bas), sinon elle serait figee au premier acces et ne suivrait
+  // jamais un changement de langue.
   label: 'Bambara',
   chars: ['ɛ', 'ɔ', 'ɲ', 'ŋ'],
 );

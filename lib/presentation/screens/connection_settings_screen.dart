@@ -34,7 +34,7 @@ class _ConnectionSettingsScreenState
 
   // Connexion assistée à l'AP WiFi de l'ESP32.
   // SSID du point d'accès porté par l'ESP32 FluidNC de la machine.
-  final _ssidCtrl = TextEditingController(text: 'FORGERON');
+  final _ssidCtrl = TextEditingController(text: tr('FORGERON'));
   final _pwdCtrl = TextEditingController(text: '00000001');
   bool _wifiConnecting = false;
   String? _wifiMsg;
@@ -91,7 +91,7 @@ class _ConnectionSettingsScreenState
   Future<void> _connectWifi() async {
     final ssid = _ssidCtrl.text.trim();
     if (ssid.isEmpty) {
-      setState(() => _wifiMsg = 'Renseigne le SSID de l\'AP ESP32.');
+      setState(() => _wifiMsg = tr('Renseigne le SSID de l\'AP ESP32.'));
       return;
     }
     setState(() {
@@ -108,7 +108,7 @@ class _ConnectionSettingsScreenState
         _wifiOk = ok;
         _wifiMsg = ok
             ? 'Connecté à $ssid. Reconnexion auto après un reboot.'
-            : 'Connexion non établie.';
+            : tr('Connexion non établie.');
       });
     } catch (e) {
       if (mounted) {
@@ -127,7 +127,7 @@ class _ConnectionSettingsScreenState
     if (mounted) {
       setState(() {
         _wifiOk = false;
-        _wifiMsg = 'Détaché de l\'AP ESP32.';
+        _wifiMsg = tr('Détaché de l\'AP ESP32.');
       });
     }
   }
@@ -504,7 +504,7 @@ class _ConnectionSettingsScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isSim ? 'SIMULATION' : 'LIAISON ACTIVE',
+                      isSim ? 'SIMULATION' : tr('LIAISON ACTIVE'),
                       style: TextStyle(
                         color: color,
                         fontSize: isMobile ? 14 : 16,
@@ -822,7 +822,7 @@ class _ConnectionSettingsScreenState
             label: tr('PORT WEBSOCKET'),
             controller: _wsPortCtrl,
             icon: Icons.numbers,
-            hint: 'Défaut: 81',
+            hint: tr('Défaut: 81'),
           ),
           SizedBox(height: 24),
           SizedBox(
@@ -832,7 +832,7 @@ class _ConnectionSettingsScreenState
               icon: _testing
                   ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Icon(Icons.network_check_rounded, size: 18),
-              label: Text(_testing ? 'VÉRIFICATION...' : 'TESTER LA CONNEXION'),
+              label: Text(_testing ? tr('VÉRIFICATION...') : tr('TESTER LA CONNEXION')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: context.fc.surfaceBright,
                 foregroundColor: context.fc.primary,
@@ -929,17 +929,17 @@ class _ConnectionSettingsScreenState
       CameraStatus.found => (
           context.fc.success,
           Icons.videocam,
-          'CAMÉRA DÉTECTÉE'
+          tr('CAMÉRA DÉTECTÉE')
         ),
       CameraStatus.searching => (
           context.fc.info,
           Icons.search,
-          'RECHERCHE EN COURS…'
+          tr('RECHERCHE EN COURS…')
         ),
       CameraStatus.absent => (
           context.fc.textDisabled,
           Icons.videocam_off_outlined,
-          'AUCUNE CAMÉRA'
+          tr('AUCUNE CAMÉRA')
         ),
     };
 
@@ -1082,13 +1082,13 @@ class _ConnectionSettingsScreenState
       title: tr('ARCHITECTURE MACHINE'),
       child: Column(
         children: [
-          _buildInfoRow('Type Cinématique', 'Trunnion 5-Axes (XYZAC)', context.fc.primary),
+          _buildInfoRow(tr('Type Cinématique'), tr('Trunnion 5-Axes (XYZAC)'), context.fc.primary),
           SizedBox(height: 12),
-          _buildInfoRow('Axe Pivot (A)', '±110° sur X', context.fc.axisA),
+          _buildInfoRow(tr('Axe Pivot (A)'), tr('±110° sur X'), context.fc.axisA),
           SizedBox(height: 12),
-          _buildInfoRow('Table Rotative (C)', '360° Continu sur Z', context.fc.axisC),
+          _buildInfoRow(tr('Table Rotative (C)'), tr('360° Continu sur Z'), context.fc.axisC),
           SizedBox(height: 12),
-          _buildInfoRow('Taux Télémétrie', '200ms (5Hz)', context.fc.axisZ),
+          _buildInfoRow(tr('Taux Télémétrie'), tr('200ms (5Hz)'), context.fc.axisZ),
           Divider(height: 32, color: context.fc.surfaceBorder),
           Row(
             children: [

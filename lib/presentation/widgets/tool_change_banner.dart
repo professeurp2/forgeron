@@ -118,11 +118,11 @@ class ToolChangeBanner extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     if (tool.diameterMm != null)
-                      _pill(fc, 'Ø ${_trim(tool.diameterMm!)} mm'),
+                      _pill(fc, tr('Ø {} mm', [_trim(tool.diameterMm!)])),
                     if (tool.flutes != null)
-                      _pill(fc, '${tool.flutes} tailles'),
+                      _pill(fc, tr('{} tailles', [tool.flutes])),
                     if (tool.cuttingLengthMm != null)
-                      _pill(fc, 'coupe ${_trim(tool.cuttingLengthMm!)} mm'),
+                      _pill(fc, tr('coupe {} mm', [_trim(tool.cuttingLengthMm!)])),
                     if (tool.material != null) _pill(fc, tool.material!),
                   ]),
                 ],
@@ -192,7 +192,7 @@ class ToolChangeBanner extends ConsumerWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            tool?.description ?? 'Le programme ne décrit pas cet outil.',
+            tool?.description ?? tr('Le programme ne décrit pas cet outil.'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -211,7 +211,7 @@ class ToolChangeBanner extends ConsumerWidget {
           if (tool.diameterMm != null) _pill(fc, 'Ø ${_trim(tool.diameterMm!)}'),
           if (tool.flutes != null) ...[
             const SizedBox(width: 5),
-            _pill(fc, '${tool.flutes} tailles'),
+            _pill(fc, tr('{} tailles', [tool.flutes])),
           ],
         ],
         const SizedBox(width: 14),

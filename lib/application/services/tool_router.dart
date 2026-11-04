@@ -91,6 +91,8 @@ class ToolRouter {
       keywords: [
         'programme', 'program', 'lance', 'execute', 'run', 'cycle', 'g code',
         'gcode', 'commande', 'envoie', 'send', 'demarre le', 'start the',
+        'usinage', 'usiner', 'usinons', 'machine la', 'demarre la', 'démarrer',
+        'demarrer', 'fabrication', 'fabriquer', 'lancer',
       ],
     ),
     'fichiers': ToolGroup(
@@ -108,21 +110,80 @@ class ToolRouter {
       tools: {
         'run_step_pipeline', 'preview_step_file', 'open_toolpath_window',
         'open_gcode_window', 'open_chart_window', 'show_popup',
-        'list_workspace_files', 'analyze_gcode',
+        'list_workspace_files', 'analyze_gcode', 'run_program',
+        'get_reco3d_status', 'start_machine_scan', 'get_scan_job_status',
+        'download_scan_result',
+        'run_machining_simulation', 'control_simulation',
+        'capture_workspace_view',
       },
       keywords: [
         'step', 'stp', 'apercu', 'preview', '3d', 'parcours', 'toolpath',
         'genere', 'generer', 'generate', 'usinage', 'cao', 'cam', 'piece',
         'graphique', 'chart', 'courbe', 'fenetre', 'window',
+        'implant', 'medical', 'chirurgical', 'dicom', 'peek', 'pmma', 'uhmwpe',
+        'prothese', 'cranien', 'biocompatible',
+      ],
+    ),
+    'simulation': ToolGroup(
+      tools: {
+        'run_machining_simulation',
+        'control_simulation',
+        'switch_simulator_camera_tab',
+        'capture_workspace_view',
+        'analyze_gcode',
+      },
+      keywords: [
+        'simule', 'simuler', 'simulation', 'simulate', 'simulateur', 'simulator',
+        'jumeau', 'digital twin', 'viewcube', 'isometric', 'isometrique',
+        'brut', 'cuboid', 'cylindre', 'cylinder', 'collision', 'enlevement',
       ],
     ),
     'camera': ToolGroup(
-      tools: {'get_camera_snapshot'},
+      tools: {
+        'get_camera_snapshot',
+        'capture_workspace_view',
+        'switch_simulator_camera_tab',
+      },
       keywords: [
         'camera', 'photo', 'image', 'zone de coupe', 'montre', 'vois', 'regarde',
         'snapshot', 'cutting area', 'show me',
+        'capture', 'screenshot', 'ecran', 'screen', 'visuel', 'visuellement',
+        'que se passe', 'ce qui se passe', 'inspecte',
       ],
     ),
+    'scan': ToolGroup(
+      tools: {
+        'get_reco3d_status',
+        'discover_reco3d_server',
+        'start_machine_scan',
+        'get_scan_job_status',
+        'download_scan_result',
+        'preview_step_file',
+        'show_popup',
+      },
+      keywords: [
+        'scan', 'scanner', 'scan3d', 'numériser', 'numeriser', 'numérisation',
+        'numerisation', 'reco3d', 'reconstruction', 'maillage', 'mesh', 'stl',
+        'photogrammétrie', 'photogrammetrie', 'meshroom', 'en machine',
+        'caméra embarquée', 'camera embarquee', 'plateau rotatif', 'poses',
+      ],
+    ),
+  };
+
+  /// Nom du spécialiste de chaque groupe, montré à l'opérateur pendant qu'il
+  /// travaille (console IA). `images` désigne le modèle d'images, qui n'est
+  /// pas un groupe d'outils.
+  static const labels = <String, String>{
+    'etat': 'Surveillance',
+    'mouvement': 'Mouvement',
+    'broche': 'Broche',
+    'programme': 'Programme',
+    'fichiers': 'Fichiers',
+    'cao': 'FAO',
+    'camera': 'Caméra',
+    'simulation': 'Simulation',
+    'scan': 'Scan 3D',
+    'images': 'Images',
   };
 
   /// Noms d'outils à déclarer pour [text].
