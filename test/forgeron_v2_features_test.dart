@@ -118,7 +118,7 @@ Vous pouvez maintenant lancer la simulation cinématique.
       expect(frLang.trailingPromptAnchor(), contains('CONSIGNE FINALE DE LANGUE'));
 
       final bmLang = appLanguageById('bm');
-      expect(bmLang.trailingPromptAnchor(), contains('FRANÇAIS SIMPLE'));
+      expect(bmLang.trailingPromptAnchor(), contains('bambara'));
     });
 
     test('GrblAlarmCatalog et le dictionnaire Bambara traduisent dynamiquement selon la langue active', () async {
