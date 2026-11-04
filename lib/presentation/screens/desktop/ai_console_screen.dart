@@ -797,8 +797,10 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final active =
         chat.conversations.where((c) => c.id == chat.activeId).toList();
-    final title =
+    final rawTitle =
         active.isEmpty ? AiAgentController.kDefaultTitle : active.first.title;
+    final title =
+        rawTitle == AiAgentController.kDefaultTitle ? 'Forgeron IA' : rawTitle;
     final ttsOn = ref.watch(aiTtsEnabledProvider);
 
     return Container(

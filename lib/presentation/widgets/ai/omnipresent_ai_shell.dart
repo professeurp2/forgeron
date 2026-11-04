@@ -1,27 +1,33 @@
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
+import '../../../application/providers/ai_artifacts_provider.dart';
 import '../../../application/providers/ai_inbox_provider.dart';
 import '../../../application/providers/controller_memory_provider.dart';
 import '../../../application/providers/di_providers.dart';
-import '../../../application/providers/machine_provider.dart';
-import '../../../application/services/demo_benchmark_runner.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/app_localizations.dart';
-import '../../../domain/models/demo_benchmark_catalog.dart';
-import '../../../domain/models/machine_state.dart';
-import '../demo/feature_handson_modal.dart';
+import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/utils/chat_markdown.dart';
+import '../../../core/utils/voice_locale.dart';
+import '../../screens/desktop/ai_console_timeline.dart' show friendlyToolLabel;
 
-/// Modes d'ancrage du Chatbot Omniprésent de Forgeron.
+/// Modes d'ancrage de la fenêtre **Forgeron IA**.
 enum AiDockMode {
-  /// Fenêtre flottante déplaçable librement (HUD Picture-in-Picture).
+  /// Fenêtre flottante déplaçable librement.
   floating,
 
-  /// Console ancrée en bas de l'écran courant.
+  /// Panneau ancré en bas de l'écran courant.
   bottom,
 
-  /// Panneau latéral ancré à droite de l'écran courant (Split-View).
+  /// Panneau latéral ancré à droite de l'écran courant.
   right,
 }
 
@@ -33,9 +39,9 @@ class AiDockState {
   final double bottomHeight;
 
   const AiDockState({
-    this.mode = AiDockMode.right,
+    this.mode = AiDockMode.floating,
     this.isOpen = false,
-    this.floatingOffset = const Offset(24, 80),
+    this.floatingOffset = const Offset(28, 72),
     this.rightWidth = 390,
     this.bottomHeight = 310,
   });
@@ -69,9 +75,9 @@ class AiDockNotifier extends StateNotifier<AiDockState> {
 
   void updateFloatingOffset(Offset delta, Size bounds) {
     final nextX = (state.floatingOffset.dx + delta.dx)
-        .clamp(8.0, (bounds.width - 360).clamp(8.0, 2000.0));
+        .clamp(12.0, (bounds.width - 392).clamp(12.0, 2400.0));
     final nextY = (state.floatingOffset.dy + delta.dy)
-        .clamp(8.0, (bounds.height - 420).clamp(8.0, 2000.0));
+        .clamp(12.0, (bounds.height - 460).clamp(12.0, 2400.0));
     state = state.copyWith(floatingOffset: Offset(nextX, nextY));
   }
 }
@@ -79,20 +85,26 @@ class AiDockNotifier extends StateNotifier<AiDockState> {
 final aiDockProvider =
     StateNotifierProvider<AiDockNotifier, AiDockState>((ref) => AiDockNotifier());
 
-/// Enveloppe globale rendant le Chatbot IA (« Mémoire du Contrôleur »)
-/// accessible depuis **n'importe quelle fenêtre** en mode Flottant, Bas ou Droite.
+/// Enveloppe rendant **Forgeron IA** accessible depuis les écrans métier
+/// (Tableau de bord, Palpage, Outils, Espace de travail, MDI, Diagnostics)
+/// en mode flottant, bas ou droite.
 ///
-/// S'ouvre aussi automatiquement dès qu'une alarme GRBL (`ALARM:1..18`) ou un
-/// redémarrage de la carte ESP32 (`Esp32RebootEvent`) est détecté en temps réel.
+/// Automatiquement masquée sur la page **Agent IA** ([hideOverlay] = `true`),
+/// puisqu'il s'agit de la même discussion.
 class OmnipresentAiShell extends ConsumerStatefulWidget {
   final Widget child;
   final bool isMobile;
+
+  /// `true` lorsque l'écran actif est déjà la page Agent IA : ni la fenêtre
+  /// secondaire ni le bouton flottant ne doivent alors s'afficher.
+  final bool hideOverlay;
   final void Function(int screenIndex)? onNavigateToScreen;
 
   const OmnipresentAiShell({
     super.key,
     required this.child,
     this.isMobile = false,
+    this.hideOverlay = false,
     this.onNavigateToScreen,
   });
 
@@ -106,11 +118,46 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   int _lastSeenRebootCount = 0;
   int? _lastSeenAlarmCode;
 
+  // Défilement automatique et détection "Revenir en bas"
+  bool _atBottom = true;
+
+  // Multimodal & Pièces jointes
+  Uint8List? _pendingImage;
+  String? _pendingImageMime;
+  String? _pendingFilePath;
+  String? _pendingFileName;
+
+  // Audio (STT & TTS)
+  final SpeechToText _speech = SpeechToText();
+  final FlutterTts _tts = FlutterTts();
+  bool _listening = false;
+  String? _sttLocaleId;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+    _tts.setSpeechRate(0.5);
+    _applyVoiceLanguage();
+  }
+
   @override
   void dispose() {
+    _scrollCtrl.removeListener(_onScroll);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
+    _speech.stop();
+    _tts.stop();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    final atBottom =
+        _scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 60;
+    if (atBottom != _atBottom && mounted) {
+      setState(() => _atBottom = atBottom);
+    }
   }
 
   void _scrollToBottom() {
@@ -118,53 +165,191 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
     });
   }
 
+  /// Saut instantané au dernier message (utilisé dès l'ouverture).
+  void _snapToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+        if (mounted) setState(() => _atBottom = true);
+      }
+    });
+  }
+
+  String get _wantedVoiceTag {
+    final language = ref.read(appLanguageProvider);
+    if (!language.isAuto) return language.voiceTag;
+    return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+  }
+
+  Future<void> _applyVoiceLanguage() async {
+    _sttLocaleId = null;
+    try {
+      final raw = await _tts.getLanguages;
+      final available =
+          (raw as List).map((e) => e.toString()).toList(growable: false);
+      final match = bestVoiceLocale(_wantedVoiceTag, available,
+          fallbacks: const ['fr-FR', 'en-US']);
+      if (match != null) await _tts.setLanguage(match);
+    } catch (_) {}
+  }
+
+  Future<void> _speak(String text) async {
+    final clean = text
+        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
+        .replaceAll(RegExp(r'[*_`#>]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (clean.isEmpty) return;
+    await _tts.stop();
+    await _tts.speak(clean);
+  }
+
+  Future<void> _toggleListen() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    final ok = _speech.isAvailable ||
+        await _speech.initialize(
+          onStatus: (s) {
+            if ((s == 'notListening' || s == 'done') && mounted) {
+              setState(() => _listening = false);
+            }
+          },
+          onError: (_) {
+            if (mounted) setState(() => _listening = false);
+          },
+        );
+    if (!ok) return;
+    setState(() => _listening = true);
+    try {
+      _sttLocaleId ??= bestVoiceLocale(
+        _wantedVoiceTag,
+        (await _speech.locales()).map((l) => l.localeId),
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
+      await _speech.listen(
+        onResult: (SpeechRecognitionResult r) {
+          if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
+        },
+        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _listening = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 2000,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 8 * 1024 * 1024) return;
+      if (!mounted) return;
+      setState(() {
+        _pendingImage = bytes;
+        _pendingImageMime = _mimeFromName(file.name);
+      });
+    } catch (_) {}
+  }
+
+  static String _mimeFromName(String name) {
+    final n = name.toLowerCase();
+    if (n.endsWith('.png')) return 'image/png';
+    if (n.endsWith('.webp')) return 'image/webp';
+    if (n.endsWith('.gif')) return 'image/gif';
+    if (n.endsWith('.bmp')) return 'image/bmp';
+    return 'image/jpeg';
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['step', 'stp', 'stl', 'nc', 'gcode', 'ngc', 'tap'],
+        dialogTitle: tr('Charger une pièce ou un programme'),
+      );
+      final path = result?.files.single.path;
+      if (path == null) return;
+      final name = result!.files.single.name;
+      ref.read(aiArtifactsProvider.notifier).pickNewPart(path);
+      if (!mounted) return;
+      setState(() {
+        _pendingFilePath = path;
+        _pendingFileName = name;
+      });
+    } catch (_) {}
+  }
+
   Future<void> _sendPrompt(String text) async {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    var trimmed = text.trim();
+    if (trimmed.isEmpty && _pendingImage == null && _pendingFilePath == null) {
+      return;
+    }
+
+    if (_pendingFilePath != null && _pendingFileName != null) {
+      if (trimmed.isEmpty) {
+        trimmed =
+            'Charge et analyse ce fichier ($_pendingFileName) : $_pendingFilePath';
+      } else {
+        trimmed =
+            '$trimmed\n\nFichier associé ($_pendingFileName) : $_pendingFilePath';
+      }
+    }
+
     _inputCtrl.clear();
-    ref.read(aiDockProvider.notifier).open();
-    await ref
-        .read(aiAgentControllerProvider.notifier)
-        .sendUserMessage(trimmed);
+    final image = _pendingImage;
+    final mime = _pendingImageMime;
+
+    setState(() {
+      _pendingImage = null;
+      _pendingImageMime = null;
+      _pendingFilePath = null;
+      _pendingFileName = null;
+      _atBottom = true;
+    });
+
+    if (!widget.hideOverlay) {
+      ref.read(aiDockProvider.notifier).open();
+    }
+    await ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
+          trimmed,
+          imageBytes: image,
+          imageMime: mime,
+        );
     _scrollToBottom();
   }
 
   Future<void> _executeSuggestion(SuggestedNextAction s) async {
-    ref.read(aiDockProvider.notifier).open();
-    if (s.demoSampleId != null) {
-      final sample = DemoBenchmarkCatalog.sampleById(s.demoSampleId);
-      if (sample != null) {
-        await DemoBenchmarkRunner.runSample(ref, sample);
-        _scrollToBottom();
-        return;
-      }
+    if (!widget.hideOverlay) {
+      ref.read(aiDockProvider.notifier).open();
     }
     if (s.directGcode != null && s.directGcode!.isNotEmpty) {
       try {
         await ref.read(machineRepositoryProvider).sendGCode(s.directGcode!);
       } catch (_) {}
     }
-    if (s.id == 'handson_tour' || s.id == 'start_handson_demo') {
-      if (!mounted) return;
-      await FeatureHandsOnModal.show(
-        context,
-        onNavigateToScreen: widget.onNavigateToScreen,
-      );
-      return;
-    }
     await _sendPrompt(s.prompt);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Ouverture automatique du Chatbot sur toute fenêtre en cas d'Alarme ou de Reboot ESP32
+    // Alarme GRBL ou redémarrage ESP32 en direct : consigne l'alerte dans le
+    // fil et n'ouvre le panneau secondaire que si l'opérateur n'est pas déjà
+    // sur la page Agent IA.
     ref.listen<ControllerMemoryState>(controllerMemoryProvider, (prev, next) {
       final newReboot = next.esp32RebootCount > _lastSeenRebootCount;
       final newAlarm = next.activeDiagnosis?.alarmCode != null &&
@@ -173,18 +358,21 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       if (newReboot || newAlarm) {
         _lastSeenRebootCount = next.esp32RebootCount;
         _lastSeenAlarmCode = next.activeDiagnosis?.alarmCode;
-        ref.read(aiDockProvider.notifier).open();
-        ref.read(aiInboxProvider.notifier).markRead();
+        if (!widget.hideOverlay) {
+          ref.read(aiDockProvider.notifier).open();
+          ref.read(aiInboxProvider.notifier).markRead();
+          _snapToEnd();
+        }
 
         final diag = next.activeDiagnosis;
         if (diag != null) {
           ref
               .read(aiAgentControllerProvider.notifier)
               .postProactiveAssistantMessage(
-                '🚨 **INTERPRÉTATION TEMPS RÉEL — ${diag.headline}**\n\n'
-                '• **Cause matérielle identifiée** : ${diag.probableHardwareCause}\n'
-                '• **Câblage GPIO ESP32 concerné** : ${diag.gpioPinDetail}\n'
-                '• **Procédure immédiate** : ${diag.immediateOperatorSteps}',
+                '**${diag.headline}**\n\n'
+                '- **Cause probable** : ${diag.probableHardwareCause}\n'
+                '- **Entrée / broche** : ${diag.gpioPinDetail}\n'
+                '- **À faire** : ${diag.immediateOperatorSteps}',
               );
           _scrollToBottom();
         }
@@ -193,6 +381,48 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       }
     });
 
+    // Dès l'ouverture de la fenêtre IA : se positionner immédiatement sur le dernier message
+    ref.listen<AiDockState>(aiDockProvider, (prev, next) {
+      if (prev?.isOpen != true && next.isOpen) {
+        _snapToEnd();
+        Future.delayed(const Duration(milliseconds: 60), () {
+          if (mounted) _snapToEnd();
+        });
+      }
+    });
+
+    // Écoute de l'agent IA : scroll automatique si on était en bas, lecture TTS
+    ref.listen<AiChatState>(aiAgentControllerProvider, (prev, next) {
+      final msgChanged = prev?.messages.length != next.messages.length;
+      final streamChanged = prev?.streamingText != next.streamingText;
+      if (msgChanged || streamChanged) {
+        if (_atBottom) {
+          _scrollToBottom();
+        }
+      }
+      final grew = (prev?.messages.length ?? 0) < next.messages.length;
+      if (grew && next.messages.isNotEmpty) {
+        final last = next.messages.last;
+        if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
+          _speak(last.text);
+        }
+      }
+    });
+
+    ref.listen<bool>(aiTtsEnabledProvider, (prev, next) {
+      if (next == false) _tts.stop();
+    });
+
+    ref.listen<AppLanguage>(appLanguageProvider, (prev, next) {
+      if (prev?.id != next.id) _applyVoiceLanguage();
+    });
+
+    // Sur la page Agent IA, on n'affiche jamais de seconde fenêtre IA.
+    if (widget.hideOverlay) {
+      return widget.child;
+    }
+
+    final fc = context.fc;
     final dock = ref.watch(aiDockProvider);
     final memory = ref.watch(controllerMemoryProvider);
 
@@ -211,13 +441,13 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                 children: [
                   Expanded(child: widget.child),
                   Container(
-                    width: dock.rightWidth.clamp(320.0, size.width * 0.48),
-                    decoration: const BoxDecoration(
+                    width: dock.rightWidth.clamp(320.0, size.width * 0.45),
+                    decoration: BoxDecoration(
                       border: Border(
-                        left: BorderSide(color: Color(0xFF1E293B), width: 1.5),
+                        left: BorderSide(color: fc.surfaceBorder),
                       ),
                     ),
-                    child: _buildChatPanel(context, memory, effectiveMode),
+                    child: _buildChatPanel(context, fc, memory, effectiveMode),
                   ),
                 ],
               )
@@ -226,38 +456,48 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                 children: [
                   Expanded(child: widget.child),
                   Container(
-                    height: dock.bottomHeight.clamp(220.0, size.height * 0.55),
-                    decoration: const BoxDecoration(
+                    height: dock.bottomHeight.clamp(220.0, size.height * 0.52),
+                    decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(color: Color(0xFF1E293B), width: 1.5),
+                        top: BorderSide(color: fc.surfaceBorder),
                       ),
                     ),
-                    child: _buildChatPanel(context, memory, effectiveMode),
+                    child: _buildChatPanel(context, fc, memory, effectiveMode),
                   ),
                 ],
               )
             else
               widget.child,
 
-            // ── Mode Flottant (HUD déplaçable) ───────────────────────────
+            // ── Mode Flottant déplaçable ─────────────────────────────────
             if (dock.isOpen && effectiveMode == AiDockMode.floating)
               Positioned(
                 left: dock.floatingOffset.dx
-                    .clamp(8.0, (size.width - 380).clamp(8.0, 2000.0)),
+                    .clamp(12.0, (size.width - 392).clamp(12.0, 2400.0)),
                 top: dock.floatingOffset.dy
-                    .clamp(8.0, (size.height - 460).clamp(8.0, 2000.0)),
+                    .clamp(12.0, (size.height - 460).clamp(12.0, 2400.0)),
                 width: widget.isMobile
-                    ? (size.width - 20).clamp(280.0, 420.0)
-                    : 400,
-                height: widget.isMobile ? 430 : 500,
-                child: Material(
-                  color: Colors.transparent,
-                  elevation: 20,
-                  borderRadius: BorderRadius.circular(14),
+                    ? (size.width - 24).clamp(280.0, 410.0)
+                    : 380,
+                height: widget.isMobile
+                    ? 420
+                    : 480.0.clamp(300.0, (size.height - 24).clamp(300.0, 560.0)),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     child: _buildChatPanel(
                       context,
+                      fc,
                       memory,
                       effectiveMode,
                       onDragUpdate: (d) => ref
@@ -268,12 +508,12 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                 ),
               ),
 
-            // ── Pilule Flottante d'Accès Rapide (quand le panneau est replié) ──
+            // ── Bouton replié d'accès rapide « Forgeron IA » ─────────────
             if (!dock.isOpen)
               Positioned(
                 right: 16,
                 bottom: widget.isMobile ? 74 : 16,
-                child: _buildCollapsedLauncherPill(context, memory),
+                child: _buildCollapsedLauncher(fc, memory),
               ),
           ],
         );
@@ -281,408 +521,447 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     );
   }
 
-  Widget _buildCollapsedLauncherPill(
-      BuildContext context, ControllerMemoryState memory) {
+  Widget _buildCollapsedLauncher(
+      ForgeronColorPalette fc, ControllerMemoryState memory) {
     final hasAlert = memory.activeDiagnosis != null;
     final unread = ref.watch(aiInboxProvider).unread;
-    final topSuggestion = memory.nextSuggestions.isNotEmpty
-        ? memory.nextSuggestions.first
-        : null;
+
+    final bgColor = hasAlert ? fc.danger : fc.surfaceBright;
+    final fgColor = hasAlert ? Colors.white : fc.textPrimary;
+    final borderColor =
+        hasAlert ? fc.danger : fc.primary.withValues(alpha: 0.45);
 
     return Material(
       color: Colors.transparent,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Puce de suggestion rapide post-opération visible même Chatbot replié
-          if (topSuggestion != null && !widget.isMobile)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ActionChip(
-                backgroundColor: const Color(0xFF111827).withValues(alpha: 0.94),
-                side: BorderSide(
-                  color: const Color(0xFF06B6D4).withValues(alpha: 0.55),
-                ),
-                avatar: Text(topSuggestion.emoji,
-                    style: const TextStyle(fontSize: 13)),
-                label: Text(
-                  'Suggestion : ${topSuggestion.label}',
-                  style: const TextStyle(
-                    color: Color(0xFFE2E8F0),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () => _executeSuggestion(topSuggestion),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () {
+          ref.read(aiInboxProvider.notifier).markRead();
+          ref.read(aiDockProvider.notifier).open();
+          _snapToEnd();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.fromLTRB(8, 7, 14, 7),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: (hasAlert ? fc.danger : Colors.black)
+                    .withValues(alpha: hasAlert ? 0.35 : 0.22),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
-            ),
-
-          // Bouton principal d'ouverture du Copilote Omniprésent
-          InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: () {
-              ref.read(aiInboxProvider.notifier).markRead();
-              ref.read(aiDockProvider.notifier).open();
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: hasAlert
-                      ? const [Color(0xFFDC2626), Color(0xFF991B1B)]
-                      : const [Color(0xFFF59E0B), Color(0xFFD97706)],
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: hasAlert
+                      ? null
+                      : LinearGradient(
+                          colors: [fc.primaryLight, fc.primary, fc.primaryDim],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  color: hasAlert ? Colors.white.withValues(alpha: 0.2) : null,
                 ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: (hasAlert
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFFF59E0B))
-                        .withValues(alpha: 0.45),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  ),
-                ],
+                child: Icon(
+                  hasAlert
+                      ? Icons.warning_amber_rounded
+                      : Icons.auto_awesome,
+                  color: hasAlert ? Colors.white : fc.background,
+                  size: 14,
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    hasAlert
-                        ? Icons.warning_amber_rounded
-                        : Icons.smart_toy_rounded,
-                    color: hasAlert ? Colors.white : Colors.black,
-                    size: 19,
+              const SizedBox(width: 9),
+              Text(
+                hasAlert ? tr('Alerte machine') : 'Forgeron IA',
+                style: TextStyle(
+                  color: fgColor,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              if (unread > 0) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: hasAlert ? Colors.white : fc.primary,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    hasAlert
-                        ? tr('ALERTE ESP32 / ALARME')
-                        : tr('Copilote IA & Démo'),
+                  child: Text(
+                    '$unread',
                     style: TextStyle(
-                      color: hasAlert ? Colors.white : Colors.black,
-                      fontSize: 12.5,
+                      color: hasAlert ? fc.danger : Colors.white,
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  if (unread > 0) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$unread',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildChatPanel(
     BuildContext context,
+    ForgeronColorPalette fc,
     ControllerMemoryState memory,
     AiDockMode currentMode, {
     void Function(DragUpdateDetails)? onDragUpdate,
   }) {
     final chat = ref.watch(aiAgentControllerProvider);
     final uiLang = ref.watch(appLanguageProvider);
+    final ttsOn = ref.watch(aiTtsEnabledProvider);
     final diag = memory.activeDiagnosis;
+    final streaming =
+        chat.streamingText != null && chat.streamingText!.isNotEmpty;
+    final thinking =
+        chat.isProcessing && chat.pendingConfirmation == null && !streaming;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B0F17),
-        border: currentMode == AiDockMode.floating
-            ? Border.all(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.55),
-                width: 1.5,
-              )
-            : null,
-      ),
-      child: Column(
-        children: [
-          // ── 1. Barre de titre & Sélecteur d'ancrage (Flottant / Bas / Droite) ──
-          GestureDetector(
-            onPanUpdate: onDragUpdate,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF111827),
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFF1E293B)),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.psychology_rounded,
-                      color: Color(0xFFF59E0B), size: 19),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+    return Material(
+      color: fc.background,
+      child: Container(
+        decoration: BoxDecoration(
+          color: fc.background,
+          border: currentMode == AiDockMode.floating
+              ? Border.all(color: fc.surfaceBorder)
+              : null,
+          borderRadius: currentMode == AiDockMode.floating
+              ? BorderRadius.circular(12)
+              : null,
+        ),
+        child: Column(
+          children: [
+            // ── 1. En-tête Forgeron IA (glissable en mode flottant) ──────
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: onDragUpdate,
+              child: MouseRegion(
+                cursor: onDragUpdate != null
+                    ? SystemMouseCursors.move
+                    : MouseCursor.defer,
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: fc.surfaceBright,
+                    border: Border(
+                      bottom: BorderSide(color: fc.surfaceBorder),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              fc.primaryLight,
+                              fc.primary,
+                              fc.primaryDim,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Icon(Icons.auto_awesome,
+                            size: 13, color: fc.background),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Text(
-                                tr('COPILOTE IA • MÉMOIRE CONTRÔLEUR'),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.4,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Forgeron IA',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: fc.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
+                                if (memory.esp32RebootCount > 0) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: fc.danger.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: fc.danger.withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'ESP32 ×${memory.esp32RebootCount}',
+                                      style: TextStyle(
+                                        color: fc.danger,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              memory.activeWindowName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: fc.textDisabled,
+                                fontSize: 10,
                               ),
                             ),
-                            if (memory.esp32RebootCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444)
-                                      .withValues(alpha: 0.22),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                      color: const Color(0xFFEF4444)),
-                                ),
-                                child: Text(
-                                  'ESP32 Reboots: ${memory.esp32RebootCount}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFCA5A5),
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
+                          ],
+                        ),
+                      ),
+
+                      // Bouton Lecture vocale (TTS)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                        tooltip: ttsOn
+                            ? tr('Lecture vocale activée')
+                            : tr('Lecture vocale'),
+                        icon: Icon(
+                          ttsOn
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
+                          color: ttsOn ? fc.primary : fc.textSecondary,
+                          size: 16,
+                        ),
+                        onPressed: () => ref
+                            .read(aiTtsEnabledProvider.notifier)
+                            .state = !ttsOn,
+                      ),
+                      const SizedBox(width: 2),
+
+                      // Sélecteur discret de langue
+                      PopupMenuButton<AppLanguage>(
+                        tooltip: tr('Langue'),
+                        color: fc.surface,
+                        onSelected: (lang) {
+                          ref.read(appLanguageProvider.notifier).select(lang);
+                        },
+                        itemBuilder: (_) => [
+                          for (final l in kAppLanguages)
+                            PopupMenuItem<AppLanguage>(
+                              value: l,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    l.id == uiLang.id
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    size: 15,
+                                    color: l.id == uiLang.id
+                                        ? fc.primary
+                                        : fc.textDisabled,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      l.label,
+                                      style: TextStyle(
+                                          color: fc.textPrimary, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: fc.surfaceHigh,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: fc.surfaceBorder),
+                          ),
+                          child: Text(
+                            uiLang.id.toUpperCase(),
+                            style: TextStyle(
+                              color: fc.textSecondary,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+
+                      // Bascule d'ancrage : Flottant | Bas | Droite
+                      _buildDockModeIcon(
+                        fc: fc,
+                        mode: AiDockMode.floating,
+                        active: currentMode == AiDockMode.floating,
+                        icon: Icons.picture_in_picture_alt_rounded,
+                        tooltip: tr('Fenêtre flottante'),
+                      ),
+                      _buildDockModeIcon(
+                        fc: fc,
+                        mode: AiDockMode.bottom,
+                        active: currentMode == AiDockMode.bottom,
+                        icon: Icons.dock_rounded,
+                        tooltip: tr('Ancrer en bas'),
+                      ),
+                      if (!widget.isMobile)
+                        _buildDockModeIcon(
+                          fc: fc,
+                          mode: AiDockMode.right,
+                          active: currentMode == AiDockMode.right,
+                          icon: Icons.vertical_split_rounded,
+                          tooltip: tr('Ancrer à droite'),
+                        ),
+                      if (widget.onNavigateToScreen != null && !widget.isMobile)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 28, minHeight: 28),
+                          tooltip: tr('Ouvrir la page Agent IA'),
+                          onPressed: () => widget.onNavigateToScreen!(6),
+                          icon: Icon(
+                            Icons.open_in_full_rounded,
+                            color: fc.textSecondary,
+                            size: 14,
+                          ),
+                        ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                        tooltip: tr('Fermer'),
+                        onPressed: () =>
+                            ref.read(aiDockProvider.notifier).close(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: fc.textSecondary,
+                          size: 17,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── 2. Bandeau d'alerte matérielle (uniquement en cas d'alarme / reboot) ──
+            if (diag != null) _buildLiveHardwareDiagnosisBanner(fc, diag),
+
+            // ── 3. Fil de discussion avec bouton "Revenir en bas" ────────
+            Expanded(
+              child: chat.messages.isEmpty && !streaming && !thinking
+                  ? _buildEmptyState(fc, memory)
+                  : Stack(
+                      children: [
+                        ListView.builder(
+                          controller: _scrollCtrl,
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                          itemCount: chat.messages.length +
+                              (streaming ? 1 : 0) +
+                              (thinking ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= chat.messages.length) {
+                              if (streaming && index == chat.messages.length) {
+                                return _buildAssistantMessage(
+                                  fc,
+                                  chat.streamingText!,
+                                );
+                              }
+                              return _buildThinkingRow(fc, chat.runningTool);
+                            }
+                            return _buildMessageItem(fc, chat.messages[index]);
+                          },
+                        ),
+                        // Bouton Flèche "Revenir en bas"
+                        if (!_atBottom)
+                          Positioned(
+                            right: 14,
+                            bottom: 10,
+                            child: Tooltip(
+                              message: tr('Revenir en bas'),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () {
+                                  setState(() => _atBottom = true);
+                                  _scrollToBottom();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: fc.surfaceHigh,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: fc.surfaceBorder),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.28),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.arrow_downward_rounded,
+                                    size: 16,
+                                    color: fc.primary,
                                   ),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          '📍 ${memory.activeWindowName}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF06B6D4),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Sélecteur rapide de langue (UI & Agent IA)
-                  PopupMenuButton<AppLanguage>(
-                    tooltip: tr('Langue de l\'Agent IA & de l\'interface'),
-                    color: const Color(0xFF1E293B),
-                    onSelected: (lang) {
-                      ref.read(appLanguageProvider.notifier).select(lang);
-                    },
-                    itemBuilder: (_) => [
-                      for (final l in kAppLanguages)
-                        PopupMenuItem<AppLanguage>(
-                          value: l,
-                          child: Row(
-                            children: [
-                              Icon(
-                                l.id == uiLang.id
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_off,
-                                size: 15,
-                                color: l.id == uiLang.id
-                                    ? const Color(0xFFF59E0B)
-                                    : Colors.white54,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  l.label,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.translate_rounded,
-                              size: 13, color: Color(0xFFF59E0B)),
-                          const SizedBox(width: 4),
-                          Text(
-                            uiLang.id.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 4),
-
-                  // Boutons de bascule d'ancrage : Flottant | Bas | Droite
-                  _buildDockModeIcon(
-                    mode: AiDockMode.floating,
-                    active: currentMode == AiDockMode.floating,
-                    icon: Icons.picture_in_picture_alt_rounded,
-                    tooltip: tr('Mode Flottant (HUD déplaçable)'),
-                  ),
-                  _buildDockModeIcon(
-                    mode: AiDockMode.bottom,
-                    active: currentMode == AiDockMode.bottom,
-                    icon: Icons.dock_rounded,
-                    tooltip: tr('Ancrer en Bas'),
-                  ),
-                  if (!widget.isMobile)
-                    _buildDockModeIcon(
-                      mode: AiDockMode.right,
-                      active: currentMode == AiDockMode.right,
-                      icon: Icons.vertical_split_rounded,
-                      tooltip: tr('Ancrer à Droite'),
-                    ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    tooltip: tr('Replier le Chatbot'),
-                    onPressed: () => ref.read(aiDockProvider.notifier).close(),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white70, size: 20),
-                  ),
-                ],
-              ),
             ),
-          ),
 
-          // ── 2. Barre d'actions Démo (Prises en main + STEP Manufacturing & Médecine) ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              border: Border(
-                bottom: BorderSide(color: Color(0xFF1E293B)),
-              ),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildQuickDemoBtn(
-                    icon: Icons.ondemand_video_rounded,
-                    label: tr('Prises en main (Image+Vidéo)'),
-                    color: const Color(0xFFF59E0B),
-                    onTap: () => FeatureHandsOnModal.show(
-                      context,
-                      onNavigateToScreen: widget.onNavigateToScreen,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickDemoBtn(
-                    icon: Icons.precision_manufacturing_rounded,
-                    label: tr('STEP Manufacturing (Turbine)'),
-                    color: const Color(0xFF06B6D4),
-                    onTap: () {
-                      final sample = DemoBenchmarkCatalog.sampleById(
-                          'manufacturing_impeller');
-                      if (sample != null) {
-                        DemoBenchmarkRunner.runSample(ref, sample);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickDemoBtn(
-                    icon: Icons.medical_services_rounded,
-                    label: tr('STEP Médecine (Implant crânien)'),
-                    color: const Color(0xFF10B981),
-                    onTap: () {
-                      final sample = DemoBenchmarkCatalog.sampleById(
-                          'medicine_cranial_implant');
-                      if (sample != null) {
-                        DemoBenchmarkRunner.runSample(ref, sample);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
+            // ── 4. Confirmation d'action / erreur éventuelle ─────────────
+            if (chat.pendingConfirmation != null)
+              _buildConfirmationBar(fc, chat.pendingConfirmation!),
+            if (chat.error != null) _buildErrorBar(fc, chat),
 
-          // ── 3. Carte de Diagnostic Temps Réel (Alarme GRBL ou Reboot ESP32) ──
-          if (diag != null) _buildLiveHardwareDiagnosisBanner(diag),
-
-          // ── 4. Fil de conversation de l'Agent IA ────────────────────────
-          Expanded(
-            child: chat.messages.isEmpty
-                ? _buildEmptyMemoryWelcome(memory)
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    padding: const EdgeInsets.all(10),
-                    itemCount: chat.messages.length,
-                    itemBuilder: (context, index) {
-                      final m = chat.messages[index];
-                      return _buildMessageBubble(m);
-                    },
-                  ),
-          ),
-
-          // ── 5. Bandeau de Suggestions Dynamiques Post-Opération ─────────
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              border: Border(
-                top: BorderSide(color: Color(0xFF1E293B)),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome_rounded,
-                        color: Color(0xFFF59E0B), size: 13),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        '${tr('SUGGESTIONS APRÈS')} : ${memory.lastOperationSummary}',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+            // ── 5. Pistes contextuelles discrètes (quand discussion déjà ouverte) ──
+            if (chat.messages.isNotEmpty &&
+                memory.nextSuggestions.isNotEmpty &&
+                !chat.isProcessing)
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: fc.surface,
+                  border: Border(top: BorderSide(color: fc.surfaceBorder)),
                 ),
-                const SizedBox(height: 5),
-                SingleChildScrollView(
+                child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
@@ -690,34 +969,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                         Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                             onTap: () => _executeSuggestion(s),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 9, vertical: 5),
+                                  horizontal: 9, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFF06B6D4)
-                                      .withValues(alpha: 0.45),
-                                ),
+                                color: fc.surfaceBright,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: fc.surfaceBorder),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(s.emoji,
-                                      style: const TextStyle(fontSize: 12)),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    s.label,
-                                    style: const TextStyle(
-                                      color: Color(0xFFE2E8F0),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                s.label,
+                                style: TextStyle(
+                                  color: fc.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
@@ -725,120 +993,214 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // ── 6. Zone de saisie ────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-            color: const Color(0xFF111827),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 12.5),
-                    onSubmitted: _sendPrompt,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: tr(
-                        'Posez une question ou dépannage (alarme, STEP, G-code, ESP32)…',
-                      ),
-                      hintStyle: const TextStyle(
-                          color: Color(0xFF64748B), fontSize: 11.5),
-                      filled: true,
-                      fillColor: const Color(0xFF0B0F17),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: Color(0xFF334155)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: Color(0xFF334155)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: Color(0xFFF59E0B)),
+            // ── 6. Zone de saisie avec FilePicker, ImagePicker & Micro ────
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              decoration: BoxDecoration(
+                color: fc.surface,
+                border: Border(top: BorderSide(color: fc.surfaceBorder)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Aperçu des pièces jointes en attente (Image ou Fichier STEP/G-code)
+                  if (_pendingImage != null || _pendingFileName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          if (_pendingImage != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: fc.surfaceBright,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: fc.surfaceBorder),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Image.memory(
+                                      _pendingImage!,
+                                      width: 26,
+                                      height: 26,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    tr('Image jointe'),
+                                    style: TextStyle(
+                                      color: fc.textSecondary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  InkWell(
+                                    onTap: () => setState(() {
+                                      _pendingImage = null;
+                                      _pendingImageMime = null;
+                                    }),
+                                    child: Icon(Icons.close_rounded,
+                                        size: 15, color: fc.textDisabled),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_pendingFileName != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: fc.surfaceBright,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: fc.surfaceBorder),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.insert_drive_file_outlined,
+                                      size: 15, color: fc.secondary),
+                                  const SizedBox(width: 6),
+                                  ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 180),
+                                    child: Text(
+                                      _pendingFileName!,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: fc.textPrimary,
+                                        fontSize: 11,
+                                        fontFamily: 'JetBrainsMono',
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  InkWell(
+                                    onTap: () => setState(() {
+                                      _pendingFilePath = null;
+                                      _pendingFileName = null;
+                                    }),
+                                    child: Icon(Icons.close_rounded,
+                                        size: 15, color: fc.textDisabled),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                if (chat.isProcessing)
-                  IconButton(
-                    tooltip: tr('Arrêter la réponse'),
-                    onPressed: () => ref
-                        .read(aiAgentControllerProvider.notifier)
-                        .stopGeneration(),
-                    icon: const Icon(Icons.stop_circle_rounded,
-                        color: Color(0xFFEF4444)),
-                  )
-                else
-                  IconButton(
-                    tooltip: tr('Envoyer'),
-                    onPressed: () => _sendPrompt(_inputCtrl.text),
-                    icon: const Icon(Icons.send_rounded,
-                        color: Color(0xFFF59E0B)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDockModeIcon({
-    required AiDockMode mode,
-    required bool active,
-    required IconData icon,
-    required String tooltip,
-  }) {
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      tooltip: tooltip,
-      onPressed: () => ref.read(aiDockProvider.notifier).setMode(mode),
-      icon: Icon(
-        icon,
-        size: 16,
-        color: active ? const Color(0xFFF59E0B) : Colors.white54,
-      ),
-    );
-  }
+                  Row(
+                    children: [
+                      // Bouton FilePicker (STEP, STL, G-code)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        tooltip: tr(
+                            'Charger une pièce ou un programme (STEP, STL, NC)'),
+                        icon: Icon(Icons.attach_file_rounded,
+                            size: 18, color: fc.textSecondary),
+                        onPressed: _pickFile,
+                      ),
 
-  Widget _buildQuickDemoBtn({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
+                      // Bouton ImagePicker (Photos, Captures d'usinage)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        tooltip: tr('Joindre une image'),
+                        icon: Icon(Icons.image_outlined,
+                            size: 18, color: fc.textSecondary),
+                        onPressed: _pickImage,
+                      ),
+
+                      // Bouton Dictée vocale (Micro STT)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        tooltip: _listening
+                            ? tr('Arrêter la dictée')
+                            : tr('Dictée vocale'),
+                        icon: Icon(
+                          _listening
+                              ? Icons.mic_rounded
+                              : Icons.mic_none_rounded,
+                          size: 18,
+                          color: _listening ? fc.danger : fc.textSecondary,
+                        ),
+                        onPressed: _toggleListen,
+                      ),
+                      const SizedBox(width: 4),
+
+                      Expanded(
+                        child: TextField(
+                          controller: _inputCtrl,
+                          style:
+                              TextStyle(color: fc.textPrimary, fontSize: 12.5),
+                          onSubmitted: _sendPrompt,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: _listening
+                                ? tr('Dictée en cours…')
+                                : tr('Écrire à Forgeron IA…'),
+                            hintStyle:
+                                TextStyle(color: fc.textDisabled, fontSize: 12),
+                            filled: true,
+                            fillColor: fc.surfaceBright,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: fc.surfaceBorder),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: fc.surfaceBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: fc.primary),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      if (chat.isProcessing)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: tr('Interrompre'),
+                          onPressed: () => ref
+                              .read(aiAgentControllerProvider.notifier)
+                              .stopGeneration(),
+                          icon: Icon(Icons.stop_circle_outlined,
+                              color: fc.danger, size: 20),
+                        )
+                      else
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: tr('Envoyer'),
+                          onPressed: () => _sendPrompt(_inputCtrl.text),
+                          icon: Icon(Icons.send_rounded,
+                              color: fc.primary, size: 19),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -847,31 +1209,52 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     );
   }
 
-  Widget _buildLiveHardwareDiagnosisBanner(dynamic diag) {
+  Widget _buildDockModeIcon({
+    required ForgeronColorPalette fc,
+    required AiDockMode mode,
+    required bool active,
+    required IconData icon,
+    required String tooltip,
+  }) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      tooltip: tooltip,
+      onPressed: () => ref.read(aiDockProvider.notifier).setMode(mode),
+      icon: Icon(
+        icon,
+        size: 15,
+        color: active ? fc.primary : fc.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildLiveHardwareDiagnosisBanner(
+      ForgeronColorPalette fc, dynamic diag) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(8),
+      margin: const EdgeInsets.fromLTRB(10, 10, 10, 2),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF450A0A),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+        color: fc.danger.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fc.danger.withValues(alpha: 0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.error_outline_rounded,
-                  color: Color(0xFFFCA5A5), size: 17),
+              Icon(Icons.warning_amber_rounded, color: fc.danger, size: 16),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   diag.headline as String,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -880,15 +1263,15 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           const SizedBox(height: 4),
           Text(
             diag.probableHardwareCause as String,
-            style: const TextStyle(color: Color(0xFFFECACA), fontSize: 11),
+            style: TextStyle(color: fc.textSecondary, fontSize: 11),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
-            '🔌 ${diag.gpioPinDetail}',
-            style: const TextStyle(
-              color: Color(0xFFFDE047),
+            diag.gpioPinDetail as String,
+            style: TextStyle(
+              color: fc.primary,
               fontSize: 10.5,
-              fontWeight: FontWeight.w600,
+              fontFamily: 'JetBrainsMono',
             ),
           ),
           const SizedBox(height: 8),
@@ -912,19 +1295,19 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF991B1B),
+                      color: fc.surfaceBright,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                      border: Border.all(color: fc.surfaceBorder),
                     ),
                     child: Text(
                       act.label as String,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
+                      style: TextStyle(
+                        color: fc.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -936,70 +1319,117 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     );
   }
 
-  Widget _buildEmptyMemoryWelcome(ControllerMemoryState memory) {
-    final machine =
-        ref.watch(machineStateProvider).valueOrNull ?? const MachineState();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111827),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF1E293B)),
+  Widget _buildEmptyState(
+      ForgeronColorPalette fc, ControllerMemoryState memory) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: fc.primary.withValues(alpha: 0.12),
+                border: Border.all(color: fc.primary.withValues(alpha: 0.35)),
+              ),
+              child: Icon(Icons.auto_awesome, color: fc.primary, size: 20),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.memory_rounded,
-                        color: Color(0xFF06B6D4), size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      tr('MÉMOIRE TEMPS RÉEL DU CONTRÔLEUR'),
-                      style: const TextStyle(
-                        color: Color(0xFF06B6D4),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
+            const SizedBox(height: 12),
+            Text(
+              'Forgeron IA',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: fc.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              tr(
+                'Assistance usinage, programmes G-code et diagnostic machine depuis l\'écran en cours.',
+              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: fc.textSecondary,
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            if (memory.nextSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              for (final s in memory.nextSuggestions)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _executeSuggestion(s),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: fc.surfaceBright,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: fc.surfaceBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                s.label,
+                                style: TextStyle(
+                                  color: fc.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 16,
+                              color: fc.textDisabled,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '• Fenêtre active : ${memory.activeWindowName}\n'
-                  '• Statut FluidNC : ${machine.status.name.toUpperCase()}'
-                  '${machine.alarmCode != null ? " (ALARM:${machine.alarmCode})" : ""}\n'
-                  '• Position WPos : X=${machine.wPos[0].toStringAsFixed(1)} '
-                  'Y=${machine.wPos[1].toStringAsFixed(1)} '
-                  'Z=${machine.wPos[2].toStringAsFixed(1)} '
-                  'A=${machine.wPos[3].toStringAsFixed(1)}° '
-                  'C=${machine.wPos[4].toStringAsFixed(1)}°\n'
-                  '• Santé ESP32 : ${memory.esp32RebootCount} redémarrage(s) détecté(s)\n'
-                  '• Fichier CAO/FAO : ${memory.activeFilePath ?? "Aucun fichier chargé"}',
-                  style: const TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: 11.5,
-                    height: 1.45,
-                    fontFamily: 'monospace',
                   ),
                 ),
-              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThinkingRow(ForgeronColorPalette fc, String? runningTool) {
+    final label = runningTool != null
+        ? friendlyToolLabel(runningTool)
+        : tr('Réflexion…');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.8,
+              color: fc.primary,
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            tr(
-              'Je vous accompagne depuis n\'importe quelle fenêtre : lancez une prise en main vidéo, testez un fichier STEP (Manufacturing ou Médecine) ou demandez un diagnostic matériel.',
-            ),
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 12,
-              height: 1.4,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: fc.textSecondary, fontSize: 11.5),
             ),
           ),
         ],
@@ -1007,18 +1437,97 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     );
   }
 
-  Widget _buildMessageBubble(AiChatMessage m) {
-    final isUser = m.role == 'user';
-    final isTool = m.isTool;
+  Widget _buildConfirmationBar(
+      ForgeronColorPalette fc, AiPendingToolCall pending) {
+    final controller = ref.read(aiAgentControllerProvider.notifier);
+    final label = pending.lexicon?.label ??
+        tr('Confirmer : {}', [friendlyToolLabel(pending.toolName)]);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: fc.warning.withValues(alpha: 0.10),
+        border: Border.all(color: fc.warning.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: fc.warning, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fc.textPrimary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: controller.rejectPendingAction,
+            child: Text(tr('Refuser'),
+                style: TextStyle(color: fc.textSecondary, fontSize: 11.5)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: fc.primary,
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            onPressed: controller.confirmPendingAction,
+            child:
+                Text(tr('Confirmer'), style: const TextStyle(fontSize: 11.5)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (isTool) {
+  Widget _buildErrorBar(ForgeronColorPalette fc, AiChatState chat) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: fc.danger.withValues(alpha: 0.10),
+        border: Border.all(color: fc.danger.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              chat.error ?? '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: fc.danger, fontSize: 11.5),
+            ),
+          ),
+          if (chat.retryable)
+            TextButton(
+              onPressed: () =>
+                  ref.read(aiAgentControllerProvider.notifier).retryNow(),
+              child: Text(tr('Réessayer'),
+                  style: TextStyle(color: fc.primary, fontSize: 11.5)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageItem(ForgeronColorPalette fc, AiChatMessage m) {
+    if (m.isTool) {
+      final label = friendlyToolLabel(m.toolName ?? m.text);
       return Container(
         margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF1E293B)),
+          color: fc.surfaceBright,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: fc.surfaceBorder),
         ),
         child: Row(
           children: [
@@ -1028,20 +1537,19 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   : (m.toolFailed
                       ? Icons.error_outline
                       : Icons.check_circle_outline),
-              size: 14,
+              size: 13,
               color: m.toolFailed
-                  ? const Color(0xFFEF4444)
-                  : const Color(0xFF10B981),
+                  ? fc.danger
+                  : (m.isRunningTool ? fc.primary : fc.success),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 7),
             Expanded(
               child: Text(
-                'Outil : ${m.toolName ?? m.text}',
+                label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                style: TextStyle(
+                  color: fc.textSecondary,
                   fontSize: 11,
-                  fontFamily: 'monospace',
                 ),
               ),
             ),
@@ -1050,29 +1558,130 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       );
     }
 
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        constraints: const BoxConstraints(maxWidth: 330),
-        decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF1E293B) : const Color(0xFF111827),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isUser
-                ? const Color(0xFF334155)
-                : const Color(0xFFF59E0B).withValues(alpha: 0.35),
+    if (m.role == 'user') {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(36, 4, 0, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: fc.surfaceHigh,
+            border: Border.all(color: fc.surfaceBorder),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (m.imageBytes != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxHeight: 180, maxWidth: 260),
+                      child: Image.memory(m.imageBytes!, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+              SelectableText(
+                m.text,
+                style: TextStyle(
+                  color: fc.textPrimary,
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
           ),
         ),
-        child: SelectableText(
-          m.text,
-          style: TextStyle(
-            color: isUser ? Colors.white : const Color(0xFFE2E8F0),
-            fontSize: 12,
-            height: 1.4,
+      );
+    }
+
+    return _buildAssistantMessage(fc, m.text, interrupted: m.interrupted);
+  }
+
+  Widget _buildAssistantMessage(
+    ForgeronColorPalette fc,
+    String text, {
+    bool interrupted = false,
+  }) {
+    final codeStyle = TextStyle(
+      fontFamily: 'JetBrainsMono',
+      fontSize: 11.5,
+      color: fc.secondary,
+    );
+    final blocks = parseChatBlocks(text);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 6, 12, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2, right: 9),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: fc.primary.withValues(alpha: 0.14),
+            ),
+            child: Icon(Icons.auto_awesome, size: 10, color: fc.primary),
           ),
-        ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < blocks.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  if (blocks[i].isCode)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: fc.terminalBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: fc.surfaceBorder),
+                      ),
+                      child: SelectableText(
+                        blocks[i].text.trimRight(),
+                        style: codeStyle,
+                      ),
+                    )
+                  else
+                    SelectableText.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          color: fc.textPrimary,
+                          fontSize: 12.5,
+                          height: 1.5,
+                        ),
+                        children: chatProseSpans(
+                          blocks[i].text.trim(),
+                          codeStyle: codeStyle,
+                        ),
+                      ),
+                    ),
+                ],
+                if (interrupted)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      tr('Réponse interrompue.'),
+                      style: TextStyle(color: fc.warning, fontSize: 10.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

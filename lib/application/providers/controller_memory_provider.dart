@@ -38,7 +38,7 @@ class SuggestedNextAction {
 
   const SuggestedNextAction({
     required this.id,
-    required this.emoji,
+    this.emoji = '',
     required this.label,
     required this.prompt,
     this.directGcode,
@@ -63,7 +63,7 @@ class ControllerMemoryState {
 
   const ControllerMemoryState({
     this.activeWindowIndex = 0,
-    this.activeWindowName = 'Contrôle & DRO 5-Axes',
+    this.activeWindowName = 'Tableau de bord',
     this.esp32RebootCount = 0,
     this.lastRebootEvent,
     this.activeDiagnosis,
@@ -72,7 +72,7 @@ class ControllerMemoryState {
     this.activeFilePath,
     this.activeDemoDomain,
     this.lastOperationType = OperationEventType.appStarted,
-    this.lastOperationSummary = 'Contrôleur initialisé',
+    this.lastOperationSummary = 'Prêt',
     this.nextSuggestions = const [],
   });
 
@@ -156,79 +156,53 @@ class NextBestActionEngine {
     String? activeDemoDomain,
     HardwareDiagnosis? activeDiagnosis,
   }) {
-    // 1. Priorité absolue : Alarme ou Redémarrage ESP32 actif
+    // 1. Alarme ou redémarrage ESP32 actif
     if (machineStatus == MachineStatus.alarm ||
         lastOp == OperationEventType.alarmTriggered ||
         lastOp == OperationEventType.esp32RebootDetected) {
       return [
         SuggestedNextAction(
           id: 'diag_immediate',
-          emoji: '🩺',
-          label: tr('Expliquer la cause & le GPIO'),
+          label: tr('Cause & capteur'),
           prompt: activeDiagnosis != null
-              ? 'Explique-moi en détail le diagnostic « ${activeDiagnosis.headline} » (${activeDiagnosis.gpioPinDetail}) et comment le résoudre.'
-              : 'La machine est en alarme : quelle est la cause exacte et quel capteur GPIO vérifier ?',
+              ? 'Explique le diagnostic « ${activeDiagnosis.headline} » (${activeDiagnosis.gpioPinDetail}) et la marche à suivre.'
+              : 'La machine est en alarme : quelle est la cause et quel capteur vérifier ?',
         ),
         SuggestedNextAction(
           id: 'unlock_x',
-          emoji: '🔓',
           label: tr('Déverrouiller (\$X)'),
-          prompt: 'Déverrouille l\'alarme machine (\$X) pour me permettre de dégager l\'axe.',
+          prompt: 'Déverrouille l\'alarme machine (\$X) pour dégager l\'axe.',
           directGcode: '\$X',
         ),
         SuggestedNextAction(
           id: 'rehome_all',
-          emoji: '🏠',
-          label: tr('Relancer Homing (\$H)'),
-          prompt: 'Lance une prise d\'origine machine complète (\$H).',
+          label: tr('Prise d\'origine (\$H)'),
+          prompt: 'Lance une prise d\'origine machine (\$H).',
           directGcode: '\$H',
-        ),
-        SuggestedNextAction(
-          id: 'demo_recovery',
-          emoji: '⚡',
-          label: tr('Vérifier l\'alimentation ATX / Broche'),
-          prompt: 'Comment vérifier si la chute de tension vient du relais broche 775 (GPIO 21) ou de l\'alimentation ATX 12V ?',
         ),
       ];
     }
 
-    // 2. Après le chargement d'un fichier STEP ou d'un cas de démo (Manufacturing / Médecine)
+    // 2. Après le chargement d'une pièce CAO / STEP
     if (lastOp == OperationEventType.stepFileLoaded ||
         lastOp == OperationEventType.demoBenchmarkLoaded) {
-      final isMed = activeDemoDomain == 'medicine';
       return [
         SuggestedNextAction(
           id: 'gen_5axis_cam',
-          emoji: '⚙️',
-          label: isMed
-              ? tr('Générer G-Code 5 axes (Implant/Médical)')
-              : tr('Générer G-Code 5 axes (Manufacturing)'),
+          label: tr('Générer le parcours'),
           prompt: activeFilePath != null
-              ? 'Génère ou analyse le parcours G-code 5 axes pour le fichier chargé ($activeFilePath) et donne-moi les paramètres de coupe.'
-              : 'Prépare le parcours G-code de finition 5 axes pour cette pièce.',
+              ? 'Prépare le parcours G-code pour la pièce chargée ($activeFilePath) avec les paramètres de coupe.'
+              : 'Prépare le parcours G-code de finition pour cette pièce.',
         ),
         SuggestedNextAction(
           id: 'check_envelope',
-          emoji: '📏',
-          label: tr('Vérifier l\'enveloppe X/Y/Z/A/C'),
-          prompt: 'Vérifie si les dimensions de la pièce chargée rentrent dans les courses X, Y, Z, A, C de la machine.',
-        ),
-        SuggestedNextAction(
-          id: 'switch_demo_domain',
-          emoji: isMed ? '🏭' : '🏥',
-          label: isMed
-              ? tr('Tester STEP Manufacturing (Turbine)')
-              : tr('Tester STEP Médecine (Implant crânien)'),
-          prompt: isMed
-              ? 'Lance la démonstration Manufacturing avec le fichier STEP de la turbine 5 axes (IMPELLER.STP).'
-              : 'Lance la démonstration Médecine avec le fichier STEP de l\'implant crânien (rend.step).',
-          demoSampleId: isMed ? 'manufacturing_impeller' : 'medicine_cranial_implant',
+          label: tr('Vérifier les courses'),
+          prompt: 'Vérifie si les dimensions de la pièce rentrent dans les courses X, Y, Z, A, C de la machine.',
         ),
         SuggestedNextAction(
           id: 'probe_origin',
-          emoji: '📍',
-          label: tr('Préparer le palpage G54'),
-          prompt: 'Guide-moi pour palper l\'origine pièce G54 avant d\'usiner ce modèle.',
+          label: tr('Origine G54'),
+          prompt: 'Comment régler l\'origine pièce G54 avant d\'usiner cette pièce ?',
         ),
       ];
     }
@@ -238,21 +212,18 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'air_cut_check',
-          emoji: '✈️',
-          label: tr('Conseils test à vide (Air-Cut Z+20)'),
-          prompt: 'Comment décaler mon origine Z de +20 mm en G54 pour exécuter ce programme à vide (air-cut) sans toucher la matière ?',
+          label: tr('Essai à vide (Z+20)'),
+          prompt: 'Comment décaler le Z de +20 mm en G54 pour tester ce programme à vide ?',
         ),
         SuggestedNextAction(
           id: 'verify_rtcp',
-          emoji: '🛡️',
-          label: tr('Contrôler la sécurité 5 axes (RTCP)'),
-          prompt: 'Vérifie que le programme G-code actif ne contient aucun code RTCP incompatible (G43.4, TRAORI) ni collision.',
+          label: tr('Contrôler le programme'),
+          prompt: 'Vérifie que le programme actif ne contient ni code incompatible ni risque de collision.',
         ),
         SuggestedNextAction(
           id: 'start_cycle',
-          emoji: '▶️',
-          label: tr('Checklist avant départ cycle'),
-          prompt: 'Fais-moi la checklist de sécurité finale avant de lancer l\'usinage sur la machine.',
+          label: tr('Points à vérifier avant départ'),
+          prompt: 'Quels points vérifier sur la machine avant de lancer l\'usinage ?',
         ),
       ];
     }
@@ -262,23 +233,18 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'go_probing',
-          emoji: '📍',
-          label: tr('Palper l\'origine pièce Z (G54)'),
-          prompt: 'Le homing est fait : comment palper le zéro Z de ma pièce avec la sonde ?',
+          label: tr('Palper le zéro Z'),
+          prompt: 'La prise d\'origine est faite : comment palper le zéro Z de la pièce ?',
         ),
         SuggestedNextAction(
-          id: 'demo_manuf',
-          emoji: '🏭',
-          label: tr('Tester STEP Manufacturing (IMPELLER)'),
-          prompt: 'Charge la démo Manufacturing avec le fichier STEP IMPELLER.STP.',
-          demoSampleId: 'manufacturing_impeller',
+          id: 'set_g54',
+          label: tr('Régler G54 X/Y'),
+          prompt: 'Comment définir l\'origine X et Y en G54 sur le brut ?',
         ),
         SuggestedNextAction(
-          id: 'demo_med',
-          emoji: '🏥',
-          label: tr('Tester STEP Médecine (Implant crânien)'),
-          prompt: 'Charge la démo Médecine avec le fichier STEP de l\'implant crânien (rend.step).',
-          demoSampleId: 'medicine_cranial_implant',
+          id: 'check_program',
+          label: tr('Analyser le programme'),
+          prompt: 'Analyse le programme chargé et signale les risques éventuels.',
         ),
       ];
     }
@@ -288,53 +254,39 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'do_homing',
-          emoji: '🏠',
-          label: tr('Lancer le Homing (\$H)'),
+          label: tr('Prise d\'origine (\$H)'),
           prompt: 'Lance le cycle de prise d\'origine machine (\$H).',
           directGcode: '\$H',
         ),
         SuggestedNextAction(
           id: 'check_pins',
-          emoji: '🔌',
-          label: tr('Vérifier l\'état des capteurs NF'),
-          prompt: 'Vérifie l\'état actuel de la machine, des fins de course X/Y/Z/A et de l\'arrêt d\'urgence.',
+          label: tr('État des capteurs'),
+          prompt: 'Vérifie l\'état de la machine, des fins de course et de l\'arrêt d\'urgence.',
         ),
         SuggestedNextAction(
-          id: 'start_handson_demo',
-          emoji: '🎬',
-          label: tr('Prise en main guidée (Images & Vidéos)'),
-          prompt: 'Présente-moi les fonctionnalités clés de Forgeron avec les prises en main visuelles.',
+          id: 'set_origin',
+          label: tr('Origine pièce (G54)'),
+          prompt: 'Comment régler l\'origine pièce G54 ?',
         ),
       ];
     }
 
-    // 6. Par défaut (Démarrage / Navigation générale / Mode Démo)
+    // 6. Par défaut : questions d'atelier sobres et directes
     return [
       SuggestedNextAction(
-        id: 'handson_tour',
-        emoji: '🎬',
-        label: tr('Prise en main (Images & Vidéos)'),
-        prompt: 'Présente-moi chaque fonctionnalité de Forgeron avec les visuels de prise en main et des cas de test.',
+        id: 'check_machine_state',
+        label: tr('État de la machine'),
+        prompt: 'Quel est l\'état de la machine ?',
       ),
       SuggestedNextAction(
-        id: 'demo_step_manufacturing',
-        emoji: '🏭',
-        label: tr('Démo STEP Manufacturing (Turbine 5-Axes)'),
-        prompt: 'Charge le fichier STEP de démonstration Manufacturing (IMPELLER.STP) et montre-moi le parcours 5 axes.',
-        demoSampleId: 'manufacturing_impeller',
+        id: 'analyze_program',
+        label: tr('Analyser le programme'),
+        prompt: 'Analyse le programme chargé et signale les risques.',
       ),
       SuggestedNextAction(
-        id: 'demo_step_medicine',
-        emoji: '🏥',
-        label: tr('Démo STEP Médecine (Implant crânien)'),
-        prompt: 'Charge le fichier STEP de démonstration Médecine (implant crânien rend.step) et prépare l\'analyse 5 axes.',
-        demoSampleId: 'medicine_cranial_implant',
-      ),
-      SuggestedNextAction(
-        id: 'check_machine_memory',
-        emoji: '🧠',
-        label: tr('État complet & Mémoire Contrôleur'),
-        prompt: 'Donne-moi le bilan complet de l\'état de la machine, des axes X/Y/Z/A/C et de la santé de l\'ESP32.',
+        id: 'pre_machining_diag',
+        label: tr('Diagnostic avant usinage'),
+        prompt: 'Fais un diagnostic complet avant usinage.',
       ),
     ];
   }
@@ -348,14 +300,14 @@ class ControllerMemoryNotifier extends StateNotifier<ControllerMemoryState> {
   bool _sessionInitialized = false;
 
   static const List<String> windowNames = [
-    'Contrôle & Cockpit 5-Axes',
-    'Palpage & Origines WCS',
-    'Table d\'Outils & Cinématique',
-    'Atelier CAO/STEP & Programmes G-Code',
-    'Caméra Vision & Reconstruction 3D',
-    'Diagnostics Électriques & Réseau',
-    'Console Copilote IA',
-    'Paramètres Système',
+    'Tableau de bord',
+    'Palpage & Origines',
+    'Magasin d\'outils',
+    'Espace de travail',
+    'Terminal MDI',
+    'Diagnostics',
+    'Agent IA',
+    'Paramètres',
   ];
 
   ControllerMemoryNotifier(this._ref)

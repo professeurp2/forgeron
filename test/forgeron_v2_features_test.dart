@@ -1,18 +1,64 @@
 import 'dart:io';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/application/providers/controller_memory_provider.dart';
+import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/services/ai_agent_service.dart';
 import 'package:forgeron/application/services/hardware_root_cause_correlator.dart';
 import 'package:forgeron/application/services/local_ai_agent_service.dart';
 import 'package:forgeron/core/i18n/app_language.dart';
 import 'package:forgeron/core/i18n/app_localizations.dart';
 import 'package:forgeron/core/i18n/language_detector.dart';
+import 'package:forgeron/core/theme/forgeron_colors.dart';
 import 'package:forgeron/core/utils/grbl_alarm_catalog.dart';
 import 'package:forgeron/domain/models/demo_benchmark_catalog.dart';
 import 'package:forgeron/domain/models/esp32_reboot_event.dart';
 import 'package:forgeron/domain/models/machine_state.dart';
+import 'package:forgeron/domain/repositories/machine_repository.dart';
+import 'package:forgeron/presentation/widgets/ai/omnipresent_ai_shell.dart';
+
+class _InertMachineRepository implements MachineRepository {
+  @override
+  Stream<MachineState> get stateStream => const Stream.empty();
+  @override
+  Stream<String> get messageStream => const Stream.empty();
+  @override
+  Stream<String> get trafficStream => const Stream.empty();
+  @override
+  MachineState get currentState => const MachineState();
+  @override
+  Future<void> sendGCode(String gcode) async {}
+  @override
+  void sendRaw(String data) {}
+  @override
+  Future<void> sendGCodeBatch(
+    List<String> lines, {
+    void Function()? onComplete,
+    void Function(int index)? onProgress,
+    void Function(String reason)? onStall,
+  }) async {}
+  @override
+  Future<bool> emergencyStop() async => true;
+  @override
+  Future<void> home([List<String> axes = const []]) async {}
+  @override
+  Future<void> jog(String axis, double distance, double feedrate) async {}
+  @override
+  Future<void> resume() async {}
+  @override
+  Future<void> pause() async {}
+  @override
+  Future<void> reset() async {}
+  @override
+  Future<void> setFeedOverride(int percent) async {}
+  @override
+  Future<void> setSpindleOverride(int percent) async {}
+  @override
+  void setSimulationSpeed(double speed) {}
+  @override
+  Future<void> setWcsOffset(String wcs, List<double> offset) async {}
+}
 
 void main() {
   group('Axe 1 — Multilingue local & Anti-dérive Anglais/CJK', () {
@@ -155,7 +201,11 @@ Vous pouvez maintenant lancer la simulation cinématique.
     });
 
     test('ControllerMemoryNotifier et NextBestActionEngine adaptent les suggestions après chaque opération', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
+        ],
+      );
       addTearDown(container.dispose);
 
       // 1. État initial -> dispose de suggestions initiales
@@ -254,6 +304,80 @@ Vous pouvez maintenant lancer la simulation cinématique.
       final diagnosis = HardwareRootCauseCorrelator.diagnoseAlarm(machine);
       expect(diagnosis.gpioPinDetail, contains('GPIO 4'));
       expect(diagnosis.quickActions.any((a) => a.gcodeCommand == r'$X'), isTrue);
+    });
+  });
+
+  group('Axe 3 — Fenêtre Forgeron IA (Thème, Sobriété & Masquage sur page Agent IA)', () {
+    testWidgets('Forgeron IA respecte le thème, affiche un texte sobre et se masque sur la page Agent IA', (tester) async {
+      final overrides = [
+        machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
+      ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: overrides,
+          child: ForgeronTheme(
+            colors: forgeronLightColors,
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 1200,
+                  height: 800,
+                  child: OmnipresentAiShell(
+                    hideOverlay: false,
+                    child: Center(child: Text('Contenu métier')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 1. Le bouton d'accès porte le nom exact « Forgeron IA »
+      expect(find.text('Forgeron IA'), findsOneWidget);
+      expect(find.textContaining('Prises en main'), findsNothing);
+      expect(find.textContaining('STEP Manufacturing'), findsNothing);
+
+      // 2. Ouverture de la fenêtre flottante : sobre, avec pickers, audio et sans barres démo
+      await tester.tap(find.text('Forgeron IA'));
+      await tester.pumpAndSettle();
+      expect(find.text('Forgeron IA'), findsWidgets);
+      expect(find.textContaining('Prises en main'), findsNothing);
+      expect(find.textContaining('STEP Manufacturing'), findsNothing);
+      expect(find.textContaining('COPILOTE IA'), findsNothing);
+
+      // Présence des contrôles enrichis (FilePicker, ImagePicker, Audio STT & TTS)
+      expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
+
+      // 3. Sur la page Agent IA (hideOverlay: true), la fenêtre disparaît complètement
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: overrides,
+          child: ForgeronTheme(
+            colors: forgeronLightColors,
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 1200,
+                  height: 800,
+                  child: OmnipresentAiShell(
+                    hideOverlay: true,
+                    child: Center(child: Text('Page Agent IA principale')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Page Agent IA principale'), findsOneWidget);
+      expect(find.text('Forgeron IA'), findsNothing);
     });
   });
 }

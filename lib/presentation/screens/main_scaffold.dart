@@ -44,7 +44,6 @@ import '../../application/providers/viewer_snapshot_provider.dart';
 import '../../application/providers/controller_memory_provider.dart';
 import '../../core/i18n/app_language.dart';
 import '../widgets/ai/omnipresent_ai_shell.dart';
-import '../widgets/demo/feature_handson_modal.dart';
 
 import '../../application/services/audio_service.dart';
 import '../../core/i18n/app_localizations.dart';
@@ -223,6 +222,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 Expanded(
                   child: OmnipresentAiShell(
                     isMobile: false,
+                    hideOverlay: selectedIndex == 6,
                     onNavigateToScreen: _onNavItemTapped,
                     child: Container(
                       color: context.fc.background,
@@ -326,18 +326,6 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.ondemand_video_rounded,
-                color: Color(0xFFF59E0B), size: 20),
-            tooltip: tr('Démo & Prises en main (STEP Manufacturing & Médecine)'),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              FeatureHandsOnModal.show(
-                context,
-                onNavigateToScreen: _onNavItemTapped,
-              );
-            },
-          ),
           IconButton(
             icon: Icon(Icons.camera_enhance_rounded, color: fc.primary, size: 20),
             tooltip: tr('Scan 3D (Photo vers Usinage)'),
@@ -570,15 +558,15 @@ class _AiAssistantPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AGENT IA',
+                  Text('Forgeron IA',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textPrimary,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
                           fontSize: 15,
                           height: 1.1)),
-                  Text(tr('Assistant CNC · Gemini'),
+                  Text(tr('Assistant CNC'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: fc.textDisabled,
