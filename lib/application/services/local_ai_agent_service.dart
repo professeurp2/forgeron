@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' show max, min;
 import 'package:http/http.dart' as http;
 
+import '../../core/i18n/language_detector.dart';
 import 'ai_agent_service.dart';
 
 /// Ce que le serveur local sait dire de SON modèle — pas ce que le modèle sait
@@ -121,20 +122,6 @@ class LocalAiAgentService implements AiBackend {
 
   /// Plafond d'historique au-delà duquel un modèle de 7 milliards de paramètres
   /// devient peu fiable, QUELLE QUE SOIT la taille de sa fenêtre.
-  ///
-  /// Mesuré sur une vraie discussion rejouée 30 fois par budget (Qwen2.5-7B,
-  /// contexte 16 384, question « état de la machine ») : le bon appel d'outil
-  /// sort 28/30 à 4 000 caractères, 29/30 à 12 000, mais seulement 18/30 à
-  /// 22 000 — le reste, c'est du texte à la place de l'appel, ou une réponse
-  /// qui ignore l'outil. La fenêtre n'était pas pleine (11 400 tokens sur
-  /// 16 384) : le modèle se noie avant que le serveur ne tronque.
-  ///
-  /// C'est un plafond, pas une garantie : une discussion extrême (40
-  /// interrogations d'état d'affilée) reste autour de 50 % quel que soit le
-  /// plafond, le modèle recopiant alors d'anciennes valeurs au lieu de relire
-  /// l'outil. Les vrais leviers sont un modèle plus gros ou moins d'outils
-  /// déclarés par tour (~4 800 des ~6 800 tokens fixes). Un modèle plus gros
-  /// pourra relever ce plafond, après mesure.
   static const reliableHistoryChars = 12000;
 
   @override
@@ -162,12 +149,6 @@ class LocalAiAgentService implements AiBackend {
   }
 
   /// [wanted] figure-t-il dans la liste `/v1/models` du serveur ?
-  ///
-  /// Ollama complète un nom sans étiquette par `:latest` — `forgeron-qwen`
-  /// répond aux requêtes — mais LISTE le modèle sous son nom complet,
-  /// `forgeron-qwen:latest`. Une comparaison stricte déclarait donc absent un
-  /// modèle présent (constaté sur le bouton « Tester » avec le nom par
-  /// défaut), et faisait chercher un problème qui n'existait pas.
   static bool isListed(Iterable<String> ids, String wanted) {
     final name = wanted.trim();
     if (name.isEmpty) return false;
@@ -176,9 +157,7 @@ class LocalAiAgentService implements AiBackend {
   }
 
   /// Interroge `/api/show` (Ollama) pour lire ce que le serveur dit de ce
-  /// modèle. Toute erreur — serveur injoignable, autre que Ollama, modèle
-  /// absent — rend un [LocalModelInfo] vide : le sondage est une aide, jamais
-  /// une condition d'envoi.
+  /// modèle.
   static Future<LocalModelInfo> probe(
     String baseUrl,
     String model, {
@@ -217,8 +196,6 @@ class LocalAiAgentService implements AiBackend {
           .firstMatch(parameters);
       ctx = int.tryParse(m?.group(1) ?? '');
     }
-    // C'est bien Ollama qui répond (ces clés n'existent pas ailleurs) mais le
-    // modèle ne fixe pas son contexte : c'est le défaut du serveur qui joue.
     if (ctx == null &&
         (json.containsKey('modelfile') || json.containsKey('model_info'))) {
       ctx = ollamaDefaultContextTokens;
@@ -239,7 +216,6 @@ class LocalAiAgentService implements AiBackend {
     while (s.endsWith('/')) {
       s = s.substring(0, s.length - 1);
     }
-    // Hôte nu sans port : celui d'Ollama par défaut.
     final uri = Uri.tryParse(s);
     if (uri != null && !uri.hasPort) s = '$s:11434';
     return s;
@@ -249,35 +225,15 @@ class LocalAiAgentService implements AiBackend {
 
   static const Map<String, String> _headers = {
     'content-type': 'application/json',
-    // Ollama ignore la clé, les serveurs compatibles OpenAI l'exigent parfois.
     'authorization': 'Bearer local',
   };
 
   // ── Gemini → OpenAI ───────────────────────────────────────────────────────
 
-  /// Texte laissé à la place d'une image qu'un modèle texte seul ne peut pas
-  /// lire.
-  ///
-  /// Deux raisons de ne pas la supprimer sans rien dire. Le modèle doit SAVOIR
-  /// qu'une image existait : sans cela, interrogé sur une image qu'il n'a
-  /// jamais vue, il en invente une description — c'est le pire des cas pour un
-  /// opérateur qui s'en sert pour juger d'un état de la machine. Et la phrase
-  /// lui dit quoi faire (le dire), au lieu de le laisser improviser.
-  ///
-  /// Formulée comme un constat adressé au modèle plutôt que comme une consigne
-  /// à relayer : une première version (« dis-le à l'opérateur ») a été reprise
-  /// presque telle quelle dans la réponse de Qwen2.5-7B (observé une fois).
   static const imageNote = '[Image jointe par l\'opérateur — tu ne peux pas la '
       'voir, ce modèle ne lit que du texte. Réponds sans la décrire et '
       'préviens l\'opérateur que tu n\'as pas pu l\'examiner.]';
 
-  /// Historique Gemini → `messages` OpenAI.
-  ///
-  /// [supportsImages] à `false` remplace chaque image par [imageNote] : un
-  /// serveur qui reçoit une image qu'il ne sait pas lire répond HTTP 400, et
-  /// comme l'historique garde toujours la dernière image, TOUS les tours
-  /// suivants échoueraient — la discussion serait cassée jusqu'à son
-  /// effacement.
   static List<Map<String, dynamic>> toOpenAiMessages(
     List<Map<String, dynamic>> contents,
     String? systemPrompt, {
@@ -288,9 +244,6 @@ class LocalAiAgentService implements AiBackend {
       out.add({'role': 'system', 'content': systemPrompt});
     }
 
-    // Identifiants d'appels en attente de leur réponse, par nom d'outil. Une
-    // file et non une simple valeur : le même outil peut être appelé plusieurs
-    // fois avant que les réponses n'arrivent.
     final pendingIds = <String, Queue<String>>{};
     var seq = 0;
 
@@ -338,8 +291,6 @@ class LocalAiAgentService implements AiBackend {
           final fr = (p['functionResponse'] as Map).cast<String, dynamic>();
           final name = fr['name'] as String? ?? '';
           final queue = pendingIds[name];
-          // Repli sur un identifiant dérivé du nom si l'appel correspondant
-          // manque (historique tronqué par la compaction, par exemple).
           final id = (queue != null && queue.isNotEmpty)
               ? queue.removeFirst()
               : 'call_$name';
@@ -351,8 +302,6 @@ class LocalAiAgentService implements AiBackend {
         }
       }
 
-      // Les réponses d'outils sont des messages autonomes chez OpenAI, et
-      // doivent précéder tout nouveau tour de l'utilisateur.
       out.addAll(toolMessages);
 
       if (role == 'model') {
@@ -378,11 +327,6 @@ class LocalAiAgentService implements AiBackend {
     return out;
   }
 
-  /// Déclarations d'outils Gemini → `tools` OpenAI.
-  ///
-  /// Le schéma repasse en minuscules : `AiTool` part d'un JSON Schema
-  /// classique que `_toGeminiSchema` met en majuscules pour Google. OpenAI
-  /// veut la casse d'origine.
   static List<Map<String, dynamic>> toOpenAiTools(
     List<Map<String, dynamic>> declarations,
   ) =>
@@ -416,7 +360,6 @@ class LocalAiAgentService implements AiBackend {
         out[key] = value;
       }
     });
-    // OpenAI refuse un objet sans `properties`.
     if (out['type'] == 'object' && out['properties'] == null) {
       out['properties'] = <String, dynamic>{};
     }
@@ -425,7 +368,6 @@ class LocalAiAgentService implements AiBackend {
 
   // ── OpenAI → Gemini ───────────────────────────────────────────────────────
 
-  /// `finish_reason` OpenAI → `finishReason` Gemini.
   static String mapFinishReason(Object? raw) => switch (raw) {
         'stop' || 'tool_calls' || 'function_call' => 'STOP',
         'length' => 'MAX_TOKENS',
@@ -434,12 +376,6 @@ class LocalAiAgentService implements AiBackend {
         _ => '',
       };
 
-  /// Décode les `arguments` d'un appel d'outil.
-  ///
-  /// Tolérant à dessein : un petit modèle rend parfois une chaîne vide, du
-  /// JSON malformé, ou l'objet déjà décodé. Mieux vaut un appel aux arguments
-  /// vides — que l'outil rejettera proprement — qu'une exception qui casse le
-  /// tour entier.
   static Map<String, dynamic> decodeArgs(Object? raw) {
     if (raw == null) return const {};
     if (raw is Map) return raw.cast<String, dynamic>();
@@ -452,19 +388,6 @@ class LocalAiAgentService implements AiBackend {
     }
   }
 
-  /// Récupère un appel d'outil que le modèle a écrit EN TEXTE au lieu de le
-  /// passer par le canal prévu.
-  ///
-  /// Qwen2.5-7B, sur une longue discussion, rend parfois
-  /// `<tool_call>{"name": …, "arguments": {…}}</tool_call>` avec la balise
-  /// remplacée par un mot sans rapport (« Ronaldo {…} », « leton {…} ») : le
-  /// serveur ne la reconnaît pas et le tout arrive comme du texte, que
-  /// l'opérateur verrait tel quel pendant que l'outil ne se déclenche jamais.
-  ///
-  /// Prudent à dessein : rien n'est touché si la réponse contient déjà un vrai
-  /// appel, et seul un objet dont le `name` est un outil RÉELLEMENT déclaré est
-  /// repris — un nom inventé reste du texte. Le texte autour est écarté : c'est
-  /// le résultat de l'outil, au tour suivant, qui donnera la vraie réponse.
   static List<Map<String, dynamic>> recoverTextToolCalls(
       List<Map<String, dynamic>> parts, Set<String> knownTools) {
     if (knownTools.isEmpty || parts.any((p) => p.containsKey('functionCall'))) {
@@ -497,8 +420,6 @@ class LocalAiAgentService implements AiBackend {
     }
   }
 
-  /// Index de l'accolade qui ferme celle ouverte en [start], ou -1. Ignore les
-  /// accolades des chaînes JSON.
   static int _closingBrace(String s, int start) {
     var depth = 0;
     var inString = false;
@@ -521,9 +442,6 @@ class LocalAiAgentService implements AiBackend {
     return -1;
   }
 
-  /// Réponse complète OpenAI → [AiApiResponse] (format Gemini).
-  ///
-  /// [knownTools] : les outils déclarés dans la requête, pour [recoverTextToolCalls].
   static AiApiResponse fromOpenAiJson(Map<String, dynamic> json,
       {Set<String> knownTools = const {}}) {
     final usage = (json['usage'] as Map?)?.cast<String, dynamic>();
@@ -563,7 +481,6 @@ class LocalAiAgentService implements AiBackend {
     );
   }
 
-  /// Noms des outils déclarés dans une requête.
   static Set<String> _toolNames(List<Map<String, dynamic>> declarations) =>
       {for (final d in declarations) if (d['name'] is String) d['name'] as String};
 
@@ -587,12 +504,9 @@ class LocalAiAgentService implements AiBackend {
 
   // ── Joignabilité ──────────────────────────────────────────────────────────
 
-  /// Le serveur est sur le WiFi de l'atelier : aucune exigence de réseau mobile.
   @override
   bool get usesCellular => false;
 
-  /// Le serveur répond-il ? Une requête légère (`/v1/models`, la même que le
-  /// bouton « Tester » des réglages), avec un délai court.
   @override
   Future<bool> isReachable() async {
     try {
@@ -625,17 +539,16 @@ class LocalAiAgentService implements AiBackend {
       'ce qui est interdit ici. Réponds uniquement en français, sans un seul '
       'caractère chinois, même pour un mot isolé.';
 
-  /// Nombre de nouvelles tentatives quand le modèle dérive en chinois.
+  /// Rappel ajouté au prompt système quand le modèle a dérivé en anglais
+  /// (typiquement après la réception d'un résultat d'outil JSON en anglais).
+  static const englishDriftReminder =
+      '\n\nRAPPEL : l\'opérateur t\'a écrit en français mais ta réponse '
+      'précédente était en anglais après l\'exécution d\'un outil. Réponds '
+      'uniquement en français clair et précis, sans phrases en anglais.';
+
+  /// Nombre de nouvelles tentatives quand le modèle dérive en chinois ou en anglais.
   static const maxLanguageRetries = 2;
 
-  /// Qwen2.5 a été entraîné surtout sur du chinois : en pleine phrase française
-  /// il lui arrive de basculer (« …à côté de la讨论中… »), puis de finir sa
-  /// réponse dans cette langue — mesuré dans l'application, sur une discussion
-  /// de neuf messages. L'opérateur ne lit pas le chinois ; il verrait une
-  /// réponse illisible là où l'outil a pourtant réussi.
-  ///
-  /// On ne retente que si l'opérateur n'a PAS écrit lui-même en chinois — dans
-  /// ce cas la réponse chinoise est légitime.
   static bool driftedToChinese(
       AiApiResponse r, List<Map<String, dynamic>> contents) {
     if (r.finishReason == 'CANCELLED') return false;
@@ -652,6 +565,40 @@ class LocalAiAgentService implements AiBackend {
     return true;
   }
 
+  /// Vrai si le modèle local a basculé en anglais alors que l'opérateur a posé
+  /// sa question en français (cas observé dans `scratch/test_lang.py` après
+  /// l'exécution de `run_step_pipeline`).
+  static bool driftedToEnglish(
+    AiApiResponse r,
+    List<Map<String, dynamic>> contents, {
+    String? systemPrompt,
+  }) {
+    if (r.finishReason == 'CANCELLED') return false;
+    if (r.text.trim().isEmpty) return false;
+    if (systemPrompt != null &&
+        systemPrompt.contains('SYSTÉMATIQUEMENT en anglais')) {
+      return false;
+    }
+    for (final c in contents.reversed) {
+      if (c['role'] != 'user') continue;
+      final texts = ((c['parts'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((p) => p['text'])
+          .whereType<String>()
+          .toList();
+      if (texts.isEmpty) continue; // résultat d'outil : on remonte
+      final userText = texts.join(' ');
+      final userLang =
+          LanguageDetector.detectOperatorLanguage(userText, fallback: 'fr');
+      if (userLang == 'en') return false;
+      return LanguageDetector.isEnglishDrift(
+        r.text,
+        expectedLangCode: userLang,
+      );
+    }
+    return false;
+  }
+
   /// Notes déposées dans [AiApiResponse.notes] quand un garde-fou intervient.
   static const noteTextCallRecovered = 'appel_en_texte:recupere';
   static const noteLanguageRetry = 'langue:nouvelle_tentative';
@@ -662,18 +609,11 @@ class LocalAiAgentService implements AiBackend {
       '\n\nRAPPEL : ta réponse précédente était vide. Réponds par une phrase '
       'claire en français, ou appelle l\'outil adapté. Ne reste pas muet.';
 
-  /// Réponse vide : ni texte, ni appel d'outil. Mesuré au banc : 4 essais sur
-  /// 231 (« Arrête tout, c'est urgent ! » une fois ; « passe en mode
-  /// maintenance » trois fois sur trois). Devant une machine, le silence est
-  /// pire qu'un refus : l'opérateur croirait l'ordre exécuté.
   static bool isEmptyReply(AiApiResponse r) =>
       r.finishReason != 'CANCELLED' &&
       r.text.trim().isEmpty &&
       r.functionCalls.isEmpty;
 
-  /// Ajoute le nombre de tokens de la tentative écartée : l'usage affiché doit
-  /// rester celui réellement consommé. Les notes des deux tentatives sont
-  /// conservées, avec celle de la nouvelle tentative.
   static AiApiResponse _afterRetry(AiApiResponse first, AiApiResponse again,
           [String note = noteLanguageRetry]) =>
       AiApiResponse(
@@ -695,8 +635,14 @@ class LocalAiAgentService implements AiBackend {
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');
       r = _afterRetry(r, again);
     }
-    // Une seule nouvelle tentative : un modèle qui reste muet deux fois ne dira
-    // rien de plus à la troisième ; le contrôleur le signale à l'opérateur.
+    for (var i = 0;
+        i < maxLanguageRetries &&
+            driftedToEnglish(r, contents, systemPrompt: systemPrompt);
+        i++) {
+      final again = await _send(contents, functionDeclarations,
+          '${systemPrompt ?? ''}$englishDriftReminder');
+      r = _afterRetry(r, again);
+    }
     if (isEmptyReply(r)) {
       final again = await _send(
           contents, functionDeclarations, '${systemPrompt ?? ''}$emptyReminder');
@@ -742,12 +688,20 @@ class LocalAiAgentService implements AiBackend {
   }) async {
     var r = await _stream(contents, functionDeclarations, systemPrompt,
         onDelta, shouldCancel);
-    // La nouvelle tentative n'est pas streamée : elle remplace d'un coup
-    // l'aperçu en cours, qui montrait la réponse dérivée.
     for (var i = 0; i < maxLanguageRetries && driftedToChinese(r, contents); i++) {
       if (shouldCancel?.call() ?? false) break;
       final again = await _send(
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');
+      r = _afterRetry(r, again);
+      onDelta?.call(r.text);
+    }
+    for (var i = 0;
+        i < maxLanguageRetries &&
+            driftedToEnglish(r, contents, systemPrompt: systemPrompt);
+        i++) {
+      if (shouldCancel?.call() ?? false) break;
+      final again = await _send(contents, functionDeclarations,
+          '${systemPrompt ?? ''}$englishDriftReminder');
       r = _afterRetry(r, again);
       onDelta?.call(r.text);
     }
@@ -784,9 +738,6 @@ class LocalAiAgentService implements AiBackend {
     }
 
     final textBuf = StringBuffer();
-    // Fragments d'appels d'outils, indexés comme le fait OpenAI : le nom
-    // arrive dans un fragment, les arguments en plusieurs morceaux à
-    // concaténer avant de pouvoir décoder quoi que ce soit.
     final callsByIndex = SplayTreeMap<int, Map<String, dynamic>>();
     var finishReason = '';
     var totalTokens = 0;
@@ -798,7 +749,7 @@ class LocalAiAgentService implements AiBackend {
         .transform(const LineSplitter())) {
       if (shouldCancel?.call() ?? false) {
         cancelled = true;
-        break; // quitter la boucle annule l'abonnement → requête coupée
+        break;
       }
       final trimmed = line.trim();
       if (!trimmed.startsWith('data:')) continue;
@@ -809,7 +760,7 @@ class LocalAiAgentService implements AiBackend {
       try {
         chunk = jsonDecode(payload) as Map<String, dynamic>;
       } catch (_) {
-        continue; // fragment illisible → on ignore
+        continue;
       }
       gotAny = true;
 
@@ -847,9 +798,6 @@ class LocalAiAgentService implements AiBackend {
       }
     }
 
-    // Un flux vide signale un serveur qui ne sait pas streamer (ou pas avec
-    // des outils) : on repasse en non-streamé. Après une annulation en
-    // revanche, relancer referait exactement ce qu'on vient d'interrompre.
     if (!gotAny && !cancelled) {
       final r = await sendMessages(
         contents: contents,

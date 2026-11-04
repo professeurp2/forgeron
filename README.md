@@ -149,7 +149,52 @@ tool/
 └── scale_gcode.dart             # Mise à l'échelle des dimensions d'un G-code
 
 DOCS_5axes_continu_post_CAM.md   # Guide de config du post SolidWorks CAM (coords machine)
+README_FEUILLE_DE_ROUTE_V2.md    # Cahier des charges détaillé des évolutions v2 (Multilingue, Démo, UI, Temps réel ESP32)
 ```
+
+---
+
+## 🗺️ Feuille de Route & Spécification Détaillée des Évolutions (v2)
+
+> 📄 **Spécification complète et architecture détaillée** : voir **[`README_FEUILLE_DE_ROUTE_V2.md`](./README_FEUILLE_DE_ROUTE_V2.md)**.
+
+### Axe 1 — Résolution des défaillances multilingues en mode local (Langue de l'Agent IA & Affichage UI)
+- **Diagnostic** :
+  - En mode local (`forgeron-qwen` / `qwen2.5:7b` sous Ollama), le garde-fou `driftedToChinese` (`lib/application/services/local_ai_agent_service.dart`) ne détecte que les caractères chinois (CJK) et laisse passer la dérive vers l'**anglais** après l'exécution d'un outil renvoyant du JSON technique (reproduit dans `scratch/test_lang.py`).
+  - La directive de langue est noyée au milieu du prompt système (`_buildSystemPrompt` dans `ai_agent_provider.dart`) et le mode `auto` échoue après un message `role: 'tool'`.
+  - Plusieurs écrans (`AiConsoleScreen`, `tutorial_data.dart`, `grbl_alarm_catalog.dart`, `app_settings_screen.dart`) contiennent du texte français codé en dur hors `tr()`, le Bambara (`bm`) est absent de `kAppTranslations`, et les widgets `const` de `MainScaffold` ne se reconstruisent pas instantanément au changement de langue.
+- **Tâches planifiées** :
+  - **`T1.1`** : Découplage `uiLanguageProvider` (langue d'affichage de l'interface) et `aiLanguageProvider` (langue de l'Agent IA et de la voix).
+  - **`T1.2`** : Détection déterministe côté Dart (`LanguageDetector`), **Sandwich Prompting** (début + fin du prompt système) et rappel impératif de langue injecté après chaque retour d'outil (`role: 'tool'`).
+  - **`T1.3`** : Garde-fou `driftedToWrongLanguage` détectant à la fois le CJK et la dérive vers l'anglais lorsque la langue cible est le français (ou une autre langue), avec réécriture automatique contrainte.
+  - **`T1.4`** : Architecture hybride sécurisée (Pivot déterministe + Lexique gouverné `ai_lexicon_front.dart`) pour les langues locales à faibles ressources (`bm`, `am`, `om`, `ti`, `wo`, `sw`, `ha`, `yo`, etc.).
+  - **`T1.5` & `T1.6`** : Reconstruction réactive immédiate de toute l'interface (`ValueKey(uiLang.code)` + `AiSubWindowApp`), extraction de 100 % des chaînes codées en dur vers `tr()`, et création du dictionnaire `lib/core/i18n/translations/bm.dart`.
+
+### Axe 2 — Mode Démo Multimédia (« Prises en main » Images + Vidéos), Banc d'Essai STEP (Manufacturing & Médecine), Agent « Mémoire du Contrôleur », Chatbot Omniprésent & Suggestions Proactives
+- **Tâches planifiées** :
+  - **`T2.1` — Prises en main multimédias (Images + Vidéos)** : Présentation interactive de chaque fonctionnalité par l'Agent IA avec cartes visuelles annotées, capsules vidéo de prise en main (`FeatureHandsOnCard`) et narration vocale.
+  - **`T2.2` — Banc d'essai guidé en 1 clic avec les fichiers STEP embarqués** :
+    - **Filière Manufacturing** : Turbine 5 axes (`scratch/3D/IMPELLER.STP` + `IMPELLER.nc`), Vis d'Archimède (`scratch/3D/small-archimedes-impeller-1.snapshot.7/Small Archimedes impeller.STEP`), Dôme 5 axes continu (`scratch/demo_dome_5axes_continu.nc`).
+    - **Filière Médecine** : Implant crânien sur-mesure (`scratch/3D/patient-specific-cranial-implant-1.snapshot.3/rend.step` + `rend_implant5.nc`), Arcade dentaire maxillaire (`scratch/3D/Maxillary_teeth_w_base_NIH3D.stl`), Prothèse dentaire dentine/émail (`scratch/3D/wk-blase-edit-schmelz-dicht-Dentin.stl`).
+  - **`T2.3` — L'Agent comme « Mémoire Totale du Contrôleur » (`ControllerMemoryStore`)** : Centralisation temps réel de l'état machine 5 axes, du câblage GPIO ESP32, de l'historique de santé/reboots, du programme STEP/G-code actif et du journal des 50 dernières opérations opérateur.
+  - **`T2.4` — Chatbot Omniprésent Multi-Ancrage (`OmnipresentAiShell`)** : Accessible depuis **n'importe quelle fenêtre** sans masquer le travail en cours, commutable à la volée en **Flottant (HUD déplaçable)**, **Ancré en Bas (tiroir horizontal / feuille coulissante)** ou **Ancré à Droite (panneau latéral split-view)**.
+  - **`T2.5` — Suggestions Dynamiques Post-Opération (`NextBestActionEngine`)** : Génération automatique de 3 à 4 nouvelles suggestions d'orientation après chaque opération (connexion, homing, palpage, import STEP, génération G-code, alarme ou dépannage).
+
+### Axe 3 — Professionnalisation de l'Interface (Mobile à part & Desktop à part) : Animations & Ergonomie Industrielle
+- **Tâches planifiées** :
+  - **`T3.1` — Cockpit Desktop Multi-Panes** : Ruban supérieur permanent de télémétrie & sécurité (mini-DRO 5 axes, santé ESP32, `E-STOP` global, sélecteur de langue), harmonisation du thème industriel `ForgeTheme`, panneaux latéraux redimensionnables et raccourcis clavier d'atelier (`F1`, `F2`, `Espace`, `Ctrl+X`, `Échap`).
+  - **`T3.2` — Pendant Mobile Une Main** : Bandeau DRO supérieur toujours visible, tiroir IA coulissant multi-crans (`15% / 45% / 85%`) ne masquant jamais l'arrêt d'urgence, cibles tactiles haute sécurité et retours haptiques différenciés.
+  - **`T3.3` — Animations Haute Précision (60 FPS)** : Interpolation cinématique fluide des 5 axes (X, Y, Z, A, C) dans le visualiseur 3D Trunnion et halos visuels synchronisés avec la télémétrie et les alertes.
+
+### Axe 4 — Interprétation Temps Réel des Codes Alarme & des Redémarrages de la Carte ESP32 depuis N'importe Quelle Fenêtre
+- **Diagnostic** :
+  - Actuellement, `CriticalEventWatcher._askAi()` (`lib/application/providers/critical_event_provider.dart`) exige une clé API Cloud Gemini et ignore totalement `LocalAiAgentService` (Ollama) en mode local.
+  - Aucun détecteur n'identifie les redémarrages intempestifs de la carte ESP32 (bannières de boot `Grbl 3.x [FluidNC...]`, `rst:0x...`, `Brownout detector`, ou perte soudaine du Homing vers `ALARM:15` / `MPos:0,0,0` après micro-coupure).
+- **Tâches planifiées** :
+  - **`T4.1` — Détecteur Temps Réel `Esp32RebootDetector`** : Analyse des signatures de boot/reset dans `GrblParser` et détection heuristique de perte d'état machine à la reconnexion WebSocket.
+  - **`T4.2` — Corrélateur de Cause Matérielle (`HardwareRootCauseCorrelator`)** : Croisement automatique avec la mémoire du contrôleur (ex. reboot `< 3 s` après `M3` = chute de tension/brownout liée à l'appel de courant ~17 A de la broche 775 sur GPIO 21 ; dérive après `> 20 min` = surchauffe thermique TB6600/ESP32 ; `ALARM:1/11` = identification exacte du capteur NC ouvert via `Pn:XYZAE`).
+  - **`T4.3` — Connexion de `CriticalEventWatcher` à `LocalAiAgentService`** : Prise en charge native du modèle local `forgeron-qwen` hors-ligne pour le diagnostic temps réel dans la langue de l'opérateur.
+  - **`T4.4` — Alerte Omniprésente & Remédiation en 1 Clic** : Ouverture automatique du Chatbot sur n'importe quelle fenêtre dès qu'une alarme ou un reboot ESP32 survient, avec boutons d'action directs (`Déverrouiller $X`, `Relancer Homing $H`, `Tester capteur GPIO`, `Reprendre à la ligne N`).
 
 ---
 *Projet de Fin d'Études (PFE) — ENI — Configuration Trunnion 5-Axes.*

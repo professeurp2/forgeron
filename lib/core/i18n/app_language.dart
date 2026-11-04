@@ -102,6 +102,28 @@ class AppLanguage {
         'une fois entre parenthèses plutôt que de forger une traduction que '
         "l'opérateur ne reconnaîtra pas.";
   }
+
+  /// Rappel court placé en toute fin de prompt système (Sandwich Prompting)
+  /// pour éviter que les modèles locaux (Qwen2.5-7B / Llama) n'oublient la
+  /// consigne de langue après un long bloc d'état machine ou un JSON d'outil.
+  String trailingPromptAnchor({String? detectedLanguageCode}) {
+    if (writesPoorly || detectedLanguageCode == 'bm') {
+      return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+          'Réponds EXCLUSIVEMENT en FRANÇAIS SIMPLE (phrases courtes, sans '
+          'jargon). N\'utilise JAMAIS l\'anglais ni le chinois, même après '
+          'un résultat d\'outil JSON.';
+    }
+    final resolved = isAuto
+        ? appLanguageById(detectedLanguageCode ?? 'fr')
+        : this;
+    final targetName = resolved.promptName ?? 'français';
+    final forbidEnglish = resolved.id != 'en'
+        ? ' Ne bascule JAMAIS en anglais après l\'exécution d\'un outil.'
+        : '';
+    return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+        'Réponds EXCLUSIVEMENT en $targetName.$forbidEnglish '
+        'N\'utilise aucun caractère chinois (CJK).';
+  }
 }
 
 /// Langues proposées : automatique, français, anglais, puis les langues
@@ -180,3 +202,50 @@ class AppLanguageNotifier extends StateNotifier<AppLanguage> {
 final appLanguageProvider =
     StateNotifierProvider<AppLanguageNotifier, AppLanguage>(
         (ref) => AppLanguageNotifier());
+
+/// Alias explicite pour la langue d'affichage de l'interface (UI).
+final uiLanguageProvider = appLanguageProvider;
+
+/// Préférence optionnelle permettant de dissocier la langue parlée/écrite par
+/// l'Agent IA de la langue d'affichage de l'interface (`null` = suit l'UI).
+class AiLanguageOverrideNotifier extends StateNotifier<AppLanguage?> {
+  static const _key = 'ai_agent_language_override';
+
+  AiLanguageOverrideNotifier() : super(null) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw != null && raw.isNotEmpty) {
+        state = appLanguageById(raw);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> select(AppLanguage? language) async {
+    state = language;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (language == null) {
+        await prefs.remove(_key);
+      } else {
+        await prefs.setString(_key, language.id);
+      }
+    } catch (_) {}
+  }
+}
+
+final aiLanguageOverrideProvider =
+    StateNotifierProvider<AiLanguageOverrideNotifier, AppLanguage?>(
+        (ref) => AiLanguageOverrideNotifier());
+
+/// Langue effective utilisée par l'Agent IA et la synthèse vocale :
+/// prend la surcharge dédiée si définie, sinon suit `appLanguageProvider`.
+final effectiveAiLanguageProvider = Provider<AppLanguage>((ref) {
+  final override = ref.watch(aiLanguageOverrideProvider);
+  final uiLang = ref.watch(appLanguageProvider);
+  return override ?? uiLang;
+});

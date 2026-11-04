@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../application/providers/theme_provider.dart';
+import '../../core/i18n/app_language.dart';
+import '../../core/i18n/app_localizations.dart';
+import '../../core/i18n/fallback_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
 import 'ai_sub_window_content.dart';
@@ -49,23 +53,31 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
   /// figée en sombre quel que soit le thème choisi dans la fenêtre
   /// principale.
   ThemeMode _themeMode = ThemeMode.system;
+  AppLanguage _appLanguage = kAppLanguages.first;
 
   @override
   void initState() {
     super.initState();
-    _loadThemeMode();
+    _loadPreferences();
   }
 
-  Future<void> _loadThemeMode() async {
+  Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(themeModePrefsKey);
-      if (saved == null || !mounted) return;
-      final mode = ThemeMode.values.firstWhere(
-        (m) => m.name == saved,
-        orElse: () => ThemeMode.system,
-      );
-      setState(() => _themeMode = mode);
+      final savedTheme = prefs.getString(themeModePrefsKey);
+      final savedLang = prefs.getString('ai_agent_language');
+      if (!mounted) return;
+      setState(() {
+        if (savedTheme != null) {
+          _themeMode = ThemeMode.values.firstWhere(
+            (m) => m.name == savedTheme,
+            orElse: () => ThemeMode.system,
+          );
+        }
+        if (savedLang != null) {
+          _appLanguage = appLanguageById(savedLang);
+        }
+      });
     } catch (_) {
       // Préférence illisible : la fenêtre reste sur le système, mieux
       // qu'une fenêtre qui ne s'ouvre pas.
@@ -111,6 +123,17 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
         theme: forgeronFluentTheme(forgeronLightColors),
         darkTheme: forgeronFluentTheme(forgeronDarkColors),
         themeMode: _themeMode,
+        locale: _appLanguage.locale,
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          FallbackMaterialLocalizationsDelegate(),
+          FallbackCupertinoLocalizationsDelegate(),
+        ],
         builder: (context, child) => ForgeronTheme(
           colors: isDarkTheme(context, _themeMode)
               ? forgeronDarkColors
@@ -135,8 +158,8 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
       case 'toolpath':
         return ToolpathWindow(payload: _payload);
       default:
-        return const ScaffoldPage(
-          content: Center(child: Text('Fenêtre inconnue.')),
+        return ScaffoldPage(
+          content: Center(child: Text(tr('Fenêtre inconnue.'))),
         );
     }
   }

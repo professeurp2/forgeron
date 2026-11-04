@@ -26,8 +26,10 @@ import 'ai_usage_provider.dart';
 import 'ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../core/i18n/language_detector.dart';
 import 'activity_log_provider.dart';
 import 'ai_artifacts_provider.dart';
+import 'controller_memory_provider.dart';
 import 'docs_provider.dart';
 import 'lexicon_provider.dart';
 import 'machine_params_provider.dart';
@@ -1090,12 +1092,38 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // sur le modèle pour penser à appeler search_docs.
     final block = _docsBlockOrNull();
     final docs = block == null ? '' : '\n\n$block';
+    final lang = _ref.read(effectiveAiLanguageProvider);
+    final controllerMem =
+        _ref.read(controllerMemoryProvider).toSystemPromptBlock();
+
+    String? lastUserText;
+    for (final c in _contents.reversed) {
+      if (c['role'] != 'user') continue;
+      final texts = ((c['parts'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((p) => p['text'])
+          .whereType<String>()
+          .toList();
+      if (texts.isNotEmpty) {
+        lastUserText = texts.join(' ');
+        break;
+      }
+    }
+    final detectedCode = lastUserText != null
+        ? LanguageDetector.detectOperatorLanguage(
+            lastUserText,
+            fallback: lang.isAuto ? 'fr' : lang.id,
+          )
+        : (lang.isAuto ? 'fr' : lang.id);
+
     return '$baseSystemPrompt\n\n'
         '${_kinematicsBlock()}\n\n'
-        '${_ref.read(appLanguageProvider).promptDirective}\n\n'
+        '${lang.promptDirective}\n\n'
+        '$controllerMem\n\n'
         '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
-        '$activity';
+        '$activity\n\n'
+        '${lang.trailingPromptAnchor(detectedLanguageCode: detectedCode)}';
   }
 
   // ---------------------------------------------------------------------
@@ -1866,6 +1894,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // voir exactement ce que l'agent a vu, sinon il n'a aucun moyen de juger
       // si son analyse repose sur une image exploitable.
       _replaceMessage(started, started.toolFinished(result, image: image?.bytes));
+      _updateControllerMemoryAfterTool(toolName, input, result);
 
       final parts = <Map<String, dynamic>>[
         _functionResponse(toolName, result: result),
@@ -1896,6 +1925,73 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final image = _ref.read(aiToolImageProvider);
     if (image != null) _ref.read(aiToolImageProvider.notifier).state = null;
     return image;
+  }
+
+  /// Met à jour la Mémoire du Contrôleur et régénère les suggestions après
+  /// l'exécution d'un outil IA.
+  void _updateControllerMemoryAfterTool(
+    String toolName,
+    Map<String, dynamic> input,
+    String result,
+  ) {
+    final mem = _ref.read(controllerMemoryProvider.notifier);
+    if (toolName == 'preview_step_file' || toolName == 'analyze_step_file') {
+      final p = input['path'] as String? ?? input['step_path'] as String?;
+      mem.recordOperation(
+        OperationEventType.stepFileLoaded,
+        summary: 'Analyse STEP : ${p ?? "modèle 3D"}',
+        filePath: p,
+      );
+    } else if (toolName == 'run_step_pipeline' ||
+        toolName == 'load_gcode_file' ||
+        toolName == 'generate_5axis_dome') {
+      final p = input['path'] as String? ?? input['step_path'] as String?;
+      mem.recordOperation(
+        OperationEventType.gcodeGeneratedOrLoaded,
+        summary: 'Programme G-Code prêt ($toolName)',
+        filePath: p,
+      );
+    } else if (toolName == 'home_machine') {
+      mem.recordOperation(
+        OperationEventType.homingCompleted,
+        summary: 'Homing commandé par l\'Agent IA',
+      );
+    } else if (toolName == 'unlock_alarm') {
+      mem.recordOperation(
+        OperationEventType.alarmCleared,
+        summary: 'Alarme déverrouillée (\$X) par l\'Agent IA',
+      );
+    }
+  }
+
+  /// Publie directement un message proactif de l'Agent IA dans le fil (utilisé
+  /// par le Banc d'Essai Démo Manufacturing/Médecine et l'interpréteur temps
+  /// réel d'alarmes / reboots ESP32).
+  void postProactiveAssistantMessage(
+    String text, {
+    String? toolName,
+    Map<String, dynamic>? toolArgs,
+    String? toolResult,
+  }) {
+    if (toolName != null) {
+      final stepMsg = AiChatMessage(
+        role: 'tool',
+        text: '$toolName → ${toolResult ?? "OK"}',
+        timestamp: DateTime.now(),
+        toolName: toolName,
+        toolArgs: toolArgs ?? const {},
+        toolResult: toolResult ?? 'OK',
+        toolDuration: const Duration(milliseconds: 120),
+      );
+      _addMessage(stepMsg);
+    }
+    _addMessage(
+      AiChatMessage(
+        role: 'assistant',
+        text: text,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   Map<String, dynamic> _functionResponse(String name, {String? result, String? error}) {

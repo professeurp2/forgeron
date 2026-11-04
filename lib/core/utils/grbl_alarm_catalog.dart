@@ -16,26 +16,33 @@
 /// Un code hors énumération est affiché comme non répertorié plutôt que deviné.
 library;
 
+import '../i18n/app_localizations.dart';
+
 class AlarmInfo {
   const AlarmInfo({
     required this.code,
-    required this.title,
-    required this.cause,
-    required this.action,
+    required String title,
+    required String cause,
+    required String action,
     this.positionLost = false,
     this.unlockable = false,
-  });
+  })  : _title = title,
+        _cause = cause,
+        _action = action;
 
   final int code;
+  final String _title;
+  final String _cause;
+  final String _action;
 
-  /// Formulation courte, pour un bandeau.
-  final String title;
+  /// Formulation courte, pour un bandeau (traduite dynamiquement via [tr]).
+  String get title => tr(_title);
 
-  /// Ce qui s'est passé.
-  final String cause;
+  /// Ce qui s'est passé (traduit dynamiquement via [tr]).
+  String get cause => tr(_cause);
 
-  /// Ce que l'opérateur doit faire.
-  final String action;
+  /// Ce que l'opérateur doit faire (traduit dynamiquement via [tr]).
+  String get action => tr(_action);
 
   /// La position machine n'est plus fiable : une prise d'origine est requise
   /// avant tout mouvement programmé. C'est l'information la plus importante —
@@ -48,7 +55,7 @@ class AlarmInfo {
   /// Code non répertorié : on annonce le numéro sans inventer de cause.
   factory AlarmInfo.unknown(int code) => AlarmInfo(
         code: code,
-        title: 'Alarme $code',
+        title: tr('Alarme {}', [code]),
         cause: 'Ce code n\'est pas répertorié dans l\'application. '
             'Il est propre à ta version de FluidNC.',
         action: 'Consulte la console pour le message complet du contrôleur '

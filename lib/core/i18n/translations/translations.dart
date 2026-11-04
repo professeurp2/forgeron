@@ -1,6 +1,7 @@
 import 'af.dart';
 import 'am.dart';
 import 'ar.dart';
+import 'bm.dart';
 import 'en.dart';
 import 'ha.dart';
 import 'ig.dart';
@@ -25,6 +26,7 @@ const Map<String, Map<String, String>> kAppTranslations =
   'af': kAf,
   'am': kAm,
   'ar': kAr,
+  'bm': kBm,
   'en': kEn,
   'ha': kHa,
   'ig': kIg,
