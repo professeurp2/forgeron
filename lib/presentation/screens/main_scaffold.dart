@@ -38,13 +38,13 @@ import '../../application/providers/streaming_provider.dart';
 import '../../application/providers/stream_progress_provider.dart';
 import '../../application/providers/activity_log_provider.dart';
 import '../../application/providers/critical_event_provider.dart';
-import '../../application/providers/controller_memory_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
+import '../../application/providers/viewer_snapshot_provider.dart';
+import '../../application/providers/controller_memory_provider.dart';
 import '../../core/i18n/app_language.dart';
 import '../widgets/ai/omnipresent_ai_shell.dart';
 import '../widgets/demo/feature_handson_modal.dart';
-import '../../application/providers/viewer_snapshot_provider.dart';
 
 import '../../application/services/audio_service.dart';
 import '../../core/i18n/app_localizations.dart';
@@ -96,8 +96,6 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     ref.read(activityLogProvider);
     // Démarre le veilleur d'évènements critiques (alarme, E-STOP, surchauffe).
     ref.read(criticalEventWatcherProvider);
-    // Démarre la Mémoire Totale du Contrôleur (suivi fenêtre, reboots ESP32, suggestions).
-    ref.read(controllerMemoryProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Le mobile a son propre parcours : les étapes desktop visent une barre
       // latérale et un pied de page qui n'existent pas ici. Même critère que
@@ -125,23 +123,23 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   }
 
   void _onNavItemTapped(int index) {
+    ref.read(controllerMemoryProvider.notifier).setActiveWindow(index);
     if (ref.read(selectedNavIndexProvider) != index) {
       // Déclenche le warmUp au premier clic pour débloquer l'audio sur le Web
       ref.read(audioServiceProvider).warmUp();
       ref.read(audioServiceProvider).play(SoundEffect.navigation);
       ref.read(selectedNavIndexProvider.notifier).state = index;
     }
-    ref.read(controllerMemoryProvider.notifier).setActiveWindow(index);
   }
 
   List<Widget> get _screens => [
-    const DashboardScreen(),
-    const ProbingScreen(),
-    const ToolTableScreen(),
-    const FileManagerScreen(),
-    const MDITerminalScreen(),
-    const DiagnosticsScreen(),
-    const AiConsoleScreen(),
+    DashboardScreen(),
+    ProbingScreen(),
+    ToolTableScreen(),
+    FileManagerScreen(),
+    MDITerminalScreen(),
+    DiagnosticsScreen(),
+    AiConsoleScreen(),
   ];
 
   static const _navItems = [
@@ -157,9 +155,179 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(selectedNavIndexProvider);
+
     final uiLang = ref.watch(appLanguageProvider);
 
-icon: const Icon(Icons.ondemand_video_rounded,
+    return KeyedSubtree(
+      key: ValueKey('ui_lang_${uiLang.id}'),
+      child: RepaintBoundary(
+        key: ref.watch(viewerSnapshotServiceProvider).screenRepaintBoundaryKey,
+        child: TutorialOverlay(
+          child: ResponsiveLayout(
+            mobile: _buildMobileScaffold(selectedIndex),
+            tablet: _buildDesktopScaffold(selectedIndex, false),
+            desktop: _buildDesktopScaffold(selectedIndex, _isSidebarExpanded),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopScaffold(int selectedIndex, bool isExpanded) {
+    // ── Mode atelier : pupitre plein écran, sans barre latérale ni en-tête ──
+    if (ref.watch(isWorkshopModeProvider)) {
+      return Scaffold(
+        backgroundColor: context.fc.background,
+        body: Column(children: const [
+          SafetyBanner(),
+          Expanded(child: WorkshopLayout()),
+        ]),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: context.fc.background,
+      bottomNavigationBar: _StatusFooter(
+        key: TutorialKeys.statusFooter,
+      ),
+      body: Column(
+        children: [
+          const SafetyBanner(),
+          _HeaderBar(
+            key: TutorialKeys.headerBar,
+            isSidebarExpanded: isExpanded,
+            onMenuToggle: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+            onEmergencyStop: () {
+              ref.read(streamingProvider.notifier).stopStream();
+            },
+            onSettingsPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ConnectionSettingsScreen()),
+              );
+            },
+          ),
+          // Progression d'exécution — visible sur toutes les pages, comme sur
+          // mobile. Le desktop ne l'avait nulle part : hors du tableau de
+          // bord, rien ne disait où en était le programme.
+          const _GlobalProgressBar(),
+          Expanded(
+            child: Row(
+              children: [
+                _Sidebar(
+                  key: TutorialKeys.sidebar,
+                  selectedIndex: selectedIndex,
+                  isExpanded: isExpanded,
+                  items: _navItems,
+                  onItemSelected: _onNavItemTapped,
+                ),
+                Expanded(
+                  child: OmnipresentAiShell(
+                    isMobile: false,
+                    onNavigateToScreen: _onNavItemTapped,
+                    child: Container(
+                      color: context.fc.background,
+                      child: _PageReveal(
+                        key: ValueKey(selectedIndex),
+                        child: _screens[selectedIndex],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Écrans mobiles : séparation complète desktop/mobile par page
+  // Chaque écran est une version dédiée optimisée pour les petits écrans.
+  // L'Agent IA n'est plus une face du cube : il est accessible via le bouton
+  // flottant animé (_FloatingAiButton), pour désengorger la barre de nav.
+  static const List<Widget> _mobileScreens = [
+    MobileDashboardScreen(),     // 0 — Tableau de bord
+    MobileProbingScreen(),       // 1 — Palpage & Origines
+    MobileToolTableScreen(),     // 2 — Magasin d'outils
+    FileManagerScreen(),         // 3 — Espace de travail (tabbed, compatible mobile)
+    MobileTerminalScreen(),      // 4 — Terminal MDI
+    MobileDiagnosticsScreen(),   // 5 — Diagnostics
+  ];
+
+  // Libellés courts pour la barre de navigation mobile (l'ordre suit
+  // _navItems / _mobileScreens). L'IA est volontairement exclue (bouton flottant).
+  static const List<String> _mobileNavLabels = [
+    'TABLEAU', 'PALPAGE', 'OUTILS', 'TRAVAIL', 'MDI', 'DIAG',
+  ];
+
+  Widget _buildMobileScaffold(int selectedIndex) {
+    // ── Mode atelier : pupitre plein écran, sans barre de navigation ───────
+    if (ref.watch(isWorkshopModeProvider)) return const MobileWorkshopScreen();
+
+    final fc = context.fc;
+    final aiInbox = ref.watch(aiInboxProvider);
+    final status = ref.watch(machineStateProvider.select((s) => s.valueOrNull?.status));
+    final statusColor =
+        _getMachineStatusColor(context, status ?? MachineStatus.offline);
+    final statusLabel = status?.name.toUpperCase() ?? 'OFFLINE';
+    final isOnline = status != null && status != MachineStatus.offline;
+
+    final destinations = [
+      for (int i = 0; i < _mobileNavLabels.length; i++)
+        ForgeNavDestination(_navItems[i].icon, _mobileNavLabels[i]),
+    ];
+
+    return Scaffold(
+      backgroundColor: fc.background,
+      appBar: AppBar(
+        backgroundColor: fc.surface,
+        elevation: 0,
+        titleSpacing: 12,
+        title: Row(
+          children: [
+            const ForgeronLogoGlow(height: 26),
+            SizedBox(width: 10),
+            const ForgeronWordmark(fontSize: 16),
+            SizedBox(width: 10),
+            // Badge statut compact
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6, height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: statusColor,
+                      boxShadow: [
+                        BoxShadow(color: statusColor, blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ondemand_video_rounded,
                 color: Color(0xFFF59E0B), size: 20),
             tooltip: tr('Démo & Prises en main (STEP Manufacturing & Médecine)'),
             onPressed: () {
@@ -177,7 +345,6 @@ icon: const Icon(Icons.ondemand_video_rounded,
               HapticFeedback.lightImpact();
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const Scan3dScreen()),
-              );
               );
             },
           ),
@@ -223,44 +390,40 @@ icon: const Icon(Icons.ondemand_video_rounded,
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      // ── Navigation en cube 3D rotatif + Copilote IA Omniprésent ─────────
-      body: OmnipresentAiShell(
-        isMobile: true,
-        onNavigateToScreen: _onNavItemTapped,
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                const SafetyBanner(),
-                // Progression d'exécution — globale, visible sur toutes les pages.
-                const _GlobalProgressBar(),
-                Expanded(
-                  child: CubePageView(
-                    controller: _pageController,
-                    onPageChanged: _onNavItemTapped,
-                    children: _mobileScreens,
-                  ),
+      // ── Navigation en cube 3D rotatif ──────────────────────────────────
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              const SafetyBanner(),
+              // Progression d'exécution — globale, visible sur toutes les pages.
+              const _GlobalProgressBar(),
+              Expanded(
+                child: CubePageView(
+                  controller: _pageController,
+                  onPageChanged: _onNavItemTapped,
+                  children: _mobileScreens,
                 ),
-              ],
-            ),
-            // ── Bouton IA flottant, déplaçable à la main ────────────────────
-            Positioned.fill(
-              child: _DraggableAiButton(
-                alert: aiInbox.hasAlert,
-                problem: aiInbox.problem,
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  ref.read(aiInboxProvider.notifier).markRead();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const _AiAssistantPage(),
-                    ),
-                  );
-                },
               ),
+            ],
+          ),
+          // ── Bouton IA flottant, déplaçable à la main ────────────────────
+          Positioned.fill(
+            child: _DraggableAiButton(
+              alert: aiInbox.hasAlert,
+              problem: aiInbox.problem,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                ref.read(aiInboxProvider.notifier).markRead();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const _AiAssistantPage(),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: ForgeBottomNav(
         key: TutorialKeys.mobileNav,
@@ -909,38 +1072,6 @@ class _HeaderBar extends ConsumerWidget {
             ),
           ],
           const Spacer(),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFF59E0B),
-              side: BorderSide(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.55),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            onPressed: () {
-              FeatureHandsOnModal.show(
-                context,
-                onNavigateToScreen: (idx) {
-                  ref.read(selectedNavIndexProvider.notifier).state = idx;
-                  ref
-                      .read(controllerMemoryProvider.notifier)
-                      .setActiveWindow(idx);
-                },
-              );
-            },
-            icon: const Icon(Icons.ondemand_video_rounded, size: 16),
-            label: Text(
-              tr('DÉMO & STEP'),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.smart_toy_rounded,
-                color: Color(0xFF06B6D4), size: 20),
-            tooltip: tr('Ouvrir / Ancrer le Copilote IA Omniprésent'),
-            onPressed: () => ref.read(aiDockProvider.notifier).toggleOpen(),
-          ),
           IconButton(
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 350),

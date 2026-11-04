@@ -2494,18 +2494,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final glossaire = _glossaireBlockOrEmpty();
 
     return '$fixed\n\n'
-
         '${_kinematicsBlock()}'
-
         '${glossaire.isEmpty ? "" : "\n\n$glossaire"}\n\n'
-
+        '$controllerMem\n\n'
         '$liveState$docs\n\n'
-
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
-
         '$activity\n\n'
-
-        '$langBlock';
+        '$langBlock\n\n'
+        '${lang.trailingPromptAnchor(detectedLanguageCode: detectedCode)}';
 
   }
 
