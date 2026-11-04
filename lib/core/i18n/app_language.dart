@@ -126,9 +126,9 @@ class AppLanguage {
     final forbidEnglish = resolved.id != 'en'
         ? ' Ne bascule JAMAIS en anglais apr\u00e8s l\'ex\u00e9cution d\'un outil.'
         : '';
-    return '=== CONSIGNE FINALE DE LANGUE (IMP\u00c9RATIF) ===\n'
-        'R\u00e9ponds EXCLUSIVEMENT en . '
-        'N\'utilise aucun caract\u00e8re chinois (CJK).';
+    return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+        'Réponds EXCLUSIVEMENT en $targetName.$forbidEnglish '
+        'N\'utilise aucun caractère chinois (CJK).';
   }
 
   String get _atelierRule => !lowResource
@@ -229,9 +229,8 @@ final appLanguageProvider =
 /// Alias explicite pour la langue d'affichage de l'interface (UI).
 final uiLanguageProvider = appLanguageProvider;
 
-/// Preference optionnelle permettant de dissocier la langue parlee/ecrite par
-/// l'Agent IA de la langue d'affichage de l'interface (
-ull = suit l'UI).
+/// Préférence optionnelle permettant de dissocier la langue parlée/écrite par
+/// l'Agent IA de la langue d'affichage de l'interface (`null` = suit l'UI).
 class AiLanguageOverrideNotifier extends StateNotifier<AppLanguage?> {
   static const _key = 'ai_agent_language_override';
 
