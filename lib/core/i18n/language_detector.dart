@@ -215,5 +215,85 @@ class LanguageDetector {
     }
     return false;
   }
+
+  // ── Dérive hors de la langue cible ─────────────────────────────────────────
+  //
+  // Banc de conversation, 5 nov. 2026 : une réponse en arabe repassait au
+  // français à mi-chemin (« Position de la pièce… Système de Coordonnées
+  // Actif… »), une réponse en bambara finissait en « Pourrais-tu reformuler ta
+  // demande en français ? ». Le garde-fou ne connaissait que le chinois et
+  // « de l'anglais au lieu du français ».
+
+  /// Mots grammaticaux qui ne sont QUE français — ni « la », « le », « de »,
+  /// « ne », « ta », « tu », « si » : ce sont aussi des mots bambara, wolof,
+  /// haoussa, swahili ou yoruba.
+  static const Set<String> _frOnlyWords = {
+    'les', 'une', 'des', 'est', 'sont', 'pour', 'dans', 'avec', 'vous',
+    'nous', 'pas', 'cette', 'qui', 'que', 'sur', 'aux', 'du', 'et', 'il',
+    'je', 'un', 'au', 'votre', 'vos', 'notre', 'mais', 'afin', 'mieux',
+    'plus', 'très', 'peux', 'pouvez', 'voulez', 'avez', 'être', 'cela',
+    'comme', 'aussi', 'bien', 'alors', 'encore', 'pourrais', 'pourriez',
+    'souhaitez', 'actuellement', 'maintenant', 'comprends', 'question',
+    'demande', 'reformuler', 'préciser', 'merci', 'désolé', 'aucune',
+    'aucun', 'été', 'ont', 'sera',
+  };
+
+  /// Mots grammaticaux qui ne sont QU'anglais (pas « to » : « to » est le
+  /// « d'accord » haoussa).
+  static const Set<String> _enOnlyWords = {
+    'the', 'is', 'are', 'and', 'you', 'your', 'with', 'this', 'that', 'of',
+    'will', 'can', 'have', 'has', 'it', 'for', 'here', 'please', 'would',
+    'could', 'should', 'been', 'there', 'which',
+  };
+
+  /// Libellés cités, code en ligne : la règle demande de citer les boutons
+  /// tels qu'affichés, souvent en français — ce n'est pas une dérive.
+  static final RegExp _quoted = RegExp(r'«[^»]*»|“[^”]*”|"[^"]*"|`[^`]*`');
+
+  static final RegExp _latinWord = RegExp(r'^[a-zà-öø-ÿœ]{2,}$');
+
+  /// Vrai si [reply] a quitté la langue cible [targetId] (code de
+  /// l'application) pour du français ou de l'anglais. Le français cible est
+  /// laissé à [isEnglishDrift]. Seuils volontairement hauts : une fausse
+  /// alerte coûte une génération de plus, pas davantage, mais une langue
+  /// peu dotée mêle légitimement des mots d'atelier français.
+  static bool driftsFromLanguage(String reply, String targetId) {
+    if (targetId == 'fr') return false;
+    final prose =
+        reply.replaceAll(_codeBlockRegex, ' ').replaceAll(_quoted, ' ');
+    if (prose.trim().length < 30) return false;
+
+    // Écritures non latines : la part de mots latins suffit. On écarte les
+    // sigles et ce qui porte des chiffres (WCS, G54, OFFLINE, X10…).
+    if (targetId == 'ar' || targetId == 'am') {
+      final script = targetId == 'ar' ? _arabicRegex : _ethiopicRegex;
+      final tokens =
+          prose.split(_tokenSplit).where((t) => t.isNotEmpty).toList();
+      final native = tokens.where(script.hasMatch).length;
+      final latin = tokens
+          .where((t) => t != t.toUpperCase() && _latinWord.hasMatch(t.toLowerCase()))
+          .length;
+      return latin >= 8 && latin * 3 >= native;
+    }
+
+    // Écritures latines : phrase par phrase, pour qu'une fin de réponse en
+    // français ne soit pas noyée par un début dans la bonne langue.
+    var foreign = 0;
+    var total = 0;
+    for (final sentence in prose.split(RegExp(r'[.!?\n:;]+'))) {
+      final tokens = sentence
+          .toLowerCase()
+          .split(_tokenSplit)
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (tokens.length < 3) continue;
+      total++;
+      final fr = tokens.where(_frOnlyWords.contains).length;
+      final en =
+          targetId == 'en' ? 0 : tokens.where(_enOnlyWords.contains).length;
+      if (fr >= 3 || en >= 3) foreign++;
+    }
+    return foreign >= 2 || (foreign == 1 && total <= 2);
+  }
 }
 

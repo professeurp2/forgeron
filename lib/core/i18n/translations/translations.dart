@@ -40,3 +40,8 @@ const Map<String, Map<String, String>> kAppTranslations =
   'yo': kYo,
   'zu': kZu,
 };
+
+/// Nombre de textes du catalogue (tool/i18n_keys.json). Un dictionnaire
+/// en couvre une partie : l'assistant dit « N sur ce total » plutôt
+/// qu'un nombre seul, qu'un modèle local enjolivait.
+const int kTranslationKeyCount = 1041;

@@ -510,7 +510,10 @@ void main() {
           functionDeclarations: const [],
           systemPrompt: 'S');
       expect(s.corps, hasLength(1 + LocalAiAgentService.maxLanguageRetries));
-      expect(r.text, derive, reason: 'on rend la dernière, sans rien inventer');
+      // On rend la dernière, coupée avant le chinois (5 nov. 2026) : on retire
+      // ce que l'opérateur ne peut pas lire, sans rien inventer à la place.
+      expect(r.text, 'L\'aperçu a été affiché à côté de la …');
+      expect(r.notes, contains(LocalAiAgentService.noteCjkCut));
     });
 
     test('complet : une réponse française n\'est jamais redemandée', () async {

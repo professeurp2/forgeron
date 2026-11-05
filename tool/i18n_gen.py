@@ -57,7 +57,7 @@ def normalize():
     print('cles normalisees :', len(keys))
 
 
-def write_index(codes):
+def write_index(codes, key_count):
     """Reecrit translations.dart depuis les langues reellement generees.
 
     Sans ca, un dictionnaire pouvait etre produit sans jamais etre enregistre
@@ -80,6 +80,13 @@ def write_index(codes):
     for c in codes:
         lines.append("  '%s': k%s," % (c, c.capitalize()))
     lines.append('};')
+    lines += [
+        '',
+        '/// Nombre de textes du catalogue (tool/i18n_keys.json). Un dictionnaire',
+        "/// en couvre une partie : l'assistant dit « N sur ce total » plutôt",
+        "/// qu'un nombre seul, qu'un modèle local enjolivait.",
+        'const int kTranslationKeyCount = %d;' % key_count,
+    ]
     lines.append('')
     io.open(os.path.join(OUT_DIR, 'translations.dart'), 'w',
             encoding='utf-8', newline='').write('\n'.join(lines))
@@ -132,7 +139,7 @@ def generate():
             print('  %-4s écrit à la main, conservé dans l\'index' % code)
             codes.append(code)
     codes.sort()
-    write_index(codes)
+    write_index(codes, len(keys))
     print('total :', total, 'traductions')
 
 

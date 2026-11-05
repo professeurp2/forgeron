@@ -40,17 +40,31 @@ import 'step_preview_service.dart';
 /// État de la machine tel que l'agent le lit. Partagé par l'outil
 /// `get_machine_state` et par le bloc « état actuel » du prompt : les deux
 /// montrent exactement la même chose, ou le modèle recevrait deux vérités.
-Map<String, dynamic> machineStateMap(MachineState s) => {
-      'status': s.status.name,
-      'wPos': s.wPos,
-      'mPos': s.mPos,
-      'activeWCS': s.activeWCS,
-      'activeToolNum': s.activeToolNum,
-      'feedrate': s.feedrate,
-      'spindleSpeed': s.spindleSpeed,
-      'overrides': s.overrides,
-      'alarmCode': s.alarmCode,
-    };
+///
+/// Hors ligne, AUCUNE valeur : l'état par défaut porte des zéros partout, et
+/// le modèle les recopiait comme une lecture (« X: 0.0 mm… » alors que rien
+/// n'avait été lu — banc de conversation, 5 nov. 2026). Le prompt disait
+/// pourtant « hors ligne, aucune lecture » : l'outil le contredisait.
+Map<String, dynamic> machineStateMap(MachineState s) =>
+    s.status == MachineStatus.offline
+        ? const {
+            'status': 'offline',
+            'lecture': 'aucune',
+            'note': 'Machine hors ligne : aucune position, avance, vitesse de '
+                'broche, origine ni alarme n\'a été lue. N\'en annonce aucune, '
+                'et ne présente jamais 0 comme une position.',
+          }
+        : {
+            'status': s.status.name,
+            'wPos': s.wPos,
+            'mPos': s.mPos,
+            'activeWCS': s.activeWCS,
+            'activeToolNum': s.activeToolNum,
+            'feedrate': s.feedrate,
+            'spindleSpeed': s.spindleSpeed,
+            'overrides': s.overrides,
+            'alarmCode': s.alarmCode,
+          };
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -1286,6 +1300,9 @@ class AiToolCatalog {
         ref.read(activityLogProvider.notifier).log(
             'Agent IA : langue de l\'interface ${avant.id} → ${apres.id}');
 
+        // Un nombre seul invitait le modèle à broder (« 1676 libellés » pour
+        // le français, qui n'a pas de dictionnaire) : on lui donne la phrase
+        // complète, avec le total, qu'il n'a plus qu'à reprendre.
         final traduites = kAppTranslations[apres.id]?.length ?? 0;
         return jsonEncode({
           'ok': true,
@@ -1294,8 +1311,14 @@ class AiToolCatalog {
           'langue': apres.id,
           'libelle': apres.label,
           // Le français est la langue source : il n'a pas de dictionnaire.
-          'libelles_traduits': apres.id == 'fr' ? 'source' : traduites,
+          'libelles_traduits': apres.id == 'fr'
+              ? 'tous : le français est la langue d\'origine de l\'interface'
+              : '$traduites sur $kTranslationKeyCount ; les autres restent '
+                  'en français',
           'relu_par_un_locuteur': false,
+          // Sans cette ligne, le modèle ajoutait « redémarrez l'application »
+          // (banc du 5 nov. 2026) : l'interface change sur-le-champ.
+          'effet': 'immédiat, sans redémarrage',
           'retour_arriere': 'Paramètres > Langue',
         });
       },

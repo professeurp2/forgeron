@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 
 
+import '../../core/i18n/app_language.dart' show kAppLanguages;
 import '../../core/i18n/language_detector.dart';
 import 'ai_agent_service.dart';
 
@@ -1381,7 +1382,9 @@ class LocalAiAgentService implements AiBackend {
 
 
 
-  static final _cjk = RegExp(r'[　-〿㐀-䶿一-鿿＀-￯]');
+  // Kana et hangeul compris : une réponse en arabe portait un « 축 » coréen
+  // que l'ancien filtre (idéogrammes seuls) laissait passer.
+  static final _cjk = RegExp(r'[　-〿぀-ヿㄱ-ㆎ㐀-䶿一-鿿가-힯＀-￯]');
 
 
 
@@ -1405,13 +1408,12 @@ class LocalAiAgentService implements AiBackend {
 
   static const languageReminder =
 
-      '\n\nRAPPEL STRICT : ta réponse précédente a dérapé dans une autre langue '
-
-      '(anglais ou chinois), ce qui est interdit. '
-
-      'Réponds uniquement et intégralement dans la langue de réponse '
-
-      'demandée (=== LANGUE DE RÉPONSE ===), sans un seul mot en anglais ni caractère chinois.';
+      '\n\nRAPPEL STRICT : ta réponse précédente a quitté la langue de réponse '
+      'demandée (passage à l\'anglais, au français ou au chinois), ce qui est '
+      'interdit. Réponds uniquement et intégralement dans la langue de réponse '
+      'demandée (=== LANGUE DE RÉPONSE ===), du début à la fin, sans caractère '
+      'chinois ni coréen. Seuls les mots d\'atelier et les libellés cités entre '
+      'guillemets peuvent rester en français.';
 
 
 
@@ -1544,10 +1546,38 @@ class LocalAiAgentService implements AiBackend {
   /// Dérive de langue globale (bascule inopinée en chinois OU en anglais).
 
   static bool hasLanguageDrift(
+          AiApiResponse r, List<Map<String, dynamic>> contents,
+          {String? systemPrompt}) =>
+      driftedToChinese(r, contents) ||
+      driftedToEnglish(r, contents) ||
+      driftedFromTarget(r, systemPrompt: systemPrompt);
 
-      AiApiResponse r, List<Map<String, dynamic>> contents) =>
+  /// Langue de réponse fixée par la consigne de fin du prompt
+  /// (`AppLanguage.trailingPromptAnchor`) — la même que celle du bloc du
+  /// milieu, par construction. `null` sans consigne reconnaissable.
+  static String? targetLanguageFromPrompt(String? systemPrompt) {
+    if (systemPrompt == null) return null;
+    final found = RegExp(r'Réponds EXCLUSIVEMENT en ([^.\n(]+)')
+        .allMatches(systemPrompt)
+        .toList();
+    if (found.isEmpty) return null;
+    final name = found.last.group(1)!.trim().toLowerCase();
+    if (name.startsWith('français')) return 'fr';
+    for (final l in kAppLanguages) {
+      if (l.promptName == name) return l.id;
+    }
+    return null;
+  }
 
-      driftedToChinese(r, contents) || driftedToEnglish(r, contents);
+  /// La réponse a quitté la langue cible du prompt pour du français ou de
+  /// l'anglais (une réponse en arabe qui finit en français, une réponse en
+  /// bambara qui demande de reformuler « en français »).
+  static bool driftedFromTarget(AiApiResponse r, {String? systemPrompt}) {
+    if (r.finishReason == 'CANCELLED') return false;
+    final target = targetLanguageFromPrompt(systemPrompt);
+    return target != null &&
+        LanguageDetector.driftsFromLanguage(r.text, target);
+  }
 
 
 
@@ -1558,6 +1588,31 @@ class LocalAiAgentService implements AiBackend {
   static const noteLanguageRetry = 'langue:nouvelle_tentative';
 
   static const noteEmptyRetry = 'vide:nouvelle_tentative';
+  static const noteCjkCut = 'langue:coupee_cjk';
+
+  /// Dernier recours, après les nouvelles tentatives : une réponse encore en
+  /// chinois est coupée avant le premier caractère CJK. Banc du 5 nov. 2026 :
+  /// « L'interface de l'application a été切换到法语… » restait en chinois
+  /// après deux relances. Une phrase tronquée vaut mieux qu'une phrase que
+  /// l'opérateur ne peut pas lire ; si rien ne reste, la réponse devient vide
+  /// et le garde-fou « réponse vide » demande une nouvelle réponse.
+  static AiApiResponse cutAtCjk(AiApiResponse r) => AiApiResponse(
+        parts: [
+          for (final p in r.parts)
+            if (p['text'] is String && containsCjk(p['text'] as String))
+              {...p, 'text': _beforeCjk(p['text'] as String)}
+            else
+              p,
+        ],
+        finishReason: r.finishReason,
+        totalTokens: r.totalTokens,
+        notes: [...r.notes, noteCjkCut],
+      );
+
+  static String _beforeCjk(String text) {
+    final head = text.substring(0, text.indexOf(_cjk)).trimRight();
+    return head.isEmpty ? '' : '$head …';
+  }
 
 
 
@@ -1632,16 +1687,18 @@ class LocalAiAgentService implements AiBackend {
 
     var r = await _send(contents, functionDeclarations, systemPrompt);
 
-    for (var i = 0; i < maxLanguageRetries && hasLanguageDrift(r, contents); i++) {
+    for (var i = 0;
+        i < maxLanguageRetries &&
+            hasLanguageDrift(r, contents, systemPrompt: systemPrompt);
+        i++) {
 
       final again = await _send(
 
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');
 
       r = _afterRetry(r, again);
-
     }
-
+    if (driftedToChinese(r, contents)) r = cutAtCjk(r);
     // Une seule nouvelle tentative : un modèle qui reste muet deux fois ne dira
 
     // rien de plus à la troisième ; le contrôleur le signale à l'opérateur.
@@ -1740,7 +1797,10 @@ class LocalAiAgentService implements AiBackend {
 
     // l'aperçu en cours, qui montrait la réponse dérivée.
 
-    for (var i = 0; i < maxLanguageRetries && hasLanguageDrift(r, contents); i++) {
+    for (var i = 0;
+        i < maxLanguageRetries &&
+            hasLanguageDrift(r, contents, systemPrompt: systemPrompt);
+        i++) {
 
       if (shouldCancel?.call() ?? false) break;
 
@@ -1749,11 +1809,12 @@ class LocalAiAgentService implements AiBackend {
           contents, functionDeclarations, '${systemPrompt ?? ''}$languageReminder');
 
       r = _afterRetry(r, again);
-
       onDelta?.call(r.text);
-
     }
-
+    if (driftedToChinese(r, contents)) {
+      r = cutAtCjk(r);
+      onDelta?.call(r.text);
+    }
     if (isEmptyReply(r) && !(shouldCancel?.call() ?? false)) {
 
       final again = await _send(
