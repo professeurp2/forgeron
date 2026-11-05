@@ -79,3 +79,8 @@ dist/*
 installer/redist/
 
 third_party/**/pubspec.lock
+
+# Modèles 3D d'essai (implant crânien, dents NIH 3D, turbine...) : ~480 Mo,
+# dont un STEP de 248 Mo que GitHub refuse (limite 100 Mo par fichier).
+# Ce sont des entrées de test, pas du code : ils restent sur le disque.
+scratch/3D/
