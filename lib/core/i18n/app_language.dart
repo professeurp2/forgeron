@@ -90,18 +90,56 @@ class AppLanguage {
         'Dans le G-code lui-même, le séparateur décimal reste TOUJOURS le '
         'point (X14.25) ; dans ta prose, utilise le séparateur usuel de la '
         'langue employée.\n'
-        "L'interface de Forgeron est en français : quand tu renvoies "
-        "l'opérateur vers un écran ou un bouton, cite son libellé français "
-        'exact, puis traduis-le entre parenthèses si tu réponds dans une '
-        'autre langue.\n'
+        "Quand tu renvoies l'opérateur vers un écran ou un bouton, cite "
+        "son libellé tel que l'interface l'affiche (la langue de "
+        "l'interface est indiquée plus bas) ; si elle n'est pas dans la "
+        'langue de ta réponse, traduis-le entre parenthèses.\n'
         "Si un terme technique CNC n'a pas d'équivalent courant dans la "
         'langue de réponse, garde le terme français ou anglais et explique-le '
         'une fois entre parenthèses plutôt que de forger une traduction que '
         "l'opérateur ne reconnaîtra pas."
-        '$_atelierRule';
+        '$atelierRule';
   }
 
-  /// Règle du parler d'atelier, pour les langues peu dotées.
+  /// Langue dans laquelle l'agent doit répondre à ce tour, selon la langue
+  /// détectée du dernier message de l'opérateur (`LanguageDetector`).
+  ///
+  /// Langue imposée : elle-même, quel que soit le message. Automatique : la
+  /// langue détectée si l'application la connaît, le français sinon (message
+  /// indécidable, ou langue absente du catalogue comme le chinois).
+  AppLanguage replyLanguage(String? detectedLanguageCode) {
+    if (!isAuto) return this;
+    final detected = appLanguageById(detectedLanguageCode);
+    return detected.isAuto ? appLanguageById('fr') : detected;
+  }
+
+  /// Rappel court placé en toute fin de prompt système (« sandwich ») pour
+  /// que les modèles locaux (Qwen2.5-7B…) n'oublient pas la consigne de
+  /// langue après un long bloc d'état machine ou un JSON d'outil.
+  ///
+  /// Il dit la MÊME langue que le bloc du milieu ([replyLanguage]) : le
+  /// 5 nov. 2026, le banc de conversation a trouvé un prompt qui disait
+  /// « réponds en bambara » au milieu et « réponds en français » à la fin —
+  /// le bambara était forcé en français ici, contre la décision du
+  /// 27/10/2026 de faire répondre l'agent en bambara.
+  String trailingPromptAnchor({String? detectedLanguageCode}) {
+    final resolved = replyLanguage(detectedLanguageCode);
+    if (resolved.writesPoorly) {
+      return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+          'Réponds EXCLUSIVEMENT en FRANÇAIS SIMPLE (phrases courtes, sans '
+          "jargon). N'utilise JAMAIS l'anglais ni le chinois, même après "
+          "un résultat d'outil JSON.";
+    }
+    final targetName = resolved.promptName ?? 'français';
+    final forbidEnglish = resolved.id != 'en'
+        ? " Ne bascule JAMAIS en anglais après l'exécution d'un outil."
+        : '';
+    return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+        'Réponds EXCLUSIVEMENT en $targetName.$forbidEnglish '
+        "N'utilise aucun caractère chinois (CJK).";
+  }
+
+  /// Règle du parler d'atelier, pour les langues peu dotées (vide sinon).
   ///
   /// Mesuré dans l'étude (§4.1) : en bambara pur le modèle ne comprend que
   /// 19 % des ordres, mais **83 %** dès que les mots d'atelier sont en
@@ -109,29 +147,10 @@ class AppLanguage {
   /// parle réellement devant la machine. Lui dire de s'y attendre vaut mieux
   /// que lui faire deviner, et lui dire de garder ces mots en français
   /// l'empêche d'inventer un vocabulaire technique que personne n'emploie.
-  /// Rappel court place en toute fin de prompt systeme (Sandwich Prompting)
-  /// pour eviter que les modeles locaux (Qwen2.5-7B / Llama) n'oublient la
-  /// consigne de langue apres un long bloc d'etat machine ou un JSON d'outil.
-  String trailingPromptAnchor({String? detectedLanguageCode}) {
-    if (writesPoorly || detectedLanguageCode == 'bm') {
-      return '=== CONSIGNE FINALE DE LANGUE (IMP\u00c9RATIF) ===\n'
-          'R\u00e9ponds EXCLUSIVEMENT en FRAN\u00c7AIS SIMPLE (phrases courtes, sans '
-          'jargon). N\'utilise JAMAIS l\'anglais ni le chinois, m\u00eame apr\u00e8s '
-          'un r\u00e9sultat d\'outil JSON.';
-    }
-    final resolved = isAuto
-        ? appLanguageById(detectedLanguageCode ?? 'fr')
-        : this;
-    final targetName = resolved.promptName ?? 'fran\u00e7ais';
-    final forbidEnglish = resolved.id != 'en'
-        ? ' Ne bascule JAMAIS en anglais apr\u00e8s l\'ex\u00e9cution d\'un outil.'
-        : '';
-    return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
-        'Réponds EXCLUSIVEMENT en $targetName.$forbidEnglish '
-        'N\'utilise aucun caractère chinois (CJK).';
-  }
-
-  String get _atelierRule => !lowResource
+  ///
+  /// Publique : en mode automatique, le prompt l'ajoute pour la langue
+  /// détectée, puisque la directive « auto » ne nomme aucune langue.
+  String get atelierRule => !lowResource
       ? ''
       : "\nPARLER D'ATELIER : en $promptName, les mots techniques se disent "
           'en français — broche, jog, homing, origine, palpage, avance, '

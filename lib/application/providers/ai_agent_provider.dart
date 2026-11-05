@@ -2338,18 +2338,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// provenance ne vaut pas mieux que l'improvisation.
 
-  String _glossaireBlockOrEmpty() {
-
-    final langue = _ref.read(appLanguageProvider);
-
+  String _glossaireBlockOrEmpty(AppLanguage langue) {
     if (!langue.lowResource) return '';
-
     final glossaire =
-
         _ref.read(lexiconLoadProvider).valueOrNull?.glossaries[langue.id];
-
     return glossaire == null ? '' : '\n\n$glossaire';
-
   }
 
 
@@ -2463,154 +2456,89 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final controllerMem =
         _ref.read(controllerMemoryProvider).toSystemPromptBlock();
 
-    String? lastUserText;
-    for (final c in _contents.reversed) {
-      if (c['role'] != 'user') continue;
-      final texts = ((c['parts'] as List?) ?? const [])
-          .whereType<Map>()
-          .map((p) => p['text'])
-          .whereType<String>()
-          .toList();
-      if (texts.isNotEmpty) {
-        lastUserText = texts.join(' ');
-        break;
-      }
-    }
-    final detectedCode = lastUserText != null
-        ? LanguageDetector.detectOperatorLanguage(
-            lastUserText,
-            fallback: lang.isAuto ? 'fr' : lang.id,
-          )
-        : (lang.isAuto ? 'fr' : lang.id);
+    // UNE seule langue de réponse pour tout le prompt : le bloc du milieu, le
+    // glossaire, la règle d'atelier et la consigne de fin la tirent tous de
+    // `reply`. Avant le 5 nov. 2026, deux détecteurs différents et une
+    // exception pour le bambara faisaient dire au même prompt « réponds en
+    // bambara » puis « réponds en français » (banc de conversation).
+    final detectedCode = _operatorLanguageCode();
+    final reply = lang.replyLanguage(detectedCode);
 
     final groups = _turnGroups;
-
     final fixed =
-
         groups == null ? baseSystemPrompt : specialistSystemPrompt(groups);
-
-    final langBlock = _languageEnforcementBlock();
-
-    final glossaire = _glossaireBlockOrEmpty();
+    final langBlock = _languageEnforcementBlock(lang, reply);
+    final glossaire = _glossaireBlockOrEmpty(reply);
 
     return '$fixed\n\n'
         '${_kinematicsBlock()}'
-        '${glossaire.isEmpty ? "" : "\n\n$glossaire"}\n\n'
+        '$glossaire\n\n'
         '$controllerMem\n\n'
         '$liveState$docs\n\n'
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity\n\n'
         '$langBlock\n\n'
         '${lang.trailingPromptAnchor(detectedLanguageCode: detectedCode)}';
-
   }
 
-
-
-  /// Bloc de directive linguistique placé en FIN de prompt système (attention maximale
-
-  /// du modèle) pour empêcher tout basculement intempestif en anglais après un outil.
-
-  String _languageEnforcementBlock() {
-
-    final appLang = _ref.read(appLanguageProvider);
-
-    String detectedLang = 'français';
-
-
-
-    if (appLang.isAuto) {
-
-      final userMessages = state.messages.where((m) => m.role == 'user');
-
-      final lastUserMsg = userMessages.isNotEmpty ? userMessages.last.text : '';
-
-      detectedLang = _detectLanguage(lastUserMsg);
-
-    } else {
-
-      detectedLang = appLang.promptName ?? 'français';
-
+  /// Langue du dernier message de l'opérateur qui en a une (`LanguageDetector`,
+  /// le seul détecteur de l'application). Un message indécidable (« ok »,
+  /// « oui », du G-code) garde la langue du message précédent : sans ça, un
+  /// opérateur qui parle swahili recevait du français à son premier « sawa ».
+  /// `null` quand aucun message ne permet de trancher.
+  String? _operatorLanguageCode() {
+    for (final c in _contents.reversed) {
+      if (c['role'] != 'user') continue;
+      final text = ((c['parts'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((p) => p['text'])
+          .whereType<String>()
+          .join(' ')
+          .trim();
+      if (text.isEmpty) continue; // réponse d'outil, pas l'opérateur
+      final code = LanguageDetector.detectOperatorLanguage(text, fallback: '');
+      if (code.isNotEmpty) return code;
     }
+    return null;
+  }
 
+  /// Bloc de langue seul (prompt de vision, qui n'a pas le reste).
+  String _currentLanguageBlock() {
+    final lang = _ref.read(effectiveAiLanguageProvider);
+    return _languageEnforcementBlock(
+        lang, lang.replyLanguage(_operatorLanguageCode()));
+  }
 
-
+  /// Bloc de directive linguistique, en fin de prompt (attention maximale du
+  /// modèle), pour empêcher la bascule en anglais après un outil. Il annonce
+  /// aussi la langue de l'INTERFACE : sans elle, le modèle croyait l'app
+  /// figée en français et refusait d'appeler `set_app_language`.
+  String _languageEnforcementBlock(AppLanguage lang, AppLanguage reply) {
+    final ui = _ref.read(appLanguageProvider);
+    final target = reply.writesPoorly
+        ? 'français simple'
+        : (reply.promptName ?? 'français');
+    final uiLine = ui.isAuto
+        ? "Interface de l'application : langue du téléphone (réglage "
+            '« auto »).'
+        : "Interface de l'application : ${ui.promptName}.";
     return '=== RÈGLE STRICTE : LANGUE DE RÉPONSE ===\n'
-
-        'L\'opérateur s\'adresse à toi en $detectedLang.\n'
-
-        'Tu DOIS impérativement et exclusivement répondre en $detectedLang.\n'
-
-        'RÈGLE CRITIQUE APRÈS UN OUTIL : même après un appel d\'outil (run_step_pipeline, preview_step_file, home...), '
-
-        'même en cas d\'erreur ou d\'action technique (timeout, délai dépassé, fichier introuvable, refus...), '
-
-        'et quelle que soit la langue des fonctions ou résultats techniques : '
-
-        'ta réponse, tes explications et tes propositions à l\'opérateur DOIVENT ÊTRE EN $detectedLang. '
-
-        'Il est STRICTEMENT INTERDIT de basculer en anglais ou dans une autre langue.\n\n'
-
-        '${appLang.promptDirective}';
-
-  }
-
-
-
-  static String _detectLanguage(String text) {
-
-    final trimmed = text.trim();
-
-    if (trimmed.isEmpty) return 'français';
-
-
-
-    if (RegExp(r'[\u0600-\u06FF]').hasMatch(trimmed)) return 'arabe';
-
-    if (RegExp(r'[\u1200-\u137F]').hasMatch(trimmed)) return 'amharique';
-
-
-
-    final lower = trimmed.toLowerCase();
-
-    if (lower.contains('i ni ce') || lower.contains('aw ni ce') || lower.contains('an ka') || lower.contains('sisan')) {
-
-      return 'bambara';
-
-    }
-
-    if (lower.contains('arakitra') || lower.contains('misaotra') || lower.contains('manao ahoana') || lower.contains('aza fady')) {
-
-      return 'malgache';
-
-    }
-
-    if (lower.contains('habari') || lower.contains('asante') || lower.contains('tafadhali') || lower.contains('mashine')) {
-
-      return 'swahili';
-
-    }
-
-
-
-    final enWords = RegExp(r'\b(the|is|are|please|load|start|run|toolpath|help|what|can|you|generate|show|view)\b');
-
-    final frWords = RegExp(r"\b(le|la|les|un|une|des|du|de|ce|cette|ces|et|en|pour|dans|sur|avec|est|sont|j'|l'|d'|qu'|charge|prépare|fichier|usinage|bonjour|bonsoir|salut|merci)\b");
-
-    final hasFrAccents = RegExp(r'[éèêàçùôîëï]').hasMatch(lower);
-
-
-
-    if (enWords.hasMatch(lower) && !frWords.hasMatch(lower) && !hasFrAccents) {
-
-      return 'anglais';
-
-    }
-
-
-
-    return 'français';
-
+        'Langue de ta réponse à ce message : $target.\n'
+        'RÈGLE CRITIQUE APRÈS UN OUTIL : même après un appel d\'outil '
+        '(run_step_pipeline, preview_step_file, home...), même en cas '
+        'd\'erreur ou d\'action technique (timeout, délai dépassé, fichier '
+        'introuvable, refus...), et quelle que soit la langue des fonctions '
+        'ou résultats techniques : ta réponse, tes explications et tes '
+        'propositions à l\'opérateur DOIVENT ÊTRE EN $target. Il est '
+        'STRICTEMENT INTERDIT de basculer en anglais ou dans une autre '
+        'langue.\n'
+        '$uiLine Si l\'opérateur demande de changer la langue de '
+        'l\'application ou de l\'interface, appelle set_app_language : tu '
+        'en as le droit, c\'est l\'outil prévu.\n\n'
+        '${lang.promptDirective}'
+        // En automatique la directive ne nomme aucune langue : la règle du
+        // parler d'atelier vient de la langue détectée.
+        '${lang.isAuto ? reply.atelierRule : ''}';
   }
 
 
@@ -3837,7 +3765,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
           systemPrompt: vision != null
 
-              ? '$visionSystemPrompt\n\n${_languageEnforcementBlock()}'
+              ? '$visionSystemPrompt\n\n${_currentLanguageBlock()}'
 
               : _buildSystemPrompt(),
 
