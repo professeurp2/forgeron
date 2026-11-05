@@ -21,3 +21,4 @@ final aiPromptDraftProvider =
     StateNotifierProvider<AiPromptDraftNotifier, String>(
   (ref) => AiPromptDraftNotifier(),
 );
+

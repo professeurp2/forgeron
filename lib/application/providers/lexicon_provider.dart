@@ -150,11 +150,10 @@ Map<String, String> buildGlossaries(Map<String, dynamic> json) {
     final relu = l['reviewed_by'] == null
         ? 'non relu par un locuteur'
         : 'relu par ${l['reviewed_by']}';
-    out[code] = '=== MOTS ${('${l['name'] ?? code}').toUpperCase()} '
-        'VÉRIFIÉS ($statut, $relu) ===\n'
-        'Sers-toi de ces mots-là quand tu réponds dans cette langue. '
-        "N'en invente pas d'autres : si une idée te manque, dis-la en "
-        'français plutôt que de forger un mot.\n'
+    out[code] = '=== VOCABULAIRE ATELIER RECONNU ${('${l['name'] ?? code}').toUpperCase()} ($statut, $relu) ===\n'
+        "Ces mots constituent le lexique d'atelier compris par l'opérateur. "
+        "NE RÉCITE JAMAIS cette liste de mots dans ta réponse. "
+        "Formule des phrases complètes et cohérentes, ou exprime-toi en français d'atelier clair si la grammaire te manque.\n"
         '${lignes.join('\n')}';
   }
   return out;

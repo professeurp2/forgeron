@@ -99,12 +99,96 @@ extension _LexiconFront on AiAgentController {
   /// Applique la décision. `true` = le tour est soldé ici (le modèle n'est pas
   /// appelé) ; `false` = le modèle prend la suite, éventuellement restreint à
   /// la lecture (`_readOnlyTurn`).
+  String? _resolveConversationalReply(String text) {
+    final lower = text.trim().toLowerCase();
+    final langCode = _replyLanguageFor(text) ?? 'fr';
+
+    // 1. Salutations matinales (Good morning / Bonjour / I ni sogoma)
+    final isMorningGreeting = RegExp(
+      r'^(i|aw)\s*ni\s*sogoma\b|^ini\s*sogoma\b|^inisogoma\b|^ina\s*kwana\b|^habari\s*za\s*asubuhi\b|^bonjour\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+
+    // 2. Salutations générales (Hello / Salut / I ni ce / Sannu)
+    final isGeneralGreeting = RegExp(
+      r'^(i|aw)\s*ni\s*(ce|tile|wula|su)\b|^(ini|awni)\s*(ce|tile|wula|su)\b|^inice\b|^sannu\b|^salut\b|^coucou\b|^hello\b|^hi\b|^habari\b|^jambo\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+
+    // 3. Remerciements (Merci / Na gode / Asante / I ni ce)
+    final isThanks = RegExp(
+      r'\b(merci|merci\s*beaucoup|na\s*gode|asante|thank\s*you|thanks)\b',
+      caseSensitive: false,
+    ).hasMatch(lower) && !lower.contains('?');
+
+    // 4. Capacités & Que peux-tu faire ? / Aide
+    final isCapabilitiesOrHelp = RegExp(
+      r"""\b(i|aw)\s*b[ɛe]\s*se\s*ka\s*mun\s*k[ɛe]\b|\bmun\s*b[ɛe]\s*se\s*ka\s*k[ɛe]\b|\bque\s*peux[- ]tu\s*faire\b|\btu\s*peux\s*faire\s*quoi\b|\bqu['’]est[- ]ce\s*que\s*tu\s*peux\s*faire\b|\bquelles\s*sont\s*tes\s*fonctions\b|\bme\s*za\s*ka\s*iya\s*yi\b|\bwhat\s*can\s*you\s*do\b|\baide[- ]moi\b|\baide\b|\bd[ɛe]m[ɛe]\b|\btaimako\b|\bmsaada\b""",
+      caseSensitive: false,
+    ).hasMatch(lower);
+
+    if (isMorningGreeting) {
+      return switch (langCode) {
+        'bm' => 'I ni sogoma ! N bɛ se k\'i dɛmɛ cogo di bi mansin la ?',
+        'ha' => 'Ina kwana ! Ta yaya zan iya taimaka maka a kan injin a yau ?',
+        'sw' => 'Habari za asubuhi ! Ninawezaje kukusaidia na mashine leo ?',
+        'en' => 'Good morning! How can I assist you with the CNC machine today?',
+        _ => 'Bonjour ! Comment puis-je vous aider sur la machine aujourd\'hui ?',
+      };
+    }
+
+    if (isGeneralGreeting) {
+      return switch (langCode) {
+        'bm' => 'I ni ce ! Forgeron IA bɛ yan k\'i dɛmɛ. I b\'a fɛ k\'an ka mansin cogoya lajɛ, homing kɛ, walima porogaramu lajɛ ?',
+        'ha' => 'Sannu ! Forgeron IA na nan don taimaka maka. Kuna son duba yanayin injin ko shirin G-code ?',
+        'sw' => 'Jambo ! Forgeron IA iko hapa kukusaidia. Ungependa kuangalia hali ya mashine au programu ya G-code ?',
+        'en' => 'Hello! Forgeron AI is here to help. Would you like to check machine status, run homing, or analyze a program?',
+        _ => 'Bonjour ! Forgeron IA est à votre service. Souhaitez-vous vérifier l\'état machine, faire un homing ou analyser un programme ?',
+      };
+    }
+
+    if (isThanks) {
+      return switch (langCode) {
+        'bm' => 'I ni ce ! N\'i b\'a fɛ ka fɛn wɛrɛ kɛ mansin na, n bɛ yan.',
+        'ha' => 'Babu matsala ! Idan kana bukatar wani abu a kan injin, ina nan.',
+        'sw' => 'Karibu sana ! Ikiwa unahitaji kitu kingine chochote kwenye mashine, niko hapa.',
+        'en' => 'You\'re welcome! Let me know if you need any other machine operations.',
+        _ => 'Avec plaisir ! N\'hésitez pas si vous avez d\'autres opérations à effectuer sur la machine.',
+      };
+    }
+
+    if (isCapabilitiesOrHelp) {
+      return switch (langCode) {
+        'bm' => 'N bɛ se k\'i dɛmɛ : mansin cogoya lajɛ (état machine), homing kɛ (\$H), G-code porogaramu lajɛ, jog kɛ, walima alarme kɔrɔsi. Fɔ n ye i b\'a fɛ ka mun kɛ !',
+        'ha' => 'Zan iya taimaka maka da: duba yanayin injin, yin homing (\$H), bincika shirin G-code, motsa jog, da binciken alarme.',
+        'sw' => 'Ninaweza kukusaidia: kuangalia hali ya mashine, kufanya homing (\$H), kuchambua programu ya G-code, kuendesha jog, na kuchunguza kengele.',
+        'en' => 'I can help you with: checking machine status, running homing (\$H), analyzing G-code programs, jog controls, and diagnosing alarms.',
+        _ => 'Je peux vous aider à : lire l\'état de la machine, lancer la prise d\'origine (\$H), analyser ou prévisualiser un programme G-code, piloter le jog et diagnostiquer les alarmes.',
+      };
+    }
+
+    return null;
+  }
+
   Future<bool> _applyFront(
     String text,
     _Front front, {
     required bool allowModel,
   }) async {
     final clock = Stopwatch()..start();
+
+    // Traitement déterministe immédiat des salutations, remerciements et questions de capacités
+    // afin d'éviter toute hallucination stochastique sur les modèles locaux légers.
+    final conversational = _resolveConversationalReply(text);
+    if (conversational != null) {
+      final epoch = _epoch;
+      _addMessage(AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
+      if (_epoch != epoch) return true;
+      _addMessage(AiChatMessage(role: 'assistant', text: conversational, timestamp: DateTime.now()));
+      _logFront(front, 'lexique:conversation:${_replyLanguageFor(text)}', clock);
+      return true;
+    }
+
     switch (front.decision) {
       case RunNow d:
         await _runLexiconNow(text, front, d, clock);

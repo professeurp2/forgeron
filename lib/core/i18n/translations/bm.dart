@@ -5,6 +5,7 @@
 // les messages d'alarme critiques non relus par un locuteur restent repliés
 // sur le français.
 const Map<String, String> kBm = <String, String>{
+  'Machine hors ligne : aucune lecture disponible.': 'Mansin tɛ tugu len ye (Hors ligne) : kunnafoni si t\'a la sisan.',
   'TABLEAU DE BORD': 'DASHBOARD',
   'Tableau de bord': 'Dashboard',
   'PALPAGE & ORIGINES': 'SUMANNI NI JƆYƆRƆW',

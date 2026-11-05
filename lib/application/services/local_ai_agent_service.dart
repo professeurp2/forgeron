@@ -1563,6 +1563,24 @@ class LocalAiAgentService implements AiBackend {
   /// bambara qui demande de reformuler « en français »).
   /// Detecte un motif textuel consécutivement répété (dégénérescence de tokens d'un LLM local).
   /// Exemples réels : « kuma ko kuma ko kuma ko... », « cnc cnc cnc... », « machine machine machine... ».
+  /// Détecte une hallucination sous forme de salade de mots de glossaire
+  /// (ex: « Dabila daminɛ. Mɛnɛ, masini cogoya fo in ye. Joona joona. Dama lajɛ fɔ? »)
+  static bool isGlossaryWordSalad(String text) {
+    final lower = text.toLowerCase();
+    final hasSaladPatterns = RegExp(
+      r'dabila\s+damin[ɛe]|joona\s+joona|dama\s+laj[ɛe]\s+f[ɔo]|m[ɛe]n[ɛe],\s*dabila|sogoma\s+jira',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (hasSaladPatterns) return true;
+
+    final phrases = ['joona joona', 'dabila daminɛ', 'dabila damine'];
+    var matches = 0;
+    for (final p in phrases) {
+      if (lower.contains(p)) matches++;
+    }
+    return matches >= 2;
+  }
+
   static ({String pattern, int startIndex, int repetitions})? findRepetitionLoop(
     String text, {
     int minLen = 2,
@@ -1592,6 +1610,9 @@ class LocalAiAgentService implements AiBackend {
 
   /// Tronque la queue répétitive d'un texte pour ne conserver qu'une occurrence propre.
   static String cleanRepetitiveDegeneration(String text) {
+    if (isGlossaryWordSalad(text)) {
+      return "Je suis à votre écoute sur la machine Forgeron. Précisez l'opération souhaitée (état machine, homing \$H, ou programme G-code).";
+    }
     var result = text;
     for (var iter = 0; iter < 3; iter++) {
       final loop = findRepetitionLoop(result);
