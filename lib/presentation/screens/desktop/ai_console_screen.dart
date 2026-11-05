@@ -24,6 +24,7 @@ import '../../../application/services/chat_relay.dart';
 import '../../../application/services/ai_window_launcher.dart';
 import '../../../application/services/tool_router.dart';
 import '../../../core/i18n/app_language.dart';
+import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
@@ -92,6 +93,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   final FlutterTts _tts = FlutterTts();
   bool _listening = false;
   String? _sttLocaleId;
+  List<String> _availableTtsVoices = const [];
 
   @override
   void initState() {
@@ -164,7 +166,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   }
 
   String get _wantedVoiceTag {
-    final language = ref.read(appLanguageProvider);
+    final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
@@ -173,9 +175,13 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     _sttLocaleId = null; // re-résolu à la prochaine dictée
     try {
       final raw = await _tts.getLanguages;
-      final available = (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match =
-          bestVoiceLocale(_wantedVoiceTag, available, fallbacks: const ['fr-FR', 'en-US']);
+      _availableTtsVoices =
+          (raw as List).map((e) => e.toString()).toList(growable: false);
+      final match = bestVoiceLocale(
+        _wantedVoiceTag,
+        _availableTtsVoices,
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
       if (match != null) await _tts.setLanguage(match);
     } catch (_) {
       // getLanguages n'est pas implémenté sur toutes les plateformes.
@@ -183,14 +189,28 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   }
 
   Future<void> _speak(String text) async {
-    final clean = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
-        .replaceAll(RegExp(r'[*_`#>]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (clean.isEmpty) return;
+    final lang = ref.read(effectiveAiLanguageProvider);
+    if (_availableTtsVoices.isEmpty) {
+      try {
+        final raw = await _tts.getLanguages;
+        _availableTtsVoices =
+            (raw as List).map((e) => e.toString()).toList(growable: false);
+      } catch (_) {}
+    }
+    final prep = WaxalVoiceEngine.prepareForTts(
+      text,
+      preferredLanguageId: lang.id,
+      availableVoices: _availableTtsVoices,
+    );
+    if (prep.spokenText.isEmpty) return;
     await _tts.stop();
-    await _tts.speak(clean);
+    try {
+      if (prep.selectedVoiceLocale != null) {
+        await _tts.setLanguage(prep.selectedVoiceLocale!);
+      }
+      await _tts.setSpeechRate(prep.speechRate);
+    } catch (_) {}
+    await _tts.speak(prep.spokenText);
   }
 
   // ───────────────────────────── Envoi ───────────────────────────────────
@@ -369,7 +389,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (next == false) _tts.stop();
     });
 
-    ref.listen(appLanguageProvider, (prev, next) {
+    ref.listen<AppLanguage>(effectiveAiLanguageProvider, (prev, next) {
       if (prev?.id != next.id) _applyVoiceLanguage();
     });
 

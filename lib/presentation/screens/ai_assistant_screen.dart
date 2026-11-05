@@ -14,6 +14,7 @@ import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
 import '../../core/i18n/app_language.dart';
+import '../../core/i18n/waxal_voice_engine.dart';
 import '../../core/utils/speech_error_message.dart';
 import '../../core/utils/voice_locale.dart';
 import '../../application/providers/lexicon_provider.dart';
@@ -63,6 +64,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   /// moteur). Résolue à la première écoute, invalidée à chaque
   /// changement de langue.
   String? _sttLocaleId;
+  List<String> _availableTtsVoices = const [];
 
   /// Entrée clavier physique : Entrée envoie, Maj+Entrée passe à la ligne.
   /// Réservé au desktop — sur mobile la touche « retour » du clavier logiciel
@@ -170,7 +172,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   /// Étiquette BCP-47 visée pour le micro et la voix : celle de la langue
   /// choisie pour l'agent, ou la locale du système en mode automatique.
   String get _wantedVoiceTag {
-    final language = ref.read(appLanguageProvider);
+    final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
@@ -183,27 +185,43 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _sttLocaleId = null; // re-résolu à la prochaine dictée
     try {
       final raw = await _tts.getLanguages;
-      final available =
+      _availableTtsVoices =
           (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(_wantedVoiceTag, available,
-          fallbacks: const ['fr-FR', 'en-US']);
+      final match = bestVoiceLocale(
+        _wantedVoiceTag,
+        _availableTtsVoices,
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
       if (match != null) await _tts.setLanguage(match);
     } catch (_) {
-      // getLanguages n'est pas implémenté sur toutes les plateformes
-      // (desktop) : on laisse la voix par défaut du système.
+      // getLanguages n'est pas implémenté sur toutes les plateformes.
     }
   }
 
   /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
   Future<void> _speak(String text) async {
-    final clean = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
-        .replaceAll(RegExp(r'[*_`#>]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (clean.isEmpty) return;
+    final lang = ref.read(effectiveAiLanguageProvider);
+    if (_availableTtsVoices.isEmpty) {
+      try {
+        final raw = await _tts.getLanguages;
+        _availableTtsVoices =
+            (raw as List).map((e) => e.toString()).toList(growable: false);
+      } catch (_) {}
+    }
+    final prep = WaxalVoiceEngine.prepareForTts(
+      text,
+      preferredLanguageId: lang.id,
+      availableVoices: _availableTtsVoices,
+    );
+    if (prep.spokenText.isEmpty) return;
     await _tts.stop();
-    await _tts.speak(clean);
+    try {
+      if (prep.selectedVoiceLocale != null) {
+        await _tts.setLanguage(prep.selectedVoiceLocale!);
+      }
+      await _tts.setSpeechRate(prep.speechRate);
+    } catch (_) {}
+    await _tts.speak(prep.spokenText);
   }
 
   void _send() {
@@ -604,7 +622,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
     // Changement de langue de l'agent : la voix et le micro doivent suivre,
     // sinon on lit la réponse d'une langue avec l'accent d'une autre.
-    ref.listen(appLanguageProvider, (prev, next) {
+    ref.listen<AppLanguage>(effectiveAiLanguageProvider, (prev, next) {
       if (prev?.id != next.id) _applyVoiceLanguage();
     });
 

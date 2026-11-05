@@ -14,6 +14,7 @@ import '../../../application/providers/controller_memory_provider.dart';
 import '../../../application/providers/di_providers.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/app_localizations.dart';
+import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -127,11 +128,12 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   String? _pendingFilePath;
   String? _pendingFileName;
 
-  // Audio (STT & TTS)
+  // Audio (STT & TTS — propulsé par WaxalVoiceEngine)
   final SpeechToText _speech = SpeechToText();
   final FlutterTts _tts = FlutterTts();
   bool _listening = false;
   String? _sttLocaleId;
+  List<String> _availableTtsVoices = const [];
 
   @override
   void initState() {
@@ -183,7 +185,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   }
 
   String get _wantedVoiceTag {
-    final language = ref.read(appLanguageProvider);
+    final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
@@ -192,23 +194,40 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     _sttLocaleId = null;
     try {
       final raw = await _tts.getLanguages;
-      final available =
+      _availableTtsVoices =
           (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(_wantedVoiceTag, available,
-          fallbacks: const ['fr-FR', 'en-US']);
+      final match = bestVoiceLocale(
+        _wantedVoiceTag,
+        _availableTtsVoices,
+        fallbacks: const ['fr-FR', 'en-US'],
+      );
       if (match != null) await _tts.setLanguage(match);
     } catch (_) {}
   }
 
   Future<void> _speak(String text) async {
-    final clean = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), tr(' bloc de code '))
-        .replaceAll(RegExp(r'[*_`#>]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (clean.isEmpty) return;
+    final lang = ref.read(effectiveAiLanguageProvider);
+    if (_availableTtsVoices.isEmpty) {
+      try {
+        final raw = await _tts.getLanguages;
+        _availableTtsVoices =
+            (raw as List).map((e) => e.toString()).toList(growable: false);
+      } catch (_) {}
+    }
+    final prep = WaxalVoiceEngine.prepareForTts(
+      text,
+      preferredLanguageId: lang.id,
+      availableVoices: _availableTtsVoices,
+    );
+    if (prep.spokenText.isEmpty) return;
     await _tts.stop();
-    await _tts.speak(clean);
+    try {
+      if (prep.selectedVoiceLocale != null) {
+        await _tts.setLanguage(prep.selectedVoiceLocale!);
+      }
+      await _tts.setSpeechRate(prep.speechRate);
+    } catch (_) {}
+    await _tts.speak(prep.spokenText);
   }
 
   Future<void> _toggleListen() async {
@@ -413,7 +432,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       if (next == false) _tts.stop();
     });
 
-    ref.listen<AppLanguage>(appLanguageProvider, (prev, next) {
+    ref.listen<AppLanguage>(effectiveAiLanguageProvider, (prev, next) {
       if (prev?.id != next.id) _applyVoiceLanguage();
     });
 

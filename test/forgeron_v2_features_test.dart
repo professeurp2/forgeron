@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:forgeron/application/services/local_ai_agent_service.dart';
 import 'package:forgeron/core/i18n/app_language.dart';
 import 'package:forgeron/core/i18n/app_localizations.dart';
 import 'package:forgeron/core/i18n/language_detector.dart';
+import 'package:forgeron/core/i18n/waxal_voice_engine.dart';
 import 'package:forgeron/core/theme/forgeron_colors.dart';
 import 'package:forgeron/core/utils/grbl_alarm_catalog.dart';
 import 'package:forgeron/domain/models/demo_benchmark_catalog.dart';
@@ -20,128 +22,117 @@ import 'package:forgeron/presentation/widgets/ai/omnipresent_ai_shell.dart';
 
 class _InertMachineRepository implements MachineRepository {
   @override
+  MachineState get currentState => const MachineState();
+
+  @override
   Stream<MachineState> get stateStream => const Stream.empty();
+
   @override
   Stream<String> get messageStream => const Stream.empty();
+
   @override
   Stream<String> get trafficStream => const Stream.empty();
+
   @override
-  MachineState get currentState => const MachineState();
+  Stream<Esp32RebootEvent> get esp32RebootStream => const Stream.empty();
+
   @override
-  Future<void> sendGCode(String gcode) async {}
-  @override
-  void sendRaw(String data) {}
-  @override
-  Future<void> sendGCodeBatch(
-    List<String> lines, {
-    void Function()? onComplete,
-    void Function(int index)? onProgress,
-    void Function(String reason)? onStall,
-  }) async {}
-  @override
-  Future<bool> emergencyStop() async => true;
-  @override
-  Future<void> home([List<String> axes = const []]) async {}
-  @override
-  Future<void> jog(String axis, double distance, double feedrate) async {}
-  @override
-  Future<void> resume() async {}
-  @override
-  Future<void> pause() async {}
-  @override
-  Future<void> reset() async {}
-  @override
-  Future<void> setFeedOverride(int percent) async {}
-  @override
-  Future<void> setSpindleOverride(int percent) async {}
-  @override
-  void setSimulationSpeed(double speed) {}
-  @override
-  Future<void> setWcsOffset(String wcs, List<double> offset) async {}
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
 void main() {
   group('Axe 1 — Multilingue local & Anti-dérive Anglais/CJK', () {
-    test('detectOperatorLanguage identifie le français, l\'anglais et le bambara', () {
-      expect(
-        LanguageDetector.detectOperatorLanguage(
-          'Bonjour, pourquoi la machine affiche une alarme fin de course ?',
-          fallback: 'en',
-        ),
-        equals('fr'),
-      );
+    test(
+      'detectOperatorLanguage identifie le français, l\'anglais et le bambara',
+      () {
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'Bonjour, pourquoi la machine affiche une alarme fin de course ?',
+            fallback: 'en',
+          ),
+          equals('fr'),
+        );
 
-      expect(
-        LanguageDetector.detectOperatorLanguage(
-          'What is the current spindle speed and why did the machine stop?',
-          fallback: 'fr',
-        ),
-        equals('en'),
-      );
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'What is the current spindle speed and why did the machine stop?',
+            fallback: 'fr',
+          ),
+          equals('en'),
+        );
 
-      expect(
-        LanguageDetector.detectOperatorLanguage(
-          'I ni ce, mansin dabila munna ?',
-          fallback: 'fr',
-        ),
-        equals('bm'),
-      );
-    });
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'I ni ce, mansin dabila munna ?',
+            fallback: 'fr',
+          ),
+          equals('bm'),
+        );
+      },
+    );
 
-    test('detectOperatorLanguage conserve la langue par défaut sur du G-code pur', () {
-      expect(
-        LanguageDetector.detectOperatorLanguage(
-          'G90 G21 G0 X0 Y0 Z10',
-          fallback: 'fr',
-        ),
-        equals('fr'),
-      );
-    });
+    test(
+      'detectOperatorLanguage conserve la langue par défaut sur du G-code pur',
+      () {
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'G90 G21 G0 X0 Y0 Z10',
+            fallback: 'fr',
+          ),
+          equals('fr'),
+        );
+      },
+    );
 
-    test('isEnglishDrift et LocalAiAgentService.driftedToEnglish détectent le basculement post-outil', () {
-      const driftedReply =
-          'Here is the 5-axis toolpath for the impeller. You can see the parameters in the window while attempting to check the machine file.';
-      expect(
-        LanguageDetector.isEnglishDrift(driftedReply, expectedLangCode: 'fr'),
-        isTrue,
-      );
+    test(
+      'isEnglishDrift et LocalAiAgentService.driftedToEnglish détectent le basculement post-outil',
+      () {
+        const driftedReply =
+            'Here is the 5-axis toolpath for the impeller. You can see the parameters in the window while attempting to check the machine file.';
+        expect(
+          LanguageDetector.isEnglishDrift(driftedReply, expectedLangCode: 'fr'),
+          isTrue,
+        );
 
-      const apiResp = AiApiResponse(
-        parts: [
-          {'text': driftedReply}
-        ],
-        finishReason: 'STOP',
-      );
-      final contentsFr = [
-        {
-          'role': 'user',
-          'parts': [
-            {'text': 'Génère le parcours pour la pièce en aluminium.'}
+        const apiResp = AiApiResponse(
+          parts: [
+            {'text': driftedReply},
           ],
-        }
-      ];
-      expect(
-        LocalAiAgentService.driftedToEnglish(
-          apiResp,
-          contentsFr,
-          systemPrompt: appLanguageById('fr').promptDirective,
-        ),
-        isTrue,
-      );
+          finishReason: 'STOP',
+        );
+        final contentsFr = [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': 'Génère le parcours pour la pièce en aluminium.'},
+            ],
+          },
+        ];
+        expect(
+          LocalAiAgentService.driftedToEnglish(
+            apiResp,
+            contentsFr,
+            systemPrompt: appLanguageById('fr').promptDirective,
+          ),
+          isTrue,
+        );
 
-      // Si la langue cible est l'anglais, ce n'est pas une dérive
-      expect(
-        LocalAiAgentService.driftedToEnglish(
-          apiResp,
-          contentsFr,
-          systemPrompt: appLanguageById('en').promptDirective,
-        ),
-        isFalse,
-      );
-    });
+        // Si la langue cible est l'anglais, ce n'est pas une dérive
+        expect(
+          LocalAiAgentService.driftedToEnglish(
+            apiResp,
+            contentsFr,
+            systemPrompt: appLanguageById('en').promptDirective,
+          ),
+          isFalse,
+        );
+      },
+    );
 
-    test('isEnglishDrift ignore les blocs de code G-code dans une réponse en français', () {
-      const validFrenchWithGcode = '''
+    test(
+      'isEnglishDrift ignore les blocs de code G-code dans une réponse en français',
+      () {
+        const validFrenchWithGcode = '''
 Voici le programme d'usinage généré pour la turbine 5 axes :
 ```gcode
 G90 G21
@@ -150,234 +141,380 @@ M3 S12000
 ```
 Vous pouvez maintenant lancer la simulation cinématique.
 ''';
-      expect(
-        LanguageDetector.isEnglishDrift(
-          validFrenchWithGcode,
-          expectedLangCode: 'fr',
-        ),
-        isFalse,
-      );
-    });
+        expect(
+          LanguageDetector.isEnglishDrift(
+            validFrenchWithGcode,
+            expectedLangCode: 'fr',
+          ),
+          isFalse,
+        );
+      },
+    );
 
     test('trailingPromptAnchor génère un rappel de fin de prompt Sandwich', () {
       final frLang = appLanguageById('fr');
-      expect(frLang.trailingPromptAnchor(), contains('CONSIGNE FINALE DE LANGUE'));
+      expect(
+        frLang.trailingPromptAnchor(),
+        contains('CONSIGNE FINALE DE LANGUE'),
+      );
 
       final bmLang = appLanguageById('bm');
       expect(bmLang.trailingPromptAnchor(), contains('bambara'));
     });
 
-    test('GrblAlarmCatalog et le dictionnaire Bambara traduisent dynamiquement selon la langue active', () async {
-      await AppLocalizations.delegate.load(const Locale('bm'));
-      expect(tr('Démarrer'), equals('A daminɛ'));
+    test(
+      'GrblAlarmCatalog et le dictionnaire Bambara traduisent dynamiquement selon la langue active',
+      () async {
+        await AppLocalizations.delegate.load(const Locale('bm'));
+        expect(tr('Démarrer'), equals('A daminɛ'));
 
-      AppLocalizations.setCurrentForTest(const {
-        'Fin de course matérielle': 'Hard limit switch triggered',
-      });
-      final infoTranslated = GrblAlarmCatalog.lookup(1)!;
-      expect(infoTranslated.title, equals('Hard limit switch triggered'));
+        AppLocalizations.setCurrentForTest(const {
+          'Fin de course matérielle': 'Hard limit switch triggered',
+        });
+        final infoTranslated = GrblAlarmCatalog.lookup(1)!;
+        expect(infoTranslated.title, equals('Hard limit switch triggered'));
 
-      await AppLocalizations.delegate.load(const Locale('fr'));
-      final infoFr = GrblAlarmCatalog.lookup(1)!;
-      expect(infoFr.title, equals('Fin de course matérielle'));
-    });
+        await AppLocalizations.delegate.load(const Locale('fr'));
+        final infoFr = GrblAlarmCatalog.lookup(1)!;
+        expect(infoFr.title, equals('Fin de course matérielle'));
+      },
+    );
   });
 
   group('Axe 2 — Benchmarks STEP (Manufacturing & Medicine) & Mémoire Contrôleur', () {
-    test('Le catalogue de démo couvre les capsules de prise en main et les fichiers Manufacturing/Medicine', () {
-      expect(DemoBenchmarkCatalog.handsOnGuides.length, greaterThanOrEqualTo(5));
-      expect(DemoBenchmarkCatalog.byDomain(DemoDomain.manufacturing), isNotEmpty);
-      expect(DemoBenchmarkCatalog.byDomain(DemoDomain.medicine), isNotEmpty);
-
-      // Vérifie que les fichiers STEP/STL/NC intégrés dans scratch/ existent sur le disque
-      for (final sample in DemoBenchmarkCatalog.samples) {
-        final file = File(sample.cadPath);
+    test(
+      'Le catalogue de démo couvre les capsules de prise en main et les fichiers Manufacturing/Medicine',
+      () {
         expect(
-          file.existsSync(),
-          isTrue,
-          reason: 'Fichier CAO introuvable pour le sample ${sample.id} (${sample.cadPath})',
+          DemoBenchmarkCatalog.handsOnGuides.length,
+          greaterThanOrEqualTo(5),
         );
-      }
-    });
+        expect(
+          DemoBenchmarkCatalog.byDomain(DemoDomain.manufacturing),
+          isNotEmpty,
+        );
+        expect(DemoBenchmarkCatalog.byDomain(DemoDomain.medicine), isNotEmpty);
 
-    test('ControllerMemoryNotifier et NextBestActionEngine adaptent les suggestions après chaque opération', () {
-      final container = ProviderContainer(
-        overrides: [
-          machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      // 1. État initial -> dispose de suggestions initiales
-      final initialMemory = container.read(controllerMemoryProvider);
-      expect(initialMemory.nextSuggestions, isNotEmpty);
-
-      // 2. Enregistrement du chargement d'un fichier STEP -> met à jour la mémoire et les suggestions
-      container.read(controllerMemoryProvider.notifier).recordOperation(
-            OperationEventType.stepFileLoaded,
-            summary: 'Chargement de IMPELLER.STP',
-            filePath: 'scratch/3D/IMPELLER.STP',
-            demoDomain: 'manufacturing',
+        // Vérifie que les fichiers STEP/STL/NC intégrés dans scratch/ existent sur le disque
+        for (final sample in DemoBenchmarkCatalog.samples) {
+          final file = File(sample.cadPath);
+          expect(
+            file.existsSync(),
+            isTrue,
+            reason:
+                'Fichier CAO introuvable pour le sample ${sample.id} (${sample.cadPath})',
           );
-      final afterStep = container.read(controllerMemoryProvider);
-      expect(afterStep.activeFilePath, equals('scratch/3D/IMPELLER.STP'));
-      expect(afterStep.nextSuggestions, isNotEmpty);
+        }
+      },
+    );
 
-      // 3. Le bloc mémoire injecté dans le prompt système contient la fenêtre et la pièce active
-      final promptBlock = afterStep.toSystemPromptBlock();
-      expect(promptBlock, contains('MÉMOIRE DU CONTRÔLEUR FORGERON'));
-      expect(promptBlock, contains('IMPELLER.STP'));
-    });
+    test(
+      'ControllerMemoryNotifier et NextBestActionEngine adaptent les suggestions après chaque opération',
+      () {
+        final container = ProviderContainer(
+          overrides: [
+            machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // 1. État initial -> dispose de suggestions initiales
+        final initialMemory = container.read(controllerMemoryProvider);
+        expect(initialMemory.nextSuggestions, isNotEmpty);
+
+        // 2. Enregistrement du chargement d'un fichier STEP -> met à jour la mémoire et les suggestions
+        container
+            .read(controllerMemoryProvider.notifier)
+            .recordOperation(
+              OperationEventType.stepFileLoaded,
+              summary: 'Chargement de IMPELLER.STP',
+              filePath: 'scratch/3D/IMPELLER.STP',
+              demoDomain: 'manufacturing',
+            );
+        final afterStep = container.read(controllerMemoryProvider);
+        expect(afterStep.activeFilePath, equals('scratch/3D/IMPELLER.STP'));
+        expect(afterStep.nextSuggestions, isNotEmpty);
+
+        // 3. Le bloc mémoire injecté dans le prompt système contient la fenêtre et la pièce active
+        final promptBlock = afterStep.toSystemPromptBlock();
+        expect(promptBlock, contains('MÉMOIRE DU CONTRÔLEUR FORGERON'));
+        expect(promptBlock, contains('IMPELLER.STP'));
+      },
+    );
   });
 
-  group('Axe 4 — Détection temps réel des redémarrages ESP32 & Corrélation matérielle GPIO', () {
-    test('Esp32RebootDetector identifie un Brownout ESP32 après démarrage broche M3', () {
-      const machine = MachineState(
-        status: MachineStatus.run,
-        mPos: [12.0, -5.0, -1.5, 15.0, 90.0],
-        spindleSpeed: 12000,
-      );
-      final now = DateTime(2026, 11, 4, 10, 30, 3);
-      final spindleStart = DateTime(2026, 11, 4, 10, 30, 0);
+  group(
+    'Axe 4 — Détection temps réel des redémarrages ESP32 & Corrélation matérielle GPIO',
+    () {
+      test(
+        'Esp32RebootDetector identifie un Brownout ESP32 après démarrage broche M3',
+        () {
+          const machine = MachineState(
+            status: MachineStatus.run,
+            mPos: [12.0, -5.0, -1.5, 15.0, 90.0],
+            spindleSpeed: 12000,
+          );
+          final now = DateTime(2026, 11, 4, 10, 30, 3);
+          final spindleStart = DateTime(2026, 11, 4, 10, 30, 0);
 
-      final event = Esp32RebootDetector.inspectRawLine(
-        'Brownout detector was triggered',
-        currentState: machine,
-        sessionAlreadyInitialized: true,
-        lastSpindleStartAt: spindleStart,
-        now: now,
-      );
+          final event = Esp32RebootDetector.inspectRawLine(
+            'Brownout detector was triggered',
+            currentState: machine,
+            sessionAlreadyInitialized: true,
+            lastSpindleStartAt: spindleStart,
+            now: now,
+          );
 
-      expect(event, isNotNull);
-      expect(event!.reason, equals(Esp32RebootReason.brownoutSpindleSurge));
-      expect(event.wasSpindleRecentlyStarted, isTrue);
-      expect(event.previousStatus, equals(MachineStatus.run));
-    });
-
-    test('Esp32RebootDetector ignore les lignes normales mais détecte une bannière FluidNC en session', () {
-      const machine = MachineState(
-        status: MachineStatus.idle,
-        mPos: [10.0, 20.0, -5.0, 0.0, 0.0],
-      );
-
-      expect(
-        Esp32RebootDetector.inspectRawLine(
-          'ok',
-          currentState: machine,
-          sessionAlreadyInitialized: true,
-        ),
-        isNull,
+          expect(event, isNotNull);
+          expect(event!.reason, equals(Esp32RebootReason.brownoutSpindleSurge));
+          expect(event.wasSpindleRecentlyStarted, isTrue);
+          expect(event.previousStatus, equals(MachineStatus.run));
+        },
       );
 
-      final bootBanner = Esp32RebootDetector.inspectRawLine(
-        '[MSG:INFO: FluidNC v3.9.1]',
-        currentState: machine,
-        sessionAlreadyInitialized: true,
+      test(
+        'Esp32RebootDetector ignore les lignes normales mais détecte une bannière FluidNC en session',
+        () {
+          const machine = MachineState(
+            status: MachineStatus.idle,
+            mPos: [10.0, 20.0, -5.0, 0.0, 0.0],
+          );
+
+          expect(
+            Esp32RebootDetector.inspectRawLine(
+              'ok',
+              currentState: machine,
+              sessionAlreadyInitialized: true,
+            ),
+            isNull,
+          );
+
+          final bootBanner = Esp32RebootDetector.inspectRawLine(
+            '[MSG:INFO: FluidNC v3.9.1]',
+            currentState: machine,
+            sessionAlreadyInitialized: true,
+          );
+          expect(bootBanner, isNotNull);
+          expect(bootBanner!.reason, equals(Esp32RebootReason.powerSupplyDrop));
+        },
       );
-      expect(bootBanner, isNotNull);
-      expect(bootBanner!.reason, equals(Esp32RebootReason.powerSupplyDrop));
-    });
 
-    test('HardwareRootCauseCorrelator relie un Brownout en rotation broche au GPIO 21 et à l\'ATX 12V', () {
-      final event = Esp32RebootEvent(
-        timestamp: DateTime(2026, 11, 4, 10, 30),
-        reason: Esp32RebootReason.brownoutSpindleSurge,
-        rawSignature: 'Brownout detector was triggered',
-        previousStatus: MachineStatus.run,
-        previousMPos: const [12.5, -4.0, -1.2, 0.0, 0.0],
-        wasSpindleRecentlyStarted: true,
+      test(
+        'HardwareRootCauseCorrelator relie un Brownout en rotation broche au GPIO 21 et à l\'ATX 12V',
+        () {
+          final event = Esp32RebootEvent(
+            timestamp: DateTime(2026, 11, 4, 10, 30),
+            reason: Esp32RebootReason.brownoutSpindleSurge,
+            rawSignature: 'Brownout detector was triggered',
+            previousStatus: MachineStatus.run,
+            previousMPos: const [12.5, -4.0, -1.2, 0.0, 0.0],
+            wasSpindleRecentlyStarted: true,
+          );
+
+          final diagnosis = HardwareRootCauseCorrelator.diagnoseEsp32Reboot(
+            event,
+          );
+          expect(diagnosis.gpioPinDetail, contains('GPIO 21'));
+          expect(diagnosis.probableHardwareCause, contains('775'));
+          expect(
+            diagnosis.quickActions.any((a) => a.gcodeCommand == r'$H'),
+            isTrue,
+          );
+          expect(
+            diagnosis.quickActions.any((a) => a.gcodeCommand == 'M5'),
+            isTrue,
+          );
+        },
       );
 
-      final diagnosis = HardwareRootCauseCorrelator.diagnoseEsp32Reboot(event);
-      expect(diagnosis.gpioPinDetail, contains('GPIO 21'));
-      expect(diagnosis.probableHardwareCause, contains('775'));
-      expect(diagnosis.quickActions.any((a) => a.gcodeCommand == r'$H'), isTrue);
-      expect(diagnosis.quickActions.any((a) => a.gcodeCommand == 'M5'), isTrue);
-    });
-
-    test('HardwareRootCauseCorrelator relie ALARM:1 aux pins GPIO des capteurs fin de course', () {
-      const machine = MachineState(
-        status: MachineStatus.alarm,
-        alarmCode: 1,
-        limitSwitches: [true, false, false, false, false],
+      test(
+        'HardwareRootCauseCorrelator relie ALARM:1 aux pins GPIO des capteurs fin de course',
+        () {
+          const machine = MachineState(
+            status: MachineStatus.alarm,
+            alarmCode: 1,
+            limitSwitches: [true, false, false, false, false],
+          );
+          final diagnosis = HardwareRootCauseCorrelator.diagnoseAlarm(machine);
+          expect(diagnosis.gpioPinDetail, contains('GPIO 4'));
+          expect(
+            diagnosis.quickActions.any((a) => a.gcodeCommand == r'$X'),
+            isTrue,
+          );
+        },
       );
-      final diagnosis = HardwareRootCauseCorrelator.diagnoseAlarm(machine);
-      expect(diagnosis.gpioPinDetail, contains('GPIO 4'));
-      expect(diagnosis.quickActions.any((a) => a.gcodeCommand == r'$X'), isTrue);
-    });
-  });
+    },
+  );
 
-  group('Axe 3 — Fenêtre Forgeron IA (Thème, Sobriété & Masquage sur page Agent IA)', () {
-    testWidgets('Forgeron IA respecte le thème, affiche un texte sobre et se masque sur la page Agent IA', (tester) async {
-      final overrides = [
-        machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
-      ];
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: overrides,
-          child: ForgeronTheme(
-            colors: forgeronLightColors,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: SizedBox(
-                  width: 1200,
-                  height: 800,
-                  child: OmnipresentAiShell(
-                    hideOverlay: false,
-                    child: Center(child: Text('Contenu métier')),
+  group(
+    'Axe 3 — Fenêtre Forgeron IA (Thème, Sobriété & Masquage sur page Agent IA)',
+    () {
+      testWidgets(
+        'Forgeron IA respecte le thème, affiche un texte sobre et se masque sur la page Agent IA',
+        (tester) async {
+          final inertRepo = _InertMachineRepository();
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                machineRepositoryProvider.overrideWithValue(inertRepo),
+              ],
+              child: ForgeronTheme(
+                colors: forgeronLightColors,
+                child: const MaterialApp(
+                  home: Scaffold(
+                    body: SizedBox(
+                      width: 1200,
+                      height: 800,
+                      child: OmnipresentAiShell(
+                        hideOverlay: false,
+                        child: Center(child: Text('Contenu métier')),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-      );
-      await tester.pump();
+          );
+          await tester.pump();
 
-      // 1. Le bouton d'accès porte le nom exact « Forgeron IA »
-      expect(find.text('Forgeron IA'), findsOneWidget);
-      expect(find.textContaining('Prises en main'), findsNothing);
-      expect(find.textContaining('STEP Manufacturing'), findsNothing);
+          // 1. Le bouton d'accès porte le nom exact « Forgeron IA »
+          expect(find.text('Forgeron IA'), findsOneWidget);
+          expect(find.textContaining('Prises en main'), findsNothing);
+          expect(find.textContaining('STEP Manufacturing'), findsNothing);
 
-      // 2. Ouverture de la fenêtre flottante : sobre, avec pickers, audio et sans barres démo
-      await tester.tap(find.text('Forgeron IA'));
-      await tester.pumpAndSettle();
-      expect(find.text('Forgeron IA'), findsWidgets);
-      expect(find.textContaining('Prises en main'), findsNothing);
-      expect(find.textContaining('STEP Manufacturing'), findsNothing);
-      expect(find.textContaining('COPILOTE IA'), findsNothing);
+          // 2. Ouverture de la fenêtre flottante : sobre, avec pickers, audio et sans barres démo
+          await tester.tap(find.text('Forgeron IA'));
+          await tester.pumpAndSettle();
+          expect(find.text('Forgeron IA'), findsWidgets);
+          expect(find.textContaining('Prises en main'), findsNothing);
+          expect(find.textContaining('STEP Manufacturing'), findsNothing);
+          expect(find.textContaining('COPILOTE IA'), findsNothing);
 
-      // Présence des contrôles enrichis (FilePicker, ImagePicker, Audio STT & TTS)
-      expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.image_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
+          // Présence des contrôles enrichis (FilePicker, ImagePicker, Audio STT & TTS)
+          expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+          expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+          expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+          expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
 
-      // 3. Sur la page Agent IA (hideOverlay: true), la fenêtre disparaît complètement
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: overrides,
-          child: ForgeronTheme(
-            colors: forgeronLightColors,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: SizedBox(
-                  width: 1200,
-                  height: 800,
-                  child: OmnipresentAiShell(
-                    hideOverlay: true,
-                    child: Center(child: Text('Page Agent IA principale')),
+          // 3. Sur la page Agent IA (hideOverlay: true), la fenêtre disparaît complètement
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                machineRepositoryProvider.overrideWithValue(inertRepo),
+              ],
+              child: ForgeronTheme(
+                colors: forgeronLightColors,
+                child: const MaterialApp(
+                  home: Scaffold(
+                    body: SizedBox(
+                      width: 1200,
+                      height: 800,
+                      child: OmnipresentAiShell(
+                        hideOverlay: true,
+                        child: Center(child: Text('Page Agent IA principale')),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-      expect(find.text('Page Agent IA principale'), findsOneWidget);
-      expect(find.text('Forgeron IA'), findsNothing);
-    });
-  });
+          expect(find.text('Page Agent IA principale'), findsOneWidget);
+          expect(find.text('Forgeron IA'), findsNothing);
+        },
+      );
+    },
+  );
+
+  group(
+    'Axe 5 — Corpus Google WAXAL (google/WaxalNLP) & Lecture vocale TTS Bambara / Multilingue',
+    () {
+      test(
+        'WaxalVoiceEngine catalogue les langues africaines de google/WaxalNLP et RobotsMali',
+        () {
+          for (final id in ['sw', 'ha', 'yo', 'ig', 'ln', 'sn', 'mg']) {
+            final p = WaxalVoiceEngine.kProfiles[id];
+            expect(p, isNotNull, reason: 'Profil WAXAL manquant pour $id');
+            expect(p!.inGoogleWaxal, isTrue);
+            expect(p.huggingFaceDataset, equals('google/WaxalNLP'));
+          }
+
+          final bm = WaxalVoiceEngine.kProfiles['bm'];
+          expect(bm, isNotNull);
+          expect(bm!.iso639_3, equals('bam'));
+          expect(bm.phoneticFallbackTag, equals('fr-FR'));
+        },
+      );
+
+      test(
+        'transcribeBambaraForFrenchTts convertit les lettres IPA (ɛ, ɔ, ɲ, ŋ) et la phonétique bambara sans altérer les mots français d\'atelier',
+        () {
+          final raw =
+              'I ni ce! Mashini jɔ sisan. X taa milimɛtɛri duuru la, kɛmɛ saba. A ɲɛfɔ n ye.';
+          final spoken = WaxalVoiceEngine.transcribeBambaraForFrenchTts(raw);
+
+          // Plus aucun caractère IPA africain qui ferait bégayer SAPI/Android TTS
+          expect(spoken.contains(RegExp(r'[ɛɔɲŋ]')), isFalse);
+          expect(spoken, contains('I ni tché'));
+          expect(spoken, contains('Machini'));
+          expect(spoken, contains('djò'));
+          expect(spoken, contains('ssissan'));
+          expect(spoken, contains('milimètèri'));
+          expect(spoken, contains('dourou'));
+          expect(spoken, contains('kèmè'));
+          expect(spoken, contains('ssaba'));
+          expect(spoken, contains('gnèfò'));
+          expect(spoken, contains('yé'));
+
+          // Phrase mixte Bambara + Français d'atelier CNC
+          final mixed = 'Broche daminɛ sisan, machine bɛ homing kɛ.';
+          final mixedSpoken =
+              WaxalVoiceEngine.transcribeBambaraForFrenchTts(mixed);
+          expect(mixedSpoken, contains('Broche'));
+          expect(mixedSpoken, contains('machine'));
+          expect(mixedSpoken, contains('homing'));
+          expect(mixedSpoken, contains('daminè'));
+          expect(mixedSpoken, contains('bè'));
+          expect(mixedSpoken, contains('kè'));
+        },
+      );
+
+      test(
+        'prepareForTts sélectionne la voix de repli fr-FR et adapte le texte bambara + symboles CNC (\$H, mm/min)',
+        () {
+          final prep = WaxalVoiceEngine.prepareForTts(
+            '**I ni ce !** Envoyez `\$H` à 500 mm/min. Mashini jɔ sisan.',
+            preferredLanguageId: 'bm',
+            availableVoices: const ['fr-FR', 'en-US'],
+          );
+
+          expect(prep.languageId, equals('bm'));
+          expect(prep.usesPhoneticFallback, isTrue);
+          expect(prep.selectedVoiceLocale, equals('fr-FR'));
+          expect(prep.spokenText, contains('I ni tché'));
+          expect(prep.spokenText, contains('commande H'));
+          expect(prep.spokenText, contains('millimètres par minute'));
+          expect(prep.spokenText, contains('djò'));
+          expect(prep.spokenText.contains('*'), isFalse);
+        },
+      );
+
+      test(
+        'prepareForTts utilise la voix native quand elle est disponible sur l\'OS (ex. sw-KE pour Swahili)',
+        () {
+          final prep = WaxalVoiceEngine.prepareForTts(
+            'Mashine imesimama sasa.',
+            preferredLanguageId: 'sw',
+            availableVoices: const ['fr-FR', 'en-US', 'sw-KE'],
+          );
+
+          expect(prep.languageId, equals('sw'));
+          expect(prep.usesPhoneticFallback, isFalse);
+          expect(prep.selectedVoiceLocale, equals('sw-KE'));
+        },
+      );
+    },
+  );
 }
