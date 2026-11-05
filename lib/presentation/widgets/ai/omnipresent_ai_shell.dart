@@ -255,11 +255,22 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
         (await _speech.locales()).map((l) => l.localeId),
         fallbacks: const ['fr-FR', 'en-US'],
       );
+      final lang = ref.read(effectiveAiLanguageProvider);
       await _speech.listen(
         onResult: (SpeechRecognitionResult r) {
-          if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
+          if (!mounted) return;
+          final normalized = WaxalVoiceEngine.normalizeSttInput(
+            r.recognizedWords,
+            activeLanguageId: lang.id,
+          );
+          setState(() => _inputCtrl.text = normalized);
         },
-        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+        listenOptions: SpeechListenOptions(
+          localeId: _sttLocaleId,
+          listenMode: ListenMode.dictation,
+          cancelOnError: false,
+          partialResults: true,
+        ),
       );
     } catch (_) {
       if (mounted) setState(() => _listening = false);

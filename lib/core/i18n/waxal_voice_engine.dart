@@ -768,4 +768,202 @@ class WaxalVoiceEngine {
     }
     return transformed;
   }
+
+  /// Normalise et répare la saisie vocale (STT) et les approximations phonétiques
+  /// de l'opérateur avant envoi au lexique ou au modèle IA.
+  ///
+  /// Résout les causes majeures d'hallucination en atelier :
+  /// 1. En français : les termes CNC déformés par le modèle acoustique SAPI/Android
+  ///    (« j'ai 54 » -> G54, « eau mine » -> homing, « pas le page » -> palpage,
+  ///    « aime 3 » -> M3, « proche/brosse » en contexte d'outil -> broche).
+  /// 2. En langues locales (bambara, etc.) : les phrases africaines transcrites
+  ///    par un moteur SAPI/Android français (« inicié » -> « i ni ce »,
+  ///    « josissant » -> « jɔ sisan », « d'amener » -> « daminɛ », etc.).
+  static String _replaceWordPattern(String text, String pattern, String replacement) {
+    final regex = RegExp('(^|[\\s,;!?])(?:$pattern)([\\s,;!?]|\$)', caseSensitive: false);
+    var res = text.replaceAllMapped(regex, (m) => '${m.group(1)}$replacement${m.group(2)}');
+    return res.replaceAllMapped(regex, (m) => '${m.group(1)}$replacement${m.group(2)}');
+  }
+
+  static String normalizeSttInput(
+    String rawText, {
+    String? activeLanguageId,
+  }) {
+    if (rawText.trim().isEmpty) return rawText;
+    var t = rawText;
+
+    // ── 1. Répétitions bègues et bruits acoustiques de micro ──────────────
+    t = t.replaceAllMapped(
+      RegExp(r'\b([A-Za-zÀ-ÿ]{3,})\s+\1\b', caseSensitive: false),
+      (m) => m.group(1)!,
+    );
+
+    // ── 2. Termes CNC et codes G-code / M-code en français ─────────────────
+    // WCS G54..G59
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:54|cinquante[- ]quatre)\b", caseSensitive: false),
+      'G54',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:55|cinquante[- ]cinq)\b", caseSensitive: false),
+      'G55',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:56|cinquante[- ]six)\b", caseSensitive: false),
+      'G56',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:57|cinquante[- ]sept)\b", caseSensitive: false),
+      'G57',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:58|cinquante[- ]huit)\b", caseSensitive: false),
+      'G58',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:59|cinquante[- ]neuf)\b", caseSensitive: false),
+      'G59',
+    );
+
+    // Déplacements G0, G1, G28, G90, G91
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:0|z[ée]ro|[ée]o)\b", caseSensitive: false),
+      'G0',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:1|un)\b", caseSensitive: false),
+      'G1',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*28\b", caseSensitive: false),
+      'G28',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:90|quatre[- ]vingt[- ]dix)\b", caseSensitive: false),
+      'G90',
+    );
+    t = t.replaceAll(
+      RegExp(r"\b(?:j['’]ai|g[ée]|ge|g)\s*(?:91|quatre[- ]vingt[- ]onze)\b", caseSensitive: false),
+      'G91',
+    );
+
+    // M-codes broche
+    t = t.replaceAll(
+      RegExp(r'\b(?:aime|m[èe]tre|m)\s*3\b', caseSensitive: false),
+      'M3',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:aime|m[èe]tre|m)\s*5\b', caseSensitive: false),
+      'M5',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:aime|m[èe]tre|m)\s*6\b', caseSensitive: false),
+      'M6',
+    );
+
+    // Commandes GRBL / Homing / Palpage
+    t = t.replaceAll(
+      RegExp(r'\b(?:eau|oh|homme|au|haut)\s*(?:mine|minet|in|ing)\b', caseSensitive: false),
+      'homing',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:pas\s+le\s+page|ballet\s+page|pal\s+page)\b', caseSensitive: false),
+      'palpage',
+    );
+
+    // Broche (confusion acoustique très fréquente avec "proche" ou "brosse")
+    t = t.replaceAllMapped(
+      RegExp(
+        r"(\b(?:la|une|notre|vitesse|rotation|d[ée]marr(?:e|er)|allum(?:e|er)|arr[êe]t(?:e|er)|coup(?:e|er)|stop(?:pe)?)\s+)(?:proche|brosse)\b",
+        caseSensitive: false,
+      ),
+      (m) => '${m.group(1)}broche',
+    );
+    t = t.replaceAllMapped(
+      RegExp(
+        r"\b(?:proche|brosse)(\s+(?:[àa]\s+\d+|[ée]teinte|allum[ée]e|en\s+marche|damin[ɛe]))\b",
+        caseSensitive: false,
+      ),
+      (m) => 'broche${m.group(1)}',
+    );
+
+    // Composants et repères CNC
+    t = t.replaceAll(
+      RegExp(r'\b(?:fluide\s+ainsi|fluide\s+nc|fluid\s+nc)\b', caseSensitive: false),
+      'FluidNC',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:d[ée]s?\s+h[ée]ros|d[ée]reau)\b', caseSensitive: false),
+      'DRO',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:double\s+v\s+c\s+s|double\s+v\s+c\s+est|double\s+v\s+c)\b', caseSensitive: false),
+      'WCS',
+    );
+    t = t.replaceAll(
+      RegExp(r'\bz[ée]ro\s+t[âa]che(?:s)?\b', caseSensitive: false),
+      'zérotage',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:le\s+sp\s*32|esp\s*32|e\s*s\s*p\s*32)\b', caseSensitive: false),
+      'ESP32',
+    );
+
+    // Axes
+    t = t.replaceAll(
+      RegExp(r'\b(?:axe|acc[èe]s)\s+(?:z[èe]de|zed|aide)\b', caseSensitive: false),
+      'axe Z',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:axe|acc[èe]s)\s+x\b', caseSensitive: false),
+      'axe X',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:axe|acc[èe]s)\s+y\b', caseSensitive: false),
+      'axe Y',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:axe|acc[èe]s)\s+a\b', caseSensitive: false),
+      'axe A',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:axe|acc[èe]s)\s+c\b', caseSensitive: false),
+      'axe C',
+    );
+
+    // Sécurité atelier
+    t = t.replaceAll(
+      RegExp(r"\b(?:arr[êe]t\s+d['’]\s*urgence|arret\s+urgence)\b", caseSensitive: false),
+      "Arrêt d'urgence",
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:arr[êe]te\s+tout|stoppe\s+tout|stop\s+tout)\b', caseSensitive: false),
+      'Arrête tout',
+    );
+
+    // ── 3. Phonétique des langues locales (Bambara...) sur STT Français ───
+    final isBm = activeLanguageId == 'bm' ||
+        activeLanguageId == null ||
+        activeLanguageId == 'auto';
+    if (isBm) {
+      t = _replaceWordPattern(t, r"inici[ée]|il\s+n['’]y\s+sait|i\s+ni\s+tch[ée]|initi[ée]", 'I ni ce');
+      t = _replaceWordPattern(t, r"aw\s+ni\s+baara|en\s+libara|en\s+ni\s+bara|ani\s+baara", 'Aw ni baara');
+      t = _replaceWordPattern(t, r"josissant|je\s+six\s+ans|d['’]eau\s+six\s+ans|dj[òo]\s+sisan|jo\s+sisan", 'jɔ sisan');
+      t = _replaceWordPattern(t, r"d['’]amener|dans\s+minet|damin[èe]", 'daminɛ');
+      t = _replaceWordPattern(t, r"d['’]habilla|d['’]habille\s+l[àa]|dabila", 'dabila');
+      t = _replaceWordPattern(t, r"massine", 'mashini');
+      t = _replaceWordPattern(t, r"mouna", 'munna');
+      t = _replaceWordPattern(t, r"qu['’]aimait\s+saba|k[èe]m[èe]\s+saba|qu['’]aimait\s+ça\s+va|qu['’]aimait\s+s['’]abattre", 'kɛmɛ saba');
+      t = _replaceWordPattern(t, r"doux\s+roux|d['’]o[ùu]\s+roux|dourou", 'duuru');
+      t = _replaceWordPattern(t, r"t[ée]lia|tel\s+il\s+y\s+a", 'teliya');
+      t = _replaceWordPattern(t, r"gn[èe]f[òo]|nier\s+faux", 'ɲɛfɔ');
+      t = _replaceWordPattern(t, r"bamanankang", 'bamanankan');
+      t = _replaceWordPattern(t, r"qui\s+n['’]y\s+bolo", 'kinibolo');
+      t = _replaceWordPattern(t, r"nous\s+man", 'numan');
+      t = _replaceWordPattern(t, r"porogramme", 'porogaramu');
+      t = _replaceWordPattern(t, r"s[ée]guin", 'segin');
+    }
+
+    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
 }

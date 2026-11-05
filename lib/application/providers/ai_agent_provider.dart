@@ -55,6 +55,7 @@ import 'ai_usage_provider.dart';
 import 'ai_model_provider.dart';
 
 import '../../core/i18n/app_language.dart';
+import '../../core/i18n/waxal_voice_engine.dart';
 
 import '../../core/i18n/app_localizations.dart';
 import '../../core/i18n/language_detector.dart';
@@ -2517,7 +2518,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final ui = _ref.read(appLanguageProvider);
     final target = reply.writesPoorly
         ? 'français simple'
-        : (reply.promptName ?? 'français');
+        : reply.lowResource
+            ? '${reply.promptName} (avec mots d\'atelier CNC et coordonnées en français)'
+            : (reply.promptName ?? 'français');
     final uiLine = ui.isAuto
         ? "Interface de l'application : langue du téléphone (réglage "
             '« auto »).'
@@ -3151,7 +3154,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   }) async {
 
-    final trimmed = text.trim();
+    final lang = _ref.read(effectiveAiLanguageProvider);
+    final normalized = WaxalVoiceEngine.normalizeSttInput(text, activeLanguageId: lang.id);
+    final trimmed = normalized.trim();
 
 
 

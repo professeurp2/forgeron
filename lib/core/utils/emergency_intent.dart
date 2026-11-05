@@ -66,6 +66,8 @@ final List<RegExp> _orders = [
       r')(?:\s+(?:now|right now|immediately|please))*$'),
   // Swahili — à relire par un locuteur natif.
   RegExp(r'^simamisha(?:\s+kila\s+kitu)?(?:\s+sasa\s+hivi)?$'),
+  // Bambara — « jɔ sisan » (arrête tout de suite), « mashini jɔ sisan », « dabila sisan »
+  RegExp(r'^(?:(?:mashini|mansin)\s+)?(?:j[ɔo]|dabila)(?:\s+sisan)?$'),
   // Amharique — à relire par un locuteur natif.
   RegExp(r'^(?:ሁሉንም\s+)?አቁም(?:\s+አሁኑኑ)?$'),
 ];

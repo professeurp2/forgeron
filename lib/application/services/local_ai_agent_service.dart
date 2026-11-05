@@ -1291,6 +1291,9 @@ class LocalAiAgentService implements AiBackend {
         'stream': stream,
 
         if (stream) 'stream_options': {'include_usage': true},
+        // Temperature basse (0.1) : anti-hallucination CNC et ancrage deterministe
+        'temperature': 0.1,
+        'top_p': 0.9,
 
       });
 
@@ -1420,32 +1423,6 @@ class LocalAiAgentService implements AiBackend {
   /// Nombre de nouvelles tentatives quand le modèle dérive de langue (chinois ou anglais).
 
   static const maxLanguageRetries = 2;
-
-
-
-  /// Mots grammaticaux anglais typiques d'une dérive de prose.
-
-  static final _enStopwords = RegExp(
-
-    r'\b(the|is|are|and|to|of|that|it|you|we|with|for|on|this|from|have|has|would|please|encountered|while|attempting|ensure|exceeded|check)\b',
-
-    caseSensitive: false,
-
-  );
-
-
-
-  /// Marqueurs de langue française (mots grammaticaux courants et voyelles accentuées).
-
-  static final _frMarkers = RegExp(
-
-    r"\b(le|la|les|un|une|des|du|de|ce|cette|ces|et|en|pour|dans|sur|avec|est|sont|j'|l'|d'|qu'|c'|vous|nous|pas|plus|faire|fichier|usinage|charge|prépare|erreur)\b",
-
-    caseSensitive: false,
-
-  );
-
-  static final _frAccents = RegExp(r'[éèêàçùôîëï]', caseSensitive: false);
 
 
 

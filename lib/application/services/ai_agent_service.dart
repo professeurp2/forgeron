@@ -123,6 +123,11 @@ class AiAgentService implements AiBackend {
               {'text': systemPrompt},
             ],
           },
+        // Température basse (0.1) : anti-hallucination CNC & ancrage strict des coordonnées
+        'generationConfig': {
+          'temperature': 0.1,
+          'topP': 0.9,
+        },
       });
 
   /// Envoie l'historique de conversation (`contents`, format Gemini) + le

@@ -76,9 +76,15 @@ class AppLanguage {
                 'Réponds donc en FRANÇAIS SIMPLE : phrases courtes, mots de '
                 "tous les jours, une idée par phrase, sans jargon. N'écris "
                 "jamais de $promptName."
-            : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
-                "langue dans laquelle l'opérateur écrit — y compris pour les "
-                "avertissements de sécurité et les confirmations d'action.";
+            : lowResource
+                ? 'Réponds en $promptName en appliquant impérativement le PARLER D\'ATELIER : '
+                    'les salutations, la politesse et la structure en $promptName, '
+                    'mais TOUS les termes techniques CNC, pièces, outils, commandes, '
+                    'coordonnées et alarmes en FRANÇAIS D\'ATELIER CLAIR. '
+                    'Ne forge JAMAIS de mots imaginaires en $promptName.'
+                : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
+                    "langue dans laquelle l'opérateur écrit — y compris pour les "
+                    "avertissements de sécurité et les confirmations d'action.";
 
     return '=== LANGUE DE RÉPONSE ===\n'
         '$head\n'
@@ -125,17 +131,21 @@ class AppLanguage {
   String trailingPromptAnchor({String? detectedLanguageCode}) {
     final resolved = replyLanguage(detectedLanguageCode);
     if (resolved.writesPoorly) {
-      return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
+      return '=== CONSIGNE FINALE DE LANGUE & ANTI-HALLUCINATION (IMPÉRATIF) ===\n'
           'Réponds EXCLUSIVEMENT en FRANÇAIS SIMPLE (phrases courtes, sans '
           "jargon). N'utilise JAMAIS l'anglais ni le chinois, même après "
-          "un résultat d'outil JSON.";
+          "un résultat d'outil JSON.\n"
+          "ANTI-HALLUCINATION : Ne fabrique AUCUNE coordonnée ni aucun état machine imaginaire.";
     }
     final targetName = resolved.promptName ?? 'français';
     final forbidEnglish = resolved.id != 'en'
         ? " Ne bascule JAMAIS en anglais après l'exécution d'un outil."
         : '';
-    return '=== CONSIGNE FINALE DE LANGUE (IMPÉRATIF) ===\n'
-        'Réponds EXCLUSIVEMENT en $targetName.$forbidEnglish '
+    final lowResourceRule = resolved.lowResource
+        ? "\nRÈGLE ANTI-HALLUCINATION ATELIER : Exprime les termes techniques CNC, axes et coordonnées en français d'atelier simple. Ne forge AUCUN mot imaginaire en $targetName et n'invente AUCUNE coordonnée."
+        : "\nANTI-HALLUCINATION : Reste strictement ancré sur les données réelles de la machine.";
+    return '=== CONSIGNE FINALE DE LANGUE & ANTI-HALLUCINATION (IMPÉRATIF) ===\n'
+        'Réponds en $targetName.$forbidEnglish$lowResourceRule '
         "N'utilise aucun caractère chinois (CJK).";
   }
 
@@ -152,13 +162,13 @@ class AppLanguage {
   /// détectée, puisque la directive « auto » ne nomme aucune langue.
   String get atelierRule => !lowResource
       ? ''
-      : "\nPARLER D'ATELIER : en $promptName, les mots techniques se disent "
+      : "\nPARLER D'ATELIER & ANTI-HALLUCINATION : en $promptName, les mots techniques se disent "
           'en français — broche, jog, homing, origine, palpage, avance, '
-          'arrosage, programme, fichier, outil, axe, alarme, offset. '
+          'arrosage, programme, fichier, outil, axe, alarme, offset, positions DRO. '
           "Attends-toi à les recevoir en français au milieu d'une phrase en "
-          '$promptName, et garde-les en français dans ta réponse : '
-          "c'est ce que l'opérateur reconnaît. Ne forge jamais de mot "
-          'technique en $promptName.';
+          '$promptName, et garde-les TOUJOURS en français dans ta réponse : '
+          "c'est ce que l'opérateur reconnaît. Ne forge JAMAIS de mot "
+          "technique en $promptName et n'invente AUCUNE coordonnée.";
 }
 
 /// Langues proposées : automatique, français, anglais, puis les langues

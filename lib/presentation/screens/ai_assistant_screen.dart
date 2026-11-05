@@ -150,11 +150,22 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         (await _speech.locales()).map((l) => l.localeId),
         fallbacks: const ['fr-FR', 'en-US'],
       );
+      final lang = ref.read(effectiveAiLanguageProvider);
       await _speech.listen(
         onResult: (r) {
-          if (mounted) setState(() => _inputCtrl.text = r.recognizedWords);
+          if (!mounted) return;
+          final normalized = WaxalVoiceEngine.normalizeSttInput(
+            r.recognizedWords,
+            activeLanguageId: lang.id,
+          );
+          setState(() => _inputCtrl.text = normalized);
         },
-        listenOptions: SpeechListenOptions(localeId: _sttLocaleId),
+        listenOptions: SpeechListenOptions(
+          localeId: _sttLocaleId,
+          listenMode: ListenMode.dictation,
+          cancelOnError: false,
+          partialResults: true,
+        ),
       );
     } on PlatformException catch (e) {
       if (mounted) setState(() => _listening = false);

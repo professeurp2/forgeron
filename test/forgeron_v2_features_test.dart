@@ -13,6 +13,7 @@ import 'package:forgeron/core/i18n/app_localizations.dart';
 import 'package:forgeron/core/i18n/language_detector.dart';
 import 'package:forgeron/core/i18n/waxal_voice_engine.dart';
 import 'package:forgeron/core/theme/forgeron_colors.dart';
+import 'package:forgeron/core/utils/emergency_intent.dart';
 import 'package:forgeron/core/utils/grbl_alarm_catalog.dart';
 import 'package:forgeron/domain/models/demo_benchmark_catalog.dart';
 import 'package:forgeron/domain/models/esp32_reboot_event.dart';
@@ -32,9 +33,6 @@ class _InertMachineRepository implements MachineRepository {
 
   @override
   Stream<String> get trafficStream => const Stream.empty();
-
-  @override
-  Stream<Esp32RebootEvent> get esp32RebootStream => const Stream.empty();
 
   @override
   dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
@@ -513,6 +511,69 @@ Vous pouvez maintenant lancer la simulation cinématique.
           expect(prep.languageId, equals('sw'));
           expect(prep.usesPhoneticFallback, isFalse);
           expect(prep.selectedVoiceLocale, equals('sw-KE'));
+        },
+      );
+    },
+  );
+
+  group(
+    'Axe 6 — Anti-hallucination, Normalisation STT (Vocal & Écrit) & Ancrage Atelier',
+    () {
+      test(
+        'WaxalVoiceEngine.normalizeSttInput répare les termes CNC français déformés par le STT acoustique',
+        () {
+          final rawFrenchStt =
+              "allume la proche à dix mille tr/min et fais le j'ai 54 eau mine pas le page aime 3 fluide ainsi";
+          final normalized = WaxalVoiceEngine.normalizeSttInput(rawFrenchStt, activeLanguageId: 'fr');
+
+          expect(normalized, contains('allume la broche'));
+          expect(normalized, contains('G54'));
+          expect(normalized, contains('homing'));
+          expect(normalized, contains('palpage'));
+          expect(normalized, contains('M3'));
+          expect(normalized, contains('FluidNC'));
+        },
+      );
+
+      test(
+        'WaxalVoiceEngine.normalizeSttInput répare la dictée bambara transcrite phonétiquement en français',
+        () {
+          final rawBmStt = 'inicié mashini josissant d\'amener d\'habilla qu\'aimait ça va doux roux';
+          final normalized = WaxalVoiceEngine.normalizeSttInput(rawBmStt, activeLanguageId: 'bm');
+
+          expect(normalized, contains('I ni ce'));
+          expect(normalized, contains('mashini'));
+          expect(normalized, contains('jɔ sisan'));
+          expect(normalized, contains('daminɛ'));
+          expect(normalized, contains('dabila'));
+          expect(normalized, contains('kɛmɛ saba'));
+          expect(normalized, contains('duuru'));
+        },
+      );
+
+      test(
+        'isEmergencyStopRequest valide les ordres d\'arrêt d\'urgence en bambara',
+        () {
+          expect(isEmergencyStopRequest('jɔ sisan'), isTrue);
+          expect(isEmergencyStopRequest('mashini jɔ sisan'), isTrue);
+          expect(isEmergencyStopRequest('mashini dabila sisan'), isTrue);
+          expect(isEmergencyStopRequest('mashini jɔ ?'), isFalse);
+        },
+      );
+
+      test(
+        'trailingPromptAnchor et promptDirective intègrent les garde-fous anti-hallucination atelier',
+        () {
+          final bm = appLanguageById('bm');
+          final anchor = bm.trailingPromptAnchor();
+          expect(anchor, contains('ANTI-HALLUCINATION'));
+          expect(anchor, contains("français d'atelier"));
+          expect(anchor, contains('imaginaire'));
+
+          final directive = bm.promptDirective;
+          expect(directive, contains("PARLER D'ATELIER"));
+          expect(directive, contains('broche'));
+          expect(directive, contains('homing'));
         },
       );
     },
