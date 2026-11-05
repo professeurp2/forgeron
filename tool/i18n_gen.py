@@ -122,6 +122,16 @@ def generate():
         print('  %-4s %4d / %d entrees%s' % (code, len(kept), len(keys), flag))
         total += len(kept)
         codes.append(code)
+    # Dictionnaires écrits à la main, sans source JSON (bambara : lexique
+    # gouverné, relu à part). Les oublier ici les retirait de l'index à chaque
+    # génération, et la langue repassait en français sans bruit (5 nov. 2026).
+    for name in sorted(os.listdir(OUT_DIR)):
+        code = name[:-5]
+        if (name.endswith('.dart') and name != 'translations.dart'
+                and code not in codes):
+            print('  %-4s écrit à la main, conservé dans l\'index' % code)
+            codes.append(code)
+    codes.sort()
     write_index(codes)
     print('total :', total, 'traductions')
 

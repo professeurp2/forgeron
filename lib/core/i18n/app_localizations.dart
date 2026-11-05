@@ -25,6 +25,26 @@ String tr(String source, [List<Object?> args = const []]) {
   return out;
 }
 
+/// Exécute [body] avec la table de la langue [code] au lieu de celle de
+/// l'interface, puis la remet.
+///
+/// Pour les phrases fixes de l'assistant : elles répondent dans la langue de
+/// l'OPÉRATEUR, qui n'est pas forcément celle de l'interface (téléphone en
+/// français, opérateur qui écrit en anglais). `null` : on garde l'interface.
+/// [body] doit être synchrone — rien d'autre ne tourne pendant l'échange de
+/// table, c'est ce qui le rend sûr.
+T inLanguage<T>(String? code, T Function() body) {
+  if (code == null) return body();
+  final saved = AppLocalizations.current;
+  AppLocalizations.current =
+      kAppTranslations[code] ?? const <String, String>{};
+  try {
+    return body();
+  } finally {
+    AppLocalizations.current = saved;
+  }
+}
+
 /// Table de traduction de la locale active, installée par le délégué.
 class AppLocalizations {
   final Locale locale;

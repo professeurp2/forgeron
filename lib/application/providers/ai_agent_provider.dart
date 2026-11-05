@@ -3397,21 +3397,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     final match = front?.match;
 
-    final reply = match != null
-
-        // Compris par le lexique : phrase fixe, relue pour la langue si elle
-
-        // l'est (voir CommandLexicon.reply), sinon celle de l'application.
-
-        ? lexiconReply(match: match, toolResult: result, lexicon: front!.lexicon)
-
-        : sent
-
-            ? 'Arrêt d\'urgence envoyé à la machine.'
-
-            : 'ATTENTION — $result. Utilise le bouton rouge « Arrêt d\'urgence » '
-
-                'ou coupe l\'alimentation.';
+    // Dans la langue de l'opérateur, comme les autres phrases fixes. Le
+    // message d'échec est le même texte que lexiconReply('estop_failed') :
+    // une seule traduction à tenir.
+    final reply = inLanguage(
+        _replyLanguageFor(text),
+        () => match != null
+            // Compris par le lexique : phrase fixe, relue pour la langue si
+            // elle l'est (voir CommandLexicon.reply).
+            ? lexiconReply(
+                match: match, toolResult: result, lexicon: front!.lexicon)
+            : sent
+                ? tr('Arrêt d\'urgence envoyé à la machine.')
+                : tr(
+                    'ATTENTION — {}. Utilise le bouton rouge « Arrêt d\'urgence » ou coupe l\'alimentation.',
+                    [result]));
 
     if (front != null) {
 

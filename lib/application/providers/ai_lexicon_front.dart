@@ -52,6 +52,23 @@ class _Front {
 }
 
 extension _LexiconFront on AiAgentController {
+  /// Langue des phrases fixes en réponse à [text] — la même règle que pour
+  /// le modèle (`AppLanguage.replyLanguage`) : langue imposée si l'opérateur
+  /// en a choisi une, sinon celle de son message, sinon celle de son message
+  /// précédent. `null` : rien ne tranche, on garde la langue de l'interface.
+  ///
+  /// Avant le 5 nov. 2026, ces phrases suivaient l'interface : un opérateur
+  /// qui écrivait « Home all axes » sur un téléphone en français recevait
+  /// « Homing lancé… ».
+  String? _replyLanguageFor(String text) {
+    final lang = _ref.read(effectiveAiLanguageProvider);
+    if (!lang.isAuto) return lang.id;
+    final detected =
+        LanguageDetector.detectOperatorLanguage(text, fallback: '');
+    final code = detected.isNotEmpty ? detected : _operatorLanguageCode();
+    return code == null ? null : lang.replyLanguage(code).id;
+  }
+
   /// `version/empreinte` du lexique chargé — inscrite dans le journal, pour
   /// savoir QUEL lexique a compris (ou refusé) un message.
   String? get _lexiconStamp {
@@ -131,8 +148,10 @@ extension _LexiconFront on AiAgentController {
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
     final result = await _executeLexiconTool(d.match);
     if (_epoch != epoch) return; // discussion changée pendant l'appel
-    final reply = lexiconReply(
-        match: d.match, toolResult: result, lexicon: front.lexicon);
+    final reply = inLanguage(
+        _replyLanguageFor(text),
+        () => lexiconReply(
+            match: d.match, toolResult: result, lexicon: front.lexicon));
     _addMessage(AiChatMessage(
         role: 'assistant', text: reply, timestamp: DateTime.now()));
     _recordLexiconHistory(text, d.match, result, reply);
@@ -144,12 +163,14 @@ extension _LexiconFront on AiAgentController {
       String text, _Front front, AskConfirmation d, Stopwatch clock) {
     _addMessage(
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
+    final lang = _replyLanguageFor(text);
     final call = AiLexiconCall(
       match: d.match,
       originalText: text,
       reasons: d.reasons,
-      label: lexiconActionLabel(d.match),
-      reasonText: confirmReasonText(d.reasons, d.match.languages),
+      label: inLanguage(lang, () => lexiconActionLabel(d.match)),
+      reasonText: inLanguage(
+          lang, () => confirmReasonText(d.reasons, d.match.languages)),
     );
     state = state.copyWith(
       isProcessing: false,
@@ -173,8 +194,10 @@ extension _LexiconFront on AiAgentController {
     state = state.copyWith(clearPendingConfirmation: true);
     final result = await _executeLexiconTool(call.match);
     if (_epoch != epoch) return;
-    final reply =
-        lexiconReply(match: call.match, toolResult: result, lexicon: lexicon);
+    final reply = inLanguage(
+        _replyLanguageFor(call.originalText),
+        () => lexiconReply(
+            match: call.match, toolResult: result, lexicon: lexicon));
     _addMessage(AiChatMessage(
         role: 'assistant', text: reply, timestamp: DateTime.now()));
     _recordLexiconHistory(call.originalText, call.match, result, reply);
@@ -214,15 +237,19 @@ extension _LexiconFront on AiAgentController {
       toolResult: 'non exécuté ($why)',
       toolDuration: Duration.zero,
     ));
+    final lang = _replyLanguageFor(call.originalText);
     final reply = quiet
         ? null
-        : tr('D\'accord, je n\'exécute pas : {}.', [call.label.toLowerCase()]);
+        : inLanguage(
+            lang,
+            () => tr('D\'accord, je n\'exécute pas : {}.',
+                [call.label.toLowerCase()]));
     if (reply != null) {
       _addMessage(AiChatMessage(
           role: 'assistant', text: reply, timestamp: DateTime.now()));
     }
     _recordLexiconHistory(call.originalText, call.match, 'Action non exécutée ($why).',
-        reply ?? tr('D\'accord.'),
+        reply ?? inLanguage(lang, () => tr('D\'accord.')),
         failed: true);
     final stamp = _lexiconStamp;
     unawaited(() async {
@@ -246,12 +273,15 @@ extension _LexiconFront on AiAgentController {
       {bool disabled = false}) {
     _addMessage(
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
-    final help = lexiconHelp(refusal);
+    final answer = inLanguage(_replyLanguageFor(text), () {
+      final help = lexiconHelp(refusal);
+      return disabled
+          ? '${tr('L\'assistant IA est désactivé (Paramètres > Agent IA).')} $help'
+          : help;
+    });
     _addMessage(AiChatMessage(
       role: 'assistant',
-      text: disabled
-          ? '${tr('L\'assistant IA est désactivé (Paramètres > Agent IA).')} $help'
-          : help,
+      text: answer,
       timestamp: DateTime.now(),
     ));
   }
