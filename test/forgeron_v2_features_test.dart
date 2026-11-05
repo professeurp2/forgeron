@@ -1,3 +1,5 @@
+import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
+import 'package:forgeron/core/i18n/translations/ha.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -578,4 +580,70 @@ Vous pouvez maintenant lancer la simulation cinématique.
       );
     },
   );
+
+    group('Axe 7 — Synchronisation Brouillon & Rupture des Boucles de Dégénérescence LLM Local', () {
+      test('findRepetitionLoop et cleanRepetitiveDegeneration stoppent net les boucles infinies de tokens', () {
+        const loopHaBm = 'I ni sogoma ! Mo ni haoussa, amma mafi hanyar termiinon cikin atelairu CNC kuma ko kuma ko kuma ko kuma ko kuma ko kuma ko kuma ko';
+        final detected = LocalAiAgentService.findRepetitionLoop(loopHaBm);
+        expect(detected, isNotNull);
+        expect(detected!.repetitions, greaterThanOrEqualTo(3));
+
+        final cleaned = LocalAiAgentService.cleanRepetitiveDegeneration(loopHaBm);
+        expect(cleaned, isNot(contains('kuma ko kuma ko')));
+        expect(cleaned, endsWith('kuma ko'));
+
+        const loopCnc = 'Verification machine cnc cnc cnc cnc cnc cnc cnc';
+        final cleanedCnc = LocalAiAgentService.cleanRepetitiveDegeneration(loopCnc);
+        expect(cleanedCnc, isNot(contains('cnc cnc')));
+        expect(cleanedCnc, endsWith('cnc'));
+      });
+
+      test('aiPromptDraftProvider synchronise le texte saisi entre la fenêtre Forgeron IA et la page Agent IA', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        expect(container.read(aiPromptDraftProvider), isEmpty);
+
+        // L'opérateur commence à taper dans la fenêtre flottante
+        container.read(aiPromptDraftProvider.notifier).updateDraft('Analyse le G-code de la pièce');
+        expect(container.read(aiPromptDraftProvider), 'Analyse le G-code de la pièce');
+
+        // Basculement vers la page Agent IA : le brouillon est disponible
+        final fullScreenDraft = container.read(aiPromptDraftProvider);
+        expect(fullScreenDraft, 'Analyse le G-code de la pièce');
+
+        // Envoi du message : le brouillon partagé est vidé
+        container.read(aiPromptDraftProvider.notifier).clear();
+        expect(container.read(aiPromptDraftProvider), isEmpty);
+      });
+
+      test('SuggestedNextAction.localizedLabel et suggestions traduisent dynamiquement selon la langue active', () {
+        final actions = NextBestActionEngine.compute(
+          lastOp: OperationEventType.appStarted,
+          machineStatus: MachineStatus.idle,
+        );
+
+        expect(actions, isNotEmpty);
+        final defaultChip = actions.first;
+        expect(defaultChip.label, 'État de la machine');
+
+        // En français par défaut
+        AppLocalizations.setCurrentForTest(const {});
+        expect(defaultChip.localizedLabel, 'État de la machine');
+
+        // Basculement en Haoussa (HA) : les puces se traduisent instantanément
+        AppLocalizations.setCurrentForTest(kHa);
+        expect(defaultChip.localizedLabel, 'Yanayin injin');
+
+        final analyzeChip = actions.firstWhere((a) => a.id == 'analyze_program');
+        expect(analyzeChip.localizedLabel, 'Bincika shirin');
+
+        final diagChip = actions.firstWhere((a) => a.id == 'pre_machining_diag');
+        expect(diagChip.localizedLabel, 'Bincike kafin sarrafawa');
+
+        // Rétablissement de la locale de test
+        AppLocalizations.setCurrentForTest(const {});
+      });
+    });
+
 }

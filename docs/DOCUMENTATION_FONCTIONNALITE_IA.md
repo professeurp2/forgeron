@@ -119,4 +119,86 @@ L'utilisation de modèles locaux plus légers (ex. 7 milliards de paramètres) a
 
 ---
 
+# ⚙️ 6. PARAMÈTRES TECHNIQUES D'INFÉRENCE, DÉTERMINISME ET ANTI-HALLUCINATION
+
+Pour garantir une exploitation sécurisée en environnement industriel de précision (fraisage 5-axes, commande numérique FluidNC), le système d'inférence de Forgeron applique une calibration stricte des hyperparamètres d'échantillonnage et un faisceau de garde-fous déterministes.
+
+---
+
+## 6.1 Calibration des Hyperparamètres d'Échantillonnage
+
+Les coordonnées cartésiennes ($X, Y, Z, A, C$), les numéros d'outil ($T1 \dots T12$) et les codes d'alarme GRBL ($1 \dots 11$) exigent un déterminisme rigoureux : une variation stochastique pourrait entraîner une collision outil-matière.
+
+| Paramètre | Fournisseur Distant (Gemini) | Moteur Local (Ollama / llama.cpp) | Justification Technique |
+| :--- | :--- | :--- | :--- |
+| **`temperature`** | `0.10` | `0.20` | Évite toute invention stochastique de cotes ou de statuts machines tout en évitant le gel d'inférence. |
+| **`top_p` (Nucleus)** | `0.90` | `0.90` | Restreint l'échantillonnage à la masse de probabilité cumulée des 90% meilleurs tokens. |
+| **`frequency_penalty`** | — | `0.50` | Pénalise proportionnellement les tokens déjà apparus dans la réponse courante. |
+| **`presence_penalty`** | — | `0.30` | Pénalise l'apparition de tout token déjà vu, favorisant la progression de la phrase. |
+| **`repeat_penalty`** | — | `1.18` (options Ollama) | Pénalité multiplicative sur les 64 derniers tokens (`repeat_last_n: 64`). |
+| **`max_tokens`** | `2048` | `1024` | Borne supérieure évitant l'emballement d'inférence en tâche de fond. |
+
+---
+
+## 6.2 Garde-fou Anti-Dégénérescence : Rupture des Boucles de Répétition
+
+Sur des modèles quantifiés légers exécutés localement (ex. Qwen-2.5 7B en Q4_K_M), un échantillonnage à basse température sans pénalité peut provoquer un effondrement du modèle dans un cycle argmax infini (ex. *« kuma ko kuma ko kuma ko... »* ou *« cnc cnc cnc... »*).
+
+Forgeron intègre un détecteur et disjoncteur algorithmique dans `LocalAiAgentService` :
+1. **Détection en Streaming Continu (`findRepetitionLoop`)** :
+   À chaque fragment de texte émis en direct, l'algorithme recherche tout motif textuel de longueur comprise entre 2 et 60 caractères se répétant consécutivement au moins 3 fois.
+2. **Disjonction Immédiate du Flux (`_stream`)** :
+   Dès détection d'une 3ème répétition, la requête streaming HTTP est immédiatement annulée (`break`), la queue dégénérée est élaguée pour ne conserver qu'une seule occurrence propre, et la notification `finishReason = 'STOP'` est émise.
+3. **Nettoyage Post-Inférence (`cleanRepetitiveDegeneration`)** :
+   Toute réponse globale non-streamée est épurée avant transmission à l'IHM avec la note `'repetition:interrompue'`.
+
+---
+
+## 6.3 Normalisation Acoustique STT & Corpus Waxal (`WaxalVoiceEngine`)
+
+La dictée vocale en atelier bruyant et dans les langues africaines peu dotées induit souvent des confusions phonétiques dans les moteurs STT généralistes du système hôte :
+
+- **Réparation Acoustique CNC** : `WaxalVoiceEngine.normalizeSttInput` répare les artefacts phonétiques français :
+  - *« home in »* / *« oミング »* $ightarrow$ `homing`
+  - *« j'ai 54 »* $ightarrow$ `G54`
+  - *« pal page »* $ightarrow$ `palpage`
+  - *« fluid NC »* / *« fluidité »* $ightarrow$ `FluidNC`
+- **Réparation Acoustique Bambara / Langues Locales** :
+  - *« inicié »* $ightarrow$ `I ni ce`
+  - *« josissant »* $ightarrow$ `jɔ sisan` (Arrêt immédiat)
+  - *« d'amener »* $ightarrow$ `daminɛ` (Démarrer)
+  - *« d'habilla »* $ightarrow$ `dabila` (Annuler / Arrêter)
+- **Circuit d'Urgence Déterministe E-STOP ($0\text{ ms}$)** :
+  L'expression `jɔ sisan` ou `dabila sisan` déclenche instantanément le circuit court d'arrêt d'urgence (`emergency_intent.dart`) sans aucune dépendance envers le réseau de neurones.
+
+---
+
+## 6.4 Parler d'Atelier & Ancrage Déterministe en Sandwich
+
+Les mesures sur le banc d'évaluation (`conversation_langues_test.dart`) démontrent qu'en bambara pur, un modèle local ne comprend que 19 % des ordres techniques, mais atteint **83 %** de compréhension dès lors que le vocabulaire d'atelier est maintenu en français (`"Homing kɛ"`, `"Broche allumer sisan"`).
+
+1. **Règle du Parler d'Atelier (`atelierRule`)** :
+   Informe le modèle que les mots techniques CNC (broche, jog, homing, origine, palpage, G54, etc.) doivent impérativement rester en français d'atelier dans sa réponse.
+2. **Directive de Réponse Directe** :
+   Interdit formellement au modèle d'expliquer ses règles de traduction ou de commenter sa méta-consigne à l'opérateur (évite les déclarations artificielles telles que *« Mo ni haoussa »*).
+3. **Ancre de Fin Sandwich (`trailingPromptAnchor`)** :
+   Rappel placé en fin absolue de prompt système verrouillant la langue active et interdisant la fabrication de données imaginaires.
+
+---
+
+## 6.5 Synchronisation Temps Réel du Brouillon Opérateur (`aiPromptDraftProvider`)
+
+Pour assurer une continuité ergonomique totale :
+- Un notifier Riverpod dédié (`AiPromptDraftNotifier`) synchronise en temps réel le brouillon de saisie utilisateur (`_inputCtrl` / `_input`).
+- Tout texte tapé ou dicté vocalement dans la fenêtre omniprésente d'atelier (`OmnipresentAiShell`) apparaît instantanément si l'opérateur ouvre la page plein écran Agent IA (`AiConsoleScreen` sur Desktop ou `AiAssistantScreen` sur Mobile), et vice-versa.
+- Lors de l'envoi du message ou de la sélection d'une puce, le brouillon partagé est atomiquement réinitialisé.
+
+---
+
+## 6.6 Traduction Dynamique des Composants d'Interface
+
+- **Sous-titre de la Fenêtre Forgeron IA** : La fenêtre active de l'opérateur (ex. *Tableau de bord*, *Palpage*, *Magasin d'outils*) est traduite à la volée dans la langue active (ex. en Haoussa : `DASHBOARD`, `AUNAWA DA MAFARI`, etc.).
+- **Puces de Suggestions Contextuelles (`SuggestedNextAction`)** :
+  Le champ `localizedLabel` résout dynamiquement la table de traduction de la langue choisie au moment du rendu graphique (ex. *« État de la machine »* devient *« Yanayin injin »* en Haoussa et *« Mansin cogoya »* en Bambara).
+
 *Documentation spécialisée mise à jour — Référence officielle de l'Architecture Multi-Agents et Modèles Locaux Ollama dans Forgeron.*

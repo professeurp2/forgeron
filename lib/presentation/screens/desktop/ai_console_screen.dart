@@ -1,3 +1,4 @@
+import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -98,13 +99,23 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   @override
   void initState() {
     super.initState();
+    final initialDraft = ref.read(aiPromptDraftProvider);
+    if (initialDraft.isNotEmpty) {
+      _input.text = initialDraft;
+    }
+    _input.addListener(_onConsoleInputChanged);
     _tts.setSpeechRate(0.5);
     _applyVoiceLanguage();
     _scroll.addListener(_watchScroll);
   }
 
+  void _onConsoleInputChanged() {
+    ref.read(aiPromptDraftProvider.notifier).updateDraft(_input.text);
+  }
+
   @override
   void dispose() {
+    _input.removeListener(_onConsoleInputChanged);
     _scroll.removeListener(_watchScroll);
     _input.dispose();
     _scroll.dispose();
@@ -162,6 +173,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
             activeLanguageId: lang.id,
           );
           setState(() => _input.text = normalized);
+          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
         },
         listenOptions: SpeechListenOptions(
           localeId: _sttLocaleId,
@@ -235,6 +247,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
           imageMime: _pendingImageMime,
         );
     _input.clear();
+    ref.read(aiPromptDraftProvider.notifier).clear();
     setState(() {
       _pendingImage = null;
       _pendingImageMime = null;
@@ -362,6 +375,15 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(aiPromptDraftProvider, (previous, next) {
+      if (_input.text != next) {
+        _input.value = _input.value.copyWith(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
+          composing: TextRange.empty,
+        );
+      }
+    });
     final chat = ref.watch(aiAgentControllerProvider);
     final fc = ForgeronTheme.of(context);
 

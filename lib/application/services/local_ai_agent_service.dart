@@ -1291,9 +1291,21 @@ class LocalAiAgentService implements AiBackend {
         'stream': stream,
 
         if (stream) 'stream_options': {'include_usage': true},
-        // Temperature basse (0.1) : anti-hallucination CNC et ancrage deterministe
-        'temperature': 0.1,
+        // Temperature basse pour determinisme & anti-hallucination,
+        // avec penalites de frequence et repetition pour empecher les boucles
+        // infinies de tokens (ex: "kuma ko kuma ko...", "cnc cnc cnc...") sur modeles locaux.
+        'temperature': 0.2,
         'top_p': 0.9,
+        'frequency_penalty': 0.5,
+        'presence_penalty': 0.3,
+        'max_tokens': 1024,
+        'options': {
+          'repeat_penalty': 1.18,
+          'frequency_penalty': 0.5,
+          'presence_penalty': 0.3,
+          'temperature': 0.2,
+          'top_p': 0.9,
+        },
 
       });
 
@@ -1534,7 +1546,7 @@ class LocalAiAgentService implements AiBackend {
   /// milieu, par construction. `null` sans consigne reconnaissable.
   static String? targetLanguageFromPrompt(String? systemPrompt) {
     if (systemPrompt == null) return null;
-    final found = RegExp(r'Réponds EXCLUSIVEMENT en ([^.\n(]+)')
+    final found = RegExp(r'Réponds (?:EXCLUSIVEMENT )?en ([^.\n(]+)', caseSensitive: false)
         .allMatches(systemPrompt)
         .toList();
     if (found.isEmpty) return null;
@@ -1549,6 +1561,46 @@ class LocalAiAgentService implements AiBackend {
   /// La réponse a quitté la langue cible du prompt pour du français ou de
   /// l'anglais (une réponse en arabe qui finit en français, une réponse en
   /// bambara qui demande de reformuler « en français »).
+  /// Detecte un motif textuel consécutivement répété (dégénérescence de tokens d'un LLM local).
+  /// Exemples réels : « kuma ko kuma ko kuma ko... », « cnc cnc cnc... », « machine machine machine... ».
+  static ({String pattern, int startIndex, int repetitions})? findRepetitionLoop(
+    String text, {
+    int minLen = 2,
+    int maxLen = 60,
+    int minReps = 3,
+  }) {
+    if (text.length < minLen * minReps) return null;
+    final trimmed = text.trimRight();
+
+    for (var len = minLen; len <= maxLen; len++) {
+      if (trimmed.length < len * minReps) continue;
+      final candidate = trimmed.substring(trimmed.length - len);
+
+      var count = 0;
+      var pos = trimmed.length;
+      while (pos >= len && trimmed.substring(pos - len, pos) == candidate) {
+        count++;
+        pos -= len;
+      }
+
+      if (count >= minReps) {
+        return (pattern: candidate, startIndex: pos + len, repetitions: count);
+      }
+    }
+    return null;
+  }
+
+  /// Tronque la queue répétitive d'un texte pour ne conserver qu'une occurrence propre.
+  static String cleanRepetitiveDegeneration(String text) {
+    var result = text;
+    for (var iter = 0; iter < 3; iter++) {
+      final loop = findRepetitionLoop(result);
+      if (loop == null) break;
+      result = result.substring(0, loop.startIndex);
+    }
+    return result.trimRight();
+  }
+
   static bool driftedFromTarget(AiApiResponse r, {String? systemPrompt}) {
     if (r.finishReason == 'CANCELLED') return false;
     final target = targetLanguageFromPrompt(systemPrompt);
@@ -1690,6 +1742,18 @@ class LocalAiAgentService implements AiBackend {
 
     }
 
+    final cleaned = cleanRepetitiveDegeneration(r.text);
+    if (cleaned != r.text) {
+      r = AiApiResponse(
+        parts: [
+          {'text': cleaned},
+          for (final p in r.parts.where((p) => p.containsKey('functionCall'))) p,
+        ],
+        totalTokens: r.totalTokens,
+        finishReason: 'STOP',
+        notes: [...r.notes, 'repetition:interrompue'],
+      );
+    }
     return r;
 
   }
@@ -1803,7 +1867,19 @@ class LocalAiAgentService implements AiBackend {
       onDelta?.call(r.text);
 
     }
-
+    final cleaned = cleanRepetitiveDegeneration(r.text);
+    if (cleaned != r.text) {
+      r = AiApiResponse(
+        parts: [
+          {'text': cleaned},
+          for (final p in r.parts.where((p) => p.containsKey('functionCall'))) p,
+        ],
+        totalTokens: r.totalTokens,
+        finishReason: 'STOP',
+        notes: [...r.notes, 'repetition:interrompue'],
+      );
+      onDelta?.call(cleaned);
+    }
     return r;
 
   }
@@ -1948,7 +2024,18 @@ class LocalAiAgentService implements AiBackend {
 
         textBuf.write(content);
 
-        onDelta?.call(textBuf.toString());
+        final currentText = textBuf.toString();
+        final loop = findRepetitionLoop(currentText);
+        if (loop != null && loop.repetitions >= 3) {
+          final cleaned = cleanRepetitiveDegeneration(currentText);
+          textBuf.clear();
+          textBuf.write(cleaned);
+          onDelta?.call(cleaned);
+          finishReason = 'STOP';
+          break;
+        } else {
+          onDelta?.call(currentText);
+        }
 
       }
 
@@ -2010,9 +2097,10 @@ class LocalAiAgentService implements AiBackend {
 
 
 
+    final cleanedStreamText = cleanRepetitiveDegeneration(textBuf.toString());
     final raw = <Map<String, dynamic>>[
 
-      if (textBuf.isNotEmpty) {'text': textBuf.toString()},
+      if (cleanedStreamText.isNotEmpty) {'text': cleanedStreamText},
 
       for (final slot in callsByIndex.values)
 

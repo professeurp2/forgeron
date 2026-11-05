@@ -1,3 +1,4 @@
+import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -138,13 +139,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   @override
   void initState() {
     super.initState();
+    final initialDraft = ref.read(aiPromptDraftProvider);
+    if (initialDraft.isNotEmpty) {
+      _inputCtrl.text = initialDraft;
+    }
+    _inputCtrl.addListener(_onInputChanged);
     _scrollCtrl.addListener(_onScroll);
     _tts.setSpeechRate(0.5);
     _applyVoiceLanguage();
   }
 
+  void _onInputChanged() {
+    ref.read(aiPromptDraftProvider.notifier).updateDraft(_inputCtrl.text);
+  }
+
   @override
   void dispose() {
+    _inputCtrl.removeListener(_onInputChanged);
     _scrollCtrl.removeListener(_onScroll);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
@@ -264,6 +275,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
             activeLanguageId: lang.id,
           );
           setState(() => _inputCtrl.text = normalized);
+          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
         },
         listenOptions: SpeechListenOptions(
           localeId: _sttLocaleId,
@@ -341,6 +353,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     }
 
     _inputCtrl.clear();
+    ref.read(aiPromptDraftProvider.notifier).clear();
     final image = _pendingImage;
     final mime = _pendingImageMime;
 
@@ -377,6 +390,15 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(aiPromptDraftProvider, (previous, next) {
+      if (_inputCtrl.text != next) {
+        _inputCtrl.value = _inputCtrl.value.copyWith(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
+          composing: TextRange.empty,
+        );
+      }
+    });
     // Alarme GRBL ou redémarrage ESP32 en direct : consigne l'alerte dans le
     // fil et n'ouvre le panneau secondaire que si l'opérateur n'est pas déjà
     // sur la page Agent IA.
@@ -760,7 +782,11 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                               ],
                             ),
                             Text(
-                              memory.activeWindowName,
+                              tr(memory.activeWindowName.toUpperCase()).isNotEmpty &&
+                                      tr(memory.activeWindowName.toUpperCase()) !=
+                                          memory.activeWindowName.toUpperCase()
+                                  ? tr(memory.activeWindowName.toUpperCase())
+                                  : tr(memory.activeWindowName),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1010,7 +1036,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                 border: Border.all(color: fc.surfaceBorder),
                               ),
                               child: Text(
-                                s.label,
+                                s.localizedLabel,
                                 style: TextStyle(
                                   color: fc.textSecondary,
                                   fontSize: 11,
@@ -1412,7 +1438,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           children: [
                             Expanded(
                               child: Text(
-                                s.label,
+                                s.localizedLabel,
                                 style: TextStyle(
                                   color: fc.textPrimary,
                                   fontSize: 12,

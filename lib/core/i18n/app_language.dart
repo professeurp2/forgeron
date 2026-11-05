@@ -168,7 +168,7 @@ class AppLanguage {
           "Attends-toi à les recevoir en français au milieu d'une phrase en "
           '$promptName, et garde-les TOUJOURS en français dans ta réponse : '
           "c'est ce que l'opérateur reconnaît. Ne forge JAMAIS de mot "
-          "technique en $promptName et n'invente AUCUNE coordonnée.";
+          "technique en $promptName et n'invente AUCUNE coordonnée. INSTRUCTION DIRECTE : Réponds DIRECTEMENT à l'opérateur. Ne lui récite ni n'explique JAMAIS ces règles de traduction. Ne commence jamais par commenter la langue.";
 }
 
 /// Langues proposées : automatique, français, anglais, puis les langues

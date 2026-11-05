@@ -44,6 +44,9 @@ class SuggestedNextAction {
     this.directGcode,
     this.demoSampleId,
   });
+
+  /// Libellé traduit dynamiquement selon la langue active de l'interface.
+  String get localizedLabel => tr(label);
 }
 
 /// État immuable de la « Mémoire du Contrôleur » (Machine + ESP32 + FAO + Fenêtre active).
@@ -163,7 +166,7 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'diag_immediate',
-          label: tr('Cause & capteur'),
+          label: 'Cause & capteur',
           prompt: activeDiagnosis != null
               ? 'Explique le diagnostic « ${activeDiagnosis.headline} » (${activeDiagnosis.gpioPinDetail}) et la marche à suivre.'
               : 'La machine est en alarme : quelle est la cause et quel capteur vérifier ?',
@@ -189,19 +192,19 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'gen_5axis_cam',
-          label: tr('Générer le parcours'),
+          label: 'Générer le parcours',
           prompt: activeFilePath != null
               ? 'Prépare le parcours G-code pour la pièce chargée ($activeFilePath) avec les paramètres de coupe.'
               : 'Prépare le parcours G-code de finition pour cette pièce.',
         ),
         SuggestedNextAction(
           id: 'check_envelope',
-          label: tr('Vérifier les courses'),
+          label: 'Vérifier les courses',
           prompt: 'Vérifie si les dimensions de la pièce rentrent dans les courses X, Y, Z, A, C de la machine.',
         ),
         SuggestedNextAction(
           id: 'probe_origin',
-          label: tr('Origine G54'),
+          label: 'Origine G54',
           prompt: 'Comment régler l\'origine pièce G54 avant d\'usiner cette pièce ?',
         ),
       ];
@@ -212,17 +215,17 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'air_cut_check',
-          label: tr('Essai à vide (Z+20)'),
+          label: 'Essai à vide (Z+20)',
           prompt: 'Comment décaler le Z de +20 mm en G54 pour tester ce programme à vide ?',
         ),
         SuggestedNextAction(
           id: 'verify_rtcp',
-          label: tr('Contrôler le programme'),
+          label: 'Contrôler le programme',
           prompt: 'Vérifie que le programme actif ne contient ni code incompatible ni risque de collision.',
         ),
         SuggestedNextAction(
           id: 'start_cycle',
-          label: tr('Points à vérifier avant départ'),
+          label: 'Points à vérifier avant départ',
           prompt: 'Quels points vérifier sur la machine avant de lancer l\'usinage ?',
         ),
       ];
@@ -233,17 +236,17 @@ class NextBestActionEngine {
       return [
         SuggestedNextAction(
           id: 'go_probing',
-          label: tr('Palper le zéro Z'),
+          label: 'Palper le zéro Z',
           prompt: 'La prise d\'origine est faite : comment palper le zéro Z de la pièce ?',
         ),
         SuggestedNextAction(
           id: 'set_g54',
-          label: tr('Régler G54 X/Y'),
+          label: 'Régler G54 X/Y',
           prompt: 'Comment définir l\'origine X et Y en G54 sur le brut ?',
         ),
         SuggestedNextAction(
           id: 'check_program',
-          label: tr('Analyser le programme'),
+          label: 'Analyser le programme',
           prompt: 'Analyse le programme chargé et signale les risques éventuels.',
         ),
       ];
@@ -260,12 +263,12 @@ class NextBestActionEngine {
         ),
         SuggestedNextAction(
           id: 'check_pins',
-          label: tr('État des capteurs'),
+          label: 'État des capteurs',
           prompt: 'Vérifie l\'état de la machine, des fins de course et de l\'arrêt d\'urgence.',
         ),
         SuggestedNextAction(
           id: 'set_origin',
-          label: tr('Origine pièce (G54)'),
+          label: 'Origine pièce (G54)',
           prompt: 'Comment régler l\'origine pièce G54 ?',
         ),
       ];
@@ -275,17 +278,17 @@ class NextBestActionEngine {
     return [
       SuggestedNextAction(
         id: 'check_machine_state',
-        label: tr('État de la machine'),
+        label: 'État de la machine',
         prompt: 'Quel est l\'état de la machine ?',
       ),
       SuggestedNextAction(
         id: 'analyze_program',
-        label: tr('Analyser le programme'),
+        label: 'Analyser le programme',
         prompt: 'Analyse le programme chargé et signale les risques.',
       ),
       SuggestedNextAction(
         id: 'pre_machining_diag',
-        label: tr('Diagnostic avant usinage'),
+        label: 'Diagnostic avant usinage',
         prompt: 'Fais un diagnostic complet avant usinage.',
       ),
     ];

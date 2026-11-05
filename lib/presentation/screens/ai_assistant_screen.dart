@@ -1,3 +1,4 @@
+import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,6 +78,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   @override
   void initState() {
     super.initState();
+    final initialDraft = ref.read(aiPromptDraftProvider);
+    if (initialDraft.isNotEmpty) {
+      _inputCtrl.text = initialDraft;
+    }
+    _inputCtrl.addListener(_onMobileInputChanged);
     _scrollCtrl.addListener(_onScroll);
     // Écran ouvert → l'opérateur voit les messages en direct, on efface le
     // badge du bouton IA.
@@ -92,8 +98,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _tts.setSpeechRate(0.5);
   }
 
+  void _onMobileInputChanged() {
+    ref.read(aiPromptDraftProvider.notifier).updateDraft(_inputCtrl.text);
+  }
+
   @override
   void dispose() {
+    _inputCtrl.removeListener(_onMobileInputChanged);
     ref.read(aiInboxProvider.notifier).setScreenOpen(false);
     _speech.stop();
     _tts.stop();
@@ -159,6 +170,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             activeLanguageId: lang.id,
           );
           setState(() => _inputCtrl.text = normalized);
+          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
         },
         listenOptions: SpeechListenOptions(
           localeId: _sttLocaleId,
@@ -246,6 +258,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           allowModel: ref.read(aiAgentSettingsProvider).enabled,
         );
     _inputCtrl.clear();
+    ref.read(aiPromptDraftProvider.notifier).clear();
     setState(() {
       _pendingImage = null;
       _pendingImageMime = null;
@@ -593,6 +606,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(aiPromptDraftProvider, (previous, next) {
+      if (_inputCtrl.text != next) {
+        _inputCtrl.value = _inputCtrl.value.copyWith(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
+          composing: TextRange.empty,
+        );
+      }
+    });
     final fc = context.fc;
     final chat = ref.watch(aiAgentControllerProvider);
     final settings = ref.watch(aiAgentSettingsProvider);

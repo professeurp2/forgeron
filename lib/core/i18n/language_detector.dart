@@ -35,7 +35,8 @@ class LanguageDetector {
       'mansin', 'mashini', 'daminɛ', 'damine', 'dabila', 'cogoya', 'joona',
       'sisan', 'milimɛtɛri', 'milimeteri', 'numan', 'kinibolo', 'segin',
       'bamanankan', 'porogaramu', 'bɛ', 'kɛ', 'tɛ', 'yɛlɛma', 'barika',
-      'joli', 'munna', 'aw', 'kana', 'ɲɛ', 'fɛ',
+      'joli', 'munna', 'aw', 'kana', 'ɲɛ', 'fɛ', 'sogoma', 'tile', 'wula',
+      'inice', 'inisogoma', 'awni',
     },
     'sw': {
       'habari', 'tafadhali', 'asante', 'mashine', 'hali', 'sasa', 'unaweza',
@@ -120,9 +121,9 @@ class LanguageDetector {
       }
       if (n > 0) scores[e.key] = n;
     }
-    // « i ni ce » / « aw ni ce » : la salutation bambara, faite de mots trop
-    // courts pour figurer seuls dans la liste.
-    if (RegExp(r'\b(i|aw) ni (ce|sogoma|tile|wula|su)\b')
+    // « i ni ce », « ini sogoma », « awni ce » : la salutation bambara, faite de mots trop
+    // courts pour figurer seuls dans la liste (ou attachés).
+    if (RegExp(r'\b(i|aw)\s*ni\s*(ce|sogoma|tile|wula|su)\b|\b(ini|awni)\s*(ce|sogoma|tile|wula|su)\b')
         .hasMatch(text.toLowerCase())) {
       scores['bm'] = (scores['bm'] ?? 0) + 2;
     }
