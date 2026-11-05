@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+import '../../core/i18n/app_language.dart' show appLanguageById;
 import '../../core/i18n/app_localizations.dart';
+import '../../core/i18n/translations/translations.dart'
+    show kAppTranslations, kTranslationKeyCount;
 import '../../core/utils/command_lexicon.dart';
 import '../providers/ai_agent_settings_provider.dart'
     show AiActionCategory, AiAutonomyLevel;
@@ -290,6 +293,9 @@ String lexiconActionLabel(LexiconMatch m) {
       return tr('Allumer la broche');
     case 'brocheoff':
       return tr('Éteindre la broche');
+    case 'langue':
+      return tr('Changer la langue de l\'interface : {}',
+          [appLanguageById('${m.args['language']}').label]);
     case 'jog':
       final axis = '${m.args['axis']}';
       final rotary = axis == 'A' || axis == 'C';
@@ -330,6 +336,8 @@ String lexiconReply({
     }
   }
 
+  if (match.intent == 'langue') return _languageReply(toolResult);
+
   final ok = toolResult.startsWith('OK');
   if (match.intent == 'urgence') {
     return ok
@@ -367,6 +375,30 @@ String lexiconReply({
   // mise en garde de l'outil ne doit pas se perdre dans une phrase fixe.
   final warning = RegExp(r'attention\s*:\s*(.+)$', dotAll: true).firstMatch(toolResult);
   return warning == null ? done : '$done\n⚠ ${warning.group(1)!.trim()}';
+}
+
+/// Après `set_app_language` : ce qui a changé, comment revenir, et la part
+/// réellement traduite — lue dans les dictionnaires, jamais estimée.
+String _languageReply(String toolResult) {
+  Map<String, dynamic> j;
+  try {
+    j = (jsonDecode(toolResult) as Map).cast<String, dynamic>();
+  } catch (_) {
+    return tr('Non exécuté — {}', [toolResult]);
+  }
+  if (j['ok'] != true) {
+    return tr('Non exécuté — {}', ['${j['raison'] ?? toolResult}']);
+  }
+  final label = '${j['libelle']}';
+  if (j['change'] == false) {
+    return tr('L\'interface est déjà en {}.', [label]);
+  }
+  final back = tr('Interface passée en {}. Pour revenir : {} > {}.',
+      [label, tr('Paramètres'), tr('Langue')]);
+  final code = '${j['langue']}';
+  final dict = kAppTranslations[code];
+  if (code == 'fr' || dict == null) return back;
+  return '$back ${tr('{} textes traduits sur {} ; les autres restent en français.', [dict.length, kTranslationKeyCount])}';
 }
 
 /// Réponse quand il n'y a PAS de modèle pour répondre (assistant désactivé,

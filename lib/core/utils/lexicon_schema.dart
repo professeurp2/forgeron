@@ -22,6 +22,7 @@
 /// - deux mots confondables qui veulent dire autre chose sont refusés.
 library;
 
+import '../i18n/app_language.dart' show kAppLanguages;
 import 'command_lexicon.dart';
 
 enum LexiconSeverity { error, warning }
@@ -94,14 +95,14 @@ const _languageKeys = <String>{
   'name', 'status', 'reviewed_by', 'reviewed_on', 'script', 'sources',
   'notes', 'actions', 'light', 'polite', 'objects', 'urgent', 'alarm', 'fillers',
   'negations', 'conditions', 'directions', 'questions', 'feed', 'units',
-  'numbers', 'replies',
+  'numbers', 'replies', 'language_names',
 };
 const _wordListRoles = <String>[
   'light', 'polite', 'urgent', 'alarm', 'fillers', 'negations', 'conditions',
   'directions', 'questions', 'feed',
 ];
 const _wordMapRoles = <String>['actions', 'objects', 'units'];
-const _slotNames = <String>{'axis', 'distance', 'feedrate'};
+const _slotNames = <String>{'axis', 'distance', 'feedrate', 'language'};
 const _statuses = <String>{kLexiconDraft, kLexiconReviewed};
 const _maxEntryTokens = 6;
 
@@ -411,6 +412,30 @@ void _validateLanguage(
       if (role == 'actions') actionKeys.add('${e.key}');
       if (role == 'objects') objectKeys.add('${e.key}');
       _validateWords(e.value as List, '$base.$role.${e.key}', error, warn);
+    }
+  }
+
+  // Noms de langues : chaque clé doit être une langue que l'application sait
+  // afficher — set_app_language refuserait toute autre, après une carte de
+  // confirmation que l'opérateur aurait acceptée pour rien.
+  final names = l['language_names'];
+  if (names != null) {
+    if (names is! Map) {
+      error('$base.language_names', 'objet attendu (code de langue → noms)');
+    } else {
+      final known = {for (final a in kAppLanguages) a.id};
+      for (final e in names.entries) {
+        if (!known.contains('${e.key}')) {
+          error('$base.language_names.${e.key}',
+              'langue inconnue de l\'application (codes : ${known.join(', ')})');
+        }
+        if (e.value is! List) {
+          error('$base.language_names.${e.key}', 'liste attendue');
+          continue;
+        }
+        _validateWords(
+            e.value as List, '$base.language_names.${e.key}', error, warn);
+      }
     }
   }
 

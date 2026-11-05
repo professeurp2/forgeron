@@ -442,6 +442,11 @@ class CommandLexicon {
       for (final e in ((l['units'] as Map?) ?? const {}).entries) {
         add(lang, 'unit', '${e.key}', e.value as List);
       }
+      // Noms des langues de l'application, tels qu'on les dit DANS cette
+      // langue (« anglais », « English », « tùbàbùkan »…) → code de langue.
+      for (final e in ((l['language_names'] as Map?) ?? const {}).entries) {
+        add(lang, 'langname', '${e.key}', e.value as List);
+      }
       final n = l['numbers'] as Map?;
       if (n != null) {
         Map<String, int> ints(Object? m) => {
@@ -835,13 +840,25 @@ class CommandLexicon {
     final numeric = marks.where((m) => m.role == 'num').toList();
     final withAxis = chosen.slots.contains('axis');
     if (!withAxis && has('axis')) return const LexiconResult.refused('axe_non_gere');
+    // Un nom de langue dans un ordre qui n'en change pas (« allume la broche
+    // en anglais ») : on ne devine pas ce qu'il voulait dire, le modèle
+    // reprend la main.
+    final withLanguage = chosen.slots.contains('language');
+    if (!withLanguage && has('langname')) {
+      return const LexiconResult.refused('langue_inattendue');
+    }
+    if (withLanguage && (numeric.isNotEmpty || has('unit') || has('feed'))) {
+      return const LexiconResult.refused('nombre_inattendu');
+    }
     if (chosen.slots.isEmpty && (numeric.isNotEmpty || has('unit') || has('feed'))) {
       return const LexiconResult.refused('nombre_inattendu');
     }
 
     final args = <String, dynamic>{...chosen.args};
     if (chosen.slots.isNotEmpty) {
-      final slotError = _fillSlots(chosen, marks, args);
+      final slotError = withLanguage
+          ? _fillLanguage(marks, args)
+          : _fillSlots(chosen, marks, args);
       if (slotError != null) return LexiconResult.refused(slotError);
     }
 
@@ -862,6 +879,16 @@ class CommandLexicon {
       trusted: counted.every((m) => m.langs!.any(isReviewed)),
       languages: spoken.toList()..sort(),
     ));
+  }
+
+  /// Langue demandée : exactement un nom de langue dans la phrase. Le code
+  /// vient des données (`language_names`), jamais d'une déduction.
+  String? _fillLanguage(List<_Mark> marks, Map<String, dynamic> args) {
+    final codes = {for (final m in marks) if (m.role == 'langname') m.value};
+    if (codes.isEmpty) return 'manque:langue';
+    if (codes.length > 1) return 'langues_multiples';
+    args['language'] = codes.single;
+    return null;
   }
 
   /// Axe, distance signée et vitesse d'un déplacement. `null` si tout va bien,

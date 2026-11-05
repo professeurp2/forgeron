@@ -1039,5 +1039,9 @@
   "État de la machine",
   "État des capteurs",
   "Éteindre la broche",
-  "à peu près"
+  "à peu près",
+  "Changer la langue de l'interface : {}",
+  "Interface passée en {}. Pour revenir : {} > {}.",
+  "L'interface est déjà en {}.",
+  "{} textes traduits sur {} ; les autres restent en français."
 ]

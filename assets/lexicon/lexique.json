@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "note": "Lexique de commandes de l'assistant. Un mot n'a de sens ici que parce qu'une personne a dit qu'il l'a. Statut `brouillon` = écrit sans relecteur nommé (par l'assistant de code, avec les sources citées dans `sources`) : l'application DEMANDE confirmation avant d'agir sur ces mots. Une langue ne passe à `relu` qu'avec le nom d'un locuteur et la date (voir docs/lexique-gouvernance.md). Toute modification : changer `version`, relancer `dart run tool/lexicon/lock.dart`, committer le fichier .lock avec le changement. Les mots sont écrits dans leur orthographe naturelle (ɛ, ɔ, ɲ…) ; le moteur les plie lui-même (ɛ→e, ɔ→o, ɲ→ny) pour que la saisie sans ces lettres marche aussi.",
 
   "intents": [
@@ -12,7 +12,9 @@
     {"id": "jog",       "tool": "jog_axis",          "action": ["move"], "object": ["axe", null], "slots": ["axis", "distance", "feedrate"], "tolerance": 0},
     {"id": "zero",      "tool": "set_work_zero",     "action": [null],   "object": ["zero"], "tolerance": 0},
     {"id": "brocheon",  "tool": "set_spindle", "args": {"state": "cw"},  "action": ["start"], "object": ["broche"], "tolerance": 0},
-    {"id": "brocheoff", "tool": "set_spindle", "args": {"state": "off"}, "action": ["stop"],  "object": ["broche"], "tolerance": 0}
+    {"id": "brocheoff", "tool": "set_spindle", "args": {"state": "off"}, "action": ["stop"],  "object": ["broche"], "tolerance": 0},
+    {"id": "langue",    "tool": "set_app_language", "action": ["switch"], "object": ["langue", null], "slots": ["language"], "tolerance": 0},
+    {"id": "langue",    "tool": "set_app_language", "action": [null],     "object": ["langue"],       "slots": ["language"], "tolerance": 0}
   ],
 
   "languages": {
@@ -25,10 +27,11 @@
         "pause": ["pause", "en pause", "suspends", "suspendre"],
         "show": ["montre", "affiche", "afficher", "donne", "dis", "indique", "quel", "quelle", "où", "comment", "voir"],
         "home": ["homing", "prise d'origine", "origine machine", "origine de tous les axes", "origine des axes", "retour à l'origine", "position de départ", "position initiale", "position d'origine"],
-        "move": ["avance", "avancer", "déplace", "déplacer", "bouge", "bouger", "jog"]
+        "move": ["avance", "avancer", "déplace", "déplacer", "bouge", "bouger", "jog"],
+        "switch": ["change", "changer", "bascule", "basculer", "traduis", "traduire"]
       },
       "polite": ["peux tu", "tu peux", "pouvez vous", "vous pouvez", "pourrais tu", "tu pourrais", "pourriez vous", "vous pourriez", "veux tu", "voulez vous", "voudrais tu", "est ce que tu peux", "est ce que vous pouvez", "est ce que tu pourrais", "est ce que vous pourriez"],
-      "light": ["fais", "faire", "mets", "met", "mettre", "pose", "poser", "définis", "règle", "fixe"],
+      "light": ["fais", "faire", "mets", "met", "mettre", "pose", "poser", "définis", "règle", "fixe", "passe", "passer", "repasse", "repasser"],
       "objects": {
         "machine": ["machine"],
         "all": ["tout", "tous", "toute", "toutes"],
@@ -36,7 +39,15 @@
         "programme": ["programme", "prog"],
         "zero": ["zéro pièce", "zéro", "origine pièce", "origine de la pièce", "point zéro"],
         "etat": ["état", "statut", "position", "situation"],
-        "axe": ["axe", "axes"]
+        "axe": ["axe", "axes"],
+        "langue": ["langue", "interface", "application", "appli", "app", "logiciel"]
+      },
+      "language_names": {
+        "fr": ["français"], "en": ["anglais"], "ar": ["arabe"], "sw": ["swahili", "kiswahili"], "af": ["afrikaans"],
+        "am": ["amharique"], "ha": ["haoussa", "hausa"], "yo": ["yoruba"], "ig": ["igbo"], "zu": ["zoulou", "isizulu"],
+        "so": ["somali", "soomaali"], "rw": ["kinyarwanda"], "sn": ["shona", "chishona"], "ln": ["lingala"], "wo": ["wolof"],
+        "mg": ["malgache", "malagasy"], "bm": ["bambara", "bamanankan"],
+        "auto": ["automatique", "langue du téléphone", "langue du système"]
       },
       "urgent": ["vite", "immédiatement", "tout de suite", "maintenant", "c'est urgent", "urgent"],
       "alarm": ["urgence", "au secours", "sos"],
@@ -66,7 +77,8 @@
         "pause": ["pause", "hold", "suspend"],
         "show": ["show", "display", "give", "tell", "what", "where", "how", "check"],
         "home": ["homing", "home all", "home", "go home", "return home", "return to home", "back to home", "return to origin", "go to origin", "machine origin", "home position", "starting position"],
-        "move": ["move", "jog", "shift", "displace"]
+        "move": ["move", "jog", "shift", "displace"],
+        "switch": ["switch", "change", "translate"]
       },
       "polite": ["can you", "could you", "would you", "will you", "can you please", "could you please", "would you please", "please can you", "please could you"],
       "light": ["do", "make", "put", "set"],
@@ -77,7 +89,15 @@
         "programme": ["program", "programme", "job"],
         "zero": ["work zero", "part origin", "workpiece origin", "zero", "origin"],
         "etat": ["state", "status", "position", "condition"],
-        "axe": ["axis", "axes"]
+        "axe": ["axis", "axes"],
+        "langue": ["language", "interface", "app", "application"]
+      },
+      "language_names": {
+        "en": ["english"], "fr": ["french"], "ar": ["arabic"], "sw": ["swahili", "kiswahili"], "af": ["afrikaans"],
+        "am": ["amharic"], "ha": ["hausa"], "yo": ["yoruba"], "ig": ["igbo"], "zu": ["zulu", "isizulu"],
+        "so": ["somali", "soomaali"], "rw": ["kinyarwanda"], "sn": ["shona", "chishona"], "ln": ["lingala"], "wo": ["wolof"],
+        "mg": ["malagasy"], "bm": ["bambara", "bamanankan"],
+        "auto": ["automatic", "phone language", "system language"]
       },
       "urgent": ["now", "immediately", "urgent", "urgently", "asap", "quickly", "right now", "at once"],
       "alarm": ["emergency", "sos", "help"],
@@ -105,7 +125,8 @@
       "script": "latin",
       "sources": [
         "An ka taa — dictionnaire bambara/dioula-anglais-français (dictionary.ankataa.com) : chaque mot a été cherché le 2026-10-23, le sens retenu est celui du dictionnaire ; voir docs/addis/langues-locales/feuille-bambara.md pour la source mot à mot",
-        "Aucun locuteur n'a encore relu cette liste. Les mots d'atelier absents du dictionnaire (broche, programme, homing, zéro, unités) restent des mots FRANÇAIS, comme on parle en atelier."
+        "Aucun locuteur n'a encore relu cette liste. Les mots d'atelier absents du dictionnaire (broche, programme, homing, zéro, unités) restent des mots FRANÇAIS, comme on parle en atelier.",
+        "An ka taa, consulté le 2026-11-05 (lexicon.php?letter=12, 28, 2, 24) : kan (sens 2 « langue ; langue, parler »), yɛ̀lɛ̀ma (« changer, transformer ; traduire »), bamanankan (« langue bambara »), tùbàbùkan (« langue française »). Aucun mot pour « anglais » n'a été trouvé : il n'est pas ajouté, la phrase dira « anglais » en français."
       ],
       "actions": {
         "stop": ["jɔ", "dabila"],
@@ -113,13 +134,19 @@
         "pause": ["jɔ dɔɔnin", "dabila dɔɔnin", "to dɔɔnin", "makɔnɔ"],
         "show": ["jira", "fɔ", "lajɛ"],
         "home": ["segin a daminɛ yɔrɔ", "segin a yɔrɔ", "segin so"],
-        "move": ["taa"]
+        "move": ["taa"],
+        "switch": ["yɛlɛma"]
       },
       "light": ["kɛ", "da", "sigi", "bila"],
       "objects": {
         "machine": ["mansin"],
         "all": ["bɛɛ"],
-        "etat": ["cogoya", "cogo"]
+        "etat": ["cogoya", "cogo"],
+        "langue": ["kan"]
+      },
+      "language_names": {
+        "bm": ["bamanankan"],
+        "fr": ["tùbàbùkan"]
       },
       "urgent": ["sisan", "sisan sisan", "joona", "joona joona"],
       "alarm": ["dɛmɛ", "fàràti"],
