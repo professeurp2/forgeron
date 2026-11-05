@@ -84,3 +84,6 @@ third_party/**/pubspec.lock
 # dont un STEP de 248 Mo que GitHub refuse (limite 100 Mo par fichier).
 # Ce sont des entrées de test, pas du code : ils restent sur le disque.
 scratch/3D/
+
+# Corpus de distillation : données générées, NON relues (tool/distill/)
+/distill_data/
