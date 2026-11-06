@@ -20,7 +20,7 @@ void main() {
       expect(bm.writesPoorly, isFalse,
           reason: 'décision utilisateur : il veut des réponses en bambara');
       final d = bm.promptDirective;
-      expect(d, contains('SYSTÉMATIQUEMENT en bambara'));
+      expect(d, contains('Réponds en bambara'));
       expect(d, isNot(contains("N'écris jamais")));
     });
 
@@ -61,7 +61,7 @@ void main() {
         'alarme', 'offset']) {
         expect(d, contains(mot), reason: mot);
       }
-      expect(d, contains('Ne forge jamais de mot'));
+      expect(d, contains('Ne forge JAMAIS de mot'));
     });
   });
 
@@ -88,7 +88,7 @@ void main() {
       final g = glossaires['bm']!;
       expect(g, contains('brouillon'));
       expect(g, contains('non relu par un locuteur'));
-      expect(g, contains("N'en invente pas d'autres"));
+      expect(g, contains('NE RÉCITE JAMAIS cette liste'));
     });
 
     test('le français et l\'anglais n\'en ont pas : ce sont les sources', () {
@@ -118,7 +118,7 @@ void main() {
     test('bambara choisi : la consigne de fin dit bambara, pas français', () {
       final a = appLanguageById('bm').trailingPromptAnchor(
           detectedLanguageCode: 'bm');
-      expect(a, contains('EXCLUSIVEMENT en bambara'));
+      expect(a, contains('Réponds en bambara.'));
       expect(a, isNot(contains('FRANÇAIS SIMPLE')));
     });
 
@@ -133,7 +133,7 @@ void main() {
         'en': 'anglais',
       }.entries) {
         expect(auto.trailingPromptAnchor(detectedLanguageCode: e.key),
-            contains('EXCLUSIVEMENT en ${e.value}'));
+            contains('Réponds en ${e.value}.'));
         expect(auto.replyLanguage(e.key).id, e.key);
       }
     });
@@ -142,7 +142,7 @@ void main() {
       final auto = appLanguageById('auto');
       expect(auto.replyLanguage('zh').id, 'fr');
       expect(auto.replyLanguage(null).id, 'fr');
-      expect(auto.trailingPromptAnchor(), contains('EXCLUSIVEMENT en français'));
+      expect(auto.trailingPromptAnchor(), contains('Réponds en français.'));
     });
 
     test('langue imposée : elle gagne sur la langue détectée', () {

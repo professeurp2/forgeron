@@ -11,10 +11,14 @@ import 'local_ai_agent_service.dart';
 /// parce que devant une machine le silence passe pour un ordre exécuté. Les
 /// règles sont celles de [LocalAiAgentService], pour qu'un changement de
 /// fournisseur ne change pas le comportement.
-class GuardedBackend implements AiBackend {
+class GuardedBackend implements AiBackend, WritesLanguages {
   GuardedBackend(this.inner);
 
   final AiBackend inner;
+
+  @override
+  bool writesLanguage(String languageId) =>
+      backendWritesLanguage(inner, languageId);
 
   @override
   String get model => inner.model;

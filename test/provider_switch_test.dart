@@ -102,7 +102,9 @@ void main() {
       n.setPreferOnline(true);
 
       await c.read(aiAgentControllerProvider.notifier)
-          .sendUserMessage('Bonjour, que peux-tu faire ?');
+          // Pas une formule de politesse : celles-là ont une réponse fixe,
+          // sans modèle (_resolveConversationalReply).
+          .sendUserMessage('Explique-moi à quoi sert le homing.');
       // Sans clé enregistrée, c'est l'erreur de GEMINI qui remonte : preuve
       // que le serveur local, pourtant renseigné, n'a pas été choisi.
       expect(c.read(aiAgentControllerProvider).error, contains('Gemini'));

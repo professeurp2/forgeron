@@ -70,7 +70,7 @@ class AppLanguage {
             'change avec lui. Si la langue est indécidable (message très '
             'court, G-code seul), réponds en français.'
         : writesPoorly
-            ? "L'opérateur a choisi le $promptName. Tu le COMPRENDS, mais tu "
+            ? "L'opérateur s'exprime en $promptName. Tu le COMPRENDS, mais tu "
                 "l'écris mal : une réponse en $promptName serait "
                 'incompréhensible, et dangereuse pour une consigne de sécurité. '
                 'Réponds donc en FRANÇAIS SIMPLE : phrases courtes, mots de '
@@ -128,8 +128,20 @@ class AppLanguage {
   /// « réponds en bambara » au milieu et « réponds en français » à la fin —
   /// le bambara était forcé en français ici, contre la décision du
   /// 27/10/2026 de faire répondre l'agent en bambara.
-  String trailingPromptAnchor({String? detectedLanguageCode}) {
-    final resolved = replyLanguage(detectedLanguageCode);
+  String trailingPromptAnchor({String? detectedLanguageCode}) =>
+      anchorFor(replyLanguage(detectedLanguageCode));
+
+  /// Cette langue, pour un modèle qui ne sait pas l'écrire : il la comprend,
+  /// mais répond en français simple (voir `WritesLanguages`). Le drapeau
+  /// dépend du MODÈLE, pas de la langue : Gemini écrit le bambara, Qwen 2.5
+  /// 7B non.
+  AppLanguage get writingPoorly => writesPoorly
+      ? this
+      : AppLanguage(id, label, promptName, voiceTag,
+          lowResource: lowResource, writesPoorly: true, note: note);
+
+  /// Consigne de fin pour une langue de réponse déjà résolue.
+  static String anchorFor(AppLanguage resolved) {
     if (resolved.writesPoorly) {
       return '=== CONSIGNE FINALE DE LANGUE & ANTI-HALLUCINATION (IMPÉRATIF) ===\n'
           'Réponds EXCLUSIVEMENT en FRANÇAIS SIMPLE (phrases courtes, sans '

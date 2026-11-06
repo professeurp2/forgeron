@@ -644,21 +644,6 @@ Vous pouvez maintenant lancer la simulation cinématique.
         // Rétablissement de la locale de test
         AppLocalizations.setCurrentForTest(const {});
       });
-
-      test('isGlossaryWordSalad identifie et nettoie les salades de mots de glossaire émises par un LLM local', () {
-        const salad = 'Dabila daminɛ. Mɛnɛ, masini cogoya fo in ye. Joona joona. Dama lajɛ fɔ? Mɛnɛ, dabila daminɛ? Joona joona.';
-        expect(LocalAiAgentService.isGlossaryWordSalad(salad), isTrue);
-
-        const salad2 = 'Sogoma jira. Ci ce, dabila daminɛ. Mɛnɛ, mɛnajira dabila sisan sisan. Joona joona. Dama lajɛ fɔ?';
-        expect(LocalAiAgentService.isGlossaryWordSalad(salad2), isTrue);
-
-        final cleaned = LocalAiAgentService.cleanRepetitiveDegeneration(salad);
-        expect(cleaned, contains('Forgeron'));
-        expect(cleaned, isNot(contains('Joona joona')));
-
-        const coherentText = 'N bɛ se k\'i dɛmɛ mansin cogoya lajɛ la.';
-        expect(LocalAiAgentService.isGlossaryWordSalad(coherentText), isFalse);
-      });
     });
 
 }

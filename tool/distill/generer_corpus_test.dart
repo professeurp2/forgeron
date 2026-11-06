@@ -73,12 +73,19 @@ class _Exemple {
 /// Se présente comme le modèle local (même identifiant, même budget
 /// d'historique) pour que l'agent construise le prompt de l'élève, puis fait
 /// répondre le professeur.
-class _Capture implements AiBackend {
+class _Capture implements AiBackend, WritesLanguages {
   _Capture(this.teacher, this.modelId, this.budget);
   final AiBackend teacher;
   final String modelId;
   final int budget;
   final List<_Exemple> exemples = [];
+
+  // Le corpus apprend à l'élève à écrire la langue cible : le prompt doit la
+  // demander. Le modèle entraîné ne déclarera ces langues
+  // (`LocalAiAgentService.writtenLanguages`) qu'après mesure au banc ; d'ici
+  // là, le modèle local actuel reçoit la consigne « français simple ».
+  @override
+  bool writesLanguage(String languageId) => true;
 
   @override
   String get model => modelId;
@@ -206,7 +213,6 @@ List<String> _rejets(_Exemple e, String langue) {
   if (RegExp(r'/think|/no_think|</?think>|<\|im_').hasMatch(text)) {
     out.add('balise');
   }
-  if (LocalAiAgentService.isGlossaryWordSalad(text)) out.add('salade_glossaire');
   if (_boucle(text)) out.add('boucle');
   if (LocalAiAgentService.driftedFromTarget(r, systemPrompt: e.systemPrompt)) {
     out.add('langue_derive');
@@ -242,9 +248,19 @@ Future<AiBackend> _professeur(String spec, String url) async {
   final env = Platform.environment;
   switch (kind) {
     case 'gemini':
-      final key = env['GEMINI_API_KEY'] ?? '';
+      // Variable d'environnement, sinon fichier hors du dépôt
+      // (%USERPROFILE%\.forgeron\GEMINI_API_KEY). La clé n'est jamais
+      // affichée ni écrite ailleurs.
+      var key = (env['GEMINI_API_KEY'] ?? '').trim();
       if (key.isEmpty) {
-        throw StateError('GEMINI_API_KEY absente.');
+        final f = File('${env['USERPROFILE'] ?? env['HOME'] ?? ''}'
+            '${Platform.pathSeparator}.forgeron'
+            '${Platform.pathSeparator}GEMINI_API_KEY');
+        if (f.existsSync()) key = f.readAsStringSync().trim();
+      }
+      if (key.isEmpty) {
+        throw StateError('Clé Gemini absente (GEMINI_API_KEY ou '
+            '%USERPROFILE%\\.forgeron\\GEMINI_API_KEY).');
       }
       if (env['DISTILL_CGU_GEMINI'] != 'decision-du-porteur') {
         throw StateError('Professeur Gemini fermé : voir le garde en tête de '

@@ -1043,5 +1043,9 @@
   "Changer la langue de l'interface : {}",
   "Interface passée en {}. Pour revenir : {} > {}.",
   "L'interface est déjà en {}.",
-  "{} textes traduits sur {} ; les autres restent en français."
+  "{} textes traduits sur {} ; les autres restent en français.",
+  "Avec plaisir ! N'hésitez pas si vous avez d'autres opérations à effectuer sur la machine.",
+  "Bonjour ! Comment puis-je vous aider sur la machine aujourd'hui ?",
+  "Bonjour ! Forgeron IA est à votre service. Souhaitez-vous vérifier l'état machine, faire un homing ou analyser un programme ?",
+  "Je peux vous aider à : lire l'état de la machine, lancer la prise d'origine ($H), analyser ou prévisualiser un programme G-code, piloter le jog et diagnostiquer les alarmes."
 ]

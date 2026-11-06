@@ -45,11 +45,15 @@ class _Call {
 
 /// Le vrai service local, enregistré. Se présente sous l'identifiant du modèle
 /// actif de l'application, pour que `_ensureService` le réutilise tel quel.
-class _Recorder implements AiBackend {
+class _Recorder implements AiBackend, WritesLanguages {
   _Recorder(this.inner, this.modelId);
   final LocalAiAgentService inner;
   final String modelId;
   final List<_Call> calls = [];
+
+  // Le banc mesure le prompt que reçoit VRAIMENT le modèle local.
+  @override
+  bool writesLanguage(String languageId) => inner.writesLanguage(languageId);
 
   @override
   String get model => modelId;

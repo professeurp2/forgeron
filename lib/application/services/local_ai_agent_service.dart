@@ -124,7 +124,7 @@ class LocalModelInfo {
 
 /// enchaîne couramment plusieurs.
 
-class LocalAiAgentService implements AiBackend {
+class LocalAiAgentService implements AiBackend, WritesLanguages {
 
   /// Racine du serveur, sans chemin — ex. `http://192.168.0.42:11434`.
 
@@ -155,6 +155,28 @@ class LocalAiAgentService implements AiBackend {
   /// [probe]). Sans sondage : un modèle texte seul au contexte inconnu.
 
   final LocalModelInfo info;
+  /// Langues dans lesquelles CE modèle écrit des réponses lisibles. Pour
+  /// toute autre langue, l'agent lui demande de répondre en français simple
+  /// (`AppLanguage.writingPoorly`) : il comprend l'opérateur, mais ne forge
+  /// pas de phrases dans une langue qu'il ne sait pas écrire.
+  ///
+  /// C'est une règle générale, à la place des filtres de sortie au cas par
+  /// cas : en bambara, Qwen 2.5 7B recombinait les mots du glossaire
+  /// (« Dabila daminɛ. Mɛnɛ, masini cogoya fo in ye. Joona joona. »,
+  /// 5 nov. 2026) ; chaque filtre ne rattrapait que la phrase déjà vue.
+  final Set<String> writtenLanguages;
+
+  /// Français et anglais : mesurés au banc (`tool/eval/`). Arabe : langue
+  /// prise en charge par Qwen 2.5, réponses en arabe correctes au banc de
+  /// conversation du 5 nov. 2026. Un modèle entraîné pour d'autres langues
+  /// (voir docs/addis/distillation-langues.md) les ajoutera ici — après
+  /// mesure, pas avant.
+  static const defaultWrittenLanguages = {'fr', 'en', 'ar'};
+
+  @override
+  bool writesLanguage(String languageId) =>
+      writtenLanguages.contains(languageId);
+
 
 
 
@@ -169,6 +191,7 @@ class LocalAiAgentService implements AiBackend {
     http.Client? client,
 
     this.timeout = const Duration(seconds: 180),
+    this.writtenLanguages = defaultWrittenLanguages,
 
   }) : _client = client ?? http.Client();
 
@@ -1558,29 +1581,14 @@ class LocalAiAgentService implements AiBackend {
     return null;
   }
 
-  /// La réponse a quitté la langue cible du prompt pour du français ou de
-  /// l'anglais (une réponse en arabe qui finit en français, une réponse en
-  /// bambara qui demande de reformuler « en français »).
   /// Detecte un motif textuel consécutivement répété (dégénérescence de tokens d'un LLM local).
   /// Exemples réels : « kuma ko kuma ko kuma ko... », « cnc cnc cnc... », « machine machine machine... ».
-  /// Détecte une hallucination sous forme de salade de mots de glossaire
-  /// (ex: « Dabila daminɛ. Mɛnɛ, masini cogoya fo in ye. Joona joona. Dama lajɛ fɔ? »)
-  static bool isGlossaryWordSalad(String text) {
-    final lower = text.toLowerCase();
-    final hasSaladPatterns = RegExp(
-      r'dabila\s+damin[ɛe]|joona\s+joona|dama\s+laj[ɛe]\s+f[ɔo]|m[ɛe]n[ɛe],\s*dabila|sogoma\s+jira',
-      caseSensitive: false,
-    ).hasMatch(lower);
-    if (hasSaladPatterns) return true;
-
-    final phrases = ['joona joona', 'dabila daminɛ', 'dabila damine'];
-    var matches = 0;
-    for (final p in phrases) {
-      if (lower.contains(p)) matches++;
-    }
-    return matches >= 2;
-  }
-
+  ///
+  /// Il n'y a PAS de détecteur de « salade de mots » par phrases connues
+  /// (retiré le 5 nov. 2026) : il ne rattrapait que les phrases déjà vues et
+  /// remplaçait la réponse par un texte français écrit en dur. La cause est
+  /// traitée à la source : le modèle local n'écrit que les langues qu'il
+  /// sait écrire ([writtenLanguages]).
   static ({String pattern, int startIndex, int repetitions})? findRepetitionLoop(
     String text, {
     int minLen = 2,
@@ -1610,9 +1618,6 @@ class LocalAiAgentService implements AiBackend {
 
   /// Tronque la queue répétitive d'un texte pour ne conserver qu'une occurrence propre.
   static String cleanRepetitiveDegeneration(String text) {
-    if (isGlossaryWordSalad(text)) {
-      return "Je suis à votre écoute sur la machine Forgeron. Précisez l'opération souhaitée (état machine, homing \$H, ou programme G-code).";
-    }
     var result = text;
     for (var iter = 0; iter < 3; iter++) {
       final loop = findRepetitionLoop(result);
@@ -1622,6 +1627,9 @@ class LocalAiAgentService implements AiBackend {
     return result.trimRight();
   }
 
+  /// La réponse a quitté la langue cible du prompt pour du français ou de
+  /// l'anglais (une réponse en arabe qui finit en français, une réponse en
+  /// bambara qui demande de reformuler « en français »).
   static bool driftedFromTarget(AiApiResponse r, {String? systemPrompt}) {
     if (r.finishReason == 'CANCELLED') return false;
     final target = targetLanguageFromPrompt(systemPrompt);

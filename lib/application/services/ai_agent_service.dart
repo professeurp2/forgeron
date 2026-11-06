@@ -58,6 +58,21 @@ abstract class AiBackend {
   void dispose();
 }
 
+/// Fournisseur qui n'écrit correctement que certaines langues.
+///
+/// Facultatif : un fournisseur qui ne l'implémente pas (Gemini) écrit toutes
+/// les langues de l'application. L'agent lit cette capacité en construisant
+/// le prompt : pour une langue que le modèle ne sait pas écrire, il lui
+/// demande de répondre en français simple au lieu de le laisser improviser.
+abstract interface class WritesLanguages {
+  bool writesLanguage(String languageId);
+}
+
+/// Vrai si [backend] sait écrire la langue [languageId] (toujours vrai pour
+/// un fournisseur qui ne déclare rien).
+bool backendWritesLanguage(Object? backend, String languageId) =>
+    backend is! WritesLanguages || backend.writesLanguage(languageId);
+
 /// Client HTTP pour l'API Gemini (Google Generative Language API), avec
 /// function calling.
 ///

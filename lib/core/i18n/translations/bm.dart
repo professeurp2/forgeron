@@ -5,6 +5,12 @@
 // les messages d'alarme critiques non relus par un locuteur restent repliés
 // sur le français.
 const Map<String, String> kBm = <String, String>{
+  // Formules sociales (_resolveConversationalReply) : textes repris tels quels
+  // du routeur du 5 nov. 2026 (commit 5472875), NON relus par un locuteur.
+  "Bonjour ! Comment puis-je vous aider sur la machine aujourd'hui ?": "I ni sogoma ! N bɛ se k'i dɛmɛ cogo di bi mansin la ?",
+  "Bonjour ! Forgeron IA est à votre service. Souhaitez-vous vérifier l'état machine, faire un homing ou analyser un programme ?": "I ni ce ! Forgeron IA bɛ yan k'i dɛmɛ. I b'a fɛ k'an ka mansin cogoya lajɛ, homing kɛ, walima porogaramu lajɛ ?",
+  "Avec plaisir ! N'hésitez pas si vous avez d'autres opérations à effectuer sur la machine.": "I ni ce ! N'i b'a fɛ ka fɛn wɛrɛ kɛ mansin na, n bɛ yan.",
+  "Je peux vous aider à : lire l'état de la machine, lancer la prise d'origine (\$H), analyser ou prévisualiser un programme G-code, piloter le jog et diagnostiquer les alarmes.": "N bɛ se k'i dɛmɛ : mansin cogoya lajɛ (état machine), homing kɛ (\$H), G-code porogaramu lajɛ, jog kɛ, walima alarme kɔrɔsi. Fɔ n ye i b'a fɛ ka mun kɛ !",
   'Machine hors ligne : aucune lecture disponible.': 'Mansin tɛ tugu len ye (Hors ligne) : kunnafoni si t\'a la sisan.',
   'TABLEAU DE BORD': 'DASHBOARD',
   'Tableau de bord': 'Dashboard',

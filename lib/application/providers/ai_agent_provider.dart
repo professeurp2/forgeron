@@ -2453,7 +2453,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final block = _docsBlockOrNull();
 
     final docs = block == null ? '' : '\n\n$block';
-    final lang = _ref.read(effectiveAiLanguageProvider);
     final controllerMem =
         _ref.read(controllerMemoryProvider).toSystemPromptBlock();
 
@@ -2462,8 +2461,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // `reply`. Avant le 5 nov. 2026, deux détecteurs différents et une
     // exception pour le bambara faisaient dire au même prompt « réponds en
     // bambara » puis « réponds en français » (banc de conversation).
-    final detectedCode = _operatorLanguageCode();
-    final reply = lang.replyLanguage(detectedCode);
+    final (lang, reply) = _turnLanguages();
 
     final groups = _turnGroups;
     final fixed =
@@ -2479,7 +2477,23 @@ class AiAgentController extends StateNotifier<AiChatState> {
         '=== JOURNAL D\'ACTIVITÉ MACHINE (récent, opérateur + toi) ===\n'
         '$activity\n\n'
         '$langBlock\n\n'
-        '${lang.trailingPromptAnchor(detectedLanguageCode: detectedCode)}';
+        '${AppLanguage.anchorFor(reply)}';
+  }
+
+  /// Langue réglée et langue de réponse de ce tour, ajustées au modèle qui
+  /// répond : pour une langue qu'il ne sait pas écrire (`WritesLanguages`),
+  /// il comprend l'opérateur mais répond en français simple. Règle générale,
+  /// à la place des filtres de sortie phrase par phrase (5 nov. 2026 : le
+  /// modèle local recombinait en bambara les mots du glossaire). Gemini ne
+  /// déclare rien : il écrit toutes les langues.
+  (AppLanguage, AppLanguage) _turnLanguages() {
+    var lang = _ref.read(effectiveAiLanguageProvider);
+    bool writes(AppLanguage l) =>
+        l.isAuto || backendWritesLanguage(_service, l.id);
+    if (!writes(lang)) lang = lang.writingPoorly;
+    var reply = lang.replyLanguage(_operatorLanguageCode());
+    if (!writes(reply)) reply = reply.writingPoorly;
+    return (lang, reply);
   }
 
   /// Langue du dernier message de l'opérateur qui en a une (`LanguageDetector`,
@@ -2505,9 +2519,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Bloc de langue seul (prompt de vision, qui n'a pas le reste).
   String _currentLanguageBlock() {
-    final lang = _ref.read(effectiveAiLanguageProvider);
-    return _languageEnforcementBlock(
-        lang, lang.replyLanguage(_operatorLanguageCode()));
+    final (lang, reply) = _turnLanguages();
+    return _languageEnforcementBlock(lang, reply);
   }
 
   /// Bloc de directive linguistique, en fin de prompt (attention maximale du
@@ -2538,10 +2551,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
         '$uiLine Si l\'opérateur demande de changer la langue de '
         'l\'application ou de l\'interface, appelle set_app_language : tu '
         'en as le droit, c\'est l\'outil prévu.\n\n'
-        '${lang.promptDirective}'
-        // En automatique la directive ne nomme aucune langue : la règle du
-        // parler d'atelier vient de la langue détectée.
-        '${lang.isAuto ? reply.atelierRule : ''}';
+        // En automatique la directive ne nomme aucune langue (« réponds dans
+        // la langue de l'opérateur ») : pour une langue que le modèle n'écrit
+        // pas, c'est celle de la langue détectée qui s'applique (français
+        // simple) ; sinon, la règle du parler d'atelier de la langue détectée.
+        '${lang.isAuto && reply.writesPoorly ? reply.promptDirective : lang.promptDirective}'
+        '${lang.isAuto && !reply.writesPoorly ? reply.atelierRule : ''}';
   }
 
 

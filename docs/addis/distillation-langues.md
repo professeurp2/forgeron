@@ -71,8 +71,15 @@ machine simulée). Chaque appel au modèle devient un exemple au format
   **non relues**, en cache dans `distill_data/`).
 - Les cartes de confirmation sont refusées : le corpus n'apprend pas à
   l'élève qu'une action a eu lieu.
+- Le prompt demande la langue cible, même pour une langue que le modèle
+  local actuel ne sait pas écrire : l'élève doit apprendre à l'écrire. Le
+  modèle entraîné ne la recevra dans l'application qu'une fois déclarée
+  dans `LocalAiAgentService.writtenLanguages`, après mesure au banc ; d'ici
+  là, le modèle local répond en français simple dans ces langues.
+- Clé Gemini : variable `GEMINI_API_KEY`, sinon fichier
+  `%USERPROFILE%\.forgeron\GEMINI_API_KEY` (hors du dépôt, jamais affiché).
 - Rejets automatiques : réponse vide, chinois, restes de gabarit
-  (`/think`), boucle, salade de glossaire, dérive vers le français ou
+  (`/think`), boucle, dérive vers le français ou
   l'anglais, autre langue africaine, lettres étrangères à l'orthographe de
   la langue (ɛ/ɔ en haoussa…), donnée machine absente de tout ce que le
   professeur a reçu (« X0 », « 12 mm »), lecture de la machine demandée
