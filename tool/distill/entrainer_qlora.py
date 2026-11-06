@@ -103,7 +103,10 @@ def encoder(tok, ex, max_len, compact):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--corpus', default='distill_data/corpus_*.jsonl')
+    # Par défaut le corpus relu (tool/distill/relecture.py importer) ; les
+    # corpus bruts restent utilisables pour un essai : --corpus
+    # 'distill_data/corpus_2*.jsonl'.
+    ap.add_argument('--corpus', default='distill_data/corpus_relu.jsonl')
     ap.add_argument('--base', default=BASE)
     ap.add_argument('--sortie', default='distill_data/adaptateur')
     ap.add_argument('--max-len', type=int, default=3072)
