@@ -203,7 +203,7 @@ class LocalAiAgentService implements AiBackend, WritesLanguages {
 
   /// Part du contexte prise par ce qui n'est PAS l'historique : le prompt
 
-  /// système et les déclarations des 38 outils.
+  /// système et les déclarations des outils (49 au 6 nov. 2026).
 
   ///
 
@@ -218,8 +218,15 @@ class LocalAiAgentService implements AiBackend, WritesLanguages {
   /// on ajoute des outils — pour que le budget d'historique ne devienne pas
 
   /// trop généreux sans que personne s'en aperçoive.
+  ///
+  /// 6 nov. 2026 : la charge utile mesurée atteint 10 008 tokens (le prompt a
+  /// grossi de ~3 000 tokens : FAO, posture autonome, scan, capture). Avec
+  /// num_ctx 16 384 (tool/ollama/Modelfile), 10 000 + 12 000 caractères
+  /// d'historique + la réponse frôlaient la fenêtre avant même les parties
+  /// variables, et Ollama tronque alors le DÉBUT du prompt sans rien dire.
+  /// Relevé à 11 000 : l'historique tombe à 11 652 caractères à 16 384.
 
-  static const promptOverheadTokens = 10000;
+  static const promptOverheadTokens = 11000;
 
 
 

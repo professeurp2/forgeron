@@ -1173,7 +1173,7 @@ void main() {
         'de fiabilité', () {
       // Mesuré : 22 000 caractères dans une fenêtre de 16 384 faisaient
       // dérailler le modèle 12 fois sur 30 alors qu\'elle n\'était pas pleine.
-      expect(serviceWith(16384).historyBudgetChars,
+      expect(serviceWith(32768).historyBudgetChars,
           LocalAiAgentService.reliableHistoryChars);
       expect(serviceWith(65536).historyBudgetChars,
           LocalAiAgentService.reliableHistoryChars);
