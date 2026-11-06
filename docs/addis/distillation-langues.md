@@ -44,10 +44,10 @@ avant usage.
 1. **Corpus** — `tool/distill/generer_corpus_test.dart` (fait, voir plus bas).
 2. **Relecture** — un échantillon par langue relu par un locuteur, ou un
    juge plus fort que le professeur. Indispensable, voir les résultats.
-3. **Entraînement** — QLoRA (adaptateur LoRA sur le modèle quantifié en
-   4 bits) de Qwen 2.5 7B : tient dans 8 Go de VRAM. Rien n'est installé
-   pour l'instant (pas de PyTorch ni d'Unsloth/TRL sur ce PC ; 65 Go
-   libres sur C:).
+3. **Entraînement** — `tool/distill/entrainer_qlora.py` : QLoRA
+   (adaptateur LoRA sur le modèle quantifié en 4 bits) de Qwen 2.5 7B,
+   environnement `%USERPROFILE%\.forgeron\venv-ft` hors du dépôt. Voir
+   « Tenir dans 8 Go » plus bas.
 4. **Déploiement** — fusion, conversion GGUF, nouveau modèle Ollama
    (`forgeron-qwen-afr`), sans remplacer `forgeron-qwen` avant d'avoir
    mesuré.
@@ -113,3 +113,26 @@ formées mais sans sens (« Homing ni maelekezo ya kuzalisha maktaba ya
 mafuta… »). La qualité du corpus dépend donc d'abord du professeur, et
 l'étape 2 (relecture ou juge) n'est pas facultative : sans elle, on
 graverait dans l'élève les erreurs du professeur.
+
+## Tenir dans 8 Go (mesures du 6 nov. 2026, RTX 3070 Laptop)
+
+Le contexte complet de l'application (6 000 à 12 000 tokens par exemple)
+ne tient pas : l'entraînement utilise un contexte réduit (1 500 à 2 800
+tokens, voir l'en-tête du script). Trois pièges, corrigés dans le script :
+
+| Piège | Effet mesuré | Correction |
+|---|---|---|
+| `prepare_model_for_kbit_training` | passe embeddings et `lm_head` en float32 (+2 Go) | ne pas l'appeler ; gradient checkpointing activé à la main |
+| logits sur toute la séquence | 152 k mots × 2 800 tokens en float32 = 1,6 Go | logits sur les seuls tokens de réponse (`logits_to_keep`) |
+| GQA dans SDPA sans masque | pas de noyau efficace sous Windows → noyau mathématique, ~2 Go par couche | répéter les têtes K/V avant SDPA |
+
+Avant : 9,55 Go demandés, Windows déborde en mémoire partagée, 3 pas en
+44 min. Après : **pic 7,02 Go, 3 pas en 70 s** (7,4 s pour l'exemple le
+plus long, 2 785 tokens). Essai fait sur le corpus de test du 5 nov.
+(données sans valeur) : il valide la chaîne, pas la qualité.
+
+```
+python tool/distill/entrainer_qlora.py --stats      # longueurs, sans GPU
+python tool/distill/entrainer_qlora.py --steps 3    # essai
+python tool/distill/entrainer_qlora.py              # entraînement
+```
