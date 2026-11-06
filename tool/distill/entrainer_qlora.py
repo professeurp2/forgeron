@@ -212,7 +212,13 @@ def main():
             output_dir=a.sortie, per_device_train_batch_size=1,
             gradient_accumulation_steps=8, num_train_epochs=a.epoques,
             max_steps=a.steps, learning_rate=a.lr, lr_scheduler_type='cosine',
-            warmup_steps=max(1, pas // 20), logging_steps=1, save_strategy='epoch',
+            warmup_steps=max(1, pas // 20), logging_steps=1,
+            # Pas de checkpoint en cours de route : le 6 nov. 2026, python
+            # est mort en écrivant celui de l'époque 1 (torch_cpu.dll,
+            # 0xc0000006 = page de DLL illisible sous forte pression
+            # mémoire) ; checkpoint incomplet, non reprenable. Seul
+            # l'adaptateur final est écrit.
+            save_strategy='no',
             bf16=True, optim='paged_adamw_8bit', report_to=[],
             gradient_checkpointing=True,
             gradient_checkpointing_kwargs={'use_reentrant': False}),
