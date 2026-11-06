@@ -201,7 +201,7 @@ bool _boucle(String t) {
 }
 
 /// Raisons de rejet d'un exemple (vide = accepté).
-List<String> _rejets(_Exemple e, String langue) {
+List<String> _rejets(_Exemple e, String langue, String phrase) {
   final r = e.response;
   final text = r.text;
   final hasCall = r.parts.any((p) => p['functionCall'] is Map);
@@ -217,13 +217,24 @@ List<String> _rejets(_Exemple e, String langue) {
   if (LocalAiAgentService.driftedFromTarget(r, systemPrompt: e.systemPrompt)) {
     out.add('langue_derive');
   }
-  // Réponse dans une AUTRE langue africaine que celle demandée.
+  // Le prompt doit demander la langue du corpus : l'essai du 6 nov. (mode
+  // automatique) a rangé 244 réponses françaises sous des langues africaines.
   final cible =
       LocalAiAgentService.targetLanguageFromPrompt(e.systemPrompt) ?? langue;
+  if (cible != langue) out.add('cible_inattendue:$cible');
   final etrangere = _lettresEtrangeres(text, cible);
   if (etrangere != null) out.add('lettres_etrangeres:$etrangere');
+  // Réponse dans une AUTRE langue africaine que celle demandée. Jugé
+  // seulement si le détecteur reconnaît la langue sur la phrase de
+  // l'opérateur : il lit le shona comme du bambara (19 rejets à tort le
+  // 6 nov.) ; là où il ne sait pas lire la langue, il ne la juge pas.
+  final competent =
+      LanguageDetector.detectOperatorLanguage(phrase, fallback: '') == cible;
   final vue = LanguageDetector.detectOperatorLanguage(text, fallback: '');
-  if (vue.isNotEmpty && vue != cible && _africaines.contains(vue)) {
+  if (competent &&
+      vue.isNotEmpty &&
+      vue != cible &&
+      _africaines.contains(vue)) {
     out.add('autre_langue:$vue');
   }
   final contexte = [
@@ -435,6 +446,12 @@ void main() {
               () async => File('assets/lexicon/lexique.json').readAsString()),
         ]);
         await c.read(lexiconLoadProvider.future);
+        // Langue de l'agent choisie explicitement, comme dans les réglages :
+        // en automatique, une phrase que le détecteur ne reconnaît pas
+        // recevait un prompt « réponds en français ».
+        await c
+            .read(aiLanguageOverrideProvider.notifier)
+            .select(appLanguageById(langue));
         final cap = _Capture(prof, c.read(aiModelProvider).active.id,
             eleve.historyBudgetChars);
         final ctl = c.read(aiAgentControllerProvider.notifier);
@@ -469,7 +486,7 @@ void main() {
                 (p['functionCall'] as Map)['name'] == outil));
         for (final (n, e) in cap.exemples.indexed) {
           final motifs = [
-            ..._rejets(e, langue),
+            ..._rejets(e, langue, phrase),
             if (outilAbsent) 'outil_attendu_absent:$outil',
             if (erreur != null) 'erreur:$erreur',
           ];
