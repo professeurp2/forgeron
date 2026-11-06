@@ -256,7 +256,7 @@ Future<AiBackend> _professeur(String spec, String url) async {
         final f = File('${env['USERPROFILE'] ?? env['HOME'] ?? ''}'
             '${Platform.pathSeparator}.forgeron'
             '${Platform.pathSeparator}GEMINI_API_KEY');
-        if (f.existsSync()) key = f.readAsStringSync().trim();
+        if (f.existsSync()) key = _cleDuFichier(f.readAsStringSync());
       }
       if (key.isEmpty) {
         throw StateError('Clé Gemini absente (GEMINI_API_KEY ou '
@@ -293,24 +293,41 @@ Future<Map<String, String>> _traduire(AiBackend prof, String profId,
     return {for (final g in graines) g['id'] as String: g['fr'] as String};
   }
   final nom = appLanguageById(langue).promptName;
-  for (final g in graines) {
-    final id = g['id'] as String;
-    if (out.containsKey(id)) continue;
+  final manquantes = graines.where((g) => !out.containsKey(g['id'])).toList();
+  if (manquantes.isNotEmpty) {
+    // Un seul appel par langue (quota Gemini : 500 requêtes par jour).
+    final liste = {for (final g in manquantes) g['id'] as String: g['fr']};
     final r = await prof.sendMessages(contents: [
       {
         'role': 'user',
         'parts': [
           {
-            'text': 'Traduis en $nom cette phrase, dite par un opérateur '
-                'devant une machine CNC. Écris comme on le dit à l\'oral, '
-                'sans guillemets ni explication, seulement la phrase '
-                'traduite :\n${g['fr']}'
+            'text': 'Traduis en $nom chacune de ces phrases, dites par un '
+                'opérateur devant une machine CNC. Écris comme on le dit à '
+                "l'oral. Réponds UNIQUEMENT par un objet JSON qui garde les "
+                'mêmes clés, avec la traduction pour valeur :\n'
+                '${jsonEncode(liste)}'
           }
         ]
       }
     ], functionDeclarations: const [], systemPrompt: 'Tu es traducteur.');
-    final t = r.text.trim().split('\n').first.trim();
-    if (t.isNotEmpty && !LocalAiAgentService.containsCjk(t)) out[id] = t;
+    final brut = r.text;
+    final a = brut.indexOf('{'), b = brut.lastIndexOf('}');
+    if (a >= 0 && b > a) {
+      try {
+        final j = jsonDecode(brut.substring(a, b + 1)) as Map;
+        for (final e in j.entries) {
+          final t = '${e.value}'.trim().split('\n').first.trim();
+          if (liste.containsKey(e.key) &&
+              t.isNotEmpty &&
+              !LocalAiAgentService.containsCjk(t)) {
+            out['${e.key}'] = t;
+          }
+        }
+      } on FormatException {
+        // Réponse non JSON : graines sautées pour cette langue.
+      }
+    }
   }
   cache.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(out));
   return out;
@@ -369,6 +386,32 @@ void main() {
     final parLangue = <String, List<int>>{}; // [acceptés, rejetés, sans modèle]
     final raisons = <String, int>{};
     var conversations = 0;
+    var quotaEpuise = false;
+
+    // Reprise : un couple (langue, graine) déjà traité par ce professeur
+    // n'est pas refait. Une erreur du professeur (quota…) ne compte pas : on
+    // la refait au prochain lancement. Le quota gratuit de Gemini (500
+    // requêtes par jour pour Flash Lite) impose plusieurs lancements.
+    final dejaFaits = <String>{};
+    for (final f in Directory('distill_data').listSync().whereType<File>()) {
+      final nom = f.uri.pathSegments.last;
+      if (!nom.endsWith('.jsonl') ||
+          !(nom.startsWith('corpus_') || nom.startsWith('rejets_'))) {
+        continue;
+      }
+      for (final l in f.readAsLinesSync()) {
+        if (l.trim().isEmpty) continue;
+        final j = jsonDecode(l) as Map<String, dynamic>;
+        final motifs = (j['rejet'] as List?)?.cast<String>() ?? const [];
+        if (j['professeur'] == teacherSpec &&
+            !motifs.any((m) => m.startsWith('erreur'))) {
+          dejaFaits.add('${j['langue']}-${j['graine']}');
+        }
+      }
+    }
+    final pause = Duration(
+        milliseconds: int.tryParse(env['DISTILL_PAUSE_MS'] ?? '') ??
+            (teacherSpec.startsWith('gemini') ? 4000 : 0));
 
     await AppLocalizations.delegate.load(const Locale('fr'));
 
@@ -380,7 +423,8 @@ void main() {
         if (limit != null && conversations >= limit) break outer;
         final id = g['id'] as String;
         final phrase = traductions[id];
-        if (phrase == null) continue;
+        if (phrase == null || dejaFaits.contains('$langue-$id')) continue;
+        if (conversations > 0) await Future<void>.delayed(pause);
         conversations++;
 
         // ignore: invalid_use_of_visible_for_testing_member
@@ -463,6 +507,12 @@ void main() {
             '${st.error == null ? '' : ' · erreur affichée : ${st.error}'}'
             ' · « ${dernier.length > 70 ? dernier.substring(0, 70) : dernier} »');
         c.dispose();
+        // Quota épuisé : continuer ne produirait que des erreurs.
+        if (RegExp(r'429|quota|RESOURCE_EXHAUSTED', caseSensitive: false)
+            .hasMatch('${erreur ?? ''} ${erreurAffichee ?? ''}')) {
+          quotaEpuise = true;
+          break outer;
+        }
       }
     }
     await corpus.close();
@@ -490,8 +540,27 @@ void main() {
       ..sort((a, b) => b.value.compareTo(a.value)))) {
       md.writeln('| ${e.key} | ${e.value} |');
     }
+    if (quotaEpuise) {
+      md
+        ..writeln()
+        ..writeln('**Arrêt : quota du professeur épuisé.** Relancer plus tard '
+            ': les couples déjà faits sont sautés.');
+    }
     File('distill_data/rapport_$stamp.md').writeAsStringSync(md.toString());
     // ignore: avoid_print
     print(md);
   }, timeout: const Timeout(Duration(hours: 12)));
+}
+
+/// Clé collée à la main dans le fichier : tolère BOM, `GEMINI_API_KEY=`,
+/// guillemets et lignes vides ou commentées. Garde la première ligne utile.
+String _cleDuFichier(String brut) {
+  for (var l in brut.replaceAll('﻿', '').split(RegExp(r'[\r\n]+'))) {
+    l = l.trim();
+    if (l.isEmpty || l.startsWith('#')) continue;
+    final eq = l.indexOf('=');
+    if (eq >= 0) l = l.substring(eq + 1).trim();
+    return l.replaceAll(RegExp(r'''^["']|["']$'''), '').trim();
+  }
+  return '';
 }
