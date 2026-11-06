@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "note": "Fiches de connaissance de l'assistant (outil search_docs). Chaque fiche dit d'où elle vient. Statut `brouillon` = écrite d'après les notes du projet, pas encore relue par une personne nommée. Les codes d'alarme ne sont PAS ici : ils sont générés depuis le catalogue de l'application (une seule source). Les valeurs chiffrées de la machine (courses, pas/mm) ne sont pas ici non plus : la configuration en direct (get_config, get_axis_kinematics) fait foi.",
   "fiches": [
     {
@@ -130,6 +130,54 @@
       "texte": "Forgeron est un contrôleur CNC 5-axes (Trunnion X,Y,Z,A,C) basé sur Flutter (Clean Architecture + Riverpod). Il communique en WebSocket Binaire avec FluidNC v4.0 sur le port 80 (URL ws://IP:80/). Le streaming G-Code utilise un algorithme Character-Counting limité au buffer RX de 127 octets de l'ESP32. L'adaptateur CAM filtre les RTCP non supportés (G43.4, M128), développe les cycles fixes G81-G83, et valide les butées A [-90°, +90°] et C [0°, 360°]. Les entrées fins de course (GPIO 4, 13, 14) et l'E-STOP (GPIO 15) sont câblées en Normalement Fermé (NC) fail-safe. L'alimentation moteurs est un bloc ATX HP Delta 12V/38A. L'IHM propose un pupitre FANUC avec écran LCD cathodique, volant MPG virtuel et une architecture Multi-Agents distribuée (Agent Gardien Front, Agent Routeur d'outils, Agent Orchestrateur Ollama forgeron-qwen local 100% hors-ligne, Agent Vision VLM et Agent CAD/CAM 3D).",
       "source": "DOCS.md (Documentation officielle du projet)",
       "statut": "valide"
+    },
+    {
+      "id": "securite-epi",
+      "titre": "Sécurité : protections à porter et gestes à éviter",
+      "mots_cles": ["securite", "lunettes", "protection", "protections", "epi", "gants", "cheveux", "oreilles", "bruit", "copeaux", "vetements", "bijoux", "porter", "danger", "blessure"],
+      "texte": "Porter des lunettes de protection pendant tout l'usinage : copeaux et éclats d'outil cassé sont projetés. Bruit fort ou prolongé : protections auditives. Cheveux longs attachés, pas de vêtements amples, d'écharpe ni de bijoux près de la broche : ils peuvent être happés. Pas de gants près d'un outil qui tourne, pour la même raison. Ne jamais approcher la main ni retirer les copeaux à la main tant que la broche tourne : arrêter la broche (M5) et attendre l'arrêt complet. Garder l'arrêt d'urgence à portée de main pendant un usinage.",
+      "source": "règles générales de sécurité en usinage, non propres à cette machine",
+      "statut": "brouillon"
+    },
+    {
+      "id": "gcode-intro",
+      "titre": "G-code : ce que c'est",
+      "mots_cles": ["gcode", "g-code", "code", "programme", "langage", "ligne", "fichier", "nc", "fao", "cam", "explique", "simplement"],
+      "texte": "Le G-code est le langage texte que lit le contrôleur : un programme est une suite de lignes, chacune donne un ordre à la machine. Exemples : G0 = déplacement rapide, G1 = déplacement de coupe à l'avance F, M3 / M5 = broche en marche / à l'arrêt. On ne l'écrit pas à la main : il est produit par un logiciel de FAO (ou par Forgeron à partir d'un fichier STEP ou STL), puis chargé dans la machine. L'assistant n'écrit jamais lui-même un programme : une coordonnée fausse peut casser l'outil ou la machine.",
+      "source": "référence G-code standard (GRBL / FluidNC) ; prompt système de l'assistant",
+      "statut": "brouillon"
+    },
+    {
+      "id": "broche-role",
+      "titre": "Broche : à quoi elle sert",
+      "mots_cles": ["broche", "spindle", "sert", "role", "outil", "tourner", "rotation", "moteur", "couper", "enlever", "matiere"],
+      "texte": "La broche est le moteur qui fait tourner l'outil de coupe. C'est cette rotation qui coupe et enlève la matière ; les axes X, Y, Z, A et C déplacent ensuite la pièce et l'outil l'un par rapport à l'autre. Sur cette machine, la broche est un moteur à courant continu en tout-ou-rien : « M3 S1000 » la démarre, « M5 » l'arrête (voir la fiche broche-relais).",
+      "source": "référence d'usinage générale ; hardware/README.md",
+      "statut": "brouillon"
+    },
+    {
+      "id": "lancer-programme",
+      "titre": "Lancer un programme G-code",
+      "mots_cles": ["lancer", "demarrer", "executer", "programme", "gcode", "cycle", "start", "depart", "charger", "fichier", "usinage", "commencer"],
+      "texte": "1. Charger le programme : écran Espace de travail, « Charger un fichier G-Code (.nc, .gcode) », ou une pièce STEP/STL que Forgeron transforme en programme. 2. Avant de lancer : prise d'origine faite ($H), pièce bridée, zéro pièce réglé dans le bon repère (G54…), outil dégagé en Z. 3. Lancer : bouton « DÉPART CYCLE » sur le téléphone, « CYCLE START » sur le poste ; on peut aussi demander à l'assistant de lancer le programme chargé, il demande confirmation. Pendant l'usinage : « ! » met en pause, « ~ » reprend, l'arrêt d'urgence reste à portée de main.",
+      "source": "écrans de l'application (tableau de bord, espace de travail) ; prompt système de l'assistant",
+      "statut": "brouillon"
+    },
+    {
+      "id": "changer-langue",
+      "titre": "Changer la langue de l'application",
+      "mots_cles": ["langue", "language", "changer", "traduction", "parametres", "interface", "francais", "anglais", "bambara"],
+      "texte": "Ouvrir les Paramètres (roue dentée en haut de l'écran) : la carte « Langue » est en haut, à côté du thème. Le choix change toute l'interface et la langue de l'assistant. Dans la fenêtre de l'assistant IA, un sélecteur « Langue » permet aussi de changer de langue sans quitter la discussion.",
+      "source": "écran Paramètres et fenêtre de l'assistant de l'application",
+      "statut": "brouillon"
+    },
+    {
+      "id": "debuter",
+      "titre": "Débuter sur la machine : par où commencer",
+      "mots_cles": ["debuter", "debutant", "commencer", "rien", "apprendre", "premiere", "fois", "nouveau", "par", "ou", "connais", "aide"],
+      "texte": "Pour une première fois, dans cet ordre : 1. Lire les règles de sécurité (lunettes, cheveux attachés, mains loin de la broche) et repérer l'arrêt d'urgence. 2. Mettre la machine sous tension et connecter le téléphone ou le poste à son point d'accès Wi-Fi. 3. Faire la prise d'origine (homing, $H). 4. Brider la pièce, puis faire le zéro pièce. 5. Charger un programme et regarder son tracé ou sa simulation avant de couper. 6. Lancer le cycle en restant devant la machine. L'assistant de mise en route, dans les Paramètres, guide la préparation de la machine ; l'assistant IA répond aux questions à chaque étape.",
+      "source": "prompt système de l'assistant ; écrans de l'application",
+      "statut": "brouillon"
     }
   ]
 }
