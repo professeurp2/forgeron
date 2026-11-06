@@ -172,3 +172,37 @@ coût réel sur 10 conversations (console Gemini), puis extrapoler.
 feuille par langue dans `distill_data/relecture/` (hors dépôt). Après
 relecture : `python tool/distill/relecture.py importer`, puis
 `python tool/distill/entrainer_qlora.py`.
+
+## Premier entraînement d'essai (6 nov. 2026) : résultat négatif
+
+Adaptateur LoRA, 1 époque (73 pas) sur les 582 exemples non relus du
+corpus Flash. La 2e époque n'a pas eu lieu : python est mort en écrivant
+le checkpoint (voir entrainer_qlora.py) ; l'adaptateur de l'époque 1 est
+complet et a servi à la mesure.
+
+Mesure : `tool/distill/comparer_adaptateur.py`, questions du banc de
+conversation (pas des graines), base contre base + adaptateur.
+
+| Langue | Base | Adapté |
+|---|---|---|
+| ar, fr, en | correct | correct, plus structuré, plus proche du professeur |
+| bm, sw, wo, ha | salade de mots, boucles | **toujours** salade de mots ; boucles de répétition (« ko kuma ko kuma… ») ; écho de la question ; identifiants de fiches inventés |
+
+**Conclusion.** ~35 exemples par langue ne font pas écrire à un 7B une
+langue qu'il connaît à peine : l'entraînement apprend la forme (listes,
+« hors ligne », gras) sans la langue. Plus de données Gemini ne suffirait
+pas dans le budget (10× le corpus ≈ 90 $), et rien ne garantit le
+résultat. La règle `WritesLanguages` reste la bonne protection : le
+modèle local répond en français simple dans ces langues, Gemini les
+écrit en ligne.
+
+Pistes qui ne demandent pas d'apprendre une langue à Qwen :
+
+- **traducteur local séparé** : le modèle raisonne et appelle les outils
+  en français, un modèle de traduction dédié traduit la réponse finale.
+  MADLAD-400 (Google, Apache 2.0, 400+ langues dont bm, wo, ha, yo, ig,
+  zu, so, rw, sn, ln, sw, am, mg) ; NLLB-200 (Meta) couvre aussi ces
+  langues mais sous licence **non commerciale** (CC-BY-NC). Licences et
+  qualité à vérifier, au banc, langue par langue ;
+- **modèle de base déjà multilingue** (Gemma 3, Qwen3…) : à mesurer,
+  avec la contrainte des appels d'outils sous Ollama.
