@@ -136,3 +136,39 @@ python tool/distill/entrainer_qlora.py --stats      # longueurs, sans GPU
 python tool/distill/entrainer_qlora.py --steps 3    # essai
 python tool/distill/entrainer_qlora.py              # entraînement
 ```
+
+## Corpus Gemini du 6 nov. 2026
+
+Gemini retenu comme professeur par le porteur du projet (clause des
+conditions de l'API connue et assumée). Clé du projet facturé (Niveau 1),
+plafond de dépenses fixé à 10 $ par le porteur.
+
+| Étape | Résultat |
+|---|---|
+| Flash Lite, langue de l'agent en automatique | **inutilisable** : 244 des 346 exemples acceptés étaient des réponses françaises rangées sous une langue africaine (la phrase non reconnue par le détecteur recevait « réponds en français ») — archivé |
+| correction | langue de l'agent choisie explicitement ; rejet « cible_inattendue » ; « autre_langue » jugé seulement si le détecteur sait lire la langue (il lit le shona comme du bambara) |
+| Flash (`gemini-flash-latest`), 15 langues + ar, fr, en | ~600 exemples acceptés ; complet sauf malgache (12 graines sur 29) ; rejets surtout en amharique (14) et yoruba (10) |
+| arrêt | à 9,50 $ sur 10 $ |
+
+**Coût sous-estimé.** Chaque appel envoie au professeur tout le prompt de
+l'élève et les 49 déclarations d'outils (~10 000 tokens), et la
+réflexion interne du modèle est facturée comme sortie. Avant un prochain
+lancement : couper la réflexion (budget de réflexion à 0), mesurer le
+coût réel sur 10 conversations (console Gemini), puis extrapoler.
+
+**Ce que le corpus a révélé dans l'application** (corrigé le même jour) :
+
+- un message envoyé au démarrage de l'agent disparaissait de l'écran
+  (chargement des discussions qui remplaçait les messages) ;
+- la réserve du prompt du modèle local (10 000 tokens) était dépassée
+  (10 008 mesurés) : relevée à 11 000 ;
+- 7 des 24 réponses françaises étaient « Je ne trouve pas cette
+  information dans mes fiches. », dont « dois-je porter des lunettes de
+  protection ? » : six fiches ajoutées (brouillon), voir
+  `assets/docs/fiches.json`. Ces refus sont pré-marqués « faux » dans les
+  feuilles de relecture fr/en.
+
+**Relecture** : `python tool/distill/relecture.py exporter` a écrit une
+feuille par langue dans `distill_data/relecture/` (hors dépôt). Après
+relecture : `python tool/distill/relecture.py importer`, puis
+`python tool/distill/entrainer_qlora.py`.
