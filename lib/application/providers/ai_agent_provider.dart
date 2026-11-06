@@ -1201,11 +1201,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   bool _restored = false;
 
+  /// Chargement des discussions sauvegardées : il REMPLACE state.messages en
+  /// finissant. Un message envoyé avant (voix au lancement, synchro PC)
+  /// disparaissait : sendUserMessage l'attend.
+  late final Future<void> _restoring;
+
 
 
   AiAgentController(this._ref) : super(const AiChatState()) {
 
-    _restore();
+    _restoring = _restore();
 
   }
 
@@ -3215,6 +3220,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
 
+    // Après les chemins d'arrêt d'urgence, qui n'attendent jamais.
+    await _restoring;
     if ((trimmed.isEmpty && imageBytes == null) || state.isProcessing) return;
 
 
