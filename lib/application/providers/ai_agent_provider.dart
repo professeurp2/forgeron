@@ -4,7 +4,7 @@ import 'dart:convert';
 
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,6 +25,8 @@ import '../services/live_state_block.dart';
 import '../services/ai_turn_journal.dart';
 
 import '../services/local_ai_agent_service.dart';
+
+import '../services/local_translator.dart';
 
 import '../services/ollama_discovery.dart';
 
@@ -147,6 +149,13 @@ class AiChatMessage {
 
   final Duration? toolDuration;
 
+  /// Réponse d'origine, en français, quand [text] est une traduction
+  /// automatique (`LocalTranslator`). L'écran la garde à portée : ces
+  /// traductions n'ont pas été relues par un locuteur.
+  final String? sourceText;
+
+  bool get isMachineTranslated => sourceText != null;
+
 
 
   const AiChatMessage({
@@ -168,6 +177,8 @@ class AiChatMessage {
     this.toolResult,
 
     this.toolDuration,
+
+    this.sourceText,
 
   });
 
@@ -283,6 +294,8 @@ class AiChatMessage {
 
       if (toolDuration != null) 'ms': toolDuration!.inMilliseconds,
 
+      'src': ?sourceText,
+
     };
 
   }
@@ -364,6 +377,8 @@ class AiChatMessage {
       toolResult: toolResult,
 
       toolDuration: ms == null ? null : Duration(milliseconds: ms),
+
+      sourceText: j['src'] as String?,
 
     );
 
@@ -2501,6 +2516,70 @@ class AiAgentController extends StateNotifier<AiChatState> {
     return (lang, reply);
   }
 
+  LocalTranslator? _translator;
+
+  LocalTranslator? _debugTranslator;
+
+  /// Pose un traducteur (tests du contrôleur), utilisé quel que soit le
+  /// fournisseur — un faux fournisseur n'est pas un `LocalAiAgentService`.
+  @visibleForTesting
+  void debugUseTranslator(LocalTranslator translator) =>
+      _translator = _debugTranslator = translator;
+
+  /// Traducteur pour le fournisseur actif : seulement un modèle local (Gemini
+  /// écrit toutes les langues), sur le même serveur, si un modèle traducteur
+  /// est réglé.
+  LocalTranslator? _translatorFor(AiBackend? service) {
+    final forced = _debugTranslator;
+    if (forced != null) return forced;
+    final local = service is GuardedBackend ? service.inner : service;
+    if (local is! LocalAiAgentService) return null;
+    final name = _ref.read(aiAgentSettingsProvider).localTranslatorModel;
+    if (name.isEmpty || name == local.model) return null;
+    final current = _translator;
+    if (current != null &&
+        current.baseUrl == local.baseUrl &&
+        current.model == name) {
+      return current;
+    }
+    current?.cancel();
+    return _translator = LocalTranslator(baseUrl: local.baseUrl, model: name);
+  }
+
+  /// Remplace [reply] (français simple) par sa traduction dans la langue de
+  /// l'opérateur, quand le pilote ne l'écrit pas et que le traducteur la
+  /// couvre. `_contents` garde le français : le pilote relit ce qu'il a
+  /// écrit, pas une traduction. Rejet ou échec : le français reste, rien
+  /// n'est signalé comme une erreur — c'est la réponse de repli prévue.
+  Future<void> _translateFinalReply(AiChatMessage reply, int epoch) async {
+    final service = _service;
+    final target = _ref
+        .read(effectiveAiLanguageProvider)
+        .replyLanguage(_operatorLanguageCode());
+    if (target.isAuto || backendWritesLanguage(service, target.id)) return;
+    final translator = _translatorFor(service);
+    if (translator == null || !translator.covers(target.id)) return;
+    final result =
+        await translator.translate(reply.text, target.promptName ?? target.id);
+    // Contrôleur fermé ou discussion changée pendant les ~20 s de traduction.
+    if (!mounted || _epoch != epoch) return;
+    final text = result.text;
+    if (text == null) {
+      debugPrint('Traduction ${target.id} rejetée : ${result.rejection}');
+      return;
+    }
+    _replaceMessage(
+      reply,
+      AiChatMessage(
+        role: 'assistant',
+        text: text,
+        timestamp: reply.timestamp,
+        interrupted: reply.interrupted,
+        sourceText: reply.text,
+      ),
+    );
+  }
+
   /// Langue du dernier message de l'opérateur qui en a une (`LanguageDetector`,
   /// le seul détecteur de l'application). Un message indécidable (« ok »,
   /// « oui », du G-code) garde la langue du message précédent : sans ça, un
@@ -3223,6 +3302,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // Après les chemins d'arrêt d'urgence, qui n'attendent jamais.
     await _restoring;
     if ((trimmed.isEmpty && imageBytes == null) || state.isProcessing) return;
+
+    // Une traduction encore en cours occupe la carte graphique : le pilote
+    // passe avant, la réponse précédente reste en français.
+    _translator?.cancel();
 
 
 
@@ -3964,6 +4047,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
 
+      AiChatMessage? finalReply;
+
       if (response.text.isNotEmpty) {
 
         // Après une recherche (fiches trouvées ou non), un refus est un refus :
@@ -3972,7 +4057,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
         final block = _docsBlockOrNull();
 
-        _addMessage(AiChatMessage(
+        _addMessage(finalReply = AiChatMessage(
 
           role: 'assistant',
 
@@ -4017,6 +4102,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
         _clearRetry();
 
         state = state.copyWith(isProcessing: false, clearTurnStartedAt: true);
+
+        // Réponse finale du tour : traduite en arrière-plan si le pilote
+
+        // n'écrit pas la langue de l'opérateur. Le français est déjà affiché.
+
+        if (finalReply != null && !_cancelled) {
+
+          unawaited(_translateFinalReply(finalReply, epoch));
+
+        }
 
       }
 
@@ -4802,6 +4897,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
   void dispose() {
 
     _autoRetryTimer?.cancel();
+
+    _translator?.cancel();
 
     _service?.dispose();
 

@@ -37,6 +37,7 @@ import '../../widgets/viewer_scene.dart';
 import '../ai_agent_settings_screen.dart';
 import 'ai_console_timeline.dart';
 import '../../../core/i18n/app_localizations.dart';
+import '../../widgets/ai/translation_note.dart';
 
 /// Console de l'agent IA — desktop.
 ///
@@ -1162,6 +1163,8 @@ class _MessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final part in _content()) part,
+                if (message.sourceText != null)
+                  TranslationNote(fc: fc, source: message.sourceText!),
                 if (message.interrupted)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),

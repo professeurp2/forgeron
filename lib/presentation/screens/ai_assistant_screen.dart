@@ -25,6 +25,7 @@ import 'ai_agent_settings_screen.dart';
 import 'machine_scan_screen.dart';
 import 'remote_chat_screen.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../widgets/ai/translation_note.dart';
 
 /// Écran de chat avec l'agent IA — reprend le pattern visuel du terminal MDI
 /// (log défilant, barre de saisie) et y ajoute des cartes de confirmation
@@ -964,6 +965,9 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       } else {
         bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle));
       }
+    }
+    if (m.sourceText != null) {
+      bubbleItems.add(TranslationNote(fc: fc, source: m.sourceText!));
     }
     if (m.interrupted) {
       bubbleItems.add(const SizedBox(height: 6));

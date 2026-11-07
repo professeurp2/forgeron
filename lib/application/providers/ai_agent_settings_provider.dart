@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/bundled_runtime.dart';
 import '../services/local_ai_agent_service.dart';
+import '../services/local_translator.dart';
 
 /// Catégories d'actions que l'agent IA peut exécuter sur la machine.
 /// La lecture seule (état machine, diagnostics) et l'arrêt d'urgence ne sont
@@ -82,6 +83,12 @@ class AiAgentSettings {
   /// une image vont au premier, sans outils ; tous les autres au second.
   final String localVisionModel;
 
+  /// Modèle local qui TRADUIT la réponse finale vers une langue que
+  /// [localModel] n'écrit pas (swahili, haoussa : voir `LocalTranslator`).
+  /// Vide = aucune traduction, l'opérateur reçoit le français simple. Absent
+  /// du serveur : la traduction échoue et le français reste affiché.
+  final String localTranslatorModel;
+
   /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
   /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
   /// toutes les langues du lexique, restriction à la lecture sur les questions
@@ -94,6 +101,7 @@ class AiAgentSettings {
     this.localBaseUrl = '',
     this.localModel = defaultLocalModel,
     this.localVisionModel = '',
+    this.localTranslatorModel = LocalTranslator.defaultModel,
     this.lexiconEnabled = true,
     this.preferOnline = false,
     this.autonomy = const {
@@ -114,6 +122,7 @@ class AiAgentSettings {
     String? localBaseUrl,
     String? localModel,
     String? localVisionModel,
+    String? localTranslatorModel,
     bool? lexiconEnabled,
     bool? preferOnline,
   }) {
@@ -123,6 +132,7 @@ class AiAgentSettings {
       localBaseUrl: localBaseUrl ?? this.localBaseUrl,
       localModel: localModel ?? this.localModel,
       localVisionModel: localVisionModel ?? this.localVisionModel,
+      localTranslatorModel: localTranslatorModel ?? this.localTranslatorModel,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
       preferOnline: preferOnline ?? this.preferOnline,
     );
@@ -134,6 +144,7 @@ class AiAgentSettings {
         'localBaseUrl': localBaseUrl,
         'localModel': localModel,
         'localVisionModel': localVisionModel,
+        'localTranslatorModel': localTranslatorModel,
         'lexiconEnabled': lexiconEnabled,
         'preferOnline': preferOnline,
       };
@@ -155,6 +166,9 @@ class AiAgentSettings {
       localBaseUrl: json['localBaseUrl'] as String? ?? '',
       localModel: json['localModel'] as String? ?? defaultLocalModel,
       localVisionModel: json['localVisionModel'] as String? ?? '',
+      // Réglages enregistrés avant le traducteur : le modèle conseillé.
+      localTranslatorModel: json['localTranslatorModel'] as String? ??
+          LocalTranslator.defaultModel,
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
       preferOnline: json['preferOnline'] as bool? ?? false,
@@ -213,6 +227,12 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   /// Modèle local pour les images ; vide = aucun.
   void setLocalVisionModel(String value) {
     state = state.copyWith(localVisionModel: value.trim());
+    _persist();
+  }
+
+  /// Modèle local traducteur ; vide = aucune traduction.
+  void setLocalTranslatorModel(String value) {
+    state = state.copyWith(localTranslatorModel: value.trim());
     _persist();
   }
 

@@ -15,6 +15,7 @@ import '../../../application/providers/controller_memory_provider.dart';
 import '../../../application/providers/di_providers.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/app_localizations.dart';
+import 'translation_note.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/utils/chat_markdown.dart';
@@ -1660,13 +1661,15 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       );
     }
 
-    return _buildAssistantMessage(fc, m.text, interrupted: m.interrupted);
+    return _buildAssistantMessage(fc, m.text,
+        interrupted: m.interrupted, sourceText: m.sourceText);
   }
 
   Widget _buildAssistantMessage(
     ForgeronColorPalette fc,
     String text, {
     bool interrupted = false,
+    String? sourceText,
   }) {
     final codeStyle = TextStyle(
       fontFamily: 'JetBrainsMono',
@@ -1726,6 +1729,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       ),
                     ),
                 ],
+                if (sourceText != null)
+                  TranslationNote(fc: fc, source: sourceText),
                 if (interrupted)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),

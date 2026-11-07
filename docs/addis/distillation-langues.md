@@ -261,3 +261,38 @@ sur cette carte de 8 Go. Qwen 7B reste le pilote (injection 100 %, rapide).
 Le 12B écrit le swahili et le haoussa mais répond en 20 à 50 s et suit
 une consigne d'injection une fois sur trois : utilisable au mieux comme
 brique de traduction de la réponse finale, pas comme pilote.
+
+## Gemma 3 12B en traducteur de la réponse finale (7 nov. 2026)
+
+Décision de l'utilisateur : brancher le 12B comme traducteur, supprimer le
+4B (fait : `gemma3:4b` et `forgeron-gemma3` retirés d'Ollama).
+
+**Chemin** (`lib/application/services/local_translator.dart`) : Qwen pilote
+et répond en français simple ; la réponse s'affiche tout de suite. Si la
+langue de l'opérateur n'est pas écrite par le pilote et que le traducteur la
+couvre, `gemma3:12b` (sans outils, sans historique, `keep_alive: 0`) traduit
+en arrière-plan et la réponse est remplacée. Le français reste joint au
+message (« Traduction automatique, non relue — voir le français ») et c'est
+lui que le pilote relit au tour suivant. Un nouveau message de l'opérateur
+coupe la traduction en cours : le pilote passe avant.
+
+**Contrôle avant affichage** : mêmes nombres, signe compris (le 4B avait
+changé « Z -500 » en +500) ; blocs de G-code masqués, jamais envoyés au
+traducteur et remis à l'identique ; pas de caractères chinois. Sinon le
+français reste.
+
+**Banc** (`tool/eval/traducteur_test.dart`, 8 réponses types, détail dans
+`tool/eval/traducteur_2026-11-07.md`) : 16/16 traductions passent le
+contrôle, 16 à 19 s chacune (rechargement du modèle compris). Mais le
+contrôle ne voit pas le sens, et la relecture en voit beaucoup :
+
+| | swahili | haoussa |
+|---|---|---|
+| lisible | oui | non |
+| erreurs de sens | 2/8 : « axes » → *milima* (montagnes) ; « je ne trouve pas ce fichier » → « je n'ai pas besoin de ce fichier » | « la machine est prête » → *Ina kwana* (bonjour) ; « Alarme 2 » → *Kamus 2* (dictionnaire) ; « 12 minutes » → sans doute 12 secondes (*daƙiƙa*) ; consigne des lunettes illisible |
+
+Le banc de conversation avait jugé le haoussa « correct » sur quelques
+phrases : la traduction ciblée montre le contraire. **Seul le swahili est
+branché** (`LocalTranslator.defaultLanguages`). Le haoussa reste en
+français simple tant qu'un meilleur traducteur n'est pas mesuré. Relecture
+d'un locuteur swahili toujours nécessaire avant l'atelier.
