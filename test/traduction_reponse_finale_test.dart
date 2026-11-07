@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/application/providers/ai_agent_provider.dart';
+import 'package:forgeron/application/providers/ai_agent_settings_provider.dart';
 import 'package:forgeron/application/providers/ai_model_provider.dart';
 import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/providers/lexicon_provider.dart';
@@ -174,6 +175,29 @@ void main() {
       expect(lastReply().sourceText, isNull, reason: code);
     }
     expect(translatorCalls, 0);
+  });
+
+  test('traducteur coupé dans les réglages : le français reste, sans appel',
+      () async {
+    await langue('sw');
+    c.read(aiAgentSettingsProvider.notifier).setLocalTranslatorEnabled(false);
+    ctl()
+      ..debugUseBackend(_Pilot(c.read(aiModelProvider).active.id, fr))
+      ..debugUseTranslator(translator(sw));
+    await ctl().sendUserMessage(question);
+    await settle();
+    expect(translatorCalls, 0);
+    expect(lastReply().text, fr);
+    expect(lastReply().sourceText, isNull);
+    // Le nom du modèle n'est pas oublié : rallumer suffit.
+    expect(c.read(aiAgentSettingsProvider).localTranslatorModel, 'gemma3:12b');
+  });
+
+  test('réglage relu après redémarrage', () {
+    final s = AiAgentSettings.fromJson(
+        const AiAgentSettings(localTranslatorEnabled: false).toJson());
+    expect(s.localTranslatorEnabled, isFalse);
+    expect(AiAgentSettings.fromJson(const {}).localTranslatorEnabled, isTrue);
   });
 
   test('français choisi : jamais de traduction', () async {

@@ -89,6 +89,11 @@ class AiAgentSettings {
   /// du serveur : la traduction échoue et le français reste affiché.
   final String localTranslatorModel;
 
+  /// Interrupteur du traducteur, distinct du nom de modèle : le couper ne
+  /// fait pas oublier quel modèle traduisait. Coupé, l'opérateur reçoit le
+  /// français simple du pilote, sans attente de ~20 s.
+  final bool localTranslatorEnabled;
+
   /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
   /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
   /// toutes les langues du lexique, restriction à la lecture sur les questions
@@ -102,6 +107,7 @@ class AiAgentSettings {
     this.localModel = defaultLocalModel,
     this.localVisionModel = '',
     this.localTranslatorModel = LocalTranslator.defaultModel,
+    this.localTranslatorEnabled = true,
     this.lexiconEnabled = true,
     this.preferOnline = false,
     this.autonomy = const {
@@ -123,6 +129,7 @@ class AiAgentSettings {
     String? localModel,
     String? localVisionModel,
     String? localTranslatorModel,
+    bool? localTranslatorEnabled,
     bool? lexiconEnabled,
     bool? preferOnline,
   }) {
@@ -133,6 +140,8 @@ class AiAgentSettings {
       localModel: localModel ?? this.localModel,
       localVisionModel: localVisionModel ?? this.localVisionModel,
       localTranslatorModel: localTranslatorModel ?? this.localTranslatorModel,
+      localTranslatorEnabled:
+          localTranslatorEnabled ?? this.localTranslatorEnabled,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
       preferOnline: preferOnline ?? this.preferOnline,
     );
@@ -145,6 +154,7 @@ class AiAgentSettings {
         'localModel': localModel,
         'localVisionModel': localVisionModel,
         'localTranslatorModel': localTranslatorModel,
+        'localTranslatorEnabled': localTranslatorEnabled,
         'lexiconEnabled': lexiconEnabled,
         'preferOnline': preferOnline,
       };
@@ -169,6 +179,7 @@ class AiAgentSettings {
       // Réglages enregistrés avant le traducteur : le modèle conseillé.
       localTranslatorModel: json['localTranslatorModel'] as String? ??
           LocalTranslator.defaultModel,
+      localTranslatorEnabled: json['localTranslatorEnabled'] as bool? ?? true,
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
       preferOnline: json['preferOnline'] as bool? ?? false,
@@ -233,6 +244,11 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   /// Modèle local traducteur ; vide = aucune traduction.
   void setLocalTranslatorModel(String value) {
     state = state.copyWith(localTranslatorModel: value.trim());
+    _persist();
+  }
+
+  void setLocalTranslatorEnabled(bool value) {
+    state = state.copyWith(localTranslatorEnabled: value);
     _persist();
   }
 

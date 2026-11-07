@@ -12,6 +12,8 @@ import '../../application/providers/lexicon_provider.dart';
 import '../widgets/local_server_assistant.dart';
 import '../../application/services/command_understanding.dart' show lexiconLanguageLabel;
 import '../../application/services/local_ai_agent_service.dart';
+import '../../application/services/local_translator.dart';
+import '../../core/i18n/app_language.dart' show appLanguageById;
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de configuration de l'agent IA : activation, clé API Gemini
@@ -274,6 +276,13 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                     borderColor: fc.surfaceBorder,
                     backgroundColor: fc.surface,
                     child: _LexiconSection(fc: fc),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
+                    title: tr('TRADUCTION LOCALE'),
+                    borderColor: fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: _TranslatorSection(fc: fc),
                   ),
                   const SizedBox(height: 20),
                   GlassPanel(
@@ -674,6 +683,67 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// Interrupteur du traducteur local (`LocalTranslator`) : le modèle local
+/// répond en français simple dans les langues qu'il n'écrit pas, puis un
+/// second modèle traduit la réponse.
+class _TranslatorSection extends ConsumerWidget {
+  const _TranslatorSection({required this.fc});
+
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final enabled = settings.localTranslatorEnabled;
+    final languages = (LocalTranslator.defaultLanguages.toList()..sort())
+        .map((id) => appLanguageById(id).label)
+        .join(', ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr('Traduire les réponses du modèle local'),
+                      style: TextStyle(
+                          color: fc.textPrimary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('Langues : {}. Le modèle « {} » traduit la réponse française, en 15 à 20 s de plus. Traduction non relue par un locuteur : le français reste visible sous chaque message.',
+                        [languages, settings.localTranslatorModel]),
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    enabled
+                        ? (settings.usesLocal
+                            ? tr('Activée.')
+                            : tr('Activée, mais sans effet avec Gemini : Gemini écrit lui-même toutes les langues.'))
+                        : tr('Coupée : réponses en français simple, sans attente.'),
+                    style: TextStyle(
+                        color: enabled ? fc.success : fc.warning, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: enabled,
+              activeThumbColor: fc.primary,
+              onChanged: ref
+                  .read(aiAgentSettingsProvider.notifier)
+                  .setLocalTranslatorEnabled,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

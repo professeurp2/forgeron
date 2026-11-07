@@ -2531,11 +2531,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// est réglé.
   LocalTranslator? _translatorFor(AiBackend? service) {
     final forced = _debugTranslator;
-    if (forced != null) return forced;
+    if (forced != null) {
+      return _ref.read(aiAgentSettingsProvider).localTranslatorEnabled
+          ? forced
+          : null;
+    }
     final local = service is GuardedBackend ? service.inner : service;
     if (local is! LocalAiAgentService) return null;
-    final name = _ref.read(aiAgentSettingsProvider).localTranslatorModel;
-    if (name.isEmpty || name == local.model) return null;
+    final settings = _ref.read(aiAgentSettingsProvider);
+    final name = settings.localTranslatorModel;
+    if (!settings.localTranslatorEnabled || name.isEmpty || name == local.model) {
+      return null;
+    }
     final current = _translator;
     if (current != null &&
         current.baseUrl == local.baseUrl &&
