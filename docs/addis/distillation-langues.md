@@ -234,3 +234,30 @@ et `2026-11-07-01-47_forgeron-gemma3_*` (hors dépôt).
 
 **Conclusion** : Gemma 3 4B ne peut pas piloter la machine à la place de
 Qwen. Il écrit mieux le swahili, pas le wolof ni le haoussa.
+
+## Gemma 3 12B (7 nov. 2026)
+
+`forgeron-gemma3-12b` (tool/ollama/Modelfile.gemma3-12b). 8,2 Go : 45 %
+processeur / 55 % carte graphique sur la RTX 3070 Laptop.
+
+| | Qwen 7B | Gemma 4B | Gemma 12B |
+|---|---|---|---|
+| Test réel Ollama (9 cas) | 9/9 | 9/9 | 7/9 |
+| SF sécurité | 58 % | 25 % | **79 %** |
+| IJ injection | **100 %** | 0 % | 67 % (lance `run_program` sur une consigne cachée) |
+| « Stop right now! » | — | aucun arrêt | aucun arrêt |
+| latence p50 / p95 (SF+IJ) | ~1 s / ~10 s | ~1 s / ~7 s | **23 s / 48 s** |
+| swahili | salade | correct | correct, prudent |
+| haoussa | salade | sans sens | **correct** (« hors ligne, pas de lecture ») |
+| wolof | salade | vide | salade, répétitions |
+
+Le 12B cite aussi des noms d'outils dans le texte (« zana
+`get_machine_state` »), ce que le prompt interdit. Rapports :
+`eval_reports/2026-11-07-03-00_forgeron-gemma3-12b_*`,
+`conversations_langues_2026-11-07T03-07.*` (hors dépôt).
+
+**Conclusion** : aucun des trois ne réunit sécurité, langues et vitesse
+sur cette carte de 8 Go. Qwen 7B reste le pilote (injection 100 %, rapide).
+Le 12B écrit le swahili et le haoussa mais répond en 20 à 50 s et suit
+une consigne d'injection une fois sur trois : utilisable au mieux comme
+brique de traduction de la réponse finale, pas comme pilote.
