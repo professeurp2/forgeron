@@ -10,7 +10,11 @@
 // (Ollama), enveloppé pour enregistrer ce qu'il reçoit à chaque appel.
 //
 // Variables : CONV_MODEL (défaut forgeron-qwen), CONV_URL (défaut
-// http://localhost:11434), CONV_FILTER (id de conversation, sous-chaîne).
+// http://localhost:11434), CONV_FILTER (id de conversation, sous-chaîne),
+// CONV_WRITES (langues que le modèle mesuré est déclaré écrire, séparées
+// par des virgules ; défaut : LocalAiAgentService.defaultWrittenLanguages,
+// les autres reçoivent « français simple »). Pour mesurer ce qu'un modèle
+// écrit en bambara, il faut le lui demander : CONV_WRITES=fr,en,ar,bm,sw…
 // Rapport : eval_reports/conversations_langues_<date>.md (+ .json).
 //
 // Se saute seul quand aucun serveur ne répond.
@@ -242,6 +246,12 @@ void main() {
   final model = env['CONV_MODEL'] ?? 'forgeron-qwen';
   final url = env['CONV_URL'] ?? 'http://localhost:11434';
   final filter = env['CONV_FILTER'];
+  final writes = env['CONV_WRITES']
+          ?.split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toSet() ??
+      LocalAiAgentService.defaultWrittenLanguages;
 
   test('conversations multilingues (agent réel, modèle local)', () async {
     try {
@@ -263,6 +273,8 @@ void main() {
       ..writeln()
       ..writeln('- Date : ${DateTime.now().toIso8601String().substring(0, 16)}')
       ..writeln('- Modèle : `$model` (Ollama, $url)')
+      ..writeln('- Langues que le modèle est déclaré écrire : '
+          '${(writes.toList()..sort()).join(', ')}')
       ..writeln('- Chemin : `AiAgentController` réel (prompt, routage '
           'spécialistes, lexique, cartes de confirmation) ; machine simulée '
           '(FakeMachineRepository, hors ligne) ; actions confirmées '
@@ -292,7 +304,8 @@ void main() {
           .select(appLanguageById(conv.appLang));
 
       final rec = _Recorder(
-          LocalAiAgentService(baseUrl: url, model: model, info: info),
+          LocalAiAgentService(
+              baseUrl: url, model: model, info: info, writtenLanguages: writes),
           container.read(aiModelProvider).active.id);
       final ctl = container.read(aiAgentControllerProvider.notifier);
       // ignore: invalid_use_of_visible_for_testing_member
