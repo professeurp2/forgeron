@@ -212,6 +212,21 @@ const ART = {
     </path>
     <circle cx="112" cy="68" r="4.5" fill="#ff6a1a"/>
     <text x="112" y="56" text-anchor="middle" fill="#f4f1ea" font-family="'IBM Plex Mono',monospace" font-size="9">MALI</text>
+  </svg>`,
+  /* 10 — Japan bridge */
+  japan:`<svg viewBox="0 0 340 200" role="img" aria-label="Japan and Africa connected by precision manufacturing">
+    <circle cx="62" cy="82" r="38" fill="none" stroke="#39424e" stroke-width="2"/>
+    <circle cx="62" cy="82" r="20" fill="#ff6a1a" opacity="0.9"/>
+    <text x="62" y="140" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="9">JAPAN</text>
+    <text x="62" y="152" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="8">MACHINE TOOLS</text>
+    <path d="M108 82 Q170 50 220 82" fill="none" stroke="#ff6a1a" stroke-width="2" stroke-dasharray="6 4"/>
+    <path d="M214 74 L222 82 L214 90" fill="#ff6a1a" stroke="none"/>
+    <path d="M224 60 Q236 72 236 90 L248 90 Q248 68 234 54 Z" fill="#4a5565" stroke="#8d96a3" stroke-width="1.5"/>
+    <path d="M224 60 Q212 72 212 90 L224 90 Q224 76 230 64 Z" fill="#39424e" stroke="#8d96a3" stroke-width="1.5"/>
+    <path d="M240 90 Q248 90 256 100 L256 110 Q248 118 236 110 L224 110 Q218 102 224 90 Z" fill="#4a5565" stroke="#8d96a3" stroke-width="1.5"/>
+    <text x="238" y="140" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="9">FORGERON</text>
+    <text x="238" y="152" text-anchor="middle" fill="#8d96a3" font-family="'IBM Plex Mono',monospace" font-size="8">BAMAKO, MALI</text>
+    <text x="170" y="176" text-anchor="middle" fill="#ff6a1a" font-family="'Saira Condensed',sans-serif" font-size="17" font-weight="700">PRECISION · WITHOUT BORDERS</text>
   </svg>`
 };
 
@@ -256,11 +271,16 @@ const SCENES = [
        'Ces pièces épousent un seul corps. Aujourd’hui, elles sont importées.'],
    en:['And in medicine: a <em>bone plate</em>, a dental prosthesis, a custom implant.',
        'These parts fit one body only. Today, they are imported.']},
-  {art:'africa', n:['09','09'],
+  {art:'africa', n:['09','10'],
    fr:['Fabriqué ici. <em>Pas importé.</em>',
        'Forgeron — Bamako, Mali.'],
    en:['Made here. <em>Not imported.</em>',
-       'Forgeron — Bamako, Mali.']}
+       'Forgeron — Bamako, Mali.']},
+  {art:'japan', n:['10','10'],
+   fr:['Le Japon a défini le standard mondial des machines-outils.',
+       'Forgeron construit le pont vers l'Afrique.'],
+   en:['Japan set the world standard for machine tools.',
+       'Forgeron builds the bridge to Africa.']}
 ];
 
 const DUR = 7000;
@@ -290,7 +310,7 @@ function paint(){
   scenes.forEach((el, k) => {
     const s = SCENES[k];
     el.classList.toggle('on', k === i);
-    el.querySelector('.step').textContent = s.n[0] + ' / 09';
+    el.querySelector('.step').textContent = s.n[0] + ' / 10';
     el.querySelector('.line').innerHTML = s[lang][0];
     el.querySelector('.sub').textContent = s[lang][1];
   });
