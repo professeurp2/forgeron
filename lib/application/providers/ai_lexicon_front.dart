@@ -111,12 +111,14 @@ extension _LexiconFront on AiAgentController {
   /// Exécute l'outil d'un appel du lexique par le chemin commun des outils et
   /// rend son résultat brut (`OK…`, `REFUSÉ…`, `ERREUR…`, ou le JSON d'une
   /// lecture).
-  Future<String> _executeLexiconTool(LexiconMatch match) async {
+  Future<String> _executeLexiconTool(LexiconMatch match,
+      {String? callId, String origin = BackofficeOrigin.lexique}) async {
     final tool = AiToolCatalog.byName(match.tool);
     if (tool == null) return 'ERREUR: outil « ${match.tool} » introuvable';
     state = state.copyWith(
         isProcessing: true, runningTool: tool.name, clearError: true);
-    final parts = await _executeTool(tool, tool.name, match.args);
+    final parts = await _executeTool(tool, tool.name, match.args,
+        callId: callId, origin: origin);
     state = state.copyWith(isProcessing: false, clearRunningTool: true);
     final response = parts.isEmpty
         ? null
@@ -151,27 +153,40 @@ extension _LexiconFront on AiAgentController {
       label: lexiconActionLabel(d.match),
       reasonText: confirmReasonText(d.reasons, d.match.languages),
     );
+    final callId = '${d.match.tool}_${_callCounter++}';
     state = state.copyWith(
       isProcessing: false,
       clearTurnStartedAt: true,
       pendingConfirmation: AiPendingToolCall(
-        id: '${d.match.tool}_${_callCounter++}',
+        id: callId,
         toolName: d.match.tool,
         input: d.match.args,
         lexicon: call,
       ),
     );
+    _audit('ia.outil.attente',
+        'Confirmation demandée à l\'opérateur pour ${d.match.tool} (lexique)',
+        severity: BackofficeSeverity.notice,
+        details: {
+          'outil': d.match.tool,
+          'arguments': d.match.args,
+          'intention': d.match.intent,
+        },
+        callId: callId,
+        origin: BackofficeOrigin.lexique);
     _logFront(front, 'lexique:confirmer:${d.match.intent}', clock);
   }
 
   /// L'opérateur a confirmé une action du lexique.
-  Future<void> _confirmLexiconPending(AiPendingToolCall pending) async {
+  Future<void> _confirmLexiconPending(AiPendingToolCall pending,
+      {String origin = BackofficeOrigin.local}) async {
     final call = pending.lexicon!;
     final clock = Stopwatch()..start();
     final epoch = _epoch;
     final lexicon = _ref.read(lexiconLoadProvider).valueOrNull?.lexicon;
     state = state.copyWith(clearPendingConfirmation: true);
-    final result = await _executeLexiconTool(call.match);
+    final result = await _executeLexiconTool(call.match,
+        callId: pending.id, origin: origin);
     if (_epoch != epoch) return;
     final reply =
         lexiconReply(match: call.match, toolResult: result, lexicon: lexicon);
@@ -286,6 +301,20 @@ extension _LexiconFront on AiAgentController {
   void _logFront(_Front front, String tag, Stopwatch clock,
       {List<String> tools = const []}) {
     final stamp = _lexiconStamp;
+    _audit(
+      'ia.lexique',
+      'Lexique fermé : $tag${tools.isEmpty ? '' : ' (${tools.join(', ')})'}',
+      severity: tag.contains(':refus:') || tag.contains(':lecture_seule:')
+          ? BackofficeSeverity.notice
+          : BackofficeSeverity.info,
+      details: {
+        'decision': tag,
+        'outils': tools,
+        'lexique': ?stamp,
+        'latence_ms': clock.elapsedMilliseconds,
+      },
+      origin: BackofficeOrigin.lexique,
+    );
     unawaited(() async {
       final journal = await _journalOrNull();
       await journal?.record(AiTurnRecord(

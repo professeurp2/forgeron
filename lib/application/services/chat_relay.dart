@@ -7,8 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/emergency_intent.dart';
+import '../../domain/models/backoffice_event.dart';
 import '../providers/ai_agent_provider.dart';
 import '../providers/ai_agent_settings_provider.dart';
+import '../providers/backoffice_provider.dart' show backofficeBusProvider;
 
 /// Chat synchronisé PC ↔ téléphone : **une seule session, deux vues**.
 ///
@@ -142,6 +144,23 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
   ProviderSubscription<AiChatState>? _sub;
   Timer? _throttle;
 
+  /// Trace pour le backoffice. Jamais fatal : le relais ne tombe pas parce
+  /// que l'audit est indisponible.
+  void _audit(String kind, String summary,
+      {BackofficeSeverity severity = BackofficeSeverity.info,
+      Map<String, dynamic> details = const {}}) {
+    try {
+      _ref.read(backofficeBusProvider.notifier).emit(
+            source: BackofficeSource.relais,
+            kind: kind,
+            summary: summary,
+            severity: severity,
+            details: details,
+            origin: BackofficeOrigin.relais,
+          );
+    } catch (_) {}
+  }
+
   Future<void> start() async {
     if (state.running) return;
     try {
@@ -150,8 +169,12 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
       state = ChatRelayHostState(running: true, code: ChatRelayProtocol.newPairingCode());
       server.listen(_onRequest, onError: (_) {});
       _sub = _ref.listen<AiChatState>(aiAgentControllerProvider, (_, _) => _scheduleBroadcast());
+      _audit('relais.demarre', 'Relais PC ↔ téléphone démarré (port ${ChatRelayProtocol.port})',
+          severity: BackofficeSeverity.notice, details: {'port': ChatRelayProtocol.port});
     } catch (e) {
       state = ChatRelayHostState(error: 'Port ${ChatRelayProtocol.port} indisponible : $e');
+      _audit('relais.erreur', 'Relais impossible à démarrer : port ${ChatRelayProtocol.port} indisponible',
+          severity: BackofficeSeverity.warning, details: {'erreur': '$e'});
     }
   }
 
@@ -159,13 +182,19 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
     _throttle?.cancel();
     _sub?.close();
     _sub = null;
+    final hadClients = _sockets.length;
     for (final s in _sockets.toList()) {
       await s.close(WebSocketStatus.goingAway);
     }
     _sockets.clear();
+    final wasRunning = _server != null;
     await _server?.close(force: true);
     _server = null;
     if (mounted) state = const ChatRelayHostState();
+    if (wasRunning) {
+      _audit('relais.arrete', 'Relais arrêté ($hadClients appareil(s) débranché(s))',
+          severity: BackofficeSeverity.notice, details: {'clients': hadClients});
+    }
   }
 
   Future<void> _onRequest(HttpRequest req) async {
@@ -174,6 +203,7 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
       await req.response.close();
       return;
     }
+    final remote = req.connectionInfo?.remoteAddress.address ?? '?';
     final ws = await WebSocketTransformer.upgrade(req);
     var paired = false;
     ws.listen((raw) async {
@@ -181,6 +211,8 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
       try {
         msg = (jsonDecode(raw as String) as Map).cast<String, dynamic>();
       } catch (_) {
+        _audit('relais.illisible', 'Message illisible reçu de $remote',
+            severity: BackofficeSeverity.warning, details: {'adresse': remote});
         return;
       }
       if (!paired) {
@@ -189,38 +221,81 @@ class ChatRelayHost extends StateNotifier<ChatRelayHostState> {
           _sockets.add(ws);
           state = ChatRelayHostState(running: true, code: state.code, clients: _sockets.length);
           ws.add(jsonEncode(ChatRelayProtocol.snapshot(_ref.read(aiAgentControllerProvider))));
+          _audit('relais.liaison', 'Téléphone relié depuis $remote (${_sockets.length} appareil(s))',
+              severity: BackofficeSeverity.notice,
+              details: {'adresse': remote, 'clients': _sockets.length});
         } else {
+          _audit('relais.refus', 'Liaison REFUSÉE depuis $remote : code incorrect',
+              severity: BackofficeSeverity.warning,
+              details: {'adresse': remote, 'type': '${msg['type']}'});
           ws.add(jsonEncode({'type': 'refused', 'reason': 'Code de liaison incorrect.'}));
           await ws.close(WebSocketStatus.policyViolation);
         }
         return;
       }
-      await _handle(msg);
+      await _handle(msg, remote);
     }, onDone: () {
-      _sockets.remove(ws);
+      final wasPaired = _sockets.remove(ws);
       if (mounted && state.running) {
         state = ChatRelayHostState(running: true, code: state.code, clients: _sockets.length);
+      }
+      if (wasPaired) {
+        _audit('relais.deconnexion', 'Téléphone $remote débranché (${_sockets.length} restant(s))',
+            severity: BackofficeSeverity.notice,
+            details: {'adresse': remote, 'clients': _sockets.length});
       }
     }, onError: (_) {});
   }
 
-  Future<void> _handle(Map<String, dynamic> msg) async {
+  Future<void> _handle(Map<String, dynamic> msg, String remote) async {
     final ctl = _ref.read(aiAgentControllerProvider.notifier);
-    switch (msg['type']) {
+    final type = '${msg['type']}';
+    switch (type) {
       case 'send':
         final text = '${msg['text'] ?? ''}';
         Uint8List? image;
         final b64 = msg['image'];
+        var imageRefused = false;
         if (b64 is String && b64.isNotEmpty) {
           final bytes = base64Decode(b64);
-          if (bytes.length <= ChatRelayProtocol.maxImageBytes) image = bytes;
+          if (bytes.length <= ChatRelayProtocol.maxImageBytes) {
+            image = bytes;
+          } else {
+            imageRefused = true;
+          }
         }
+        _audit('relais.message',
+            'Message du téléphone : ${text.length} car.${image != null ? ', image ${image.length} o' : ''}'
+            '${imageRefused ? ' (image refusée : trop lourde)' : ''}',
+            severity: imageRefused ? BackofficeSeverity.warning : BackofficeSeverity.info,
+            details: {
+              'adresse': remote,
+              'type': type,
+              'longueur': text.length,
+              'image_octets': ?image?.length,
+              'image_refusee': imageRefused,
+            });
         await ctl.sendUserMessage(text,
-            imageBytes: image, imageMime: msg['mime'] as String?);
+            imageBytes: image,
+            imageMime: msg['mime'] as String?,
+            origin: BackofficeOrigin.relais);
       case 'confirm':
-        await ctl.confirmPendingAction();
+        final pending = _ref.read(aiAgentControllerProvider).pendingConfirmation;
+        _audit('relais.message',
+            'Confirmation depuis le téléphone${pending == null ? ' (rien en attente)' : ' : ${pending.toolName}'}',
+            severity: BackofficeSeverity.notice,
+            details: {'adresse': remote, 'type': type, 'outil': ?pending?.toolName});
+        await ctl.confirmPendingAction(origin: BackofficeOrigin.relais);
       case 'reject':
-        await ctl.rejectPendingAction();
+        final pending = _ref.read(aiAgentControllerProvider).pendingConfirmation;
+        _audit('relais.message',
+            'Refus depuis le téléphone${pending == null ? ' (rien en attente)' : ' : ${pending.toolName}'}',
+            severity: BackofficeSeverity.notice,
+            details: {'adresse': remote, 'type': type, 'outil': ?pending?.toolName});
+        await ctl.rejectPendingAction(origin: BackofficeOrigin.relais);
+      default:
+        _audit('relais.illisible', 'Type de message inconnu « $type » depuis $remote',
+            severity: BackofficeSeverity.warning, details: {'adresse': remote, 'type': type});
     }
   }
 
@@ -283,6 +358,21 @@ class RemoteChatClient extends StateNotifier<RemoteChatState> {
   final Ref _ref;
   WebSocket? _ws;
 
+  void _audit(String kind, String summary,
+      {BackofficeSeverity severity = BackofficeSeverity.info,
+      Map<String, dynamic> details = const {}}) {
+    try {
+      _ref.read(backofficeBusProvider.notifier).emit(
+            source: BackofficeSource.relais,
+            kind: kind,
+            summary: summary,
+            severity: severity,
+            details: details,
+            origin: BackofficeOrigin.local,
+          );
+    } catch (_) {}
+  }
+
   /// Adresse du PC par défaut : celle du serveur Ollama réglé dans l'agent,
   /// puisque c'est le même poste.
   String defaultHost() {
@@ -304,20 +394,32 @@ class RemoteChatClient extends StateNotifier<RemoteChatState> {
         final j = (jsonDecode(raw as String) as Map).cast<String, dynamic>();
         if (j['type'] == 'refused') {
           state = state.copyWith(status: RemoteChatStatus.refused, error: '${j['reason']}');
+          _audit('relais.client.refus', 'Liaison refusée par le PC $host : ${j['reason']}',
+              severity: BackofficeSeverity.warning, details: {'hote': host});
           return;
         }
         final snap = ChatRelayProtocol.parseSnapshot(j);
         if (snap != null) {
+          if (state.status != RemoteChatStatus.connected) {
+            _audit('relais.client.connexion', 'Relié au PC $host',
+                severity: BackofficeSeverity.notice, details: {'hote': host});
+          }
           state = state.copyWith(status: RemoteChatStatus.connected, snapshot: snap, clearError: true);
         }
       }, onDone: () {
         if (state.status != RemoteChatStatus.refused) {
+          if (state.status == RemoteChatStatus.connected) {
+            _audit('relais.client.coupure', 'Liaison avec le PC $host coupée',
+                severity: BackofficeSeverity.warning, details: {'hote': host});
+          }
           state = state.copyWith(
               status: RemoteChatStatus.disconnected,
               error: 'Liaison avec le PC coupée.');
         }
       }, onError: (_) {});
     } catch (e) {
+      _audit('relais.client.injoignable', 'PC injoignable sur $host:${ChatRelayProtocol.port}',
+          severity: BackofficeSeverity.warning, details: {'hote': host, 'erreur': '$e'});
       state = state.copyWith(
           status: RemoteChatStatus.disconnected,
           error: 'PC injoignable sur $host:${ChatRelayProtocol.port}. '
@@ -337,9 +439,15 @@ class RemoteChatClient extends StateNotifier<RemoteChatState> {
   /// la liaison du téléphone à la machine. Rend `true` si c'était un arrêt.
   Future<bool> send(String text, {Uint8List? image, String? mime}) async {
     if (isEmergencyStopRequest(text)) {
+      _audit('relais.client.urgence_locale',
+          'Arrêt d\'urgence tapé sur le téléphone : exécuté ICI, pas envoyé au PC',
+          severity: BackofficeSeverity.critical);
       await _ref.read(aiAgentControllerProvider.notifier).sendUserMessage(text);
       return true;
     }
+    _audit('relais.client.envoi',
+        'Envoyé au PC : ${text.length} car.${image != null ? ', image ${image.length} o' : ''}',
+        details: {'longueur': text.length, 'image_octets': ?image?.length});
     _ws?.add(jsonEncode({
       'type': 'send',
       'text': text,
@@ -349,8 +457,17 @@ class RemoteChatClient extends StateNotifier<RemoteChatState> {
     return false;
   }
 
-  void confirm() => _ws?.add(jsonEncode({'type': 'confirm'}));
-  void reject() => _ws?.add(jsonEncode({'type': 'reject'}));
+  void confirm() {
+    _audit('relais.client.envoi', 'Confirmation envoyée au PC',
+        severity: BackofficeSeverity.notice, details: {'type': 'confirm'});
+    _ws?.add(jsonEncode({'type': 'confirm'}));
+  }
+
+  void reject() {
+    _audit('relais.client.envoi', 'Refus envoyé au PC',
+        severity: BackofficeSeverity.notice, details: {'type': 'reject'});
+    _ws?.add(jsonEncode({'type': 'reject'}));
+  }
 
   @override
   void dispose() {

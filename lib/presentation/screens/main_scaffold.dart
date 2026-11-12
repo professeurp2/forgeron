@@ -18,6 +18,7 @@ import 'tool_table_screen.dart';
 import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
+import 'backoffice_screen.dart';
 import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
@@ -38,6 +39,7 @@ import '../../application/providers/streaming_provider.dart';
 import '../../application/providers/stream_progress_provider.dart';
 import '../../application/providers/activity_log_provider.dart';
 import '../../application/providers/critical_event_provider.dart';
+import '../../application/providers/backoffice_provider.dart' show backofficeProbesProvider;
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 
@@ -91,6 +93,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     ref.read(activityLogProvider);
     // Démarre le veilleur d'évènements critiques (alarme, E-STOP, surchauffe).
     ref.read(criticalEventWatcherProvider);
+    // Sondes du backoffice (trafic carte, état machine, flux d'usinage) : à
+    // brancher dès le démarrage, comme le veilleur, sinon rien n'est vu tant
+    // que l'écran Backoffice n'a pas été ouvert.
+    ref.read(backofficeProbesProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Le mobile a son propre parcours : les étapes desktop visent une barre
       // latérale et un pied de page qui n'existent pas ici. Même critère que
@@ -134,6 +140,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     MDITerminalScreen(),
     DiagnosticsScreen(),
     AiConsoleScreen(),
+    BackofficeScreen(),
   ];
 
   static const _navItems = [
@@ -144,6 +151,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     _NavDef(Icons.terminal, 'TERMINAL MDI'),
     _NavDef(Icons.monitor_heart, 'DIAGNOSTICS'),
     _NavDef(Icons.smart_toy_outlined, 'AGENT IA'),
+    _NavDef(Icons.admin_panel_settings_outlined, 'BACKOFFICE'),
   ];
 
   @override
@@ -570,6 +578,13 @@ class _AiAssistantPage extends ConsumerWidget {
               onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
             );
           }),
+          IconButton(
+            icon: Icon(Icons.admin_panel_settings_outlined, color: fc.textSecondary, size: 20),
+            tooltip: tr('Backoffice (supervision)'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BackofficeScreen(standalone: true)),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.settings_outlined, color: fc.textSecondary, size: 20),
             tooltip: tr('Paramètres de l\'agent'),
