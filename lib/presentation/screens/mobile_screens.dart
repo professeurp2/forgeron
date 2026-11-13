@@ -1595,8 +1595,10 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
                 // Input
                 Container(
                   key: TutorialKeys.mdiInput,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  // Dégagé en bas : le bouton d'arrêt d'urgence de la barre
+                  // de navigation déborde de 32 px sur cette zone et cachait
+                  // le champ de saisie (relevé sur capture).
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 44),
                   decoration: BoxDecoration(
                       color: context.fc.surface,
                       border: Border(

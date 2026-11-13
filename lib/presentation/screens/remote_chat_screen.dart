@@ -9,6 +9,7 @@ import '../../application/services/chat_relay.dart';
 import '../../application/services/tool_router.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Le chat du PC, vu et piloté depuis le téléphone (voir chat_relay.dart).
 ///
@@ -134,9 +135,14 @@ class _RemoteChatScreenState extends ConsumerState<RemoteChatScreen> {
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: connected ? _chat(fc, remote.snapshot) : _pairing(fc, remote),
+      // Largeur de lecture : sur un poste, un formulaire étiré sur 1 600 px
+      // n'est ni lisible ni crédible.
+      body: ReadableWidth(
+        maxWidth: 640,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: connected ? _chat(fc, remote.snapshot) : _pairing(fc, remote),
+        ),
       ),
     );
   }

@@ -69,7 +69,7 @@ class JogControlPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showHeader) ...[
-              _JogSectionHeader(title: tr('JOG CONTROL')),
+              _JogSectionHeader(title: tr('CONTROLE JOG')),
               const SizedBox(height: 6),
             ],
 

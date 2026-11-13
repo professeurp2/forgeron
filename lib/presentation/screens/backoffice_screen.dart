@@ -78,7 +78,11 @@ class _BackofficeScreenState extends ConsumerState<BackofficeScreen> {
     final fc = context.fc;
     final body = LayoutBuilder(builder: (context, c) {
       final wide = c.maxWidth >= 1100;
-      final header = _Header(onExport: _export, onClear: _clear);
+      // Poussé seul (mobile), la barre de l'écran porte déjà le titre et
+      // les actions : pas de second en-tête.
+      final header = widget.standalone
+          ? const SizedBox(height: 12)
+          : _Header(onExport: _export, onClear: _clear);
       final kpis = const _KpiStrip();
       final journal = _JournalPanel(
         sources: _sources,
@@ -157,6 +161,19 @@ class _BackofficeScreenState extends ConsumerState<BackofficeScreen> {
         elevation: 0,
         title: Text(tr('BACKOFFICE'),
             style: TextStyle(color: fc.textPrimary, fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 15)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded, size: 20),
+            tooltip: tr('Exporter le journal'),
+            onPressed: _export,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+            tooltip: tr('Vider le journal'),
+            onPressed: _clear,
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SafeArea(child: body),
     );
@@ -354,7 +371,11 @@ class _KpiStrip extends ConsumerWidget {
             ),
           );
         }
-        final perRow = (c.maxWidth / 190).floor().clamp(2, cards.length);
+        // Rangées équilibrées : 7 cartes sur 1 600 px donnaient six cartes
+        // et une orpheline ; on répartit (4 + 3) plutôt que (6 + 1).
+        var perRow = (c.maxWidth / 190).floor().clamp(2, cards.length);
+        final rows = (cards.length / perRow).ceil();
+        perRow = (cards.length / rows).ceil();
         final w = (c.maxWidth - (perRow - 1) * 8) / perRow;
         return Wrap(spacing: 8, runSpacing: 8, children: [
           for (final k in cards) SizedBox(width: w, child: k),

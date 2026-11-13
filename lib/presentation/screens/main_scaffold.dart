@@ -1548,14 +1548,18 @@ class _NavItemState extends State<_NavItem> {
                     Expanded(
                       child: AnimatedDefaultTextStyle(
                         duration: d,
+                        // AnimatedDefaultTextStyle remplace le style par
+                        // défaut au lieu de le compléter : sans famille dite
+                        // ici, le libellé prenait la police de l'OS.
                         style: TextStyle(
+                          fontFamily: 'Rajdhani',
                           color: selected || _hover
                               ? fc.textPrimary
                               : fc.textSecondary,
                           fontWeight:
-                              selected ? FontWeight.w900 : FontWeight.normal,
-                          fontSize: 11,
-                          letterSpacing: 0.8,
+                              selected ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 13,
+                          letterSpacing: 1.1,
                         ),
                         child: Text(widget.title,
                             overflow: TextOverflow.ellipsis),
