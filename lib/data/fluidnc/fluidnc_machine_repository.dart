@@ -57,6 +57,14 @@ class FluidNCMachineRepository implements MachineRepository {
       _currentState = newState;
       _stateController.add(_currentState);
 
+      // La machine bouge : on l'interroge quatre fois par seconde au lieu
+      // d'une fois toutes les deux secondes, pour que ce qui est affiché (DRO,
+      // jumeau 3D, enlèvement de matière) soit ce que la carte fait, pas ce
+      // qu'elle faisait il y a deux secondes.
+      if (newState.status != prevStatus) {
+        _connection.setHeartbeatPeriod(pollIntervalFor(newState.status));
+      }
+
       if (newState.status == MachineStatus.alarm &&
           prevStatus != MachineStatus.alarm) {
         _streamingService.stop();
@@ -177,6 +185,23 @@ class FluidNCMachineRepository implements MachineRepository {
 
   @override
   void setSimulationSpeed(double speed) {} // Ignored for real hardware
+
+  /// Cadence du `?` selon l'état : rapide dès que des axes peuvent bouger.
+  static const Duration fastPoll = Duration(milliseconds: 250);
+  static const Duration idlePoll = Duration(seconds: 2);
+
+  static Duration pollIntervalFor(MachineStatus status) => switch (status) {
+        MachineStatus.run ||
+        MachineStatus.home ||
+        MachineStatus.hold ||
+        MachineStatus.check =>
+          fastPoll,
+        _ => idlePoll,
+      };
+
+  @override
+  void setStatusPollInterval(Duration interval) =>
+      _connection.setHeartbeatPeriod(interval);
 
   static const Map<String, int> _wcsToP = {
     'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6,

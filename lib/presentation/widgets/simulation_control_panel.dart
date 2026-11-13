@@ -31,6 +31,9 @@ class CompactSimulationBar extends ConsumerWidget {
         ref.watch(gcodeProvider.select((s) => s.toolpath.isNotEmpty));
 
     final isPlaying = sim.status == SimulationStatus.playing;
+    final isLive = sim.isLive;
+    final online = ref.watch(machineStateProvider
+            .select((s) => s.valueOrNull?.status != null && s.valueOrNull?.status != MachineStatus.offline));
 
     return Container(
       height: 38,
@@ -44,11 +47,21 @@ class CompactSimulationBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          // Jumeau : le simulateur suit la carte réelle (position, ligne,
+          // matière enlevée), rapport d'état après rapport d'état.
+          _TwinButton(
+            active: isLive,
+            enabled: online,
+            deviation: sim.liveDeviationMm,
+            onTap: isLive ? ctrl.stopFollowing : ctrl.followMachine,
+          ),
+          const SizedBox(width: 6),
           // Bouton Play / Pause simulation
           InkWell(
             onTap: hasToolpath ? ctrl.togglePlayPause : null,
             borderRadius: BorderRadius.circular(4),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: isPlaying
@@ -64,12 +77,17 @@ class CompactSimulationBar extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    size: 14,
-                    color: isPlaying
-                        ? fc.warning
-                        : (hasToolpath ? fc.primary : fc.textDisabled),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                    child: Icon(
+                      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      key: ValueKey(isPlaying),
+                      size: 14,
+                      color: isPlaying
+                          ? fc.warning
+                          : (hasToolpath ? fc.primary : fc.textDisabled),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -120,7 +138,8 @@ class CompactSimulationBar extends ConsumerWidget {
                 value: sim.progressPct.clamp(0.0, 100.0),
                 min: 0.0,
                 max: 100.0,
-                onChanged: hasToolpath ? ctrl.seekPercent : null,
+                // En jumeau, la position vient de la carte : on ne la tire pas.
+                onChanged: hasToolpath && !isLive ? ctrl.seekPercent : null,
               ),
             ),
           ),
@@ -164,6 +183,114 @@ class CompactSimulationBar extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bouton « JUMEAU » : pulse tant que le simulateur suit la carte réelle, et
+/// porte l'écart mesuré parcours ↔ position quand il dépasse la tolérance.
+class _TwinButton extends StatefulWidget {
+  const _TwinButton({
+    required this.active,
+    required this.enabled,
+    required this.onTap,
+    this.deviation,
+  });
+
+  final bool active;
+  final bool enabled;
+  final VoidCallback onTap;
+  final double? deviation;
+
+  @override
+  State<_TwinButton> createState() => _TwinButtonState();
+}
+
+class _TwinButtonState extends State<_TwinButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TwinButton old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!widget.active && _pulse.isAnimating) {
+      _pulse.stop();
+      _pulse.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fc = context.fc;
+    final off = widget.deviation != null &&
+        widget.deviation! > SimulationController.liveDeviationToleranceMm;
+    final color = !widget.enabled
+        ? fc.textDisabled
+        : widget.active
+            ? (off ? fc.warning : fc.success)
+            : fc.textSecondary;
+    return Tooltip(
+      message: widget.active
+          ? tr('Jumeau actif : le simulateur suit la carte ESP32. Toucher pour arrêter.')
+          : (widget.enabled
+              ? tr('Jumeau : suivre la carte ESP32 réelle (position, ligne, matière)')
+              : tr('Jumeau indisponible : carte hors ligne')),
+      child: InkWell(
+        onTap: widget.enabled ? widget.onTap : null,
+        borderRadius: BorderRadius.circular(4),
+        child: AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, child) {
+            final glow = widget.active ? 0.25 + 0.45 * _pulse.value : 0.0;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: widget.active ? 0.16 : 0.05),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: widget.active ? color : fc.surfaceBorder),
+                boxShadow: [
+                  if (widget.active)
+                    BoxShadow(color: color.withValues(alpha: glow), blurRadius: 8),
+                ],
+              ),
+              child: child,
+            );
+          },
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.sensors_rounded, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              widget.active
+                  ? (off ? tr('ÉCART {} mm', [widget.deviation!.toStringAsFixed(1)]) : tr('JUMEAU'))
+                  : tr('JUMEAU'),
+              style: TextStyle(
+                color: color,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
