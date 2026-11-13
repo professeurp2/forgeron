@@ -69,7 +69,7 @@ import 'activity_log_provider.dart';
 
 import 'ai_artifacts_provider.dart';
 import 'controller_memory_provider.dart';
-
+import 'backoffice_provider.dart';
 import 'docs_provider.dart';
 
 import 'lexicon_provider.dart';
@@ -909,7 +909,51 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   int _declaredToolCount = 0;
 
+  // ── Backoffice ────────────────────────────────────────────────────────────
 
+  /// Identifiant du message d'opérateur en cours de traitement : tout ce qui
+  /// en découle (tours de modèle, appels d'outils, commandes vers la carte)
+  /// le porte, pour que le backoffice puisse remonter la chaîne.
+  String? _turnId;
+  int _turnCounter = 0;
+
+  /// D'où vient le message en cours (cet appareil, ou le téléphone relié).
+  String _turnOrigin = BackofficeOrigin.local;
+
+  BackofficeBus get _bus => _ref.read(backofficeBusProvider.notifier);
+
+  /// Dépose un événement du backoffice, relié au message en cours.
+  ///
+  /// Jamais fatal : le backoffice observe l'agent, il ne doit pas pouvoir le
+  /// faire tomber (conteneur sans bus en test, par exemple).
+  void _audit(
+    String kind,
+    String summary, {
+    BackofficeSource source = BackofficeSource.ia,
+    BackofficeSeverity severity = BackofficeSeverity.info,
+    Map<String, dynamic> details = const {},
+    String? callId,
+    String? origin,
+  }) {
+    try {
+      _bus.emit(
+        source: source,
+        kind: kind,
+        summary: summary,
+        severity: severity,
+        details: details,
+        turnId: _turnId,
+        callId: callId,
+        origin: origin ?? _turnOrigin,
+      );
+    } catch (_) {/* le backoffice n'arrête jamais l'agent */}
+  }
+
+  /// Aperçu court d'un texte pour le journal (jamais le message entier).
+  static String _preview(String s, [int max = 160]) {
+    final one = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return one.length <= max ? one : '${one.substring(0, max - 1)}…';
+  }
 
   // ── Porte d'entrée « lexique fermé » (voir ai_lexicon_front.dart) ─────────
 
@@ -988,6 +1032,46 @@ class AiAgentController extends StateNotifier<AiChatState> {
     String? errorKind,
 
   }) {
+    final backend = service.usesCellular ? 'gemini' : 'local';
+    final tools = [
+      for (final c in response?.functionCalls ?? const <Map<String, dynamic>>[])
+        '${(c['functionCall'] as Map)['name']}',
+    ];
+    final notes = response?.notes ?? const <String>[];
+    final latency = clock.elapsedMilliseconds;
+    final tokens = response?.totalTokens ?? 0;
+
+    // Le tour du modèle, vu du backoffice : sa « réaction » (texte, outils
+    // demandés, garde-fous qui ont dû intervenir), sans le contenu.
+    _audit(
+      'ia.tour',
+      '${service.model} ($backend) → ${_outcomeLabel(outcome)}'
+      '${tools.isEmpty ? '' : ', outil(s) : ${tools.join(', ')}'}'
+      '${notes.isEmpty ? '' : ', garde-fou(s) : ${notes.join(', ')}'}'
+      ' — $latency ms',
+      severity: switch (outcome) {
+        AiTurnOutcome.ok => notes.isEmpty ? BackofficeSeverity.info : BackofficeSeverity.notice,
+        AiTurnOutcome.cancelled => BackofficeSeverity.notice,
+        AiTurnOutcome.empty || AiTurnOutcome.error => BackofficeSeverity.warning,
+      },
+      details: {
+        'backend': backend,
+        'modele': service.model,
+        'issue': outcome.name,
+        'latence_ms': latency,
+        'tokens': tokens,
+        'outils_demandes': tools,
+        'garde_fous': notes,
+        'outils_declares': _declaredToolCount,
+        'specialistes': state.specialists,
+        'role': state.specialists.contains('images') ? 'images' : 'pilote',
+        'version': _releaseTag,
+        'erreur': ?errorKind,
+        'lexique': ?_frontTag,
+        'texte': response == null ? false : response.text.isNotEmpty,
+      },
+      origin: BackofficeOrigin.modele,
+    );
 
     unawaited(() async {
 
@@ -998,27 +1082,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
       await journal.record(AiTurnRecord(
 
         time: DateTime.now(),
-
-        backend: service.usesCellular ? 'gemini' : 'local',
-
+        backend: backend,
         model: service.model,
 
         outcome: outcome,
-
-        latencyMs: clock.elapsedMilliseconds,
-
-        tokens: response?.totalTokens ?? 0,
-
-        tools: [
-
-          for (final c in response?.functionCalls ?? const <Map<String, dynamic>>[])
-
-            '${(c['functionCall'] as Map)['name']}',
-
-        ],
-
-        notes: response?.notes ?? const [],
-
+        latencyMs: latency,
+        tokens: tokens,
+        tools: tools,
+        notes: notes,
         declaredTools: _declaredToolCount,
 
         release: _releaseTag,
@@ -1035,7 +1106,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   }
 
-
+  static String _outcomeLabel(AiTurnOutcome o) => switch (o) {
+        AiTurnOutcome.ok => 'réponse livrée',
+        AiTurnOutcome.empty => 'réponse VIDE',
+        AiTurnOutcome.error => 'ERREUR',
+        AiTurnOutcome.cancelled => 'interrompu',
+      };
 
   /// Texte du dernier message de l'opérateur (celui qui pilote le routage).
 
@@ -3261,7 +3337,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     String? imageMime,
 
     bool allowModel = true,
-
+    String origin = BackofficeOrigin.local,
   }) async {
 
     final lang = _ref.read(effectiveAiLanguageProvider);
@@ -3269,6 +3345,24 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final trimmed = normalized.trim();
 
 
+
+    // Tout message de l'opérateur ouvre une nouvelle chaîne pour le
+    // backoffice, même s'il est refusé plus bas (agent occupé) : le refus
+    // aussi vaut d'être vu.
+    _turnId = 't${++_turnCounter}';
+    _turnOrigin = origin;
+    _audit(
+      'ia.message',
+      'Message ${origin == BackofficeOrigin.relais ? 'du téléphone (relais)' : 'de l\'opérateur'}'
+      '${imageBytes != null ? ' avec image' : ''}'
+      '${trimmed.isEmpty ? '' : ' : « ${_preview(trimmed, 80)} »'}',
+      details: {
+        'longueur': trimmed.length,
+        'image_octets': ?imageBytes?.length,
+        'apercu': _preview(trimmed),
+        'agent_actif': allowModel,
+      },
+    );
 
     // Arrêt d'urgence : le chemin de sécurité ne passe PAS par le modèle (voir
 
@@ -3308,11 +3402,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     }
 
-
-
     // Après les chemins d'arrêt d'urgence, qui n'attendent jamais.
     await _restoring;
-    if ((trimmed.isEmpty && imageBytes == null) || state.isProcessing) return;
+    if (trimmed.isEmpty && imageBytes == null) return;
+    if (state.isProcessing) {
+      _audit('ia.message_ignore', 'Message ignoré : l\'agent répond déjà',
+          severity: BackofficeSeverity.notice);
+      return;
+    }
 
     // Une traduction encore en cours occupe la carte graphique : le pilote
     // passe avant, la réponse précédente reste en français.
@@ -3373,7 +3470,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final service = await _ensureService();
 
     if (service == null) {
-
+      _audit('ia.indisponible', 'Aucun modèle joignable : ${state.error ?? 'raison inconnue'}',
+          severity: BackofficeSeverity.warning, details: {'raison': ?state.error});
       // Pas de modèle joignable (pas de clé, serveur absent) : le lexique reste
 
       // utile, et dit à l'opérateur ce qui marche quand même.
@@ -3511,11 +3609,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
     var parts = <Map<String, dynamic>>[];
 
     final tool = AiToolCatalog.byName('emergency_stop');
-
+    final callId = 'emergency_stop_${_callCounter++}';
     if (tool != null) {
-
-      parts = await _executeTool(tool, 'emergency_stop', const {});
-
+      parts = await _executeTool(tool, 'emergency_stop', const {},
+          callId: callId,
+          origin: front != null ? BackofficeOrigin.lexique : _turnOrigin);
       final response = parts.isEmpty
 
           ? null
@@ -3535,7 +3633,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
     final sent = result.startsWith('OK');
-
+    _audit(
+      'ia.urgence',
+      sent
+          ? 'Arrêt d\'urgence demandé dans le chat → transmis à la carte'
+          : 'Arrêt d\'urgence demandé dans le chat → NON TRANSMIS ($result)',
+      severity: BackofficeSeverity.critical,
+      details: {
+        'transmis': sent,
+        'resultat': result,
+        'agent_occupe': wasBusy,
+        'par_lexique': front != null,
+        'latence_ms': clock.elapsedMilliseconds,
+      },
+      callId: callId,
+    );
     final match = front?.match;
 
     // Dans la langue de l'opérateur, comme les autres phrases fixes. Le
@@ -3643,6 +3755,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
 
     _cancelled = true;
+    _audit(
+      'ia.interrompu',
+      pending != null
+          ? 'Génération interrompue : appel ${pending.toolName} abandonné'
+          : 'Génération interrompue par l\'opérateur',
+      severity: BackofficeSeverity.notice,
+      callId: pending?.id,
+    );
 
 
 
@@ -3719,7 +3839,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
       clearTurnStartedAt: true,
 
     );
-
+    _audit('ia.reprise_armee', 'Tour en attente de reprise : ${_preview(message, 120)}',
+        severity: BackofficeSeverity.warning, details: {'message': message});
     // Alerte « problème » sur le bouton IA si l'écran n'est pas ouvert.
 
     _ref.read(aiInboxProvider.notifier).pushAlert(message, problem: true);
@@ -3771,7 +3892,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _autoRetryTimer?.cancel();
 
     _cancelled = false;
-
+    _audit('ia.reprise', 'Tour rejoué après un échec', severity: BackofficeSeverity.notice);
     state = state.copyWith(
 
       clearError: true,
@@ -3813,11 +3934,25 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // outils : il décrit, il n'agit pas. Les tours de texte restent au modèle
 
     // principal, qui pilote la machine.
-
-    var vision = _lastTurnHasImage() ? await _ensureVisionService() : null;
-
+    final hasImage = _lastTurnHasImage();
+    var vision = hasImage ? await _ensureVisionService() : null;
     var service = vision ?? baseService;
-
+    if (hasImage) {
+      // Le backoffice doit voir QUI lit l'image : le modèle d'images (gemma),
+      // ou personne — un pilote qui ne voit pas la laisse tomber en silence.
+      if (vision != null) {
+        _audit('ia.vision.tour',
+            'Image confiée au modèle d\'images ${vision.model} (décrit, sans outils)',
+            details: {'modele_images': vision.model, 'pilote': baseService.model},
+            origin: BackofficeOrigin.modele);
+      } else {
+        _audit('ia.vision.absente',
+            'Image jointe, mais aucun modèle d\'images branché : ${baseService.model} ne la verra pas',
+            severity: BackofficeSeverity.warning,
+            details: {'pilote': baseService.model},
+            origin: BackofficeOrigin.modele);
+      }
+    }
     _turnGroups = null; // reposé par _declarationsFor pour un tour avec outils
 
     // Borne le contexte AVANT l'envoi : c'est la taille de `_contents` qui est
@@ -4113,7 +4248,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // principal, qui a la fiche et les outils, pour exécuter la demande.
 
       if (vision != null && _handOffImageRequestToPilot()) {
-
+        _audit('ia.vision.relais',
+            'Photo + ordre : ${vision.model} a décrit, le pilote ${baseService.model} prend la main avec ses outils',
+            severity: BackofficeSeverity.notice,
+            details: {'modele_images': vision.model, 'pilote': baseService.model},
+            origin: BackofficeOrigin.modele);
         unawaited(_persist());
 
         return _runTurn(baseService);
@@ -4169,18 +4308,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
       final raw = e.toString();
-
-      _logTurn(service, AiTurnOutcome.error, clock,
-
-          errorKind: _isQuota(raw)
-
-              ? 'quota'
-
-              : _isUnreachable(e)
-
-                  ? 'unreachable'
-
-                  : 'other');
+      final errorKind = _isQuota(raw)
+          ? 'quota'
+          : _isUnreachable(e)
+              ? 'unreachable'
+              : 'other';
+      _logTurn(service, AiTurnOutcome.error, clock, errorKind: errorKind);
+      _audit('ia.erreur', 'Échec du tour ($errorKind) : ${_preview(raw, 140)}',
+          severity: BackofficeSeverity.warning,
+          details: {'type': errorKind, 'erreur': _preview(raw, 400)},
+          origin: BackofficeOrigin.modele);
 
 
 
@@ -4446,10 +4583,22 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     final tool = AiToolCatalog.byName(toolName);
 
-
+    _audit(
+      'ia.outil.demande',
+      'Le modèle demande $toolName'
+      '${input.isEmpty ? '' : ' ${_preview(jsonEncode(input), 100)}'}',
+      details: {'outil': toolName, 'arguments': input, 'categorie': ?tool?.category?.name},
+      callId: callId,
+      origin: BackofficeOrigin.modele,
+    );
 
     if (tool == null) {
-
+      _audit('garde.outil_inconnu', 'Outil inconnu « $toolName » : appel refusé',
+          source: BackofficeSource.garde,
+          severity: BackofficeSeverity.warning,
+          details: {'outil': toolName, 'arguments': input},
+          callId: callId,
+          origin: BackofficeOrigin.modele);
       _collectedResults.add(
 
         _functionResponse(toolName, error: 'Outil inconnu "$toolName"'),
@@ -4473,7 +4622,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // souhait.
 
     if (_readOnlyTurn && !isReadOnlyToolName(toolName)) {
-
+      _audit('garde.lecture_seule',
+          '$toolName non exécuté : tour en lecture seule (question ou négation)',
+          source: BackofficeSource.garde,
+          severity: BackofficeSeverity.warning,
+          details: {'outil': toolName, 'arguments': input},
+          callId: callId,
+          origin: BackofficeOrigin.lexique);
       _collectedResults.add(_functionResponse(toolName,
 
           error: 'Non exécuté : le message est une question ou une négation, '
@@ -4520,7 +4675,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     state = state.copyWith(runningTool: toolName);
 
-    _collectedResults.addAll(await _executeTool(tool, toolName, input));
+    _collectedResults.addAll(await _executeTool(tool, toolName, input, callId: callId, origin: BackofficeOrigin.modele));
 
     state = state.copyWith(clearRunningTool: true);
 
@@ -4657,104 +4812,71 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// devant partir ensemble dans le même tour.
 
   Future<List<Map<String, dynamic>>> _executeTool(
-
     AiTool tool,
-
     String toolName,
-
-    Map<String, dynamic> input,
-
-  ) async {
-
+    Map<String, dynamic> input, {
+    String? callId,
+    String? origin,
+  }) async {
     // L'étape entre dans le fil AVANT l'exécution, avec ses arguments : c'est
-
     // ce qui rend la procédure lisible en direct plutôt qu'à retardement. Le
-
     // placeholder n'est pas persisté — il ne représente rien d'abouti, et une
-
     // fermeture d'application pendant l'appel ne doit pas laisser une étape
-
     // qui tourne pour l'éternité au rechargement.
-
     final started = AiChatMessage.toolStarted(tool.name, input);
-
     _addMessage(started, persist: false);
 
-
+    // Fenêtre d'attribution du backoffice : toute commande qui part vers la
+    // carte pendant cet appel lui est imputée (voir BackofficeBus.beginAction).
+    final id = callId ?? '${toolName}_${_callCounter++}';
+    final who = origin ?? _turnOrigin;
+    try {
+      _bus.beginAction(BackofficeActor(callId: id, tool: toolName, origin: who, turnId: _turnId));
+    } catch (_) {}
 
     try {
-
       final result = await tool.execute(input, _ref);
-
-
+      _auditToolResult(toolName, input, result, started.timestamp, callId: id, origin: who);
 
       // On vide systématiquement la boîte aux lettres, même si l'outil n'a
-
       // finalement rien déposé : une image oubliée là serait rattachée au
-
       // prochain appel visuel, qui montrerait alors une scène périmée.
-
       final image = tool.producesImage ? _readAndClearToolImage() : null;
 
-
-
       // L'image apparaît dans le fil de discussion : l'opérateur doit pouvoir
-
       // voir exactement ce que l'agent a vu, sinon il n'a aucun moyen de juger
-
       // si son analyse repose sur une image exploitable.
-
       _replaceMessage(started, started.toolFinished(result, image: image?.bytes));
       _updateControllerMemoryAfterTool(toolName, input, result);
 
-
-
       final parts = <Map<String, dynamic>>[
-
         _functionResponse(toolName, result: result),
-
       ];
 
-
-
       if (image != null) {
-
         parts.add({
-
           'inlineData': {
-
             'mimeType': image.mimeType,
-
             'data': base64Encode(image.bytes),
-
           },
-
         });
-
         // Une image consomme des jetons comme n'importe quelle entrée : elle
-
         // doit être comptée au même titre que celles jointes à la main.
-
         _ref.read(aiUsageProvider.notifier).recordImage();
-
       }
 
-
-
       return parts;
-
     } catch (e) {
-
       final message = 'Erreur: $e';
-
+      _auditToolResult(toolName, input, message, started.timestamp, callId: id, origin: who);
       _replaceMessage(started, started.toolFinished(message));
-
       if (tool.producesImage) _readAndClearToolImage();
-
       return [_functionResponse(toolName, error: message)];
-
+    } finally {
+      try {
+        _bus.endAction();
+      } catch (_) {}
     }
-
   }
 
 
@@ -5663,6 +5785,54 @@ class AiAgentController extends StateNotifier<AiChatState> {
     ));
     _ref.read(aiInboxProvider.notifier).pushAlert(reply, problem: !ok);
     unawaited(_persist());
+
+  }
+
+  /// Le résultat d'un outil, vu du backoffice. Un refus d'un garde-fou
+  /// déterministe (commande `$` interdite, programme bloqué par l'adaptateur…)
+  /// est classé comme tel : c'est la mesure de ce que les garde-fous
+  /// rattrapent, à distinguer d'une panne.
+  void _auditToolResult(
+    String toolName,
+    Map<String, dynamic> input,
+    String result,
+    DateTime startedAt, {
+    required String callId,
+    required String origin,
+  }) {
+    final ms = DateTime.now().difference(startedAt).inMilliseconds;
+    final failed = result.startsWith('Erreur') ||
+        result.startsWith('ERREUR') ||
+        result.startsWith('REFUS');
+    final guarded = failed && _looksLikeGuardRefusal(result);
+    _audit(
+      guarded ? 'garde.outil' : 'ia.outil.execute',
+      guarded
+          ? '$toolName refusé par un garde-fou : ${_preview(result, 140)}'
+          : '$toolName → ${failed ? 'ÉCHEC' : 'ok'} en $ms ms'
+              '${failed ? ' : ${_preview(result, 120)}' : ''}',
+      source: guarded ? BackofficeSource.garde : BackofficeSource.ia,
+      severity: failed ? BackofficeSeverity.warning : BackofficeSeverity.info,
+      details: {
+        'outil': toolName,
+        'arguments': input,
+        'duree_ms': ms,
+        'echec': failed,
+        'resultat': _preview(result, 400),
+      },
+      callId: callId,
+      origin: origin,
+    );
+  }
+
+  static bool _looksLikeGuardRefusal(String result) {
+    final r = result.toLowerCase();
+    return r.contains('n\'y touche jamais') || // GcodeCommandGuard
+        r.contains('refus') ||
+        r.contains('bloqu') ||
+        r.contains('hors des courses') ||
+        r.contains('interdit') ||
+        r.contains('non autoris');
   }
 
   void _rejectDomePending(AiPendingToolCall pending) {

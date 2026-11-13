@@ -1104,11 +1104,19 @@ class _ConnectionSettingsScreenState
   }
 
   Widget _buildInfoRow(String label, String value, Color color) {
+    // Une adresse longue (URL WebSocket) débordait de la carte : la valeur
+    // prend la place qui reste et se coupe proprement.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(color: context.fc.textSecondary, fontSize: 11)),
-        Text(value, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+        ),
       ],
     );
   }

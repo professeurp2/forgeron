@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/animated_number.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/gcode_provider.dart';
@@ -789,18 +790,23 @@ class _PanelSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Le titre cède la place avant tout : à largeur naturelle, il débordait
+    // de 12 px dans la colonne de droite sur TOUS les postes (balayage).
     return Row(
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: context.fc.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: context.fc.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
-        const Spacer(),
         if (trailing case final t?) t,
         Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
       ],
@@ -829,9 +835,6 @@ class _DroBig extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final display = isRotary
-        ? '${value.toStringAsFixed(2)}°'
-        : value.toStringAsFixed(3);
     final nearEdge = TravelGaugeFill.isNearEdge(travelFraction);
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -871,9 +874,14 @@ class _DroBig extends StatelessWidget {
                 ],
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    display,
+                  // Glisse d'un rapport de la carte au suivant au lieu de
+                  // sauter : la cote reste lisible pendant un mouvement.
+                  child: AnimatedNumberText(
+                    value,
+                    decimals: isRotary ? 2 : 3,
+                    suffix: isRotary ? '°' : '',
                     textAlign: TextAlign.right,
+                    maxLines: 1,
                     style: TextStyle(
                       color: color,
                       fontSize: 26,

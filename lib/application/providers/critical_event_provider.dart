@@ -15,6 +15,7 @@ import 'ai_inbox_provider.dart';
 import 'activity_log_provider.dart';
 import 'controller_memory_provider.dart';
 import 'di_providers.dart';
+import 'backoffice_provider.dart';
 
 /// Veilleur d'évènements CRITIQUES temps réel : alarme machine (`ALARM:1..18`),
 /// redémarrage intempestif de la carte ESP32 (Brownout broche 775, Watchdog,
@@ -160,17 +161,59 @@ class CriticalEventWatcher {
 
     // 1) Notification factuelle IMMÉDIATE (sans attendre l'IA).
     _notify(type, factual, problem: true);
+    _audit('veilleur.alerte', '$type : $factual',
+        severity: BackofficeSeverity.critical,
+        details: {
+          'type': type,
+          'statut': s.status.name,
+          'alarme': ?s.alarmCode,
+          'temperature': s.coreTemp,
+        });
 
     // 2) Appel IA ponctuel (compatible Local Ollama & Cloud Gemini).
     if (_lastAiCall != null && now.difference(_lastAiCall!) < _aiCooldown) {
+      _audit('veilleur.ia_differe', 'Diagnostic IA non demandé (appel récent, délai de garde)',
+          severity: BackofficeSeverity.notice, details: {'type': type});
       return;
     }
     _lastAiCall = now;
 
+    final clock = Stopwatch()..start();
     final advice = await _askAi(type, factual, s);
-    if (advice != null && advice.trim().isNotEmpty) {
-      _notify('$type — Assistant IA', advice.trim(), problem: true);
+    final text = advice?.trim();
+    _audit(
+      'veilleur.ia',
+      text == null || text.isEmpty
+          ? 'Diagnostic IA sur « $type » : aucune réponse (IA désactivée, sans clé ou injoignable)'
+          : 'Diagnostic IA sur « $type » en ${clock.elapsedMilliseconds} ms : ${text.length > 140 ? '${text.substring(0, 139)}…' : text}',
+      severity: BackofficeSeverity.notice,
+      details: {
+        'type': type,
+        'latence_ms': clock.elapsedMilliseconds,
+        'reponse': ?text == null || text.isEmpty ? null : text,
+        'modele': ?_lastModel,
+      },
+    );
+    if (text != null && text.isNotEmpty) {
+      _notify('$type — Assistant IA', text, problem: true);
     }
+  }
+
+  String? _lastModel;
+
+  void _audit(String kind, String summary,
+      {BackofficeSeverity severity = BackofficeSeverity.info,
+      Map<String, dynamic> details = const {}}) {
+    try {
+      _ref.read(backofficeBusProvider.notifier).emit(
+            source: BackofficeSource.veilleur,
+            kind: kind,
+            summary: summary,
+            severity: severity,
+            details: details,
+            origin: BackofficeOrigin.veilleur,
+          );
+    } catch (_) {/* le backoffice n'arrête jamais le veilleur */}
   }
 
   void _notify(String title, String body, {bool problem = false}) {
@@ -190,6 +233,7 @@ class CriticalEventWatcher {
       // Support prioritaire du serveur IA local (Ollama / forgeron-qwen)
       if (settings.localBaseUrl.trim().isNotEmpty) {
         modelId = settings.localModel;
+        _lastModel = modelId;
         service = LocalAiAgentService(
           baseUrl: LocalAiAgentService.normalizeBaseUrl(settings.localBaseUrl),
           model: modelId,
@@ -200,13 +244,13 @@ class CriticalEventWatcher {
             await _ref.read(aiAgentSettingsProvider.notifier).readApiKey();
         if (key == null || key.isEmpty) return null;
         modelId = _ref.read(aiModelProvider).active.id;
+        _lastModel = modelId;
         service = AiAgentService(
           apiKey: key,
           model: modelId,
           client: CellularHttpClient(),
         );
       }
-
       final activity = formatRecentActivity(_ref.read(activityLogProvider), n: 8);
       final memoryBlock = _ref.read(controllerMemoryProvider).toSystemPromptBlock();
       final aiLang = _ref.read(effectiveAiLanguageProvider);

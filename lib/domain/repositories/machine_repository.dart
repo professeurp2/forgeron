@@ -61,6 +61,11 @@ abstract class MachineRepository {
   /// Définit la vitesse de simulation (ignoré par les repositories physiques).
   void setSimulationSpeed(double speed);
 
+  /// Cadence des rapports d'état demandés à la carte (`?`). Le dépôt réel
+  /// l'accélère de lui-même quand la machine bouge ; le jumeau 3D peut la
+  /// forcer. Ignoré par les dépôts de simulation et de test.
+  void setStatusPollInterval(Duration interval) {}
+
   /// Définit l'offset d'un système de coordonnées pièce via `G10 L2`.
   ///
   /// [wcs] est le nom du système ('G54'..'G59'), [offset] une liste de 5

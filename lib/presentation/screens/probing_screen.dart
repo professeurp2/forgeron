@@ -163,21 +163,36 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       ),
     ]);
 
+    final stacked = Column(
+      children: [
+        Expanded(flex: 1, child: leftColumn),
+        Expanded(flex: 2, child: tabsAndControls),
+      ],
+    );
+
     return ResponsiveLayout(
-      mobile: Column(
-        children: [
-          Expanded(flex: 1, child: leftColumn),
-          Expanded(flex: 2, child: tabsAndControls),
-        ],
-      ),
-      tablet: ResizableSplitView(
-        initialRatio: 0.22,
-        left: leftColumn,
-        right: ResizableSplitView(
-          initialRatio: 0.55,
-          left: visualizer,
-          right: tabsAndControls,
-        ),
+      mobile: stacked,
+      // Tablette en portrait : trois colonnes dans 800 px donnaient une
+      // colonne WCS de 170 px où tout débordait (balayage). En dessous de
+      // 1 000 px, l'empilement du mobile, avec le visualiseur en plus.
+      tablet: LayoutBuilder(
+        builder: (context, c) => c.maxWidth < 1000
+            ? Column(children: [
+                Expanded(flex: 2, child: Row(children: [
+                  Expanded(child: leftColumn),
+                  Expanded(child: visualizer),
+                ])),
+                Expanded(flex: 3, child: tabsAndControls),
+              ])
+            : ResizableSplitView(
+                initialRatio: 0.22,
+                left: leftColumn,
+                right: ResizableSplitView(
+                  initialRatio: 0.55,
+                  left: visualizer,
+                  right: tabsAndControls,
+                ),
+              ),
       ),
       desktop: ResizableSplitView(
         initialRatio: 0.22,

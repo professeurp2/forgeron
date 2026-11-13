@@ -123,10 +123,23 @@ class FluidNCConnection {
     _messageController.add(msg);
   }
 
+  /// Période du `?` de statut. 2 s au repos ; le dépôt la descend à 250 ms
+  /// dès que la machine bouge, pour que le DRO et le jumeau 3D suivent la
+  /// carte de près (un `?` est une commande temps réel, sans coût pour le
+  /// planificateur de FluidNC).
+  Duration _heartbeatPeriod = const Duration(seconds: 2);
+  Duration get heartbeatPeriod => _heartbeatPeriod;
+
+  void setHeartbeatPeriod(Duration period) {
+    if (period == _heartbeatPeriod) return;
+    _heartbeatPeriod = period;
+    if (_isConnected && !_disposed) _startHeartbeat();
+  }
+
   /// Système de Heartbeat pour détecter les "Zombies" (WiFi déconnecté sans fermeture de socket)
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    _heartbeatTimer = Timer.periodic(_heartbeatPeriod, (timer) {
       if (!_isConnected || _disposed) {
         timer.cancel();
         return;

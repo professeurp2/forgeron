@@ -110,13 +110,17 @@ class AppSettingsScreen extends ConsumerWidget {
                                         ? fc.primary
                                         : fc.textDisabled),
                                 const SizedBox(width: 6),
-                                Text(themeModeLabel(m),
-                                    style: TextStyle(
-                                        color: m == mode
-                                            ? fc.primary
-                                            : fc.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w900)),
+                                Flexible(
+                                  child: Text(themeModeLabel(m),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: m == mode
+                                              ? fc.primary
+                                              : fc.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900)),
+                                ),
                               ],
                             ),
                           ),
