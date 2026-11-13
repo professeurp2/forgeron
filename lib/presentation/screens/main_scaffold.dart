@@ -273,7 +273,14 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         backgroundColor: fc.surface,
         elevation: 0,
         titleSpacing: 12,
-        title: Row(
+        // Logo + nom + badge : à 360 px, avec trois actions à droite, la
+        // rangée débordait de 97 px. Elle rétrécit d'un bloc plutôt que de
+        // perdre le badge d'état, qui est l'information de sécurité.
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const ForgeronLogoGlow(height: 26),
             SizedBox(width: 10),
@@ -314,6 +321,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               ),
             ),
           ],
+          ),
         ),
         actions: [
           IconButton(
@@ -1015,8 +1023,10 @@ class _HeaderBar extends ConsumerWidget {
       // lettres, adresse IP, second badge), JAMAIS le bouton d'arrêt
       // d'urgence — à 960 px il était coupé de 60 px (vu à l'écran).
       child: LayoutBuilder(builder: (context, constraints) {
-        final compact = constraints.maxWidth < 1200;
-        final tight = constraints.maxWidth < 900;
+        // Seuils mesurés par le balayage : à 1 280 px, nom en toutes lettres
+        // et adresse IP débordaient encore de 41 px.
+        final compact = constraints.maxWidth < 1340;
+        final tight = constraints.maxWidth < 960;
         return Row(
         children: [
           IconButton(

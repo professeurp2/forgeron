@@ -16,6 +16,7 @@ import '../../application/providers/network_stats_provider.dart';
 import '../../application/services/chat_relay.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/animated_number.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../domain/models/machine_state.dart';
 
@@ -340,6 +341,19 @@ class _KpiStrip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: LayoutBuilder(builder: (context, c) {
+        // Étroit (téléphone) : une seule rangée qui défile, sinon quatre
+        // rangées de cartes mangeaient l'écran et le journal débordait.
+        if (c.maxWidth < 1100) {
+          return SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: cards.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => SizedBox(width: 180, child: cards[i]),
+            ),
+          );
+        }
         final perRow = (c.maxWidth / 190).floor().clamp(2, cards.length);
         final w = (c.maxWidth - (perRow - 1) * 8) / perRow;
         return Wrap(spacing: 8, runSpacing: 8, children: [
@@ -377,7 +391,8 @@ class _Kpi extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        Text(value,
+        AnimatedSwapText(value,
+            maxLines: 1,
             style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono', height: 1.1)),
         const SizedBox(height: 2),
         Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.textSecondary, fontSize: 9)),
@@ -471,46 +486,59 @@ class _JournalPanel extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-          child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            for (final s in BackofficeSource.values)
+          child: LayoutBuilder(builder: (context, c) {
+            final chips = <Widget>[
+              for (final s in BackofficeSource.values)
+                _Chip(
+                  label: '${sourceLabel(s)} ${counts[s] ?? 0}',
+                  color: sourceColor(fc, s),
+                  selected: sources.contains(s),
+                  onTap: () => onSourceToggle(s),
+                ),
               _Chip(
-                label: '${sourceLabel(s)} ${counts[s] ?? 0}',
-                color: sourceColor(fc, s),
-                selected: sources.contains(s),
-                onTap: () => onSourceToggle(s),
+                label: tr('PROBLÈMES'),
+                color: fc.danger,
+                selected: problemsOnly,
+                onTap: onProblemsToggle,
               ),
-            _Chip(
-              label: tr('PROBLÈMES'),
-              color: fc.danger,
-              selected: problemsOnly,
-              onTap: onProblemsToggle,
-            ),
-            if (selectedCall != null)
-              _Chip(
-                label: tr('chaîne {} ✕', [selectedCall]),
-                color: fc.primary,
-                selected: true,
-                onTap: () => onSelectCall(selectedCall!),
-              ),
-            SizedBox(
-              width: 200,
-              height: 30,
-              child: TextField(
-                controller: search,
-                onChanged: onQuery,
-                style: TextStyle(color: fc.textPrimary, fontSize: 11),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: tr('filtrer…'),
-                  hintStyle: TextStyle(color: fc.textDisabled, fontSize: 11),
-                  prefixIcon: Icon(Icons.search, size: 14, color: fc.textDisabled),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: fc.surfaceBorder), borderRadius: BorderRadius.circular(6)),
-                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: fc.primary), borderRadius: BorderRadius.circular(6)),
+              if (selectedCall != null)
+                _Chip(
+                  label: tr('chaîne {} ✕', [selectedCall]),
+                  color: fc.primary,
+                  selected: true,
+                  onTap: () => onSelectCall(selectedCall!),
+                ),
+              SizedBox(
+                width: 200,
+                height: 30,
+                child: TextField(
+                  controller: search,
+                  onChanged: onQuery,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 11),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: tr('filtrer…'),
+                    hintStyle: TextStyle(color: fc.textDisabled, fontSize: 11),
+                    prefixIcon: Icon(Icons.search, size: 14, color: fc.textDisabled),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: fc.surfaceBorder), borderRadius: BorderRadius.circular(6)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: fc.primary), borderRadius: BorderRadius.circular(6)),
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ];
+            // Étroit : une seule ligne de filtres qui défile, pour laisser
+            // la hauteur au journal (téléphone en paysage : 360 px de haut).
+            if (c.maxWidth < 760) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final w in chips) ...[w, const SizedBox(width: 6)],
+                ]),
+              );
+            }
+            return Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: chips);
+          }),
         ),
         Container(height: 1, color: fc.surfaceBorder),
         Expanded(
@@ -527,11 +555,16 @@ class _JournalPanel extends ConsumerWidget {
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: shown.length,
-                  itemBuilder: (ctx, i) => _EventRow(
-                    event: shown[i],
-                    expanded: expandedSeq == shown[i].seq,
-                    onTap: () => onExpand(shown[i].seq),
-                    onSelectCall: onSelectCall,
+                  // Chaque ligne entre en fondu une fois (clé = numéro) :
+                  // un nouvel événement se voit arriver.
+                  itemBuilder: (ctx, i) => AppearIn(
+                    key: ValueKey(shown[i].seq),
+                    child: _EventRow(
+                      event: shown[i],
+                      expanded: expandedSeq == shown[i].seq,
+                      onTap: () => onExpand(shown[i].seq),
+                      onSelectCall: onSelectCall,
+                    ),
                   ),
                 ),
         ),
@@ -784,7 +817,9 @@ class _ChainCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(

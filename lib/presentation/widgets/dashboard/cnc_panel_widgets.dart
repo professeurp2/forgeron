@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/animated_number.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CNC PANEL WIDGETS — Composants réutilisables style pupitre FANUC industriel
@@ -17,16 +18,20 @@ class CncSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(children: [
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 3, height: 10, color: context.fc.primary.withValues(alpha: 0.5)),
         SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            color: context.fc.textDisabled,
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.0,
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: context.fc.textDisabled,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+            ),
           ),
         ),
       ]),
@@ -388,9 +393,6 @@ class CncLcdAxisRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayValue = isRotary
-        ? value.toStringAsFixed(2)
-        : value.toStringAsFixed(3);
     final unit = isRotary ? '°' : 'mm';
 
     return Padding(
@@ -410,9 +412,11 @@ class CncLcdAxisRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              displayValue,
+            child: AnimatedNumberText(
+              value,
+              decimals: isRotary ? 2 : 3,
               textAlign: TextAlign.right,
+              maxLines: 1,
               style: TextStyle(
                 color: context.fc.lcdText,
                 fontSize: fontSize,
@@ -1024,9 +1028,9 @@ class CncPanelSectionContainer extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    CncSectionLabel(title),
+                    Expanded(child: CncSectionLabel(title)),
                     if (trailing != null) ...[
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       trailing!,
                     ],
                   ],
