@@ -148,9 +148,10 @@ class FluidNCConnection {
       // Envoyer un '?' pour forcer un retour de statut
       sendRaw('?');
 
-      // Si pas de réponse depuis plus de 10 secondes, on considère la connexion comme perdue
+      // Si pas de réponse depuis plus de 20 secondes, on considère la connexion comme perdue
+      // (tolère les micro-coupures / scans Wi-Fi du Hotspot Windows partagé sans couper le socket).
       if (_lastResponseTime != null &&
-          DateTime.now().difference(_lastResponseTime!).inSeconds > 10) {
+          DateTime.now().difference(_lastResponseTime!).inSeconds > 20) {
         _handleDisconnect('Heartbeat timeout (Dead connection)');
       }
     });
