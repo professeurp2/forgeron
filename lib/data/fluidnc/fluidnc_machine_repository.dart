@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/machine_state.dart';
 import '../../domain/repositories/machine_repository.dart';
 import 'fluidnc_connection.dart';
+import 'fluidnc_serial_connection.dart';
 import 'grbl_parser.dart';
 import '../../application/services/streaming_service.dart';
 
@@ -37,10 +38,17 @@ class FluidNCMachineRepository implements MachineRepository {
         _stateController.add(_currentState);
       } else {
         Future.delayed(const Duration(milliseconds: 500), () {
+          if (_connection is FluidNCSerialConnection) {
+            // En mode USB, couper le Wi-Fi de l'ESP32 pour éviter tout scan/reconnexion
+            // radio pendant le homing ou l'usinage.
+            _connection.sendRaw('\$WiFi/Mode=Off\n');
+          }
           _connection.sendRaw('\$G\n');   // État modal
           _connection.sendRaw('\$#\n');   // Offsets de travail
           _connection.sendRaw('\$I\n');   // Build info firmware (VER/OPT)
-          _connection.sendRaw('[ESP110]\n'); // WiFi info
+          if (_connection is! FluidNCSerialConnection) {
+            _connection.sendRaw('[ESP110]\n'); // WiFi info
+          }
         });
       }
     });
