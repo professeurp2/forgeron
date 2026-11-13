@@ -65,6 +65,14 @@ class PreparedVoiceUtterance {
   /// Texte nettoyé et adapté phonétiquement pour une lecture vocale fluide.
   final String spokenText;
 
+  /// Balisage SSML 1.0 enrichi (pauses respiratoires, prosodie d'ouverture et
+  /// d'intonation interrogative finale) pour les moteurs compatibles SAPI/OneCore.
+  final String ssmlText;
+
+  /// Segments prosodiques (phrases / clauses) permettant aux moteurs sans SSML
+  /// de moduler le ton et de marquer des pauses naturelles entre les idées.
+  final List<String> conversationalChunks;
+
   /// Profil WAXAL / Hugging Face associé s'il s'agit d'une langue africaine.
   final WaxalLanguageProfile? waxalProfile;
 
@@ -74,6 +82,8 @@ class PreparedVoiceUtterance {
     required this.usesPhoneticFallback,
     required this.speechRate,
     required this.spokenText,
+    this.ssmlText = '',
+    this.conversationalChunks = const [],
     this.waxalProfile,
   });
 }
@@ -437,7 +447,9 @@ class WaxalVoiceEngine {
         bestVoiceLocale(
           fallbackTag,
           availableVoices,
-          fallbacks: const ['fr-FR', 'en-US'],
+          fallbacks: langId == 'en'
+              ? const ['en-US', 'en-GB', 'fr-FR']
+              : const ['fr-FR', 'en-US'],
         );
 
     // Quelle est la langue phonétique du moteur TTS qui va réellement parler ?
@@ -445,10 +457,17 @@ class WaxalVoiceEngine {
         ? selectedVoice.split(RegExp(r'[-_]')).first.toLowerCase()
         : (fallbackTag.startsWith('en') ? 'en' : 'fr');
 
-    // 3. Nettoyage structurel (Markdown, blocs G-code, émojis, unités CNC)
+    // Langue sémantique du texte pour l'expansion des unités (ex: "20mm" ->
+    // "20 millimeters" en anglais même si availableVoices de WinRT ne listait
+    // pas encore la voix SAPI5 anglaise).
+    final String contentLang =
+        (langId == 'en' || fallbackTag.startsWith('en')) ? 'en' : engineLang;
+
+    // 3. Nettoyage structurel et humanisation (Markdown, blocs G-code, émojis,
+    //    unités CNC, pauses respiratoires de présentation)
     var spoken = cleanMarkdownAndCncForSpeech(
       rawText,
-      engineLang: engineLang,
+      engineLang: contentLang,
     );
 
     // 4. Adaptation phonétique si la langue est lue par une voix de repli
@@ -470,7 +489,16 @@ class WaxalVoiceEngine {
       }
     }
 
-    final double rate = profile?.recommendedSpeechRate ?? 0.50;
+    final double rate = profile?.recommendedSpeechRate ??
+        (langId == 'en' ? 0.48 : 0.49);
+
+    final chunks = splitConversationalChunks(spoken);
+    final ssml = buildHumanSsml(
+      spoken,
+      langId: langId,
+      voiceLocale: selectedVoice ?? targetVoiceTag,
+      speechRate: rate,
+    );
 
     return PreparedVoiceUtterance(
       languageId: langId,
@@ -478,6 +506,8 @@ class WaxalVoiceEngine {
       usesPhoneticFallback: usesFallback,
       speechRate: rate,
       spokenText: spoken,
+      ssmlText: ssml,
+      conversationalChunks: chunks,
       waxalProfile: profile,
     );
   }
@@ -529,7 +559,8 @@ class WaxalVoiceEngine {
   }
 
   /// Nettoie le markdown, les URL, les émojis et traduit les abréviations CNC
-  /// (`$H`, `$X`, `mm/min`, `°C`, blocs de code) en texte oral fluide.
+  /// (`$H`, `$X`, `20mm`, `mm/min`, `°C`, `5-axis`, blocs de code, chemins de
+  /// fichiers) en une présentation orale humaine, chaleureuse et fluide.
   static String cleanMarkdownAndCncForSpeech(
     String text, {
     String engineLang = 'fr',
@@ -537,10 +568,10 @@ class WaxalVoiceEngine {
     final isEn = engineLang == 'en';
     var t = text;
 
-    // 1. Blocs de code ```...``` -> annonce courte
+    // 1. Blocs de code ```...``` -> annonce naturelle
     t = t.replaceAll(
       RegExp(r'```[\s\S]*?```'),
-      isEn ? ' G-code program. ' : ' Programme G-code. ',
+      isEn ? ' G-code program ready. ' : ' Programme G-code prêt. ',
     );
 
     // 2. Liens markdown [texte](url) -> garde uniquement le texte
@@ -551,6 +582,45 @@ class WaxalVoiceEngine {
 
     // 3. URLs brutes http(s)://... ou file:///...
     t = t.replaceAll(RegExp(r'(?:https?|file)://\S+'), '');
+
+    // 3.b Chemins de fichiers techniques (ex: scratch/dome_5axis_20mm.nc, C:\...\part.step)
+    //     Évite que la voix n'épelle "scratch barre oblique dôme tiret bas..."
+    t = t.replaceAllMapped(
+      RegExp(
+        r'(?:[A-Za-z]:[\\/]|[a-zA-Z0-9_.-]+[\\/])[a-zA-Z0-9_./\\-]+\.(?:nc|gcode|ngc|tap|step|stp|stl)\b',
+        caseSensitive: false,
+      ),
+      (m) {
+        final full = m.group(0) ?? '';
+        final lower = full.toLowerCase();
+        if (lower.endsWith('.step') || lower.endsWith('.stp') || lower.endsWith('.stl')) {
+          return isEn ? 'the 3D CAD file' : 'le fichier 3D';
+        }
+        return isEn ? 'the G-code program' : 'le programme G-code';
+      },
+    );
+
+    // 3.c Identifiants internes d'outils (snake_case) ou pseudo-appels de fonction éventuellement cités
+    t = t.replaceAll(
+      RegExp(
+        r'(?:Run|Execute|Call)\s+the\s+`?[a-z0-9_]+`?\s+function(?:\s+now)?\.?',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b[a-z]+_[a-z0-9_]+\s*\([^)]*\)'),
+      '',
+    );
+    t = t
+        .replaceAll('generate_5axis_dome', isEn ? '5 axis dome generator' : 'générateur de dôme 5 axes')
+        .replaceAll('run_step_pipeline', isEn ? 'CAM pipeline' : 'pipeline FAO')
+        .replaceAll('run_program', isEn ? 'program start' : 'lancement du programme')
+        .replaceAll('analyze_gcode', isEn ? 'program analysis' : 'analyse du programme')
+        .replaceAll('get_diagnostics', isEn ? 'diagnostics check' : 'vérification de diagnostic')
+        .replaceAll('get_machine_state', isEn ? 'machine status check' : 'lecture de l\'état machine')
+        .replaceAll('get_status', isEn ? 'status check' : 'vérification d\'état')
+        .replaceAll('jog_move', isEn ? 'axis movement' : 'déplacement d\'axe');
 
     // 4. Formules LaTeX éventuelles
     t = t
@@ -564,20 +634,84 @@ class WaxalVoiceEngine {
       (m) => isEn ? 'command ${m.group(1)}' : 'commande ${m.group(1)}',
     );
 
-    // 6. Unités d'atelier courantes pour éviter "m m barre oblique min"
+    // 5.b Arrondir les coordonnées décimales à zéros inutiles (ex: Z15.000 -> Z15)
+    t = t.replaceAllMapped(
+      RegExp(r'\b(\d+)\.00+\b'),
+      (m) => m.group(1)!,
+    );
+
+    // 6. Unités d'atelier (compactes "20mm" ou espacées "20 mm") pour une
+    //    lecture humaine ("20 millimeters" / "20 millimètres" au lieu de "20 m m")
     t = t
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*mm/min\b', caseSensitive: false),
+          (m) => '${m.group(1)} ${isEn ? 'millimeters per minute' : 'millimètres par minute'}',
+        )
         .replaceAll(
-          RegExp(r'\bmm/min\b'),
+          RegExp(r'\bmm/min\b', caseSensitive: false),
           isEn ? 'millimeters per minute' : 'millimètres par minute',
         )
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*tr/min\b', caseSensitive: false),
+          (m) => '${m.group(1)} ${isEn ? 'RPM' : 'tours par minute'}',
+        )
         .replaceAll(
-          RegExp(r'\btr/min\b'),
+          RegExp(r'\btr/min\b', caseSensitive: false),
           isEn ? 'RPM' : 'tours par minute',
         )
-        .replaceAll('°C', isEn ? ' degrees Celsius' : ' degrés Celsius');
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*mm\b', caseSensitive: false),
+          (m) => '${m.group(1)} ${isEn ? 'millimeters' : 'millimètres'}',
+        )
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*cm\b', caseSensitive: false),
+          (m) => '${m.group(1)} ${isEn ? 'centimeters' : 'centimètres'}',
+        )
+        .replaceAll('°C', isEn ? ' degrees Celsius' : ' degrés Celsius')
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*°'),
+          (m) => '${m.group(1)} ${isEn ? 'degrees' : 'degrés'}',
+        )
+        .replaceAllMapped(
+          RegExp(r'±\s*(\d+(?:[.,]\d+)?)'),
+          (m) => '${isEn ? 'plus or minus' : 'plus ou moins'} ${m.group(1)}',
+        )
+        .replaceAllMapped(
+          RegExp(r'\b(\d+)-axis\b', caseSensitive: false),
+          (m) => '${m.group(1)} axis',
+        )
+        .replaceAll(RegExp(r'\b3D\b'), '3 D');
 
-    // 7. Puces de listes en début de ligne -> pause de phrase
+    // 6.b Décimales naturelles selon la langue ("0,2" en français, "0.2" en anglais)
+    if (!isEn) {
+      t = t.replaceAllMapped(
+        RegExp(r'(\d)\.(\d)'),
+        (m) => '${m.group(1)},${m.group(2)}',
+      );
+    } else {
+      t = t.replaceAllMapped(
+        RegExp(r'(\d),(\d)'),
+        (m) => '${m.group(1)}.${m.group(2)}',
+      );
+    }
+
+    // 7. Structure de présentation orale : titres, puces et retours à la ligne
+    //    deviennent de vraies pauses respiratoires (". " ou ", ")
+    t = t.replaceAllMapped(
+      RegExp(r'(^|\n)\s*#{1,6}\s*([^\n]+)'),
+      (m) => '. ${m.group(2)}. ',
+    );
     t = t.replaceAll(RegExp(r'(^|\n)\s*(?:[-*•]|\d+[.)])\s+'), '. ');
+    // Deux-points après un libellé court en début de phrase -> virgule respiratoire
+    t = t.replaceAllMapped(
+      RegExp(r'(\.\s+[^.!?\n:]{2,35}):\s+'),
+      (m) => '${m.group(1)}, ',
+    );
+    // Retours à la ligne restants entre deux phrases sans ponctuation finale -> point
+    t = t.replaceAllMapped(
+      RegExp(r'([^\s.!?,;:])\s*\n+\s*'),
+      (m) => '${m.group(1)}. ',
+    );
 
     // 8. Suppression des émojis et pictogrammes (évite "symbole d'avertissement")
     t = t.replaceAll(
@@ -593,12 +727,91 @@ class WaxalVoiceEngine {
 
     // 10. Normalisation des espaces et ponctuations doubles
     t = t
-        .replaceAll(RegExp(r'\s*\.\s*\.\s*'), '. ')
+        .replaceAllMapped(RegExp(r'\s+([.!?,;:])'), (m) => m.group(1)!)
+        .replaceAll(RegExp(r'(?:\.\s*){2,}'), '. ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'^\.\s*'), '')
         .trim();
 
     return t;
+  }
+
+  /// Découpe le texte préparé en segments conversationnels naturels (phrases)
+  /// afin de rythmer la présentation vocale et d'éviter le ton monotone.
+  static List<String> splitConversationalChunks(String spokenText) {
+    final trimmed = spokenText.trim();
+    if (trimmed.isEmpty) return const [];
+    final rawParts = trimmed.split(RegExp(r'(?<=[.!?])\s+'));
+    final chunks = <String>[];
+    for (final part in rawParts) {
+      final clean = part.trim();
+      if (clean.isEmpty) continue;
+      chunks.add(clean);
+    }
+    return chunks.isEmpty ? [trimmed] : chunks;
+  }
+
+  static String _escapeXml(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;');
+
+  /// Construit un document SSML 1.0 mettant en scène la réponse comme un
+  /// présentateur humain : attaque chaleureuse, pauses respiratoires aux
+  /// virgules et entre les points clés, et inflexion posée sur la question finale.
+  static String buildHumanSsml(
+    String spokenText, {
+    required String langId,
+    required String voiceLocale,
+    required double speechRate,
+  }) {
+    final chunks = splitConversationalChunks(spokenText);
+    if (chunks.isEmpty) return '';
+
+    final xmlLang = voiceLocale.replaceAll('_', '-');
+    final buf = StringBuffer(
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="$xmlLang">',
+    );
+
+    for (var i = 0; i < chunks.length; i++) {
+      final chunk = chunks[i];
+      final isFirst = i == 0;
+      final isLast = i == chunks.length - 1;
+      final isQuestion = chunk.endsWith('?');
+
+      // Prosodie nuancée selon le rôle de la phrase dans la présentation :
+      // - Ouverture : chaleureuse et engagée (+3% pitch)
+      // - Question finale / demande de confirmation : posée et invitante (+4% pitch, -3% rate)
+      // - Corps technique : clair, posé et articulé (+1% pitch, -1% rate)
+      final String pitch;
+      final String rate;
+      if (isQuestion && isLast) {
+        pitch = '+4%';
+        rate = '-3%';
+      } else if (isFirst) {
+        pitch = '+3%';
+        rate = '0%';
+      } else {
+        pitch = '+1%';
+        rate = '-2%';
+      }
+
+      // Insertion de micro-respirations sur les virgules et points-virgules
+      final escaped = _escapeXml(chunk).replaceAllMapped(
+        RegExp(r'([,;:])\s+'),
+        (m) => '${m.group(1)} <break time="140ms"/> ',
+      );
+
+      if (i > 0) {
+        buf.write(isQuestion ? '<break time="300ms"/>' : '<break time="240ms"/>');
+      }
+      buf.write('<s><prosody rate="$rate" pitch="$pitch">$escaped</prosody></s>');
+    }
+
+    buf.write('</speak>');
+    return buf.toString();
   }
 
   /// Transcrit un texte en **bambara (`bm`)** (pur ou mêlé de mots d'atelier
@@ -798,6 +1011,97 @@ class WaxalVoiceEngine {
       (m) => m.group(1)!,
     );
 
+    final isEnActive = activeLanguageId == 'en';
+
+    // ── 1.b Réparation phonétique Anglais (et Anglais dicté sur SAPI fr-FR) ──
+    // Sur Windows hors ligne, lorsque seul le moteur SAPI fr-FR (MS-1036) est
+    // installé, une phrase anglaise comme "Mill a 20mm dome on aluminium" est
+    // transcrite phonétiquement avec des mots français ("mille à 20 mm dôme en
+    // aluminium", "maille a vingt millimètres d'homme on aluminium", etc.).
+    final enDomeVerbMatch = RegExp(
+      r"^\s*(?:mill|mille|mil|mail|meal|mild|maille|mets?\s+la|mais\s+la|build|carve|cut)\b",
+      caseSensitive: false,
+    ).hasMatch(t);
+    if (isEnActive || enDomeVerbMatch) {
+      // Conversion nombres parlés courants pour le diamètre ("twenty" / "vingt" -> "20")
+      var workEn = t
+          .replaceAll(RegExp(r'\b(?:twenty|vingt|toi\s*ni|twenti)\b', caseSensitive: false), '20')
+          .replaceAll(RegExp(r'\b(?:thirty|trente)\b', caseSensitive: false), '30')
+          .replaceAll(RegExp(r'\b(?:ten|dix)\b', caseSensitive: false), '10')
+          .replaceAll(RegExp(r'\b(?:fifteen|quinze)\b', caseSensitive: false), '15')
+          .replaceAll(RegExp(r'\b(?:twenty[- ]five|vingt[- ]cinq)\b', caseSensitive: false), '25')
+          .replaceAll(RegExp(r'\b(?:forty|quarante)\b', caseSensitive: false), '40')
+          .replaceAll(RegExp(r'\b(?:fifty|cinquante)\b', caseSensitive: false), '50');
+
+      final domePattern = RegExp(
+        r"(?:mill|mille|mil|mail|meal|mild|maille|mets?\s+la|mais\s+la|build|carve|cut|usine|fraise)?\s*(?:a|un|une|le|la|à)?\s*(\d+(?:[.,]\d+)?)\s*(?:mm|millim[èe]tres?|millimeters?|m\s*m)?\s*(?:5[- ]?axis\s+)?(?:d[ôo]me|d['’]homme|tome|down|home|don)\b(?:.*?\b(alumini?um|alu|brass|laiton|wood|bois|steel|acier|plastic|plastique))?",
+        caseSensitive: false,
+      );
+      final dm = domePattern.firstMatch(workEn);
+      if (dm != null && (isEnActive || enDomeVerbMatch)) {
+        final rawDiam = (dm.group(1) ?? '20').replaceAll(',', '.');
+        final rawMat = (dm.group(2) ?? 'aluminium').toLowerCase();
+        String mat = 'aluminium';
+        if (rawMat.contains('brass') || rawMat.contains('laiton')) {
+          mat = 'brass';
+        } else if (rawMat.contains('wood') || rawMat.contains('bois')) {
+          mat = 'wood';
+        } else if (rawMat.contains('steel') || rawMat.contains('acier')) {
+          mat = 'steel';
+        } else if (rawMat.contains('plastic') || rawMat.contains('plastique')) {
+          mat = 'plastic';
+        } else if (rawMat == 'aluminum') {
+          mat = 'aluminum';
+        }
+        return 'Mill a ${rawDiam}mm dome on $mat';
+      }
+    }
+
+    if (isEnActive) {
+      // Normalisations STT propres à l'anglais (et anglais capté par SAPI fr-FR)
+      t = t.replaceAllMapped(
+        RegExp(r'\b(\d+(?:[.,]\d+)?)\s*(?:millimeters?|millimetres?|mm)\b', caseSensitive: false),
+        (m) => '${m.group(1)!.replaceAll(',', '.')}mm',
+      );
+      t = t.replaceAll(
+        RegExp(r'\b(?:home|homme|au|haut)\s+(?:all\s+)?(?:axes|axis|access|ax[èe]s?)\b', caseSensitive: false),
+        'Home all axes',
+      );
+      t = t.replaceAll(
+        RegExp(r'\b(?:what\s+is\s+the\s+|ouate\s+is\s+de\s+)?machine\s+(?:statut|status|state)\b', caseSensitive: false),
+        'What is the machine status',
+      );
+      t = t.replaceAll(
+        RegExp(r'\b(?:turn\s+on|start|allume)\s+(?:the\s+|la\s+|de\s+)?(?:spindle|spin|broche)\b', caseSensitive: false),
+        'Turn on the spindle',
+      );
+      t = t.replaceAll(
+        RegExp(r'\b(?:turn\s+off|stop|arr[êe]te)\s+(?:the\s+|la\s+|de\s+)?(?:spindle|spin|broche)\b', caseSensitive: false),
+        'Stop the spindle',
+      );
+      t = t.replaceAll(
+        RegExp(r'^\s*(?:confirme|confirm|yes\s+confirm|oui\s+confirme)\s*$', caseSensitive: false),
+        'Confirm',
+      );
+      t = t.replaceAll(
+        RegExp(r'\b(?:fluide\s+ainsi|fluide\s+nc|fluid\s+nc)\b', caseSensitive: false),
+        'FluidNC',
+      );
+      t = t.replaceAll(
+        RegExp(r"\b(?:g|gee)\s*(?:54|fifty[- ]four)\b", caseSensitive: false),
+        'G54',
+      );
+      t = t.replaceAll(
+        RegExp(r"\b(?:g|gee)\s*(?:0|zero)\b", caseSensitive: false),
+        'G0',
+      );
+      t = t.replaceAll(
+        RegExp(r"\b(?:g|gee)\s*(?:1|one)\b", caseSensitive: false),
+        'G1',
+      );
+      return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
     // ── 2. Termes CNC et codes G-code / M-code en français ─────────────────
     // WCS G54..G59
     t = t.replaceAll(
@@ -929,6 +1233,34 @@ class WaxalVoiceEngine {
     t = t.replaceAll(
       RegExp(r'\b(?:axe|acc[èe]s)\s+c\b', caseSensitive: false),
       'axe C',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:why|white|wide)\s+axis\b', caseSensitive: false),
+      'Y axis',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:ex|eggs)\s+axis\b', caseSensitive: false),
+      'X axis',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:zed|zee|the\s+z)\s+axis\b', caseSensitive: false),
+      'Z axis',
+    );
+    t = t.replaceAll(
+      RegExp(r'\b(?:sea|see)\s+axis\b', caseSensitive: false),
+      'C axis',
+    );
+    t = t.replaceAllMapped(
+      RegExp(r'\bhome([xyzac])\b', caseSensitive: false),
+      (m) => 'home ${m.group(1)!.toUpperCase()}',
+    );
+    t = t.replaceAll(
+      RegExp(r'\bsaxis\b', caseSensitive: false),
+      'axis',
+    );
+    t = t.replaceAll(
+      RegExp(r'\bgot\s+to\s+(?=[xyzac]\s*-?\d)', caseSensitive: false),
+      'go to ',
     );
 
     // Sécurité atelier

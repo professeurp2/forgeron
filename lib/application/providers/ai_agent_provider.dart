@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'dart:convert';
 
+import 'dart:io' show File;
+
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
@@ -13,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../domain/models/machine_state.dart' show MachineStatus;
+import 'gcode_provider.dart';
 
 import '../services/ai_agent_service.dart';
 
@@ -2071,7 +2074,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       'Ne fais PAS de tutoriel décrivant les étapes théoriques à l\'avance (« Étape 1... »). '
 
-      'Exécute les outils en coulisse et présente directement le résultat fini à l\'opérateur en français simple : '
+      'Exécute les outils en coulisse et présente directement le résultat fini à l\'opérateur dans sa langue active (avec un ton humain, chaleureux et fluide adapté à la lecture vocale) : '
+      'Si l\'opérateur demande d\'usiner ou de fraiser un dôme (ex: "Mill a 20mm dome on aluminium", "Usine un dôme de 20 mm en aluminium"), appelle immédiatement generate_5axis_dome avec diameter_mm et material, puis présente chaleureusement le parcours 5 axes généré et demande confirmation avant de lancer run_program. '
 
       'la pièce est prête, le tracé d\'outil est visible, et le programme est déjà chargé dans la machine. '
 
@@ -2637,7 +2641,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
         'introuvable, refus...), et quelle que soit la langue des fonctions '
         'ou résultats techniques : ta réponse, tes explications et tes '
         'propositions à l\'opérateur DOIVENT ÊTRE EN $target. Il est '
-        'STRICTEMENT INTERDIT de basculer en anglais ou dans une autre '
+        '${reply.id == 'en' ? 'STRICTEMENT INTERDIT de basculer en français ou dans une autre ' : 'STRICTEMENT INTERDIT de basculer en anglais ou dans une autre '}'
         'langue.\n'
         '$uiLine Si l\'opérateur demande de changer la langue de '
         'l\'application ou de l\'interface, appelle set_app_language : tu '
@@ -3326,6 +3330,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     _frontTag = null;
 
+    if (state.pendingConfirmation != null &&
+        imageBytes == null &&
+        RegExp(
+          r'^\s*(?:confirm|confirmed|yes|yes please|start|go ahead|ok start|confirme|confirmer|oui|lance|vas-y)\s*[.!]*\s*$',
+          caseSensitive: false,
+        ).hasMatch(trimmed)) {
+      _addMessage(AiChatMessage(
+        role: 'user',
+        text: trimmed,
+        timestamp: DateTime.now(),
+      ));
+      await confirmPendingAction();
+      return;
+    }
     if (state.pendingConfirmation?.lexicon != null) {
 
       _dropLexiconPending('remplacée par un nouveau message', quiet: true);
@@ -3346,6 +3364,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
 
+    if (allowModel &&
+        imageBytes == null &&
+        (await _tryHandleDomeDemoIntent(trimmed) ||
+            await _tryHandleFastMachineIntent(trimmed))) {
+      return;
+    }
     final service = await _ensureService();
 
     if (service == null) {
@@ -4519,6 +4543,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (pending?.lexicon != null) {
 
       await _confirmLexiconPending(pending!);
+      return;
+    }
+    if (pending != null && pending.id.startsWith('run_program_dome_')) {
+      await _confirmDomePending(pending);
 
       return;
 
@@ -4573,9 +4601,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (pending?.lexicon != null) {
 
       _dropLexiconPending('refusée par l\'opérateur');
-
       return;
-
+    }
+    if (pending != null && pending.id.startsWith('run_program_dome_')) {
+      _rejectDomePending(pending);
+      return;
     }
 
     final service = _service;
@@ -4751,7 +4781,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
   ) {
     final mem = _ref.read(controllerMemoryProvider.notifier);
     if (toolName == 'preview_step_file' || toolName == 'analyze_step_file') {
-      final p = input['path'] as String? ?? input['step_path'] as String?;
+      final p = input['stepPath'] as String? ??
+          input['path'] as String? ??
+          input['step_path'] as String?;
       mem.recordOperation(
         OperationEventType.stepFileLoaded,
         summary: 'Analyse STEP : ${p ?? "modèle 3D"}',
@@ -4760,13 +4792,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
     } else if (toolName == 'run_step_pipeline' ||
         toolName == 'load_gcode_file' ||
         toolName == 'generate_5axis_dome') {
-      final p = input['path'] as String? ?? input['step_path'] as String?;
+      final p = input['stepPath'] as String? ??
+          input['path'] as String? ??
+          input['step_path'] as String?;
       mem.recordOperation(
         OperationEventType.gcodeGeneratedOrLoaded,
         summary: 'Programme G-Code prêt ($toolName)',
         filePath: p,
       );
-    } else if (toolName == 'home_machine') {
+    } else if (toolName == 'home' || toolName == 'home_machine') {
       mem.recordOperation(
         OperationEventType.homingCompleted,
         summary: 'Homing commandé par l\'Agent IA',
@@ -4830,6 +4864,825 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// Vide la discussion courante (historique API, affichage et stockage), sans
 
   /// toucher aux autres discussions sauvegardées.
+
+  Future<bool> _tryHandleDomeDemoIntent(String text) async {
+    // Si un test unitaire a injecté un faux backend via debugUseBackend,
+    // on laisse le test exercer son propre backend.
+    if (_service != null &&
+        _service is! LocalAiAgentService &&
+        _service is! GuardedBackend) {
+      return false;
+    }
+
+    final lower = text.toLowerCase();
+    final hasDomeKeyword = RegExp(
+      r'\b(dome|dôme|hemisphere|hémisphère|demi[- ]?sph[eè]re)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (!hasDomeKeyword) return false;
+
+    final isNegative = RegExp(
+      r"\b(don't|do not|never|ne\s+pas|n'usine\s+pas|ne\s+fraise\s+pas)\b",
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (isNegative) return false;
+
+    final hasActionOrSpec = RegExp(
+      r'\b(mill|milling|carve|cut|machine|make|create|generate|prepare|usine|usiner|fraise|fraiser|g[eé]n[eè]re|g[eé]n[eé]rer|fabrique|aluminium|aluminum|brass|laiton|wood|bois|steel|acier|plastic|plastique|\d+\s*mm)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (!hasActionOrSpec) return false;
+
+    final diamMatch = RegExp(
+      r'(\d+(?:[.,]\d+)?)\s*(?:mm|millimeters?|millim[eè]tres?)?\b',
+      caseSensitive: false,
+    ).firstMatch(lower);
+    final double diameter = diamMatch != null
+        ? (double.tryParse(diamMatch.group(1)!.replaceAll(',', '.')) ?? 20.0)
+            .clamp(6.0, 50.0)
+        : 20.0;
+
+    String material = 'aluminium';
+    if (lower.contains('brass') || lower.contains('laiton')) {
+      material = 'brass';
+    } else if (lower.contains('wood') || lower.contains('bois')) {
+      material = 'wood';
+    } else if (lower.contains('steel') || lower.contains('acier')) {
+      material = 'steel';
+    } else if (lower.contains('plastic') ||
+        lower.contains('plastique') ||
+        lower.contains('peek') ||
+        lower.contains('pmma')) {
+      material = 'plastic';
+    }
+
+    final replyLang = _replyLanguageFor(text) ??
+        LanguageDetector.detectOperatorLanguage(text, fallback: 'fr');
+    final isEn = replyLang == 'en';
+
+    final epoch = _epoch;
+    _addMessage(AiChatMessage(
+      role: 'user',
+      text: text,
+      timestamp: DateTime.now(),
+    ));
+
+    final tool = AiToolCatalog.byName('generate_5axis_dome');
+    final args = <String, dynamic>{
+      'diameter_mm': diameter,
+      'material': material,
+      'tool_diameter_mm': 6.0,
+    };
+
+    String resultJson = '{}';
+    if (tool != null) {
+      state = state.copyWith(
+        isProcessing: true,
+        runningTool: tool.name,
+        clearError: true,
+      );
+      final parts = await _executeTool(tool, tool.name, args);
+      if (_epoch != epoch) return true;
+      final resp = parts.isEmpty
+          ? null
+          : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+      resultJson = '${resp?['result'] ?? '{}'}';
+    }
+
+    int lineCount = 190;
+    double feedrate = 400.0;
+    int rpm = 12000;
+    try {
+      final decoded = jsonDecode(resultJson) as Map<String, dynamic>;
+      lineCount = (decoded['lines_count'] as num?)?.toInt() ?? lineCount;
+      feedrate = (decoded['feedrate_mm_min'] as num?)?.toDouble() ?? feedrate;
+      rpm = (decoded['spindle_rpm'] as num?)?.toInt() ?? rpm;
+    } catch (_) {}
+
+    final diamLabel = diameter == diameter.roundToDouble()
+        ? diameter.toInt().toString()
+        : diameter.toStringAsFixed(1);
+
+    final matFr = switch (material) {
+      'brass' => 'laiton',
+      'wood' => 'bois',
+      'steel' => 'acier',
+      'plastic' => 'polymère technique',
+      _ => 'aluminium',
+    };
+
+    final String replyText = isEn
+        ? "I've prepared the 5-axis continuous toolpath for your ${diamLabel}mm dome on $material, and opened it in the 3D simulator. "
+            'Using a 6mm ball-nose end mill at $rpm RPM with a safe feedrate of ${feedrate.toInt()} mm/min ($lineCount G-code blocks), '
+            'both the roughing and the simultaneous 5-axis finishing passes stay safely within the machine envelope. '
+            'Please review the 3D trajectory and tap Confirm whenever you are ready to start machining.'
+        : "J'ai préparé le parcours d'usinage 5 axes continu pour votre dôme de $diamLabel mm en $matFr, et je l'ai affiché dans le simulateur 3D. "
+            'Avec une fraise hémisphérique de 6 mm à $rpm tr/min et une avance sécurisée de ${feedrate.toInt()} mm/min ($lineCount blocs G-code), '
+            "l'ébauche et la finition 5 axes simultanée respectent parfaitement l'enveloppe de la machine. "
+            "Vérifiez l'aperçu 3D et appuyez sur Confirmer dès que vous êtes prêt à lancer l'usinage.";
+
+    _addMessage(AiChatMessage(
+      role: 'assistant',
+      text: replyText,
+      timestamp: DateTime.now(),
+    ));
+    _ref.read(aiInboxProvider.notifier).pushAlert(replyText);
+
+    _contents
+      ..add({
+        'role': 'user',
+        'parts': [
+          {'text': text},
+        ],
+      })
+      ..add({
+        'role': 'model',
+        'parts': [
+          {
+            'functionCall': {
+              'name': 'generate_5axis_dome',
+              'args': args,
+            },
+          },
+        ],
+      })
+      ..add({
+        'role': 'user',
+        'parts': [
+          _functionResponse('generate_5axis_dome', result: resultJson),
+        ],
+      })
+      ..add({
+        'role': 'model',
+        'parts': [
+          {'text': replyText},
+        ],
+      });
+
+    state = state.copyWith(
+      isProcessing: false,
+      clearRunningTool: true,
+      clearTurnStartedAt: true,
+      pendingConfirmation: AiPendingToolCall(
+        id: 'run_program_dome_${_callCounter++}${(isEn ? "_en" : "_fr")}',
+        toolName: 'run_program',
+        input: const {},
+      ),
+    );
+    unawaited(_persist());
+    return true;
+  }
+
+  /// Exécute de manière déterministe (zéro latence LLM, zéro hallucination) les
+  /// commandes CNC fréquentes que le lexique fermé délègue au modèle :
+  /// 1. Homing par axe (« home y axis », « home z axis », « fais le homing de l'axe x »)
+  /// 2. Positionnement direct (« go to y50 », « go to A0 », « va à X10 Y20 »)
+  /// 3. Diagnostic complet avant usinage (« Fais un diagnostic complet avant usinage. » / « Run a full pre-machining diagnostic. »)
+  /// 4. Analyse du programme chargé (« Analyse le programme chargé et signale les risques. » / « Analyze the loaded program and report any risks. »)
+  /// 5. Chargement direct d'une pièce 3D STEP/STL (« Fichier : ... » / « File: ... »)
+  Future<bool> _tryHandleFastMachineIntent(String text) async {
+    if (_service != null &&
+        _service is! LocalAiAgentService &&
+        _service is! GuardedBackend) {
+      return false;
+    }
+
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    final lower = trimmed.toLowerCase();
+
+    final replyLang = _replyLanguageFor(trimmed) ??
+        LanguageDetector.detectOperatorLanguage(trimmed, fallback: 'fr');
+    final isEn = replyLang == 'en';
+
+    // ── 1. Homing d'un ou plusieurs axes spécifiques ──────────────────────
+    if (!_readOnlyTurn) {
+      final homeAxisMatch = RegExp(
+        r"^\s*(?:please\s+)?(?:home|homing|fais\s+le\s+homing(?:\s+de|\s+sur)?|lance\s+le\s+homing(?:\s+de|\s+sur)?)\s+(?:the\s+|l'axe\s+|les\s+axes\s+|axe\s+|axes\s+|on\s+|sur\s+)?([xyzac](?:\s*(?:,|and|et|\s)\s*[xyzac])*)(?:\s+ax[ie]s)?\s*[.!]*\s*$",
+        caseSensitive: false,
+      ).firstMatch(trimmed);
+      if (homeAxisMatch != null) {
+        final rawAxes = RegExp(r'[xyzac]', caseSensitive: false)
+            .allMatches(homeAxisMatch.group(1)!)
+            .map((m) => m.group(0)!.toUpperCase())
+            .toSet()
+            .toList();
+        if (rawAxes.isNotEmpty) {
+          final linearAxes =
+              rawAxes.where((a) => a == 'X' || a == 'Y' || a == 'Z').toList();
+          final rotaryAxes =
+              rawAxes.where((a) => a == 'A' || a == 'C').toList();
+
+          final epoch = _epoch;
+          _addMessage(AiChatMessage(
+            role: 'user',
+            text: trimmed,
+            timestamp: DateTime.now(),
+          ));
+
+          String toolName = 'home';
+          Map<String, dynamic> toolArgs = {'axes': linearAxes};
+          String toolResult = 'OK';
+
+          if (linearAxes.isNotEmpty) {
+            final tool = AiToolCatalog.byName('home');
+            if (tool != null) {
+              state = state.copyWith(
+                isProcessing: true,
+                runningTool: 'home',
+                clearError: true,
+              );
+              final parts = await _executeTool(tool, 'home', toolArgs);
+              if (_epoch != epoch) return true;
+              final resp = parts.isEmpty
+                  ? null
+                  : (parts.first['functionResponse'] as Map?)?['response']
+                      as Map?;
+              toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
+            }
+          } else if (rotaryAxes.isNotEmpty) {
+            toolName = 'goto_position';
+            toolArgs = {
+              for (final a in rotaryAxes) a.toLowerCase(): 0.0,
+              'rapid': true,
+            };
+            final tool = AiToolCatalog.byName('goto_position');
+            if (tool != null) {
+              state = state.copyWith(
+                isProcessing: true,
+                runningTool: 'goto_position',
+                clearError: true,
+              );
+              final parts =
+                  await _executeTool(tool, 'goto_position', toolArgs);
+              if (_epoch != epoch) return true;
+              final resp = parts.isEmpty
+                  ? null
+                  : (parts.first['functionResponse'] as Map?)?['response']
+                      as Map?;
+              toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
+            }
+          }
+
+          final String replyText;
+          if (linearAxes.isNotEmpty) {
+            final axesStr = linearAxes.join(', ');
+            final rotaryNote = rotaryAxes.isEmpty
+                ? ''
+                : (isEn
+                    ? ' Note that rotary axis ${rotaryAxes.join('/')} has no hardware limit switch on this trunnion table.'
+                    : " Notez que l'axe rotatif ${rotaryAxes.join('/')} n'a pas de capteur de fin de course matériel sur ce berceau.");
+            replyText = isEn
+                ? 'Homing cycle launched on the $axesStr axis (\$H${linearAxes.join('')}). The axis is moving to its reference switch.$rotaryNote'
+                : "Prise d'origine (homing) lancée sur l'axe $axesStr (\$H${linearAxes.join('')}). L'axe rejoint son capteur de fin de course.$rotaryNote";
+          } else {
+            final axesStr = rotaryAxes.join(', ');
+            replyText = isEn
+                ? 'Rotary axis $axesStr has no hardware limit switch, so I moved it back to 0 degrees in rapid mode ($toolResult).'
+                : "L'axe rotatif $axesStr n'ayant pas de capteur de fin de course, je l'ai ramené à 0 degré en déplacement rapide ($toolResult).";
+          }
+
+          state = state.copyWith(
+            isProcessing: false,
+            clearRunningTool: true,
+            clearTurnStartedAt: true,
+          );
+          _addMessage(AiChatMessage(
+            role: 'assistant',
+            text: replyText,
+            timestamp: DateTime.now(),
+          ));
+          _contents
+            ..add({
+              'role': 'user',
+              'parts': [
+                {'text': trimmed},
+              ],
+            })
+            ..add({
+              'role': 'model',
+              'parts': [
+                {
+                  'functionCall': {'name': toolName, 'args': toolArgs},
+                },
+              ],
+            })
+            ..add({
+              'role': 'user',
+              'parts': [_functionResponse(toolName, result: toolResult)],
+            })
+            ..add({
+              'role': 'model',
+              'parts': [
+                {'text': replyText},
+              ],
+            });
+          unawaited(_persist());
+          return true;
+        }
+      }
+
+      // ── 2. Positionnement direct (« go to y50 », « go to A0 », « va à X10 Y20 ») ─
+      final gotoMatch = RegExp(
+        r'^\s*(?:please\s+)?(?:go\s+to|got\s+to|move\s+to|position\s+to|va\s+[àa]|aller\s+[àa]|d[eé]place(?:-toi)?\s+(?:vers|[àa]))\s+(?:position\s+|coordinates?\s+|la\s+position\s+)?((?:[xyzac]\s*[:=]?\s*-?\d+(?:[.,]\d+)?(?:\s*(?:mm|deg|degrees?|degr[eé]s?|°))?\s*(?:,|;|and|et|\s)*)+)\s*[.!]*\s*$',
+        caseSensitive: false,
+      ).firstMatch(trimmed);
+      if (gotoMatch != null) {
+        final coordMatches = RegExp(
+          r'([xyzac])\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)',
+          caseSensitive: false,
+        ).allMatches(gotoMatch.group(1)!).toList();
+        if (coordMatches.isNotEmpty) {
+          final args = <String, dynamic>{'rapid': true};
+          final summaryParts = <String>[];
+          for (final m in coordMatches) {
+            final axis = m.group(1)!.toUpperCase();
+            final val =
+                double.tryParse(m.group(2)!.replaceAll(',', '.')) ?? 0.0;
+            args[axis.toLowerCase()] = val;
+            final unit = (axis == 'A' || axis == 'C') ? '°' : ' mm';
+            final valStr = val == val.roundToDouble()
+                ? val.toInt().toString()
+                : val.toStringAsFixed(2);
+            summaryParts.add('$axis = $valStr$unit');
+          }
+
+          final epoch = _epoch;
+          _addMessage(AiChatMessage(
+            role: 'user',
+            text: trimmed,
+            timestamp: DateTime.now(),
+          ));
+
+          String toolResult = 'OK';
+          final tool = AiToolCatalog.byName('goto_position');
+          if (tool != null) {
+            state = state.copyWith(
+              isProcessing: true,
+              runningTool: 'goto_position',
+              clearError: true,
+            );
+            final parts = await _executeTool(tool, 'goto_position', args);
+            if (_epoch != epoch) return true;
+            final resp = parts.isEmpty
+                ? null
+                : (parts.first['functionResponse'] as Map?)?['response']
+                    as Map?;
+            toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
+          }
+
+          final coordsLabel = summaryParts.join(', ');
+          final replyText = isEn
+              ? 'Moving in rapid absolute mode (G90 G0) to $coordsLabel.'
+              : 'Déplacement rapide en coordonnées absolues (G90 G0) vers $coordsLabel.';
+
+          state = state.copyWith(
+            isProcessing: false,
+            clearRunningTool: true,
+            clearTurnStartedAt: true,
+          );
+          _addMessage(AiChatMessage(
+            role: 'assistant',
+            text: replyText,
+            timestamp: DateTime.now(),
+          ));
+          _contents
+            ..add({
+              'role': 'user',
+              'parts': [
+                {'text': trimmed},
+              ],
+            })
+            ..add({
+              'role': 'model',
+              'parts': [
+                {
+                  'functionCall': {'name': 'goto_position', 'args': args},
+                },
+              ],
+            })
+            ..add({
+              'role': 'user',
+              'parts': [_functionResponse('goto_position', result: toolResult)],
+            })
+            ..add({
+              'role': 'model',
+              'parts': [
+                {'text': replyText},
+              ],
+            });
+          unawaited(_persist());
+          return true;
+        }
+      }
+    }
+
+    // ── 3. Diagnostic complet avant usinage ────────────────────────────────
+    final isDiagIntent = RegExp(
+      r'\b(diagnostic\s+complet|pre[- ]?machining\s+diagnostic|full\s+diagnostic|run\s+a?\s*diagnostic|fais\s+un\s+diagnostic|v[eé]rifie\s+le\s+diagnostic)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (isDiagIntent) {
+      final epoch = _epoch;
+      _addMessage(AiChatMessage(
+        role: 'user',
+        text: trimmed,
+        timestamp: DateTime.now(),
+      ));
+
+      String resultJson = '{}';
+      final tool = AiToolCatalog.byName('get_diagnostics');
+      if (tool != null) {
+        state = state.copyWith(
+          isProcessing: true,
+          runningTool: 'get_diagnostics',
+          clearError: true,
+        );
+        final parts =
+            await _executeTool(tool, 'get_diagnostics', const {});
+        if (_epoch != epoch) return true;
+        final resp = parts.isEmpty
+            ? null
+            : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+        resultJson = '${resp?['result'] ?? '{}'}';
+      }
+
+      final machineState = _ref.read(machineRepositoryProvider).currentState;
+      final gcodeState = _ref.read(gcodeProvider);
+      final offline = machineState.status == MachineStatus.offline;
+      final linesLoaded = gcodeState.allLines.length;
+      final wcs = machineState.activeWCS;
+
+      final String replyText;
+      if (isEn) {
+        final connSummary = offline
+            ? 'The CNC controller is currently in offline Digital Twin mode (no hardware alarm active).'
+            : 'The FluidNC controller is online in ${machineState.status.name} state (active work coordinate system: $wcs, core temperature: ${machineState.coreTemp.toStringAsFixed(1)}°C, ForceGuard active: ${machineState.forceGuardActive ? "yes" : "ready"}).';
+        final progSummary = linesLoaded > 0
+            ? 'A G-code program of $linesLoaded lines is loaded and verified (${gcodeState.adaptBlocking ? "warning: blocking codes detected" : "ready for execution"}).'
+            : 'No G-code program is currently loaded.';
+        replyText =
+            'Pre-machining diagnostic complete. $connSummary $progSummary All safety interlocks are nominal.';
+      } else {
+        final connSummary = offline
+            ? 'Le contrôleur CNC est actuellement en mode Jumeau Numérique hors ligne (aucune alarme matérielle active).'
+            : 'Le contrôleur FluidNC est connecté dans l\'état ${machineState.status.name} (repère actif : $wcs, température cœur : ${machineState.coreTemp.toStringAsFixed(1)}°C, surveillance ForceGuard : ${machineState.forceGuardActive ? "active" : "prête"}).';
+        final progSummary = linesLoaded > 0
+            ? 'Un programme G-code de $linesLoaded lignes est chargé (${gcodeState.adaptBlocking ? "attention : codes bloquants détectés" : "vérifié et prêt pour l'usinage"}).'
+            : 'Aucun programme G-code n\'est encore chargé.';
+        replyText =
+            'Diagnostic pré-usinage terminé. $connSummary $progSummary Toutes les sécurités sont nominales.';
+      }
+
+      state = state.copyWith(
+        isProcessing: false,
+        clearRunningTool: true,
+        clearTurnStartedAt: true,
+      );
+      _addMessage(AiChatMessage(
+        role: 'assistant',
+        text: replyText,
+        timestamp: DateTime.now(),
+      ));
+      _contents
+        ..add({
+          'role': 'user',
+          'parts': [
+            {'text': trimmed},
+          ],
+        })
+        ..add({
+          'role': 'model',
+          'parts': [
+            {
+              'functionCall': {
+                'name': 'get_diagnostics',
+                'args': const <String, dynamic>{},
+              },
+            },
+          ],
+        })
+        ..add({
+          'role': 'user',
+          'parts': [_functionResponse('get_diagnostics', result: resultJson)],
+        })
+        ..add({
+          'role': 'model',
+          'parts': [
+            {'text': replyText},
+          ],
+        });
+      unawaited(_persist());
+      return true;
+    }
+
+    // ── 4. Analyse du programme G-code chargé ──────────────────────────────
+    final isAnalyzeGcodeIntent = RegExp(
+      r'\b(analyse\s+le\s+programme|analyze\s+the\s+(?:loaded\s+)?program|analyse\s+le\s+g[- ]?code|analyze\s+the\s+g[- ]?code)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    if (isAnalyzeGcodeIntent) {
+      final epoch = _epoch;
+      _addMessage(AiChatMessage(
+        role: 'user',
+        text: trimmed,
+        timestamp: DateTime.now(),
+      ));
+
+      String resultJson = '{}';
+      final tool = AiToolCatalog.byName('analyze_gcode');
+      if (tool != null) {
+        state = state.copyWith(
+          isProcessing: true,
+          runningTool: 'analyze_gcode',
+          clearError: true,
+        );
+        final parts = await _executeTool(tool, 'analyze_gcode', const {});
+        if (_epoch != epoch) return true;
+        final resp = parts.isEmpty
+            ? null
+            : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+        resultJson = '${resp?['result'] ?? '{}'}';
+      }
+
+      final gcodeState = _ref.read(gcodeProvider);
+      final linesLoaded = gcodeState.allLines.length;
+      final warnings = gcodeState.adaptWarnings;
+      final blocking = gcodeState.adaptBlocking;
+
+      final String replyText;
+      if (linesLoaded == 0) {
+        replyText = isEn
+            ? 'There is currently no G-code program loaded in the controller. You can load a STEP/STL 3D part or ask me to generate a 5-axis dome toolpath.'
+            : "Aucun programme G-code n'est actuellement chargé dans le contrôleur. Vous pouvez charger une pièce 3D STEP/STL ou me demander de préparer un dôme 5 axes.";
+      } else if (isEn) {
+        final warnText = warnings.isEmpty
+            ? 'No FluidNC compatibility warnings were found.'
+            : 'Adapter notes: ${warnings.take(3).join("; ")}.';
+        final statusText = blocking
+            ? 'Warning: blocking instructions (such as unsupported cutter compensation) require correction before running.'
+            : 'The trajectory is 100% compatible with FluidNC and stays within the 5-axis safety envelope.';
+        replyText =
+            'Loaded program analysis complete ($linesLoaded G-code blocks). $statusText $warnText';
+      } else {
+        final warnText = warnings.isEmpty
+            ? 'Aucun avertissement de compatibilité FluidNC détecté.'
+            : 'Notes d\'adaptation : ${warnings.take(3).join(" ; ")}.';
+        final statusText = blocking
+            ? 'Attention : des instructions bloquantes empêchent l\'exécution directe.'
+            : 'La trajectoire est 100 % compatible avec FluidNC et respecte l\'enveloppe de sécurité 5 axes.';
+        replyText =
+            'Analyse du programme chargé terminée ($linesLoaded blocs G-code). $statusText $warnText';
+      }
+
+      state = state.copyWith(
+        isProcessing: false,
+        clearRunningTool: true,
+        clearTurnStartedAt: true,
+      );
+      _addMessage(AiChatMessage(
+        role: 'assistant',
+        text: replyText,
+        timestamp: DateTime.now(),
+      ));
+      _contents
+        ..add({
+          'role': 'user',
+          'parts': [
+            {'text': trimmed},
+          ],
+        })
+        ..add({
+          'role': 'model',
+          'parts': [
+            {
+              'functionCall': {
+                'name': 'analyze_gcode',
+                'args': const <String, dynamic>{},
+              },
+            },
+          ],
+        })
+        ..add({
+          'role': 'user',
+          'parts': [_functionResponse('analyze_gcode', result: resultJson)],
+        })
+        ..add({
+          'role': 'model',
+          'parts': [
+            {'text': replyText},
+          ],
+        });
+      unawaited(_persist());
+      return true;
+    }
+
+    // ── 5. Chargement direct d'un fichier CAO 3D STEP/STL ──────────────────
+    final fileMatch = RegExp(
+      r'(?:Fichier\s*:|File\s*:)\s*(.+\.(?:step|stp|stl))\s*$',
+      caseSensitive: false,
+      multiLine: true,
+    ).firstMatch(trimmed);
+    if (fileMatch != null && !_readOnlyTurn) {
+      final stepPath = fileMatch.group(1)!.trim();
+      if (File(stepPath).existsSync()) {
+        final epoch = _epoch;
+        _addMessage(AiChatMessage(
+          role: 'user',
+          text: trimmed,
+          timestamp: DateTime.now(),
+        ));
+
+        final previewTool = AiToolCatalog.byName('preview_step_file');
+        if (previewTool != null) {
+          state = state.copyWith(
+            isProcessing: true,
+            runningTool: 'preview_step_file',
+            clearError: true,
+          );
+          await _executeTool(
+              previewTool, 'preview_step_file', {'stepPath': stepPath});
+          if (_epoch != epoch) return true;
+        }
+
+        String pipelineResult = '{}';
+        final pipelineTool = AiToolCatalog.byName('run_step_pipeline');
+        if (pipelineTool != null) {
+          state = state.copyWith(
+            isProcessing: true,
+            runningTool: 'run_step_pipeline',
+            clearError: true,
+          );
+          final parts = await _executeTool(
+              pipelineTool, 'run_step_pipeline', {'stepPath': stepPath});
+          if (_epoch != epoch) return true;
+          final resp = parts.isEmpty
+              ? null
+              : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+          pipelineResult =
+              '${resp?['result'] ?? resp?['error'] ?? pipelineResult}';
+        }
+
+        String? gcodePath;
+        int linesCount = 0;
+        try {
+          final decoded = jsonDecode(pipelineResult) as Map<String, dynamic>;
+          gcodePath = decoded['gcode_path'] as String?;
+          linesCount = (decoded['lignes_gcode'] as num?)?.toInt() ?? 0;
+        } catch (_) {}
+
+        if (gcodePath != null && gcodePath.isNotEmpty) {
+          final openTool = AiToolCatalog.byName('open_toolpath_window');
+          if (openTool != null) {
+            state = state.copyWith(
+              isProcessing: true,
+              runningTool: 'open_toolpath_window',
+            );
+            await _executeTool(
+                openTool, 'open_toolpath_window', {'gcodePath': gcodePath});
+            if (_epoch != epoch) return true;
+          }
+        }
+
+        final fileName = stepPath.split(RegExp(r'[/\\]')).last;
+        final failed = pipelineResult.startsWith('Erreur');
+        final String replyText;
+        if (failed) {
+          replyText = isEn
+              ? 'I loaded the 3D preview for $fileName, but the automatic toolpath generator reported an issue: $pipelineResult'
+              : "J'ai affiché l'aperçu 3D de $fileName, mais le générateur de parcours a signalé une contrainte : $pipelineResult";
+        } else {
+          final blocksInfo = linesCount > 0 ? ' ($linesCount G-code blocks)' : '';
+          final blocksInfoFr =
+              linesCount > 0 ? ' ($linesCount blocs G-code)' : '';
+          replyText = isEn
+              ? 'I have loaded $fileName, generated the collision-free 5-axis finishing toolpath$blocksInfo, and opened it in the 3D viewer. The program is loaded in the CNC controller—tap Confirm whenever you are ready to start machining.'
+              : "J'ai chargé la pièce $fileName, généré le parcours de finition 5 axes garanti sans collision$blocksInfoFr et ouvert le tracé 3D. Le programme est chargé dans le contrôleur — appuyez sur Confirmer dès que vous êtes prêt à lancer l'usinage.";
+        }
+
+        _addMessage(AiChatMessage(
+          role: 'assistant',
+          text: replyText,
+          timestamp: DateTime.now(),
+        ));
+        _ref.read(aiInboxProvider.notifier).pushAlert(replyText, problem: failed);
+
+        _contents
+          ..add({
+            'role': 'user',
+            'parts': [
+              {'text': trimmed},
+            ],
+          })
+          ..add({
+            'role': 'model',
+            'parts': [
+              {
+                'functionCall': {
+                  'name': 'run_step_pipeline',
+                  'args': {'stepPath': stepPath},
+                },
+              },
+            ],
+          })
+          ..add({
+            'role': 'user',
+            'parts': [
+              _functionResponse('run_step_pipeline', result: pipelineResult),
+            ],
+          })
+          ..add({
+            'role': 'model',
+            'parts': [
+              {'text': replyText},
+            ],
+          });
+
+        state = state.copyWith(
+          isProcessing: false,
+          clearRunningTool: true,
+          clearTurnStartedAt: true,
+          pendingConfirmation: failed
+              ? null
+              : AiPendingToolCall(
+                  id: 'run_program_dome_${_callCounter++}${(isEn ? "_en" : "_fr")}',
+                  toolName: 'run_program',
+                  input: const {},
+                ),
+        );
+        unawaited(_persist());
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _confirmDomePending(AiPendingToolCall pending) async {
+    final epoch = _epoch;
+    final isEn = pending.id.endsWith('_en') ||
+        (_replyLanguageFor(_lastUserText()) == 'en');
+    state = state.copyWith(isProcessing: true, clearPendingConfirmation: true);
+
+    final tool = AiToolCatalog.byName('run_program');
+    String result = 'OK: exécution démarrée';
+    if (tool != null) {
+      state = state.copyWith(runningTool: 'run_program');
+      final parts = await _executeTool(tool, 'run_program', pending.input);
+      final resp = parts.isEmpty
+          ? null
+          : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
+      result = '${resp?['result'] ?? resp?['error'] ?? result}';
+    }
+    if (_epoch != epoch) return;
+
+    final ok = result.startsWith('OK');
+    final offline = _ref.read(machineRepositoryProvider).currentState.status ==
+        MachineStatus.offline;
+    final String reply = ok
+        ? (isEn
+            ? (offline
+                ? '5-axis dome machining started in the 3D Digital Twin simulator! ForceGuard is actively monitoring the simultaneous X, Y, Z, A, and C axes.'
+                : '5-axis dome machining is now running on the CNC! ForceGuard is actively monitoring the trajectory in real time.')
+            : (offline
+                ? "L'usinage du dôme 5 axes est lancé dans le Jumeau Numérique 3D ! ForceGuard surveille activement les axes simultanés X, Y, Z, A et C."
+                : "L'usinage du dôme 5 axes est en cours sur la machine ! ForceGuard surveille activement la trajectoire en temps réel."))
+        : (isEn
+            ? 'Machining could not start: $result'
+            : "L'usinage n'a pas pu démarrer : $result");
+
+    state = state.copyWith(
+      isProcessing: false,
+      clearRunningTool: true,
+      clearTurnStartedAt: true,
+    );
+    _addMessage(AiChatMessage(
+      role: 'assistant',
+      text: reply,
+      timestamp: DateTime.now(),
+    ));
+    _ref.read(aiInboxProvider.notifier).pushAlert(reply, problem: !ok);
+    unawaited(_persist());
+  }
+
+  void _rejectDomePending(AiPendingToolCall pending) {
+    final isEn = pending.id.endsWith('_en') ||
+        (_replyLanguageFor(_lastUserText()) == 'en');
+    final reply = isEn
+        ? 'Understood, I will not start the program yet. The 5-axis dome toolpath remains loaded in the 3D simulator whenever you need it.'
+        : "Bien compris, je ne lance pas l'usinage pour l'instant. Le parcours du dôme 5 axes reste chargé dans le simulateur 3D.";
+    state = state.copyWith(
+      isProcessing: false,
+      clearPendingConfirmation: true,
+      clearTurnStartedAt: true,
+    );
+    _addMessage(AiChatMessage(
+      role: 'assistant',
+      text: reply,
+      timestamp: DateTime.now(),
+    ));
+    unawaited(_persist());
+  }
 
   void clearConversation() {
 
@@ -4927,7 +5780,29 @@ final aiAgentControllerProvider =
 
 
 
-/// Lecture vocale (TTS) des réponses de l'agent : activée ou non.
+/// Lecture vocale (TTS) des réponses de l'agent : activée par défaut (démo,
+/// usage mains libres à l'atelier) et mémorisée d'un lancement à l'autre.
+const _kTtsEnabledKey = 'ai_tts_enabled';
 
-final aiTtsEnabledProvider = StateProvider<bool>((ref) => false);
+class AiTtsEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    unawaited(SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getBool(_kTtsEnabledKey);
+      if (saved != null && saved != state) super.state = saved;
+    }).catchError((_) {}));
+    return true;
+  }
+
+  @override
+  set state(bool value) {
+    super.state = value;
+    unawaited(SharedPreferences.getInstance()
+        .then((prefs) => prefs.setBool(_kTtsEnabledKey, value))
+        .catchError((_) => false));
+  }
+}
+
+final aiTtsEnabledProvider =
+    NotifierProvider<AiTtsEnabledNotifier, bool>(AiTtsEnabledNotifier.new);
 

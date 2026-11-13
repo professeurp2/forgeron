@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/utils/chat_markdown.dart';
 import '../../core/utils/file_picker_service.dart';
@@ -14,6 +13,7 @@ import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/services/forgeron_tts_speaker.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/i18n/waxal_voice_engine.dart';
 import '../../core/utils/speech_error_message.dart';
@@ -59,14 +59,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   // Audio : dictée (STT) + lecture des réponses (TTS).
   final SpeechToText _speech = SpeechToText();
-  final FlutterTts _tts = FlutterTts();
   bool _listening = false;
+  bool _forceOnDeviceStt = false;
 
   /// Locale de dictée retenue pour la langue courante (null = celle du
   /// moteur). Résolue à la première écoute, invalidée à chaque
   /// changement de langue.
   String? _sttLocaleId;
-  List<String> _availableTtsVoices = const [];
 
   /// Entrée clavier physique : Entrée envoie, Maj+Entrée passe à la ligne.
   /// Réservé au desktop — sur mobile la touche « retour » du clavier logiciel
@@ -96,7 +95,6 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       _snapToEnd();
     });
     _applyVoiceLanguage();
-    _tts.setSpeechRate(0.5);
   }
 
   void _onMobileInputChanged() {
@@ -108,7 +106,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _inputCtrl.removeListener(_onMobileInputChanged);
     ref.read(aiInboxProvider.notifier).setScreenOpen(false);
     _speech.stop();
-    _tts.stop();
+    ForgeronTtsSpeaker.instance.stop();
     _scrollCtrl.removeListener(_onScroll);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
@@ -127,6 +125,28 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     if (atEnd != _atBottom && mounted) setState(() => _atBottom = atEnd);
   }
 
+  Future<void> _startListeningSession({required bool onDevice}) async {
+    final lang = ref.read(effectiveAiLanguageProvider);
+    await _speech.listen(
+      onResult: (r) {
+        if (!mounted) return;
+        final normalized = WaxalVoiceEngine.normalizeSttInput(
+          r.recognizedWords,
+          activeLanguageId: lang.id,
+        );
+        setState(() => _inputCtrl.text = normalized);
+        ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
+      },
+      listenOptions: SpeechListenOptions(
+        localeId: _sttLocaleId,
+        listenMode: ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+        onDevice: onDevice,
+      ),
+    );
+  }
+
   /// Dictée vocale : bascule l'écoute du micro et remplit le champ de saisie.
   Future<void> _toggleListen() async {
     if (_listening) {
@@ -143,6 +163,16 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           },
           onError: (e) {
             if (!mounted) return;
+            final code = e.errorMsg.trim();
+            final isNetErr = code == 'error_network' ||
+                code == 'error_network_timeout' ||
+                code == 'error_server' ||
+                code == 'error_server_disconnected';
+            if (isNetErr && !_forceOnDeviceStt) {
+              _forceOnDeviceStt = true;
+              _startListeningSession(onDevice: true);
+              return;
+            }
             setState(() => _listening = false);
             _showSpeechError(speechErrorMessage(e.errorMsg));
           },
@@ -157,29 +187,19 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       // La liste des langues reconnues dépend de l'appareil : on prend la plus
       // proche de la langue de l'agent, et on laisse le moteur choisir la
       // sienne si elle est absente plutôt que d'échouer.
-      _sttLocaleId ??= bestVoiceLocale(
-        _wantedVoiceTag,
-        (await _speech.locales()).map((l) => l.localeId),
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      final lang = ref.read(effectiveAiLanguageProvider);
-      await _speech.listen(
-        onResult: (r) {
-          if (!mounted) return;
-          final normalized = WaxalVoiceEngine.normalizeSttInput(
-            r.recognizedWords,
-            activeLanguageId: lang.id,
-          );
-          setState(() => _inputCtrl.text = normalized);
-          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
-        },
-        listenOptions: SpeechListenOptions(
-          localeId: _sttLocaleId,
-          listenMode: ListenMode.dictation,
-          cancelOnError: false,
-          partialResults: true,
-        ),
-      );
+      final wanted = _wantedVoiceTag;
+      if (wanted == 'auto') {
+        _sttLocaleId = 'auto';
+      } else {
+        _sttLocaleId = bestVoiceLocale(
+          wanted,
+          (await _speech.locales()).map((l) => l.localeId),
+          fallbacks: wanted.startsWith('en')
+              ? const ['en-US', 'en-GB', 'fr-FR']
+              : const ['fr-FR', 'en-US'],
+        );
+      }
+      await _startListeningSession(onDevice: _forceOnDeviceStt);
     } on PlatformException catch (e) {
       if (mounted) setState(() => _listening = false);
       _showSpeechError(speechErrorMessage(e.code));
@@ -198,54 +218,26 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   String get _wantedVoiceTag {
     final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return 'auto';
+    }
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
 
-  /// Aligne la synthèse vocale sur la langue de l'agent. Si l'appareil ne
-  /// connaît aucune voix pour cette langue, on garde celle en place : mieux
-  /// vaut une lecture au mauvais accent qu'un bouton muet, et le chat écrit
-  /// reste de toute façon dans la bonne langue.
+  /// Aligne la synthèse vocale sur la langue de l'agent.
   Future<void> _applyVoiceLanguage() async {
     _sttLocaleId = null; // re-résolu à la prochaine dictée
-    try {
-      final raw = await _tts.getLanguages;
-      _availableTtsVoices =
-          (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(
-        _wantedVoiceTag,
-        _availableTtsVoices,
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      if (match != null) await _tts.setLanguage(match);
-    } catch (_) {
-      // getLanguages n'est pas implémenté sur toutes les plateformes.
-    }
+    await ForgeronTtsSpeaker.instance.ensureInitialized();
   }
 
-  /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
-  Future<void> _speak(String text) async {
+  /// Lecture vocale d'une réponse (nettoie le markdown et humanise la prosodie).
+  Future<void> _speak(String text, {bool isAutoTrigger = false}) async {
     final lang = ref.read(effectiveAiLanguageProvider);
-    if (_availableTtsVoices.isEmpty) {
-      try {
-        final raw = await _tts.getLanguages;
-        _availableTtsVoices =
-            (raw as List).map((e) => e.toString()).toList(growable: false);
-      } catch (_) {}
-    }
-    final prep = WaxalVoiceEngine.prepareForTts(
+    await ForgeronTtsSpeaker.instance.speak(
       text,
       preferredLanguageId: lang.id,
-      availableVoices: _availableTtsVoices,
+      isAutoTrigger: isAutoTrigger,
     );
-    if (prep.spokenText.isEmpty) return;
-    await _tts.stop();
-    try {
-      if (prep.selectedVoiceLocale != null) {
-        await _tts.setLanguage(prep.selectedVoiceLocale!);
-      }
-      await _tts.setSpeechRate(prep.speechRate);
-    } catch (_) {}
-    await _tts.speak(prep.spokenText);
   }
 
   void _send() {
@@ -271,7 +263,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   void _stop() {
     ref.read(aiAgentControllerProvider.notifier).stopGeneration();
-    _tts.stop();
+    ForgeronTtsSpeaker.instance.stop();
   }
 
   final ImagePicker _picker = ImagePicker();
@@ -543,8 +535,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return 'Aujourd\'hui';
-    if (diff == 1) return 'Hier';
+    if (diff == 0) return tr("Aujourd'hui");
+    if (diff == 1) return tr('Hier');
     const months = [
       'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
       'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
@@ -644,14 +636,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (grew && next.messages.isNotEmpty) {
         final last = next.messages.last;
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
-          _speak(last.text);
+          _speak(last.text, isAutoTrigger: true);
         }
       }
     });
 
     // Coupure du TTS → on stoppe toute lecture en cours.
     ref.listen(aiTtsEnabledProvider, (prev, next) {
-      if (next == false) _tts.stop();
+      if (next == false) ForgeronTtsSpeaker.instance.stop();
     });
 
     // Changement de langue de l'agent : la voix et le micro doivent suivre,

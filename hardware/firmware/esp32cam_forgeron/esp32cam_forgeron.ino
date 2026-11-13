@@ -37,18 +37,17 @@
 #include <esp_timer.h>
 
 // ── Réseau ──────────────────────────────────────────────────────────────────
-// Doivent correspondre EXACTEMENT au point d'accès de l'ESP32 FluidNC
-// (côté FluidNC : $AP/SSID et $AP/Password, stockés en NVS — pas dans
-// config.yaml). Vérifiables par « $S » dans la console FluidNC.
-static const char *AP_SSID = "FORGERON";
-static const char *AP_PASSWORD = "00000001";
+// Doivent correspondre EXACTEMENT au point d'accès hotspot du PC hôte
+// (Windows Mobile Hotspot 2,4 GHz) :
+// SSID : Professeur20  |  Mot de passe : 00000000
+static const char *AP_SSID = "Professeur20";
+static const char *AP_PASSWORD = "00000000";
 
-// IP statique. FluidNC se donne 192.168.0.1 et distribue en 192.168.0.x ; on
-// se fixe en .50 pour ne pas dépendre d'un bail DHCP qui changerait au
-// redémarrage — l'application a cette adresse en dur dans ses réglages
-// (`kDefaultCameraIp`).
-static IPAddress CAM_IP(192, 168, 0, 50);
-static IPAddress CAM_GATEWAY(192, 168, 0, 1); // l'ESP32 FluidNC
+// IP statique. Le hotspot Windows distribue en 192.168.137.x avec passerelle 192.168.137.1 ;
+// on se fixe en .50 pour ne pas dépendre d'un bail DHCP qui changerait au
+// redémarrage — l'application a cette adresse en dur dans ses réglages (`kDefaultCameraIp`).
+static IPAddress CAM_IP(192, 168, 137, 50);
+static IPAddress CAM_GATEWAY(192, 168, 137, 1); // PC Windows (hotspot)
 static IPAddress CAM_SUBNET(255, 255, 255, 0);
 
 // ── Brochage AI-Thinker ─────────────────────────────────────────────────────
@@ -419,7 +418,7 @@ void setup() {
   // au moindre démarrage plus lent, alors qu'elle était sur le point d'y
   // arriver.
   if (!wifi_connect(30000)) {
-    Serial.println("[boot] AP FORGERON introuvable — redemarrage");
+    Serial.println("[boot] Hotspot Professeur20 introuvable — redemarrage");
     delay(3000);
     ESP.restart();
   }

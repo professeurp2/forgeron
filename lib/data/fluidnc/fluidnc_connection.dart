@@ -51,11 +51,11 @@ class FluidNCConnection {
       // Tentative SANS sous-protocole (plus compatible)
       _channel = WebSocketChannel.connect(uri);
 
-      // Timeout de 5 secondes pour le handshake
+      // Timeout de 10 secondes pour le handshake (tolère les pics de latence hotspot)
       await _channel!.ready.timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('WebSocket handshake timeout after 5s');
+          throw TimeoutException('WebSocket handshake timeout after 10s');
         },
       );
 

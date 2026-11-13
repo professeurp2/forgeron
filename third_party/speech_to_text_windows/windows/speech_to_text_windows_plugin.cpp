@@ -206,6 +206,14 @@ void SpeechToTextWindowsPlugin::HandleHelperLine(const std::string &line) {
     PostToPlatform("notifyStatus", "done");
   } else if (starts("SOUND")) {
     PostToPlatform("notifyStatus", "soundDetected");
+  } else if (starts("SET ")) {
+    const std::string text = line.substr(4);
+    if (text.empty()) return;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      transcript_ = text;
+    }
+    PostToPlatform("textRecognition", ResultJson(text, false));
   } else if (starts("RECO ") || starts("HYPO ")) {
     const bool final_phrase = starts("RECO ");
     const std::string text = line.substr(5);
@@ -231,7 +239,10 @@ void SpeechToTextWindowsPlugin::SendCommand(const char *command) {
   if (!to_helper_) return;
   std::string line = std::string(command) + "\n";
   DWORD written = 0;
-  WriteFile(to_helper_, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+  if (!WriteFile(to_helper_, line.data(), static_cast<DWORD>(line.size()), &written, nullptr)) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ready_ok_ = false;
+  }
 }
 
 void SpeechToTextWindowsPlugin::PostToPlatform(std::string method, std::string argument) {
@@ -267,7 +278,12 @@ void SpeechToTextWindowsPlugin::HandleMethodCall(
     result->Success(flutter::EncodableValue(true));
   } else if (name == "initialize") {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (!process_) {
+    if (!process_ || !ready_ok_) {
+      if (process_) {
+        CloseHandle(process_);
+        process_ = nullptr;
+      }
+      ready_done_ = false;
       lock.unlock();
       const bool started = StartHelper();
       lock.lock();
@@ -288,7 +304,16 @@ void SpeechToTextWindowsPlugin::HandleMethodCall(
       result->Error("NOT_INITIALIZED", "Speech recognition not initialized");
       return;
     }
-    SendCommand("START");
+    std::string req_locale = "auto";
+    if (const auto *args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+      auto it = args->find(flutter::EncodableValue("localeId"));
+      if (it != args->end()) {
+        if (const auto *s = std::get_if<std::string>(&it->second)) {
+          if (!s->empty()) req_locale = *s;
+        }
+      }
+    }
+    SendCommand(("START " + req_locale).c_str());
     result->Success(flutter::EncodableValue(true));
   } else if (name == "stop" || name == "cancel") {
     SendCommand("STOP");
@@ -297,6 +322,13 @@ void SpeechToTextWindowsPlugin::HandleMethodCall(
     std::lock_guard<std::mutex> lock(mutex_);
     flutter::EncodableList locales;
     locales.push_back(flutter::EncodableValue(locale_ + ":" + locale_name_));
+    if (locale_.rfind("en", 0) != 0) {
+      locales.push_back(flutter::EncodableValue("en-US:English (United States)"));
+      locales.push_back(flutter::EncodableValue("en-GB:English (United Kingdom)"));
+    }
+    if (locale_.rfind("fr", 0) != 0) {
+      locales.push_back(flutter::EncodableValue("fr-FR:Français (France)"));
+    }
     result->Success(flutter::EncodableValue(locales));
   } else {
     result->NotImplemented();

@@ -12,7 +12,7 @@ import 'machining_mode_provider.dart' show trunnionConfigProvider;
 const kDefaultWsPort = 80;
 
 /// Adresse IP de l'ESP32 FluidNC
-final espIpProvider = StateProvider<String>((ref) => '192.168.1.100');
+final espIpProvider = StateProvider<String>((ref) => '192.168.137.100');
 final wsPortProvider = StateProvider<int>((ref) => kDefaultWsPort);
 final httpPortProvider = StateProvider<int>((ref) => 80);
 
@@ -51,12 +51,12 @@ Future<void> saveEspIp(WidgetRef ref, String ip) async {
 
 Future<String> loadSavedIp() async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getString('esp_ip') ?? '192.168.1.100';
+  return prefs.getString('esp_ip') ?? '192.168.137.100';
 }
 
 Future<void> loadNetworkPreferences(WidgetRef ref) async {
   final prefs = await SharedPreferences.getInstance();
-  final ip = prefs.getString('esp_ip') ?? '192.168.1.100';
+  final ip = prefs.getString('esp_ip') ?? '192.168.137.100';
   final wsPort = prefs.getInt('ws_port') ?? kDefaultWsPort;
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;

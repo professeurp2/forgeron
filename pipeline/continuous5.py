@@ -203,21 +203,16 @@ def _rough(xs, ys, Z_tip, min_tip, p: Params, z_safe: float, table_z: float) -> 
                 stay = False
                 if last_ij is not None and abs(z_now - z) < 1e-9:
                     lo, hi = sorted((last_ij[0], start))
-                    # Rester en matière si tout le trajet est déjà à ce niveau.
-                    stay = (last_ij[1] == j or last_ij[1] + row_step == j) and bool(
-                        np.all(target[j, lo:hi + 1] <= z + 1e-9)
-                        and np.all(target[last_ij[1], lo:hi + 1] <= z + 1e-9)
+                    jl, jh = sorted((last_ij[1], j))
+                    # Rester en matière si tout le rectangle parcouru est déjà à ce niveau.
+                    stay = (jh - jl <= row_step) and bool(
+                        np.all(target[jl:jh + 1, lo:hi + 1] <= z + 1e-9)
                     )
                 if stay:
                     lines.append(f"G1 X{f3(x0)} Y{f3(y)} F{f3(p.feed_rough)}")
                     minutes += math.hypot(x0 - x_now, y - y_now) / p.feed_rough
                 else:
-                    jl, jh = sorted((last_ij[1] if last_ij else j, j))
-                    il, ih = sorted((last_ij[0] if last_ij else start, start))
-                    box = target[jl:jh + 1, il:ih + 1]
-                    highest = float(box.max()) if box.size else z
-                    hop = max(z + p.ap + 1.0, highest + 1.0)
-                    hop = min(hop, 1.0)
+                    hop = 1.0
                     if z_now < hop:
                         lines.append(f"G0 Z{f3(hop)}")
                         minutes += (hop - z_now) / MAX_RATE["Z"]
@@ -443,16 +438,22 @@ def _finish(xs, ys, Z, normals, triangles, p: Params, tr: Trunnion, z_safe: floa
         a_seen = [min(a_seen[0], float(a.min())), max(a_seen[1], float(a.max()))]
         c_seen = [min(c_seen[0], float(c.min())), max(c_seen[1], float(c.max()))]
 
+        top_lift = max(2.0, -float(centres[0, 2]) + p.clearance)
+        m_above = tip(centres[0] + np.array([0.0, 0.0, top_lift]), a[0], c[0])
         m = tip(centres[0], a[0], c[0])
         lines.append(f"G0 Z{f3(z_safe)}")
         if p.five_axis:
             lines.append(f"G0 A{f3(a[0])} C{f3(c[0])}")
-        lines.append(f"G0 X{f3(m[0])} Y{f3(m[1])}")
-        lines.append(f"G1 Z{f3(m[2])} F{f3(p.feed_plunge)}")
-        minutes += (z_safe - m[2]) / p.feed_plunge
+        lines.append(f"G0 X{f3(m_above[0])} Y{f3(m_above[1])}")
+        lines.append(f"G0 Z{f3(m_above[2])}")
+        lines.append(f"G1 X{f3(m[0])} Y{f3(m[1])} Z{f3(m[2])} F{f3(p.feed_plunge)}")
+        minutes += top_lift / p.feed_plunge
         for k in range(1, len(run)):
             emit(centres[k - 1], float(a[k - 1]), float(c[k - 1]),
                  centres[k], float(a[k]), float(c[k]))
+        end_lift = max(2.0, -float(centres[-1, 2]) + p.clearance)
+        m_exit = tip(centres[-1] + np.array([0.0, 0.0, end_lift]), a[-1], c[-1])
+        lines.append(f"G0 X{f3(m_exit[0])} Y{f3(m_exit[1])} Z{f3(m_exit[2])}")
         n_points += len(run)
         n_passes += 1
     lines.append(f"G0 Z{f3(z_safe)}")

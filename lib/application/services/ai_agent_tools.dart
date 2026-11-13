@@ -1,6 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Directory, File, Platform;
+import 'dart:math' as math;
+import 'package:vector_math/vector_math_64.dart';
+import '../../core/utils/kinematics_service.dart';
+import '../../domain/models/machining_mode.dart';
+import '../providers/machining_mode_provider.dart';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -724,7 +729,17 @@ class AiToolCatalog {
       category: AiActionCategory.streaming,
       execute: (input, ref) async {
         final r = await ref.read(streamingProvider.notifier).startStream();
-        if (r.isValid) return 'OK: exécution démarrée';
+        if (r.isValid) {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+          if (!Platform.environment.containsKey('FLUTTER_TEST') &&
+              ref.read(machineRepositoryProvider).currentState.status ==
+                  MachineStatus.offline) {
+            ref.read(simulationProvider.notifier).play(speedMultiplier: 8.0);
+          }
+          return 'OK: exécution démarrée';
+        }
         final line = r.errorLine != null ? ' (ligne ${r.errorLine})' : '';
         return 'REFUSÉ: ${r.errorMessage}$line';
       },
@@ -1416,7 +1431,7 @@ class AiToolCatalog {
           },
           'cameraUrl': {
             'type': 'string',
-            'description': 'URL HTTP de la caméra ESP32-CAM (ex. http://192.168.0.50/capture). Si omise, utilise le flux de capture réseau ou la simulation.'
+            'description': 'URL HTTP de la caméra ESP32-CAM (ex. http://192.168.137.50/capture). Si omise, utilise le flux de capture réseau ou la simulation.'
           },
           'synthetic': {
             'type': 'boolean',
@@ -1783,6 +1798,221 @@ class AiToolCatalog {
     ),
 
     AiTool(
+      name: 'generate_5axis_dome',
+      description:
+          'Génère automatiquement un programme G-code 5 axes continus (RTCP X/Y/Z/A/C) '
+          'pour usiner un dôme hémisphérique sur la matière demandée (ex: aluminium, '
+          'laiton, bois, plastique, acier) avec le diamètre souhaité (ex: 20 mm), '
+          'charge ce programme dans le contrôleur, bascule en mode 5 axes et ouvre '
+          'le Simulateur 3D. À utiliser dès que l\'opérateur demande d\'usiner ou '
+          'de fraiser un dôme (ex: "Mill a 20mm dome on aluminium", "Usine un dôme '
+          'de 20 mm en aluminium").',
+      category: null,
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'diameter_mm': {
+            'type': 'number',
+            'description': 'Diamètre du dôme en mm (défaut: 20).',
+          },
+          'material': {
+            'type': 'string',
+            'description':
+                'Matière à usiner : "aluminium", "brass", "wood", "plastic", "steel" (défaut: "aluminium").',
+          },
+          'tool_diameter_mm': {
+            'type': 'number',
+            'description':
+                'Diamètre de la fraise hémisphérique en mm (défaut: 6).',
+          },
+        },
+      },
+      execute: (args, ref) async {
+        final rawDiam = (args['diameter_mm'] as num?)?.toDouble() ?? 20.0;
+        final diameter = rawDiam.clamp(6.0, 50.0);
+        final radius = diameter / 2.0;
+        final rawTool = (args['tool_diameter_mm'] as num?)?.toDouble() ?? 6.0;
+        final toolDiam = rawTool.clamp(2.0, 12.0);
+        final toolRad = toolDiam / 2.0;
+        final rawMat =
+            ((args['material'] as String?) ?? 'aluminium').trim().toLowerCase();
+
+        final bool isSteel = rawMat.contains('steel') || rawMat.contains('acier');
+        final bool isBrass = rawMat.contains('brass') || rawMat.contains('laiton');
+        final bool isWoodOrPlastic = rawMat.contains('wood') ||
+            rawMat.contains('bois') ||
+            rawMat.contains('plastic') ||
+            rawMat.contains('plastique') ||
+            rawMat.contains('peek') ||
+            rawMat.contains('pmma');
+
+        final double cutFeed = isSteel
+            ? 250.0
+            : (isBrass ? 420.0 : (isWoodOrPlastic ? 500.0 : 400.0));
+        final double plungeFeed = (cutFeed * 0.35).clamp(80.0, 180.0);
+        final int spindleRpm = isSteel ? 10000 : 12000;
+        final String matLabel = isSteel
+            ? 'steel'
+            : (isBrass ? 'brass' : (isWoodOrPlastic ? 'wood' : 'aluminium'));
+
+        const double pivotDepth = 20.0;
+        final kin = KinematicsService(
+          pivotToTableOffset: pivotDepth,
+          pivot: Vector3(0, 0, -pivotDepth),
+        );
+
+        final buf = StringBuffer()
+          ..writeln(
+            '(FORGERON - DOME 5 AXES CONTINU - DIAM ${diameter.toStringAsFixed(1)} MM - ${matLabel.toUpperCase()})',
+          )
+          ..writeln(
+            '(OUTIL : FRAISE BOULE DIAM ${toolDiam.toStringAsFixed(3)} MM)',
+          )
+          ..writeln(
+            '(COORDONNEES MACHINE COMPENSEES : FLUIDNC CARTESIEN, CINEMATIQUE TRUNNION A/C)',
+          )
+          ..writeln(
+            '(PIVOT A ${pivotDepth.toStringAsFixed(3)} MM SOUS LE ZERO PIECE, SUR L AXE C)',
+          )
+          ..writeln('G21 G90 G94 G17 G40')
+          ..writeln('G54')
+          ..writeln('M3 S$spindleRpm')
+          ..writeln('G0 Z5.000')
+          ..writeln('G0 A0.000 C0.000')
+          ..writeln('(=== ETAPE 1 : EBAUCHE 3 AXES ===)');
+
+        for (final levelRatio in const [0.45, 0.90]) {
+          final zCut = -radius * levelRatio;
+          final rCut = radius * 0.95;
+          buf.writeln('G0 X${(-rCut).toStringAsFixed(3)} Y0.000');
+          buf.writeln(
+            'G1 Z${zCut.toStringAsFixed(3)} F${plungeFeed.toStringAsFixed(0)}',
+          );
+          const int ringSteps = 16;
+          for (int s = 1; s <= ringSteps; s++) {
+            final ang = (2 * math.pi * s) / ringSteps;
+            final px = -rCut * math.cos(ang);
+            final py = rCut * math.sin(ang);
+            buf.writeln(
+              'G1 X${px.toStringAsFixed(3)} Y${py.toStringAsFixed(3)} F${cutFeed.toStringAsFixed(0)}',
+            );
+          }
+          buf.writeln('G0 Z5.000');
+        }
+
+        buf.writeln('(=== ETAPE 2 : FINITION 5 AXES CONTINU ===)');
+        const int petals = 6;
+        final int arcSteps = 10;
+        for (int p = 0; p < petals; p++) {
+          final double baseC = -140.0 + (280.0 * p) / (petals - 1);
+          final double azRad = baseC * math.pi / 180.0;
+          final double startPsi = -math.pi * 0.42;
+          final double startA = -16.0;
+          final double startC = baseC - 4.0;
+          final double rEff = radius + toolRad;
+          final Vector3 wStart = Vector3(
+            rEff * math.sin(startPsi) * math.cos(azRad),
+            rEff * math.sin(startPsi) * math.sin(azRad),
+            -radius + rEff * math.cos(startPsi) - toolRad,
+          );
+          final Vector3 mStart = kin.inverseRTCP(wStart, startA, startC);
+          buf.writeln('G0 Z5.000');
+          buf.writeln(
+            'G0 A${startA.toStringAsFixed(3)} C${startC.toStringAsFixed(3)}',
+          );
+          buf.writeln(
+            'G0 X${mStart.x.toStringAsFixed(3)} Y${mStart.y.toStringAsFixed(3)}',
+          );
+          buf.writeln(
+            'G1 Z${mStart.z.toStringAsFixed(3)} F${plungeFeed.toStringAsFixed(0)}',
+          );
+
+          for (int k = 1; k <= arcSteps; k++) {
+            final double u = k / arcSteps;
+            final double psi = -math.pi * 0.42 + (math.pi * 0.84) * u;
+            final double tiltA = -16.0 + 32.0 * u;
+            final double rotC = baseC - 4.0 + 8.0 * u;
+            final double phi = azRad + (rotC - baseC) * math.pi / 180.0;
+            final Vector3 wPt = Vector3(
+              rEff * math.sin(psi) * math.cos(phi),
+              rEff * math.sin(psi) * math.sin(phi),
+              -radius + rEff * math.cos(psi) - toolRad,
+            );
+            final Vector3 mPt = kin.inverseRTCP(wPt, tiltA, rotC);
+            buf.writeln(
+              'G1 X${mPt.x.toStringAsFixed(3)} Y${mPt.y.toStringAsFixed(3)} '
+              'Z${mPt.z.toStringAsFixed(3)} A${tiltA.toStringAsFixed(3)} '
+              'C${rotC.toStringAsFixed(3)} F${cutFeed.toStringAsFixed(0)}',
+            );
+          }
+        }
+        buf
+          ..writeln('G0 Z5.000')
+          ..writeln('G0 A0.000 C0.000')
+          ..writeln('G0 X0.000 Y0.000')
+          ..writeln('M5')
+          ..writeln('M30');
+
+        final gcodeText = buf.toString();
+        final fileName =
+            'dome_5axis_${diameter.toInt()}mm_$matLabel.nc';
+        String savedPath = 'scratch/$fileName';
+        try {
+          final scratchDir = Directory('scratch');
+          if (!scratchDir.existsSync()) {
+            scratchDir.createSync(recursive: true);
+          }
+          final outFile = File(savedPath);
+          await outFile.writeAsString(gcodeText);
+        } catch (_) {}
+
+        ref.read(machiningModeProvider.notifier).state = MachiningMode.fiveAxis;
+        await ref.read(gcodeProvider.notifier).loadFile(gcodeText);
+
+        final sim = ref.read(simulationProvider.notifier);
+        final stockD = (diameter + 12.0).clamp(30.0, 80.0);
+        final stockH = (radius + 15.0).clamp(25.0, 60.0);
+        sim.configureJob(
+          jobName: '5-Axis Dome Ø${diameter.toStringAsFixed(0)}mm ($matLabel)',
+          batchSize: 1,
+          stockShape: StockShape.cylinder,
+          stockDimensions: <double>[stockD, stockD, stockH],
+          toolDiameter: toolDiam,
+        );
+
+        final artifacts = ref.read(aiArtifactsProvider.notifier);
+        artifacts.setGcodePath(savedPath);
+        artifacts.dock(AiDockedViewer.toolpath);
+        ref.read(visualizerModeProvider.notifier).state =
+            VisualizerMode.simulation3d;
+
+        final lineCount = gcodeText.trim().split('\n').length;
+        ref.read(activityLogProvider.notifier).log(
+              'Agent IA : dôme 5 axes Ø${diameter.toStringAsFixed(0)} mm ($matLabel) généré ($lineCount lignes)',
+            );
+
+        return jsonEncode({
+          'ok': true,
+          'status': 'ready_for_confirmation',
+          'part': '5-axis hemispherical dome',
+          'diameter_mm': diameter,
+          'radius_mm': radius,
+          'material': matLabel,
+          'tool_diameter_mm': toolDiam,
+          'spindle_rpm': spindleRpm,
+          'feedrate_mm_min': cutFeed,
+          'plunge_feedrate_mm_min': plungeFeed,
+          'axes': ['X', 'Y', 'Z', 'A', 'C'],
+          'lines_count': lineCount,
+          'gcode_file': savedPath,
+          'simulator_3d': 'opened_and_loaded',
+          'next_step':
+              'Present the generated 5-axis toolpath warmly and naturally to the operator, and ask for confirmation before starting the machining with run_program.',
+        });
+      },
+    ),
+
+    AiTool(
       name: 'capture_workspace_view',
       description:
           'Prend une capture d\'écran visuelle (image PNG/JPEG + télémesures exactes) '

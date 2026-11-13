@@ -13,5 +13,5 @@ class AppConstants {
   static const double defaultIconSize = 16.0;
 
   // Connection
-  static const String defaultWsUrl = 'ws://192.168.1.100:80'; // Replace with typical ESP32 IP
+  static const String defaultWsUrl = 'ws://192.168.137.100:80'; // Hotspot ESP32 FluidNC IP
 }

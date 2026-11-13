@@ -32,10 +32,10 @@ class _ConnectionSettingsScreenState
   bool _testSuccess = false;
   late AnimationController _pulseController;
 
-  // Connexion assistée à l'AP WiFi de l'ESP32.
-  // SSID du point d'accès porté par l'ESP32 FluidNC de la machine.
-  final _ssidCtrl = TextEditingController(text: tr('FORGERON'));
-  final _pwdCtrl = TextEditingController(text: '00000001');
+  // Connexion assistée au réseau WiFi.
+  // SSID et mot de passe par défaut : hotspot du PC (Professeur20).
+  final _ssidCtrl = TextEditingController(text: 'Professeur20');
+  final _pwdCtrl = TextEditingController(text: '00000000');
   bool _wifiConnecting = false;
   String? _wifiMsg;
   bool _wifiOk = false;
@@ -815,7 +815,7 @@ class _ConnectionSettingsScreenState
             label: tr('ADRESSE IP DESTINATION'),
             controller: _ipCtrl,
             icon: Icons.lan_outlined,
-            hint: 'ex: 192.168.1.100',
+            hint: 'ex: 192.168.137.100',
           ),
           SizedBox(height: 20),
           _buildModernField(

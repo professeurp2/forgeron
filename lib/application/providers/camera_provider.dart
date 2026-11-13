@@ -10,11 +10,12 @@ import 'streaming_provider.dart';
 
 /// IP par défaut de l'ESP32-CAM.
 ///
-/// La caméra rejoint le point d'accès de FluidNC, qui se donne 192.168.0.1 et
-/// distribue en 192.168.0.x. On la fixe en .50 **côté firmware** (IP statique)
-/// plutôt que de dépendre d'un bail DHCP : au redémarrage de la machine
-/// l'adresse ne bouge pas, et l'utilisateur n'a rien à rechercher.
-const kDefaultCameraIp = '192.168.0.50';
+/// La caméra rejoint le point d'accès hotspot du PC (SSID: Professeur20),
+/// avec la passerelle Windows en 192.168.137.1. On la fixe en .50 côté firmware
+/// (IP statique 192.168.137.50) plutôt que de dépendre d'un bail DHCP : au
+/// redémarrage de la machine ou de la caméra, l'adresse ne bouge pas, et
+/// l'utilisateur n'a rien à rechercher.
+const kDefaultCameraIp = '192.168.137.50';
 
 final cameraIpProvider = StateProvider<String>((ref) => kDefaultCameraIp);
 

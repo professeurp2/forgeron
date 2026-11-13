@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../application/providers/camera_provider.dart';
 import '../../application/providers/reco3d_provider.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
@@ -30,7 +31,7 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
 
   final TextEditingController _urlCtrl = TextEditingController();
   final TextEditingController _cameraCtrl =
-      TextEditingController(text: 'http://192.168.0.50/capture');
+      TextEditingController(text: 'http://192.168.137.50/capture');
 
   int _poses = 12;
   double _aDeg = 0.0;
@@ -48,6 +49,8 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
   void initState() {
     super.initState();
     _urlCtrl.text = ref.read(reco3dServerUrlProvider);
+    final camIp = ref.read(cameraIpProvider);
+    _cameraCtrl.text = 'http://$camIp/capture';
   }
 
   @override
@@ -261,7 +264,7 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
             isDense: true,
             labelText: tr('URL de capture ESP32-CAM'),
             labelStyle: TextStyle(color: fc.textSecondary),
-            hintText: 'http://192.168.0.50/capture',
+            hintText: 'http://192.168.137.50/capture',
             hintStyle: TextStyle(color: fc.textDisabled),
             border: const OutlineInputBorder(),
           ),

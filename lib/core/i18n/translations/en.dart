@@ -815,4 +815,50 @@ const Map<String, String> kEn = <String, String>{
   '✓ G43 H{} appliqué': '✓ G43 H{} applied',
   '❌ Erreur : {}': '❌ Error: {}',
   '❌ Erreur upload: {}': '❌ Upload error: {}',
+  'Aujourd\'hui': 'Today',
+  'Hier': 'Yesterday',
+  'Arrêter la lecture vocale': 'Stop voice playback',
+  'Écouter la réponse': 'Listen to reply',
+  'Dictée vocale indisponible : vérifiez le microphone ou la langue installée.':
+      'Voice dictation unavailable: check your microphone or installed speech pack.',
+  'Exécuter le programme G-code chargé (validation + ForceGuard)':
+      'Run the loaded G-code program (validation + ForceGuard)',
+  'REDÉMARRAGE ESP32 DÉTECTÉ (PERTE D\'ORIGINE EN SESSION)':
+      'ESP32 REBOOT DETECTED (ORIGIN LOST IN SESSION)',
+  'Bonjour ! Je suis Forgeron, votre assistant d\'usinage CNC 5 axes propulsé par FluidNC sur ESP32. Je peux générer et simuler des parcours G-code 5 axes en 3D, piloter les axes et la broche, diagnostiquer la machine avant usinage et vous accompagner à la voix ou par écrit en français et en anglais.':
+      'Hello! I am Forgeron, your intelligent 5-axis CNC machining assistant powered by FluidNC on ESP32. I can generate and simulate 5-axis G-code toolpaths in 3D, control the machine axes and spindle, run pre-machining diagnostics, and assist you by voice or text in English and French.',
+  'Quel est l\'état de la machine ?': 'What is the machine status?',
+  'Analyse le programme chargé et signale les risques.':
+      'Analyze the loaded program and report any risks.',
+  'Analyse le programme chargé et signale les risques éventuels.':
+      'Analyze the loaded program and report any potential risks.',
+  'Fais un diagnostic complet avant usinage.':
+      'Run a full pre-machining diagnostic.',
+  'La machine est en alarme : quelle est la cause et quel capteur vérifier ?':
+      'The machine is in alarm: what is the cause and which sensor should I check?',
+  'Déverrouille l\'alarme machine (\$X) pour dégager l\'axe.':
+      'Unlock the machine alarm (\$X) to clear the axis.',
+  'Lance une prise d\'origine machine (\$H).': 'Run machine homing (\$H).',
+  'Lance le cycle de prise d\'origine machine (\$H).':
+      'Start the machine homing cycle (\$H).',
+  'Prépare le parcours G-code de finition pour cette pièce.':
+      'Prepare the finishing G-code toolpath for this part.',
+  'Vérifie si les dimensions de la pièce rentrent dans les courses X, Y, Z, A, C de la machine.':
+      'Check whether the part dimensions fit within the X, Y, Z, A, and C travel limits.',
+  'Comment régler l\'origine pièce G54 avant d\'usiner cette pièce ?':
+      'How do I set the G54 work origin before machining this part?',
+  'Comment décaler le Z de +20 mm en G54 pour tester ce programme à vide ?':
+      'How do I offset Z by +20 mm in G54 to test this program with an air cut?',
+  'Vérifie que le programme actif ne contient ni code incompatible ni risque de collision.':
+      'Verify that the active program contains no incompatible G-code or collision risks.',
+  'Quels points vérifier sur la machine avant de lancer l\'usinage ?':
+      'What points should I check on the machine before starting machining?',
+  'La prise d\'origine est faite : comment palper le zéro Z de la pièce ?':
+      'Homing is complete: how do I probe the part Z zero?',
+  'Comment définir l\'origine X et Y en G54 sur le brut ?':
+      'How do I set the G54 X and Y origin on the stock?',
+  'Vérifie l\'état de la machine, des fins de course et de l\'arrêt d\'urgence.':
+      'Check the machine status, limit switches, and emergency stop.',
+  'Comment régler l\'origine pièce G54 ?':
+      'How do I set the G54 work origin?',
 };

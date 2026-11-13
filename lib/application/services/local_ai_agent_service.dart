@@ -1142,6 +1142,25 @@ class LocalAiAgentService implements AiBackend, WritesLanguages {
 
 
 
+    if (recovered.isEmpty) {
+      final proseMatches = RegExp(
+        r'\bRun the `?\b([a-zA-Z0-9_]+)\b`? function(?:\s+now)?\.?|(?:^|\s)`?([a-zA-Z0-9_]+)`?\(\s*\)',
+        caseSensitive: false,
+        multiLine: true,
+      ).allMatches(text);
+      for (final m in proseMatches) {
+        final candidate = m.group(1) ?? m.group(2);
+        if (candidate != null && knownTools.contains(candidate)) {
+          recovered.add({
+            'functionCall': {
+              'name': candidate,
+              'args': const <String, dynamic>{},
+            },
+          });
+        }
+      }
+    }
+
     if (recovered.isNotEmpty) return recovered;
 
     return parts;
@@ -1483,7 +1502,8 @@ class LocalAiAgentService implements AiBackend, WritesLanguages {
 
     if (systemPrompt != null) {
       if (systemPrompt.contains('Réponds SYSTÉMATIQUEMENT en anglais') ||
-          systemPrompt.contains('Réponds EXCLUSIVEMENT en anglais')) {
+          systemPrompt.contains('Réponds EXCLUSIVEMENT en anglais') ||
+          targetLanguageFromPrompt(systemPrompt) == 'en') {
         return false;
       }
     }
@@ -1568,7 +1588,7 @@ class LocalAiAgentService implements AiBackend, WritesLanguages {
           AiApiResponse r, List<Map<String, dynamic>> contents,
           {String? systemPrompt}) =>
       driftedToChinese(r, contents) ||
-      driftedToEnglish(r, contents) ||
+      driftedToEnglish(r, contents, systemPrompt: systemPrompt) ||
       driftedFromTarget(r, systemPrompt: systemPrompt);
 
   /// Langue de réponse fixée par la consigne de fin du prompt
