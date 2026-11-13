@@ -4687,7 +4687,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Approuve l'appel d'outil en attente et poursuit la conversation.
 
-  Future<void> confirmPendingAction() async {
+  Future<void> confirmPendingAction({String origin = BackofficeOrigin.operateur}) async {
 
     final pending = state.pendingConfirmation;
 
@@ -4733,7 +4733,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       state = state.copyWith(runningTool: pending.toolName);
 
-      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input));
+      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input, origin: origin));
 
       state = state.copyWith(clearRunningTool: true);
 
@@ -4749,7 +4749,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// d'échec et la conversation continue sans que l'action soit exécutée.
 
-  Future<void> rejectPendingAction() async {
+  Future<void> rejectPendingAction({String origin = BackofficeOrigin.operateur}) async {
 
     final pending = state.pendingConfirmation;
 

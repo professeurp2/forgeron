@@ -2,14 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/repositories/config_repository.dart';
 import '../../data/fluidnc/fluidnc_config_repository.dart';
+import '../../data/fluidnc/fluidnc_serial_repositories.dart';
 import '../../data/mock/mock_config_repository.dart';
+import 'di_providers.dart';
 import 'machine_provider.dart';
 
-/// Repository de configuration FluidNC — Bascule entre Mock et Réel selon le mode
+/// Repository de configuration FluidNC — Bascule entre Mock, USB Série et HTTP Wi-Fi
 final configRepositoryProvider = Provider<ConfigRepository>((ref) {
   final isSim = ref.watch(isSimulationModeProvider);
   if (isSim) {
     return MockConfigRepository();
+  }
+  final transport = ref.watch(connectionTransportProvider);
+  if (transport == ConnectionTransport.usb) {
+    final conn = ref.watch(activeFluidNCConnectionProvider);
+    return FluidNCSerialConfigRepository(conn);
   }
   final ip = ref.watch(espIpProvider);
   return FluidNcConfigRepository('http://$ip');

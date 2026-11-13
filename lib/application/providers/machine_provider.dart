@@ -7,9 +7,24 @@ import '../../core/utils/kinematics_service.dart';
 import 'di_providers.dart';
 import 'machining_mode_provider.dart' show trunnionConfigProvider;
 
-// ── Configuration réseau et simulation ──────────────────────────────────────
+// ── Configuration réseau, USB et simulation ─────────────────────────────────
 
 const kDefaultWsPort = 80;
+const kDefaultSerialBaudRate = 115200;
+
+/// Mode de transport physique vers FluidNC : Wi-Fi (WebSocket/HTTP) ou Câble USB (Série COM).
+enum ConnectionTransport { wifi, usb }
+
+/// Transport actif vers la carte FluidNC.
+final connectionTransportProvider =
+    StateProvider<ConnectionTransport>((ref) => ConnectionTransport.wifi);
+
+/// Port série USB sélectionné (ex: 'COM5' sur Windows, '/dev/ttyUSB0' sur Linux).
+final serialPortProvider = StateProvider<String>((ref) => 'COM5');
+
+/// Débit du port série USB (bauds).
+final serialBaudRateProvider =
+    StateProvider<int>((ref) => kDefaultSerialBaudRate);
 
 /// Adresse IP de l'ESP32 FluidNC
 final espIpProvider = StateProvider<String>((ref) => '192.168.137.100');
@@ -58,21 +73,43 @@ Future<void> loadNetworkPreferences(WidgetRef ref) async {
   final prefs = await SharedPreferences.getInstance();
   final ip = prefs.getString('esp_ip') ?? '192.168.137.100';
   final wsPort = prefs.getInt('ws_port') ?? kDefaultWsPort;
+  final transportName = prefs.getString('connection_transport') ?? 'wifi';
+  final serialPort = prefs.getString('serial_port') ?? 'COM5';
+  final baud = prefs.getInt('serial_baud') ?? kDefaultSerialBaudRate;
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;
+  ref.read(connectionTransportProvider.notifier).state =
+      transportName == 'usb' ? ConnectionTransport.usb : ConnectionTransport.wifi;
+  ref.read(serialPortProvider.notifier).state = serialPort;
+  ref.read(serialBaudRateProvider.notifier).state = baud;
 }
 
 Future<void> saveNetworkPreferences(
     WidgetRef ref, String ip, int wsPort) async {
+  ref.read(connectionTransportProvider.notifier).state =
+      ConnectionTransport.wifi;
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;
   await persistNetworkSettings(ip, wsPort);
+}
+
+Future<void> saveUsbPreferences(
+    WidgetRef ref, String portName, int baudRate) async {
+  ref.read(connectionTransportProvider.notifier).state =
+      ConnectionTransport.usb;
+  ref.read(serialPortProvider.notifier).state = portName;
+  ref.read(serialBaudRateProvider.notifier).state = baudRate;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('connection_transport', 'usb');
+  await prefs.setString('serial_port', portName);
+  await prefs.setInt('serial_baud', baudRate);
 }
 
 /// Persiste les paramètres réseau sans nécessiter un WidgetRef.
 /// Utilisé par les providers internes (ex: auto-discovery).
 Future<void> persistNetworkSettings(String ip, int wsPort) async {
   final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('connection_transport', 'wifi');
   await prefs.setString('esp_ip', ip);
   await prefs.setInt('ws_port', wsPort);
 }

@@ -83,6 +83,7 @@ dependencies:
   # AiWindowLauncher) s'appuie sur cette API classique.
   desktop_multi_window: 0.2.1
   fl_chart: ^1.2.0
+  flutter_libserialport: ^0.6.0
   # window_manager retiré : plus aucun appelant, et sa présence seule
   # posait problème. Il s'attache à UNE fenêtre native — celle qu'il trouve à
   # son initialisation. Initialisé dans le second moteur Flutter d'une fenêtre

@@ -14,6 +14,7 @@ import '../../application/services/streaming_service.dart';
 ///  - Heartbeat pour la surveillance du lien WiFi.
 class FluidNCMachineRepository implements MachineRepository {
   final FluidNCConnection _connection;
+  final bool _ownsConnection;
   final _stateController = StreamController<MachineState>.broadcast();
   MachineState _currentState = const MachineState(status: MachineStatus.offline);
 
@@ -22,7 +23,8 @@ class FluidNCMachineRepository implements MachineRepository {
   late final GCodeStreamingService _streamingService;
   int _lastProgressEmitMs = 0;
 
-  FluidNCMachineRepository(this._connection) {
+  FluidNCMachineRepository(this._connection, {bool ownsConnection = true})
+      : _ownsConnection = ownsConnection {
     _streamingService = GCodeStreamingService(_connection);
     _connection.connect();
 
@@ -225,6 +227,8 @@ class FluidNCMachineRepository implements MachineRepository {
     _statusSub?.cancel();
     _stateController.close();
     _streamingService.dispose();
-    _connection.dispose();
+    if (_ownsConnection) {
+      _connection.dispose();
+    }
   }
 }

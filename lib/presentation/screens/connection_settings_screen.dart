@@ -8,6 +8,7 @@ import '../../application/providers/machine_provider.dart';
 import '../../application/providers/camera_provider.dart';
 import '../../application/providers/discovery_provider.dart';
 import '../../application/services/auto_discovery_service.dart';
+import '../../data/fluidnc/fluidnc_serial_connection.dart';
 import '../../core/net/esp_wifi_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../tutorial/tutorial_keys.dart';
@@ -45,6 +46,14 @@ class _ConnectionSettingsScreenState
   // dans `cameraDetectionProvider`.
   late TextEditingController _camIpCtrl;
 
+  // Connexion USB Série (COM).
+  List<SerialPortInfo> _serialPorts = const [];
+  String? _selectedSerialPort;
+  int _selectedBaudRate = kDefaultSerialBaudRate;
+  bool _usbTesting = false;
+  String? _usbTestResult;
+  bool _usbTestOk = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +61,9 @@ class _ConnectionSettingsScreenState
     _wsPortCtrl =
         TextEditingController(text: ref.read(wsPortProvider).toString());
     _camIpCtrl = TextEditingController(text: ref.read(cameraIpProvider));
+    _selectedSerialPort = ref.read(serialPortProvider);
+    _selectedBaudRate = ref.read(serialBaudRateProvider);
+    _refreshSerialPorts();
     _loadWifiPrefs();
     _pulseController = AnimationController(
       vsync: this,
@@ -213,6 +225,81 @@ class _ConnectionSettingsScreenState
     Navigator.of(context).pop();
   }
 
+  void _refreshSerialPorts() {
+    final ports = FluidNCSerialConnection.listAvailablePorts();
+    setState(() {
+      _serialPorts = ports;
+      if (ports.isNotEmpty &&
+          (_selectedSerialPort == null ||
+              !ports.any((p) => p.name == _selectedSerialPort))) {
+        final preferred = ports.firstWhere(
+          (p) {
+            final d = (p.description ?? '').toLowerCase();
+            return d.contains('cp210') ||
+                d.contains('ch340') ||
+                d.contains('usb') ||
+                d.contains('serial');
+          },
+          orElse: () => ports.first,
+        );
+        _selectedSerialPort = preferred.name;
+      }
+    });
+  }
+
+  Future<void> _testSerialPort() async {
+    final port = _selectedSerialPort;
+    if (port == null || port.isEmpty) return;
+
+    final currentTransport = ref.read(connectionTransportProvider);
+    final currentPort = ref.read(serialPortProvider);
+    if (currentTransport == ConnectionTransport.usb && currentPort == port) {
+      setState(() {
+        _usbTestOk = true;
+        _usbTestResult = 'Port $port déjà actif dans Forgeron.';
+      });
+      return;
+    }
+
+    setState(() {
+      _usbTesting = true;
+      _usbTestResult = null;
+    });
+    final info = await FluidNCSerialConnection.probePort(
+      port,
+      baudRate: _selectedBaudRate,
+    );
+    if (!mounted) return;
+    setState(() {
+      _usbTesting = false;
+      _usbTestOk = info != null;
+      _usbTestResult = info != null
+          ? 'FluidNC détecté sur $port : $info'
+          : 'Aucune réponse sur $port (vérifiez qu\'aucun moniteur série n\'occupe le port).';
+    });
+  }
+
+  Future<void> _connectUsb() async {
+    final port = _selectedSerialPort;
+    if (port == null || port.isEmpty) {
+      setState(() {
+        _usbTestOk = false;
+        _usbTestResult = 'Sélectionnez un port COM.';
+      });
+      return;
+    }
+    ref.read(isSimulationModeProvider.notifier).state = false;
+    await saveUsbPreferences(ref, port, _selectedBaudRate);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('✅ Connexion USB configurée : $port @ $_selectedBaudRate bauds'),
+      backgroundColor: context.fc.success,
+      behavior: SnackBarBehavior.floating,
+      width: 420,
+    ));
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final discovery = ref.watch(discoveryProvider);
@@ -292,7 +379,10 @@ class _ConnectionSettingsScreenState
                 children: [
                   // ─── Header Status Card ───
                   _buildHeaderStatus(),
-                  SizedBox(height: 32),
+                  SizedBox(height: 24),
+
+                  _buildUsbCard(),
+                  SizedBox(height: 24),
 
                   if (EspWifiService.isSupported) ...[
                     _buildWifiCard(),
@@ -347,6 +437,176 @@ class _ConnectionSettingsScreenState
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildUsbCard() {
+    final fc = context.fc;
+    final activeTransport = ref.watch(connectionTransportProvider);
+    final isUsbActive = activeTransport == ConnectionTransport.usb;
+    final portNames = _serialPorts.map((p) => p.name).toSet();
+    final dropdownValue =
+        (_selectedSerialPort != null && portNames.contains(_selectedSerialPort))
+            ? _selectedSerialPort
+            : (_serialPorts.isNotEmpty ? _serialPorts.first.name : null);
+
+    return GlassPanel(
+      title: 'CONNEXION CÂBLE USB (PORT SÉRIE)',
+      titleTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isUsbActive)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: fc.success.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'ACTIF',
+                style: TextStyle(
+                  color: fc.success,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          TextButton.icon(
+            onPressed: _refreshSerialPorts,
+            icon: Icon(Icons.refresh, size: 14, color: fc.primary),
+            label: Text(
+              'ACTUALISER',
+              style: TextStyle(
+                color: fc.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Connexion directe PC ↔ ESP32 par câble USB (latence minimale, sans Wi-Fi). Fermez tout moniteur série externe avant de connecter.',
+            style: TextStyle(color: fc.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: DropdownButtonFormField<String>(
+                  value: dropdownValue,
+                  isExpanded: true,
+                  dropdownColor: fc.surface,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Port COM / USB',
+                    labelStyle: TextStyle(color: fc.textDisabled, fontSize: 12),
+                    filled: true,
+                    fillColor: fc.background.withValues(alpha: 0.4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    isDense: true,
+                  ),
+                  hint: Text(
+                    'Aucun port détecté',
+                    style: TextStyle(color: fc.textDisabled, fontSize: 12),
+                  ),
+                  items: _serialPorts
+                      .map((p) => DropdownMenuItem<String>(
+                            value: p.name,
+                            child: Text(
+                              p.displayLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedSerialPort = val;
+                      _usbTestResult = null;
+                    });
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 140,
+                child: DropdownButtonFormField<int>(
+                  value: _selectedBaudRate,
+                  dropdownColor: fc.surface,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Débit (bauds)',
+                    labelStyle: TextStyle(color: fc.textDisabled, fontSize: 12),
+                    filled: true,
+                    fillColor: fc.background.withValues(alpha: 0.4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    isDense: true,
+                  ),
+                  items: const [115200, 250000, 460800, 921600]
+                      .map((b) => DropdownMenuItem<int>(
+                            value: b,
+                            child: Text('$b'),
+                          ))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedBaudRate = val);
+                    }
+                  },
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _usbTesting || dropdownValue == null
+                    ? null
+                    : _testSerialPort,
+                icon: _usbTesting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.usb, size: 16),
+                label: Text(_usbTesting ? 'TEST...' : 'TESTER'),
+              ),
+              ElevatedButton.icon(
+                onPressed: dropdownValue == null ? null : _connectUsb,
+                icon: const Icon(Icons.cable, size: 16),
+                label: const Text('CONNECTER PAR USB'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: fc.primary,
+                  foregroundColor: Colors.black,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_usbTestResult != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _usbTestResult!,
+              style: TextStyle(
+                color: _usbTestOk ? fc.success : fc.danger,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -536,7 +796,10 @@ class _ConnectionSettingsScreenState
             Text(
               isSim
                   ? 'L\'interface utilise des données virtuelles. Aucune machine physique n\'est requise.'
-                  : 'L\'application tente de communiquer avec l\'IP ${ref.watch(espIpProvider)} via WebSocket.',
+                  : ref.watch(connectionTransportProvider) ==
+                          ConnectionTransport.usb
+                      ? 'L\'application communique avec ${ref.watch(serialPortProvider)} via câble USB (${ref.watch(serialBaudRateProvider)} bauds).'
+                      : 'L\'application tente de communiquer avec l\'IP ${ref.watch(espIpProvider)} via WebSocket.',
               style: TextStyle(color: context.fc.textSecondary, fontSize: 12),
             ),
           ]
