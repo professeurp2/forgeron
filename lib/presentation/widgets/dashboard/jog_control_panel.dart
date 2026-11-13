@@ -69,7 +69,7 @@ class JogControlPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showHeader) ...[
-              _JogSectionHeader(title: tr('JOG CONTROL')),
+              _JogSectionHeader(title: tr('CONTROLE JOG')),
               const SizedBox(height: 6),
             ],
 
@@ -296,12 +296,15 @@ class _SpindleControl extends ConsumerWidget {
               size: 26,
             ),
             const SizedBox(width: 12),
-            Column(
+            Expanded(
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   on ? 'ARRÊT BROCHE' : 'MARCHE BROCHE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: online ? color : fc.textDisabled,
                     fontWeight: FontWeight.w900,
@@ -313,11 +316,14 @@ class _SpindleControl extends ConsumerWidget {
                   !online
                       ? 'hors ligne'
                       : (on ? 'active (M3)' : 'arrêtée (M5)'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: fc.textSecondary, fontSize: 10),
                 ),
               ],
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Container(
               width: 10,
               height: 10,
@@ -411,12 +417,15 @@ class _MotorDisableButton extends ConsumerWidget {
             Icon(Icons.power_settings_new_rounded,
                 color: online ? color : fc.textDisabled, size: 24),
             const SizedBox(width: 12),
-            Column(
+            Expanded(
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   tr('COUPER MOTEURS'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: online ? color : fc.textDisabled,
                     fontWeight: FontWeight.w900,
@@ -426,9 +435,12 @@ class _MotorDisableButton extends ConsumerWidget {
                 ),
                 Text(
                   online ? 'libère les axes ⚠️ chute Z' : 'hors ligne',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: fc.textSecondary, fontSize: 10),
                 ),
               ],
+              ),
             ),
           ],
         ),

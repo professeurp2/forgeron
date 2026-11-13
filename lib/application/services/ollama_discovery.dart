@@ -37,6 +37,24 @@ class OllamaModel {
   bool get usable => unusableReason == null;
 }
 
+/// Un modèle actuellement CHARGÉ en mémoire par Ollama (`/api/ps`) : c'est la
+/// différence entre « installé sur le disque » et « prêt à répondre ».
+class OllamaLoadedModel {
+  const OllamaLoadedModel(this.name, {this.sizeVram = 0, this.size = 0, this.expiresAt});
+
+  final String name;
+
+  /// Octets en mémoire GPU ; 0 si tout est sur le CPU (ou non dit).
+  final int sizeVram;
+
+  /// Octets en mémoire au total.
+  final int size;
+  final DateTime? expiresAt;
+
+  /// Part du modèle sur le GPU, de 0 à 1 (`null` si inconnue).
+  double? get gpuShare => size <= 0 ? null : (sizeVram / size).clamp(0, 1);
+}
+
 class OllamaServer {
   const OllamaServer(this.url, this.models);
 
@@ -129,6 +147,31 @@ class OllamaDiscovery {
       return OllamaServer(url, [for (final n in names) OllamaModel(n)]);
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Interroge `/api/ps` : les modèles chargés en mémoire en ce moment. Liste
+  /// vide si le serveur ne répond pas ou n'est pas Ollama.
+  Future<List<OllamaLoadedModel>> loaded(String url, {Duration? timeout}) async {
+    try {
+      final res = await _client
+          .get(Uri.parse('$url/api/ps'))
+          .timeout(timeout ?? const Duration(seconds: 4));
+      if (res.statusCode != 200) return const [];
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      if (json is! Map || json['models'] is! List) return const [];
+      return [
+        for (final m in json['models'] as List)
+          if (m is Map && m['name'] != null)
+            OllamaLoadedModel(
+              '${m['name']}',
+              sizeVram: (m['size_vram'] as num?)?.toInt() ?? 0,
+              size: (m['size'] as num?)?.toInt() ?? 0,
+              expiresAt: DateTime.tryParse('${m['expires_at'] ?? ''}'),
+            ),
+      ];
+    } catch (_) {
+      return const [];
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/application/providers/ai_agent_provider.dart';
+import 'package:forgeron/application/providers/backoffice_provider.dart';
 import 'package:forgeron/application/providers/di_providers.dart';
 import 'package:forgeron/application/providers/lexicon_provider.dart';
 import 'package:forgeron/application/services/chat_relay.dart';
@@ -121,6 +122,91 @@ void main() {
       expect(pcRepo.emergencyStopCalls, 0, reason: 'le PC n\'a rien exécuté');
       expect(pc.read(aiAgentControllerProvider).messages, isEmpty,
           reason: 'le PC n\'a rien reçu');
+    });
+  });
+
+  // ── Ce que le backoffice voit du relais, des DEUX côtés ───────────────────
+  //
+  // Dans ce fichier et pas dans un fichier à part : le relais écoute un port
+  // fixe (8767), et deux fichiers de test tournent en parallèle — le second
+  // trouverait le port pris.
+  group('backoffice du relais', () {
+    late ProviderContainer pc;
+    late ProviderContainer phone;
+    late FakeMachineRepository pcRepo;
+
+    setUp(() async {
+      pcRepo = FakeMachineRepository();
+      pc = _device(pcRepo);
+      phone = _device(FakeMachineRepository());
+      await pc.read(lexiconLoadProvider.future);
+      await pc.read(chatRelayHostProvider.notifier).start();
+      addTearDown(() => pc.read(chatRelayHostProvider.notifier).stop());
+      expect(pc.read(chatRelayHostProvider).running, isTrue,
+          reason: pc.read(chatRelayHostProvider).error);
+    });
+
+    List<String> kinds(ProviderContainer c) =>
+        c.read(backofficeBusProvider).map((e) => e.kind).toList();
+
+    test('démarrage, refus d\'un mauvais code, puis liaison', () async {
+      expect(kinds(pc), contains('relais.demarre'));
+
+      final client = phone.read(remoteChatClientProvider.notifier);
+      await client.connect('127.0.0.1', '000000x');
+      await _until(() => phone.read(remoteChatClientProvider).status == RemoteChatStatus.refused);
+      await _until(() => kinds(pc).contains('relais.refus'), what: 'refus tracé côté PC');
+      expect(pc.read(backofficeBusProvider).lastWhere((e) => e.kind == 'relais.refus').severity,
+          BackofficeSeverity.warning);
+      expect(kinds(phone), contains('relais.client.refus'));
+
+      await client.connect('127.0.0.1', pc.read(chatRelayHostProvider).code!);
+      await _until(() => phone.read(remoteChatClientProvider).status == RemoteChatStatus.connected);
+      await _until(() => kinds(pc).contains('relais.liaison'), what: 'liaison tracée');
+      final liaison = pc.read(backofficeBusProvider).lastWhere((e) => e.kind == 'relais.liaison');
+      expect(liaison.details['clients'], 1);
+      expect(liaison.details['adresse'], '127.0.0.1');
+      expect(kinds(phone), contains('relais.client.connexion'));
+    });
+
+    test('une action confirmée depuis le téléphone est attribuée au téléphone', () async {
+      final client = phone.read(remoteChatClientProvider.notifier);
+      await client.connect('127.0.0.1', pc.read(chatRelayHostProvider).code!);
+      await _until(() => phone.read(remoteChatClientProvider).status == RemoteChatStatus.connected);
+
+      await client.send('Allume la broche');
+      await _until(() => phone.read(remoteChatClientProvider).snapshot.pendingTool != null,
+          what: 'carte relayée');
+      final msg = pc.read(backofficeBusProvider).lastWhere((e) => e.kind == 'ia.message');
+      expect(msg.origin, BackofficeOrigin.relais);
+      expect(kinds(pc), contains('relais.message'));
+
+      client.confirm();
+      await _until(() => pcRepo.sentGCode.isNotEmpty, what: 'exécution sur le PC');
+      await _until(() => kinds(pc).contains('ia.outil.execute'));
+
+      final confirme = pc.read(backofficeBusProvider).lastWhere((e) => e.kind == 'ia.outil.confirme');
+      expect(confirme.origin, BackofficeOrigin.relais);
+      final execute = pc.read(backofficeBusProvider).lastWhere((e) => e.kind == 'ia.outil.execute');
+      expect(execute.origin, BackofficeOrigin.relais);
+      expect(execute.callId, confirme.callId);
+      expect(execute.details['outil'], 'set_spindle');
+
+      expect(pc.read(backofficeStatsProvider).confirmationsRelais, 1);
+      expect(kinds(phone), contains('relais.client.envoi'));
+    });
+
+    test('un arrêt d\'urgence tapé sur le téléphone est tracé comme exécuté localement', () async {
+      final client = phone.read(remoteChatClientProvider.notifier);
+      await client.connect('127.0.0.1', pc.read(chatRelayHostProvider).code!);
+      await _until(() => phone.read(remoteChatClientProvider).status == RemoteChatStatus.connected);
+
+      await client.send('Arrêt d\'urgence !');
+      await _until(() => kinds(phone).contains('ia.urgence'));
+      expect(kinds(phone), contains('relais.client.urgence_locale'));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(kinds(pc).where((k) => k == 'relais.message'), isEmpty,
+          reason: 'rien n\'est passé par le lien');
     });
   });
 }

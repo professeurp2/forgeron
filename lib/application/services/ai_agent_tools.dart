@@ -1621,15 +1621,21 @@ class AiToolCatalog {
       name: 'control_simulation',
       description:
           'Contrôle la lecture du simulateur d\'usinage 3D (play, pause, reset, '
-          'seek à un pourcentage, changement de vitesse ×1..×50) ou oriente la '
-          'caméra 3D via le ViewCube (ISOMETRIC, TOP, FRONT, RIGHT, LEFT, BACK).',
+          'seek à un pourcentage, changement de vitesse ×1..×50), oriente la '
+          'caméra 3D via le ViewCube (ISOMETRIC, TOP, FRONT, RIGHT, LEFT, BACK), '
+          'ou passe en JUMEAU ("follow_machine") : le simulateur suit alors la '
+          'carte ESP32 réelle, rapport d\'état après rapport d\'état — position, '
+          'ligne acquittée, matière enlevée — et mesure l\'écart entre la '
+          'position réelle et le parcours. "stop_follow" arrête le suivi. '
+          'Utiliser "follow_machine" pour montrer ce que la machine fait VRAIMENT '
+          'pendant un usinage, "play" pour une prévision avant usinage.',
       category: null,
       inputSchema: {
         'type': 'object',
         'properties': {
           'action': {
             'type': 'string',
-            'enum': ['play', 'pause', 'reset', 'seek', 'set_speed', 'set_view'],
+            'enum': ['play', 'pause', 'reset', 'seek', 'set_speed', 'set_view', 'follow_machine', 'stop_follow'],
             'description': 'Action à exécuter sur le simulateur 3D.',
           },
           'progress': {
@@ -1678,6 +1684,20 @@ class AiToolCatalog {
             final preset = (args['camera_preset'] as String?) ?? 'ISOMETRIC';
             sim.setCameraPreset(preset);
             break;
+          case 'follow_machine':
+            final status = ref.read(machineRepositoryProvider).currentState.status;
+            if (status == MachineStatus.offline) {
+              return jsonEncode({
+                'ok': false,
+                'action': action,
+                'raison': 'La carte est hors ligne : rien à suivre. Connecte la machine d\'abord.',
+              });
+            }
+            sim.followMachine();
+            break;
+          case 'stop_follow':
+            sim.stopFollowing();
+            break;
         }
 
         final st = ref.read(simulationProvider);
@@ -1685,9 +1705,18 @@ class AiToolCatalog {
           'ok': true,
           'action': action,
           'status': st.status.name,
+          'mode': st.isLive ? 'jumeau' : 'simulation',
           'progress_percent': double.parse(st.progressPct.toStringAsFixed(1)),
           'speed_multiplier': st.speedMultiplier,
           'camera_preset': st.cameraPreset,
+          if (st.isLive)
+            'jumeau': {
+              'statut_machine': st.liveMachineStatus,
+              'ligne_reelle': st.currentRawLineIndex + 1,
+              'ecart_mm': st.liveDeviationMm == null
+                  ? null
+                  : double.parse(st.liveDeviationMm!.toStringAsFixed(2)),
+            },
         });
       },
     ),

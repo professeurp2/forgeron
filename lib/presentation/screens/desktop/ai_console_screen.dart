@@ -636,10 +636,13 @@ class _ConversationRail extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(fluent.FluentIcons.add, size: 12),
                     SizedBox(width: 8),
-                    Text(tr('Nouvelle discussion')),
+                    Flexible(
+                        child: Text(tr('Nouvelle discussion'),
+                            maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                 ),
               ),
@@ -1587,11 +1590,15 @@ class _ArtifactsSidebar extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.precision_manufacturing_rounded,
                               size: 14),
                           const SizedBox(width: 8),
-                          Text(tr('Simulateur 3D & Caméra')),
+                          Flexible(
+                              child: Text(tr('Simulateur 3D & Caméra'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     ),

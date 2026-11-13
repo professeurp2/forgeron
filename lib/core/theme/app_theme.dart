@@ -15,7 +15,8 @@ abstract class AppTheme {
         surface: forgeronDarkColors.surface,
         error: forgeronDarkColors.danger,
       ),
-      fontFamily: 'RobotoMono',
+      fontFamily: 'Rajdhani',
+      fontFamilyFallback: const ['Segoe UI', 'Roboto', 'sans-serif'],
       textTheme: TextTheme(
         headlineLarge: TextStyle(
           color: forgeronDarkColors.textPrimary,
@@ -71,7 +72,8 @@ abstract class AppTheme {
         surface: forgeronLightColors.surface,
         error: forgeronLightColors.danger,
       ),
-      fontFamily: 'RobotoMono',
+      fontFamily: 'Rajdhani',
+      fontFamilyFallback: const ['Segoe UI', 'Roboto', 'sans-serif'],
       textTheme: TextTheme(
         headlineLarge: TextStyle(
           color: forgeronLightColors.textPrimary,

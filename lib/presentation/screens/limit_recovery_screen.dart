@@ -159,9 +159,11 @@ class LimitRecoveryScreen extends ConsumerWidget {
                 color: fc.primary, fontWeight: FontWeight.w900, fontSize: 12)),
       ),
       const SizedBox(width: 10),
-      Text(text,
-          style: TextStyle(
-              color: fc.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
+      Expanded(
+        child: Text(text,
+            style: TextStyle(
+                color: fc.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
+      ),
     ]);
   }
 
@@ -189,12 +191,16 @@ class LimitRecoveryScreen extends ConsumerWidget {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(icon, color: enabled ? color : fc.textDisabled, size: 20),
               const SizedBox(width: 10),
-              Text(label,
-                  style: TextStyle(
-                      color: enabled ? color : fc.textDisabled,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 0.5)),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: enabled ? color : fc.textDisabled,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 0.5)),
+              ),
             ]),
           ),
         ),

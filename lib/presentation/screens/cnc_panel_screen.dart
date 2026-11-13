@@ -53,6 +53,35 @@ extension CncOperatingModeExt on CncOperatingMode {
 class CncPanelScreen extends ConsumerWidget {
   const CncPanelScreen({super.key});
 
+  /// Taille de conception du pupitre. En dessous, il ne se réorganise pas : il
+  /// RÉTRÉCIT d'un bloc, comme la façade d'un vrai pupitre qu'on regarde de
+  /// plus loin. Avant, chaque rangée débordait séparément (jusqu'à 584 px sur
+  /// une tablette, relevé par le balayage de mise en page).
+  static const double designWidth = 1500;
+  static const double designHeight = 860;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return LayoutBuilder(builder: (context, c) {
+      final fits = c.maxWidth >= designWidth && c.maxHeight >= designHeight;
+      if (fits) return _CncPanelBody();
+      return Container(
+        color: context.fc.panelBody,
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: SizedBox(
+            width: designWidth,
+            height: designHeight,
+            child: _CncPanelBody(),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _CncPanelBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final machineState = ref.watch(machineStateProvider);
