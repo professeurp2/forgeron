@@ -37,14 +37,19 @@ def top(right_bold, right_sub):
 
 QA = [
     ("How much are you raising?",
-     "“Right now, 5,390 dollars to run a paid pilot in two Bamako machine shops, ideally as a grant "
-     "or a pilot partnership. After the pilot, we will raise a pre-seed round to build the first "
-     "batch, sized on the pilot’s numbers.”", ""),
+     "“About 14,400 dollars: 7,600 to build two production machines in Bamako, and the rest to equip "
+     "the two workshops and run the pilot until April 2027. We prefer a grant, a pilot partnership or "
+     "components in kind. After the pilot, we will raise a pre-seed round sized on its results.”", ""),
     ("What does the machine cost you to build? What is your margin?",
-     "“Our target price is 10 million FCFA, about 16,000 dollars. A fully costed bill of materials "
-     "is one of the pilot’s deliverables, so I would rather send you the real figure than guess.”",
-     "Si tu connais le coût des pièces du prototype, ajoute : “The prototype cost about "
-     "<span class='ph'>⟦ ______ FCFA ⟧</span> in parts.”"),
+     "“About 3,800 dollars per production machine, our estimate from the design, including import "
+     "duties and assembly. Supplier quotes are on the way. We plan to sell it at 10 million FCFA, "
+     "about 16,000 dollars, a price that also has to cover installation, training and service.”",
+     "Estimation détaillée en page 5. Remplace-la par ton chiffrage réel (mémoire, section 7.3) dès que tu l’as."),
+    ("What is your impact?",
+     "“Parts made here instead of imported, so the money and the work stay in the country. Workshop "
+     "staff run a precision machine in their own language, without being programmers, and we build "
+     "and repair the machines in Bamako. The pilot will measure parts made locally, money saved per "
+     "part and people trained.”", ""),
     ("Has anyone paid you yet?",
      "“Not yet. That is exactly what the pilot is for: two shops, at least five real customer parts "
      "each, at a price they agree to pay.”",
@@ -63,17 +68,14 @@ QA = [
      "“I won’t give you a number I can’t source. Our first market is the machine shops of Bamako. "
      "The pilot includes ten customer interviews, and they will tell us how many shops can pay, and "
      "how much.”", ""),
-    ("How accurate is the machine?",
-     "“We haven’t measured tolerance with proper instruments yet; measuring equipment is in the "
-     "pilot budget. You will get measured results on real pilot parts.”", ""),
     ("What if the AI makes a mistake?",
      "“The AI doesn’t calculate the toolpath; deterministic code does. Every move is shown and waits "
      "for the operator’s yes, and the emergency stop never waits for the AI.”",
      "N’ajoute “and a physical emergency button cuts the spindle’s power” que si ce bouton est "
      "réellement installé sur la machine."),
     ("Does it need the internet?",
-     "“No. A local AI model runs on a laptop in the shop. With internet it can use a stronger cloud "
-     "model, but the shop never depends on it.”", ""),
+     "“No. The AI runs on a computer in the workshop. The internet only makes it stronger when it is "
+     "there.”", ""),
     ("Who owns the technology? Is it open source?",
      "“We wrote all of it. The code is in a public repository without a licence today, so all rights "
      "remain ours. Choosing a licence and registering the Forgeron trademark with OAPI are part of "
@@ -98,8 +100,11 @@ DONT = [
      "Jamais mesuré : nous n’avons pas d’instruments de mesure, ils sont dans le budget du pilote.",
      "<span class='say'>“Tolerance will be measured on the pilot parts.”</span>"),
     ("« We build it for $15,000 »",
-     "Ambigu : 10 M FCFA est le prix de vente visé ; le coût de revient n’est pas encore calculé.",
-     "<span class='say'>“Our target price is 10 million FCFA, about 16,000 dollars.”</span>"),
+     "Ambigu : 10 M FCFA est le prix de vente ; la fabrication est estimée à environ 3 800 $ par machine (page 5).",
+     "<span class='say'>“We sell at 10 million FCFA. Building one costs us about 3,800 dollars.”</span>"),
+    ("« 5-axis trunnion, G-code, LLM, 48 tools… »",
+     "Tes interlocuteurs ne sont pas techniques : le jargon les perd.",
+     "<span class='say'>“Parts made here, not imported. No programmer needed.”</span>"),
     ("« It cuts steel, brass, aluminium… »",
      "Aucun matériau usiné n’est documenté dans le dépôt.",
      "Cite seulement ce que tu as réellement usiné : <span class='ph'>⟦ ______ ⟧</span>"),
@@ -165,6 +170,9 @@ tr { break-inside: avoid; }
 .a { margin-top: 1pt; padding-left: 13pt; color: #14171C; font-style: italic; }
 .a2 { margin-top: 1.5pt; padding-left: 13pt; font-size: 8.2pt; color: #5E6673; }
 .pb { break-before: page; }
+.r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th.r { text-align: right; }
+.sub td { font-weight: 600; color: #14171C; background: #F4F0E8; }
 .sheet td { height: 15.6mm; }
 """
 
@@ -172,7 +180,7 @@ tr { break-inside: avoid; }
 def page_plan():
     return top("Investisseurs · mardi 17 novembre 2026", "PAYF’26 · siège de l’Union africaine · Shared Table 6") + f"""
 <h1>Présentation et démonstration devant les investisseurs</h1>
-<p class="lead">Le deck (10 slides en anglais, notes du présentateur incluses) : <b>{DECK}</b>.
+<p class="lead">Le deck (11 slides en anglais, notes du présentateur incluses) : <b>{DECK}</b>.
 Télécharge-le en PDF ou en PowerPoint avant de partir : le Wi-Fi d’un hall d’exposition n’est jamais fiable.
 Cette fiche contient tout le reste.</p>
 
@@ -198,6 +206,8 @@ Cette fiche contient tout le reste.</p>
 </div>
 
 <p class="goal">Mardi, on ne signe rien. On repart avec des noms, et un rendez-vous de 20 minutes avec chaque investisseur sérieux.</p>
+<p class="lead" style="margin-top:4pt"><b>Tes interlocuteurs ne sont pas techniques.</b> Parle des problèmes résolus et de l’impact :
+des pièces faites ici, de l’argent qui reste dans le pays, des gens formés. Jamais d’axes, de G-code ni de modèles d’IA.</p>
 
 <h2>Trois versions du pitch</h2>
 <table>
@@ -207,9 +217,9 @@ Cette fiche contient tout le reste.</p>
      We built it in Bamako. You don’t program it. You talk to it. Today our workshops turn those parts away and import them.
      Can I show you in one minute?”</span></td></tr>
  <tr><td><span class="t">3 minutes</span>quelqu’un s’arrête</td>
-     <td>Suis le deck : slide 2, le problème (0:00) · slide 3, la solution (0:40) · slide 4, puis <b>la démo</b> (1:10) ·
-     slides 6 et 7, modèle et pilote (2:10) · slide 8, la demande (2:40) · slide 10, le contact (2:55).
-     Si le temps manque, saute les slides 5 et 9.</td></tr>
+     <td>Suis le deck : slide 2, le problème (0:00) · slide 3, la solution (0:30) · slide 4, puis <b>la démo</b> (0:55) ·
+     slide 5, l’impact (1:50) · slides 8 et 9, le pilote et la demande (2:20) · slide 11, le contact (2:50).
+     Si le temps manque, saute les slides 6, 7 et 10.</td></tr>
  <tr><td><span class="t">10 à 15 minutes</span>rendez-vous assis, mercredi ou vendredi</td>
      <td>Tout le deck en 4 minutes, la démo en 3, puis leurs questions. Garde 2 minutes pour la suite :
      <span class="say">“What would you need to see to support the pilot?”</span></td></tr>
@@ -320,7 +330,7 @@ Elles ne sont pas vérifiées. Devant un investisseur, une seule affirmation fau
 
 <h2>Après chaque rencontre</h2>
 <ul class="tight">
- <li>Note la personne tout de suite sur la fiche contacts (page suivante), pas le soir.</li>
+ <li>Note la personne tout de suite sur la fiche contacts (dernière page), pas le soir.</li>
  <li>Le soir même, envoie ce message à chaque contact sérieux, par WhatsApp, e-mail ou LinkedIn :</li>
 </ul>
 <div class="box tint" style="margin-top:7pt">
@@ -331,6 +341,64 @@ Elles ne sont pas vérifiées. Devant un investisseur, une seule affirmation fau
 </div>
 <p class="small">Ces notes te servent aussi mercredi : au Jour 8, la résidence demande un relevé des retours
 d’investisseurs et des prochaines étapes.</p>
+"""
+
+
+COST = [
+    ("Structure", "profilés alu 80×80, plaques, équerres, visserie", 550),
+    ("Mouvement linéaire X, Y, Z", "vis à billes SFU1605 et paliers, rails HGR15 et patins, accouplements", 400),
+    ("Moteurs et drivers", "5 moteurs NEMA 23 et leurs drivers", 450),
+    ("Axes rotatifs A et C", "courroies, poulies, roulements à contact oblique, plateau", 200),
+    ("Broche", "broche d’environ 1,5 kW, variateur, support, pinces", 300),
+    ("Électronique et sécurité", "ESP32, carte d’interface, alimentations, fins de course, arrêt d’urgence, câbles", 350),
+    ("Capot de protection", "carter contre les copeaux", 200),
+]
+EXTRA = [
+    ("Transport et douane jusqu’à Bamako", "environ 35 % du prix des pièces importées", 850),
+    ("Usinage local, assemblage et réglage", "travail de l’équipe", 500),
+]
+ASK = [
+    ("Construire deux machines de production", "l’estimation ci-dessus, deux fois", 7600),
+    ("Équiper les deux ateliers", "workplan : ordinateur IA, onduleur, 2 tablettes, 2 casques (2 190) ; "
+     "en plus : un 2ᵉ ordinateur IA (1 200) et un 2ᵉ onduleur (250), car les deux ateliers tournent en même temps", 3640),
+    ("Sécurité, pièces de rechange, certification, marque", "workplan", 1230),
+    ("Faire tourner le pilote", "workplan : métal, outils, mesure (910) ; caisse, transport, relecture bambara, données (540)", 1450),
+    ("Trouver et signer les ateliers", "workplan : visites, mentors vente et prix", 520),
+]
+
+
+def usd(n):
+    return f"{n:,}".replace(",", " ")
+
+
+def page_cost():
+    parts = sum(c for _, _, c in COST)
+    per_machine = parts + sum(c for _, _, c in EXTRA)
+    assert per_machine * 2 == ASK[0][2]
+    rows = "".join(f"<tr><td><b>{a}</b></td><td>{b}</td><td class='r'>{usd(c)}</td></tr>" for a, b, c in COST)
+    rows += f"<tr class='sub'><td>Sous-total des pièces</td><td></td><td class='r'>{usd(parts)}</td></tr>"
+    rows += "".join(f"<tr><td><b>{a}</b></td><td>{b}</td><td class='r'>{usd(c)}</td></tr>" for a, b, c in EXTRA)
+    rows += f"<tr class='sub'><td>Total par machine</td><td></td><td class='r'>{usd(per_machine)}</td></tr>"
+    ask_rows = "".join(f"<tr><td><b>{a}</b></td><td>{b}</td><td class='r'>{usd(c)}</td></tr>" for a, b, c in ASK)
+    total = sum(c for _, _, c in ASK)
+    ask_rows += f"<tr class='sub'><td>Total de la demande</td><td></td><td class='r'>{usd(total)}</td></tr>"
+    return '<div class="pb"></div>' + top("Combien coûte une machine", "Le détail derrière la slide 9") + f"""
+<h1>Combien coûte une machine de production</h1>
+<p class="lead">Estimation construite à partir de la conception de ton mémoire, avec des prix catalogue de fournisseurs en ligne.
+<b>Ce sont des approximations</b> : remplace chaque ligne par ton chiffrage réel (mémoire, section 7.3) ou par un devis dès que possible.</p>
+<table style="margin-top:8pt">
+ <tr><th style="width:27%">Poste</th><th>Contenu</th><th style="width:12%" class="r">US$</th></tr>
+ {rows}
+</table>
+
+<h2>Ce que ça donne dans la demande : {usd(total)} $</h2>
+<table>
+ <tr><th style="width:30%">Ligne de la slide 9</th><th>D’où vient le chiffre</th><th style="width:12%" class="r">US$</th></tr>
+ {ask_rows}
+</table>
+<p class="small">Les 5 390 $ du workplan METI sont tous repris. S’y ajoutent les deux machines (7 600 $) et le second poste IA (1 450 $).
+Ne présente pas l’écart entre 3 800 $ et 16 000 $ comme ta marge : l’installation, la formation, le service après-vente
+et l’ordinateur IA livré avec chaque machine ne sont pas encore chiffrés.</p>
 """
 
 
@@ -350,7 +418,7 @@ def page_sheet():
 html = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <title>Forgeron · Investisseurs · mardi 17 novembre</title>
 <style>{font_css()}</style><style>{CSS}</style></head><body>
-{page_plan()}{page_demo()}{page_qa()}{page_dont()}{page_sheet()}
+{page_plan()}{page_demo()}{page_qa()}{page_dont()}{page_cost()}{page_sheet()}
 </body></html>"""
 
 HTML_OUT.write_text(html, encoding="utf-8")
