@@ -52,8 +52,13 @@ QA = [
      "discussion is with Kouratechnique in Bamako.”"),
     ("Imported machines keep getting cheaper. Why won’t they beat you?",
      "“They will get cheaper. What stays expensive is running them: a programmer, and repairs from "
-     "abroad. Our edge is the operator side: plain language, offline, French today and Bambara next, "
-     "with a team in Bamako to fix the machine.”", ""),
+     "abroad. Our edge is the operator side: plain language, offline, in 17 languages including 15 "
+     "African ones, with a team in Bamako to fix the machine.”", ""),
+    ("Which languages does it speak?",
+     "“The app offers 17: French, English and 15 African languages, from Bambara and Wolof to Hausa, "
+     "Swahili, Amharic and Zulu. Most are machine translations, and native speakers are reviewing "
+     "them, starting with Bambara. In Bambara, the safety alarms stay in French until a native speaker "
+     "has checked them.”", ""),
     ("How big is the market?",
      "“I won’t give you a number I can’t source. Our first market is the machine shops of Bamako. "
      "The pilot includes ten customer interviews, and they will tell us how many shops can pay, and "
@@ -107,6 +112,16 @@ DONT = [
     ("« The market is worth X billion »",
      "Aucun chiffre de marché sourcé.",
      "<span class='say'>“I won’t give you a number I can’t source.”</span>"),
+    ("« It speaks 15 African languages perfectly »",
+     "Traductions produites par des outils, pas encore relues par des locuteurs natifs ; l’app marque "
+     "elle-même 12 de ces langues comme « peu dotées ».",
+     "<span class='say'>“The app offers 15 African languages; native speakers are reviewing the "
+     "translations.”</span>"),
+    ("« The emergency stop works in five languages »",
+     "Dans le code, la règle d’arrêt est testée en français et en anglais ; le swahili et l’amharique "
+     "y sont marqués « à relire par un locuteur natif ».",
+     "<span class='say'>“The stop is a fixed rule outside the AI, tested in French and "
+     "English.”</span>"),
 ]
 
 CSS = r"""
@@ -144,11 +159,11 @@ tr { break-inside: avoid; }
 .cmd { font-family: 'DejaVu Sans Mono', 'Courier New', monospace; font-size: 8.6pt; color: #14171C; background: #F4F0E8; padding: 1.5pt 4pt; border-radius: 2pt; }
 .cb { display: inline-block; width: 8.5pt; height: 8.5pt; border: 1pt solid #14171C; border-radius: 1.5pt; }
 .check td { padding: 4.5pt 6pt; }
-.qa { break-inside: avoid; margin-top: 6.5pt; }
+.qa { break-inside: avoid; margin-top: 4pt; font-size: 9.1pt; line-height: 1.36; }
 .q { font-weight: 600; color: #14171C; }
 .q .n { font-family: 'Saira Condensed', 'Arial Narrow', Arial, sans-serif; font-weight: 700; color: #B53A0B; margin-right: 4pt; }
 .a { margin-top: 1pt; padding-left: 13pt; color: #14171C; font-style: italic; }
-.a2 { margin-top: 2pt; padding-left: 13pt; font-size: 8.6pt; color: #5E6673; }
+.a2 { margin-top: 1.5pt; padding-left: 13pt; font-size: 8.2pt; color: #5E6673; }
 .pb { break-before: page; }
 .sheet td { height: 15.6mm; }
 """
@@ -253,6 +268,9 @@ Commente en anglais pour les investisseurs.</p>
      <td class="say">“And the stop never waits for the AI.”</td></tr>
 </table>
 <p class="small">Répète ces trois commandes lundi soir, sur le matériel exact de mardi.</p>
+<p class="small"><b>Astuce Addis :</b> devant un visiteur éthiopien, kényan ou nigérian, passe l’interface en amharique,
+en swahili, en haoussa ou en yoruba (réglage de langue), puis demande-lui ce qu’il pense de la traduction.
+Tu obtiens une relecture par un locuteur natif, et la conversation démarre toute seule.</p>
 
 <div class="grid2">
  <div class="box">
@@ -293,7 +311,7 @@ def page_dont():
     rows = "".join(f"<tr><td><b>{a}</b></td><td>{b}</td><td>{c}</td></tr>" for a, b, c in DONT)
     return '<div class="pb"></div>' + top("Ce qu’il ne faut plus dire", "Et le suivi après chaque rencontre") + f"""
 <h1>Ce qu’il ne faut plus dire</h1>
-<p class="lead">Ces phrases circulent dans nos anciens documents, y compris la fiche METI Japan du 10 novembre.
+<p class="lead">Ces phrases circulent dans nos anciens documents (dont la fiche METI Japan du 10 novembre) ou sur le site.
 Elles ne sont pas vérifiées. Devant un investisseur, une seule affirmation fausse peut coûter toute ta crédibilité.</p>
 <table style="margin-top:8pt">
  <tr><th style="width:25%">Ne dis pas</th><th style="width:37%">Pourquoi</th><th>Dis plutôt</th></tr>
