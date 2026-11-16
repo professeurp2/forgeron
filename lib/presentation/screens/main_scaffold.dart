@@ -1630,6 +1630,9 @@ class _NavItemState extends State<_NavItem> {
                     Expanded(
                       child: AnimatedDefaultTextStyle(
                         duration: d,
+                        // AnimatedDefaultTextStyle remplace le style par
+                        // défaut au lieu de le compléter : sans famille dite
+                        // ici, le libellé prenait la police de l'OS.
                         style: TextStyle(
                           fontFamily: 'Rajdhani',
                           color: selected || _hover

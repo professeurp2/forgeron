@@ -510,6 +510,9 @@ class _DashCard extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(12),
+      // La carte remplit la hauteur qu'on lui donne et son contenu prend le
+      // reste : une liste ou un état vide à hauteur fixe débordait de 34 px
+      // sur tous les postes (balayage).
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: expandChild ? MainAxisSize.max : MainAxisSize.min,
@@ -535,7 +538,6 @@ class _DashCard extends StatelessWidget {
                   letterSpacing: 1.4,
                 ),
               ),
-              const Spacer(),
               if (action != null)
                 action!
               else
@@ -834,6 +836,11 @@ class _RightPanel extends ConsumerWidget {
                 ],
               ),
             ),
+            // Respiration entre les actions rapides et le jog : les quatre
+            // boutons touchaient l'en-tête de la section suivante.
+            const SizedBox(height: 10),
+            Container(height: 1, color: context.fc.surfaceBorder),
+            const SizedBox(height: 10),
             // ── JOG CONTROL ──────────────────────────────────────────
             BentoCascadeEntry(
               index: 3,
