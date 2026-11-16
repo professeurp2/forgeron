@@ -17,6 +17,7 @@ import '../../application/services/chat_relay.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/animated_number.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../domain/models/machine_state.dart';
 
@@ -102,19 +103,19 @@ class _BackofficeScreenState extends ConsumerState<BackofficeScreen> {
       if (wide) {
         return Column(children: [
           header,
-          kpis,
+          BentoCascadeEntry(index: 0, child: kpis),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(flex: 5, child: journal),
+                Expanded(flex: 5, child: BentoCascadeEntry(index: 1, child: journal)),
                 const SizedBox(width: 16),
                 SizedBox(
                   width: 440,
                   child: Column(children: [
-                    Expanded(flex: 3, child: chains),
+                    Expanded(flex: 3, child: BentoCascadeEntry(index: 2, child: chains)),
                     const SizedBox(height: 16),
-                    const Expanded(flex: 2, child: health),
+                    Expanded(flex: 2, child: BentoCascadeEntry(index: 3, child: health)),
                   ]),
                 ),
               ]),
@@ -236,12 +237,17 @@ class _Header extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(children: [
-        Icon(Icons.admin_panel_settings_outlined, color: fc.primary, size: 22),
+        const ForgeAiGyroOrb(size: 28, active: true),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr('BACKOFFICE'),
-                style: TextStyle(color: fc.textPrimary, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontFamily: 'Rajdhani',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8)),
             Text(tr('Supervision : agent IA · relais PC ↔ téléphone · carte FluidNC — {} événement(s)', [count]),
                 style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis),
           ]),
@@ -376,9 +382,9 @@ class _Kpi extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: fc.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: fc.surfaceBorder),
+        gradient: fc.cardGradient,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fc.rimHighlight),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [

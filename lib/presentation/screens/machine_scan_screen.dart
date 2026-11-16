@@ -148,7 +148,12 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
       appBar: AppBar(
         backgroundColor: fc.surface,
         foregroundColor: fc.textPrimary,
-        title: Text(tr('Scan en machine')),
+        title: Text(tr('Scan en machine'),
+            style: TextStyle(
+                fontFamily: 'Rajdhani',
+                color: fc.textPrimary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -175,17 +180,28 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: fc.surface,
+        gradient: fc.cardGradient,
         borderRadius: BorderRadius.circular(10),
-        border: Border(left: BorderSide(color: fc.primary, width: 3)),
+        border: Border.all(color: fc.rimHighlight),
       ),
-      child: Text(
-        tr('Le maître est bridé sur la machine. On tourne les axes A/C par '
-            'angles connus (tourne-table calibré) et les caméras capturent, puis '
-            'on reconstruit et on usine la reproduction. Pièce marquée '
-            '« approximative » tant que l\'échelle n\'est pas certifiée.'),
-        style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
-      ),
+      child: Row(children: [
+        Container(
+          width: 3,
+          height: 44,
+          decoration: BoxDecoration(
+              color: fc.primary, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            tr('Le maître est bridé sur la machine. On tourne les axes A/C par '
+                'angles connus (tourne-table calibré) et les caméras capturent, puis '
+                'on reconstruit et on usine la reproduction. Pièce marquée '
+                '« approximative » tant que l\'échelle n\'est pas certifiée.'),
+            style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+          ),
+        ),
+      ]),
     );
   }
 
@@ -195,17 +211,18 @@ class _MachineScanScreenState extends ConsumerState<MachineScanScreen> {
       children: [
         Text(title.toUpperCase(),
             style: TextStyle(
+                fontFamily: 'Rajdhani',
                 color: fc.textSecondary,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.0)),
+                letterSpacing: 1.2)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: fc.surface,
+            gradient: fc.cardGradient,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: fc.surfaceBorder),
+            border: Border.all(color: fc.rimHighlight),
           ),
           child: child,
         ),

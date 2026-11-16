@@ -14,7 +14,6 @@ import '../../core/theme/forgeron_colors.dart';
 import '../../core/theme/forgeron_fluent_theme.dart';
 import 'ai_sub_window_content.dart';
 import 'ai_viewer_windows.dart';
-import '../../core/i18n/app_localizations.dart';
 
 /// Racine Dart d'une fenêtre ouverte par `AiWindowLauncher` — un second
 /// moteur Flutter, indépendant de [ForgeronApp] (voir main.dart). Elle ne
@@ -35,9 +34,14 @@ import '../../core/i18n/app_localizations.dart';
 /// celle qu'il trouve à son initialisation ; initialisé dans ce second moteur,
 /// il se raccrochait à la fenêtre principale et en détournait la procédure.
 class AiSubWindowApp extends StatefulWidget {
-  const AiSubWindowApp({super.key, required this.rawArguments});
+  const AiSubWindowApp({
+    super.key,
+    required this.rawArguments,
+    this.overrides = const [],
+  });
 
   final String rawArguments;
+  final List<Override> overrides;
 
   @override
   State<AiSubWindowApp> createState() => _AiSubWindowAppState();
@@ -118,6 +122,7 @@ class _AiSubWindowAppState extends State<AiSubWindowApp> {
     // c'est FluentApp qui pose le MediaQuery dont `isDarkTheme` a besoin pour
     // résoudre le mode système. Même raison que ForgeronApp dans main.dart.
     return ProviderScope(
+      overrides: widget.overrides,
       child: FluentApp(
         debugShowCheckedModeBanner: false,
         title: _payload['title'] as String? ?? 'Forgeron',

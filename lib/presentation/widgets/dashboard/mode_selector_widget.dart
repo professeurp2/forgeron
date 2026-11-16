@@ -36,9 +36,10 @@ class ModeSelectorWidget extends ConsumerWidget {
         border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
         boxShadow: [
           BoxShadow(
-              color: accent.withValues(alpha: 0.14),
-              blurRadius: 16,
-              spreadRadius: -4),
+            color: accent.withValues(alpha: 0.14),
+            blurRadius: 16,
+            spreadRadius: -4,
+          ),
         ],
       ),
       child: Column(
@@ -52,59 +53,79 @@ class ModeSelectorWidget extends ConsumerWidget {
           // débordait — bandes jaunes et noires en bout de carte. Et sous
           // 240 px, même le badge et le bouton ne tiennent plus côte à côte :
           // le bouton passe dessous.
-          LayoutBuilder(builder: (context, c) {
-            final badge = Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                is5Ax ? Icons.rotate_90_degrees_ccw_rounded : Icons.lock_rounded,
-                color: accent,
-                size: 20,
-              ),
-            );
-            final labels = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(mode.shortLabel,
+          LayoutBuilder(
+            builder: (context, c) {
+              final badge = Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  is5Ax
+                      ? Icons.rotate_90_degrees_ccw_rounded
+                      : Icons.lock_rounded,
+                  color: accent,
+                  size: 20,
+                ),
+              );
+              final labels = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mode.shortLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: accent,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        fontFamily: 'JetBrains Mono',
-                        height: 1.0)),
-                Text(tr(mode.label),
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      fontFamily: 'JetBrains Mono',
+                      height: 1.0,
+                    ),
+                  ),
+                  Text(
+                    tr(mode.label),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: fc.textDisabled, fontSize: 10)),
-              ],
-            );
-            final toggle = _ModeToggle(
-              is5Ax: is5Ax,
-              accent: accent,
-              onChanged: (v) => _handleModeChange(context, ref, v),
-            );
-            if (c.maxWidth < 240) {
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [badge, const SizedBox(width: 10), Expanded(child: labels)]),
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: toggle),
-              ]);
-            }
-            return Row(children: [
-              badge,
-              const SizedBox(width: 10),
-              Expanded(child: labels),
-              const SizedBox(width: 8),
-              toggle,
-            ]);
-          }),
+                    style: TextStyle(color: fc.textDisabled, fontSize: 10),
+                  ),
+                ],
+              );
+              final toggle = _ModeToggle(
+                is5Ax: is5Ax,
+                accent: accent,
+                onChanged: (v) => _handleModeChange(context, ref, v),
+              );
+              if (c.maxWidth < 240) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        badge,
+                        const SizedBox(width: 10),
+                        Expanded(child: labels),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: toggle),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  badge,
+                  const SizedBox(width: 10),
+                  Expanded(child: labels),
+                  const SizedBox(width: 8),
+                  toggle,
+                ],
+              );
+            },
+          ),
 
           const SizedBox(height: 12),
 
@@ -116,79 +137,103 @@ class ModeSelectorWidget extends ConsumerWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: accent.withValues(alpha: 0.3)),
             ),
-            child: Row(children: [
-              Icon(is5Ax ? Icons.shield_rounded : Icons.lock_outline_rounded,
-                  size: 16, color: accent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: TextStyle(fontSize: 10.5, color: fc.textSecondary),
-                    children: is5Ax
-                        ? [
-                            TextSpan(
+            child: Row(
+              children: [
+                Icon(
+                  is5Ax ? Icons.shield_rounded : Icons.lock_outline_rounded,
+                  size: 16,
+                  color: accent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(fontSize: 10.5, color: fc.textSecondary),
+                      children: is5Ax
+                          ? [
+                              TextSpan(
                                 text: 'FORCEGUARD ACTIF',
                                 style: TextStyle(
-                                    color: accent,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5)),
-                            TextSpan(
+                                  color: accent,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              TextSpan(
                                 text:
-                                    ' — avance bridée pour garder R ≤ ${mode.maxResultantForce} N'),
-                          ]
-                        : [
-                            TextSpan(
+                                    ' — avance bridée pour garder R ≤ ${mode.maxResultantForce} N',
+                              ),
+                            ]
+                          : [
+                              TextSpan(
                                 text: tr('AXES A/C VERROUILLÉS'),
                                 style: TextStyle(
-                                    color: accent,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5)),
-                            const TextSpan(text: ' — usinage 3 axes, pas de bridage'),
-                          ],
+                                  color: accent,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: ' — usinage 3 axes, pas de bridage',
+                              ),
+                            ],
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
 
           const SizedBox(height: 10),
 
           // ── Grille des 4 limites ──
-          Row(children: [
-            Expanded(
+          Row(
+            children: [
+              Expanded(
                 child: _ForceStatTile(
-                    icon: Icons.compress_rounded,
-                    label: tr('R_max'),
-                    value: '${mode.maxResultantForce}',
-                    unit: 'N',
-                    accent: accent)),
-            const SizedBox(width: 8),
-            Expanded(
+                  icon: Icons.compress_rounded,
+                  label: tr('R_max'),
+                  value: '${mode.maxResultantForce}',
+                  unit: 'N',
+                  accent: accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
                 child: _ForceStatTile(
-                    icon: Icons.fast_forward_rounded,
-                    label: tr('F_max'),
-                    value: '${mode.maxFeedrate.toInt()}',
-                    unit: 'mm/min',
-                    accent: accent)),
-          ]),
+                  icon: Icons.fast_forward_rounded,
+                  label: tr('F_max'),
+                  value: '${mode.maxFeedrate.toInt()}',
+                  unit: 'mm/min',
+                  accent: accent,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
+          Row(
+            children: [
+              Expanded(
                 child: _ForceStatTile(
-                    icon: Icons.height_rounded,
-                    label: tr('ap_max'),
-                    value: '${mode.maxDepthOfCut}',
-                    unit: 'mm',
-                    accent: accent)),
-            const SizedBox(width: 8),
-            Expanded(
+                  icon: Icons.height_rounded,
+                  label: tr('ap_max'),
+                  value: '${mode.maxDepthOfCut}',
+                  unit: 'mm',
+                  accent: accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
                 child: _ForceStatTile(
-                    icon: Icons.width_normal_rounded,
-                    label: tr('ae_max'),
-                    value: '${mode.maxWidthOfCut}',
-                    unit: 'mm',
-                    accent: accent)),
-          ]),
+                  icon: Icons.width_normal_rounded,
+                  label: tr('ae_max'),
+                  value: '${mode.maxWidthOfCut}',
+                  unit: 'mm',
+                  accent: accent,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -200,18 +245,30 @@ class ModeSelectorWidget extends ConsumerWidget {
     final accent = to5Ax ? fc.primary : fc.success;
 
     final description = to5Ax
-        ? tr('Mode 5 axes simultanés. Les axes A et C seront déverrouillés et '
-            'le ForceGuard bornera l\'avance de sécurité.')
-        : tr('Mode 3 axes (X, Y, Z). Les axes A et C seront verrouillés en '
-            'position actuelle.');
+        ? tr(
+            'Mode 5 axes simultanés. Les axes A et C seront déverrouillés et '
+            'le ForceGuard bornera l\'avance de sécurité.',
+          )
+        : tr(
+            'Mode 3 axes (X, Y, Z). Les axes A et C seront verrouillés en '
+            'position actuelle.',
+          );
 
     final chips = to5Ax
         ? [
-            _DialogStat(tr('AVANCE MAX'), '${newMode.maxFeedrate.toInt()}', 'mm/min'),
+            _DialogStat(
+              tr('AVANCE MAX'),
+              '${newMode.maxFeedrate.toInt()}',
+              'mm/min',
+            ),
             _DialogStat(tr('R_max'), '${newMode.maxResultantForce}', 'N'),
           ]
         : [
-            _DialogStat(tr('FORCE NOM.'), '${newMode.nominalForce.toInt()}', 'N'),
+            _DialogStat(
+              tr('FORCE NOM.'),
+              '${newMode.nominalForce.toInt()}',
+              'N',
+            ),
             _DialogStat(tr('AXES A·C'), 'LOCK', ''),
           ];
 
@@ -225,7 +282,10 @@ class ModeSelectorWidget extends ConsumerWidget {
           decoration: BoxDecoration(
             color: fc.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.5),
+            border: Border.all(
+              color: accent.withValues(alpha: 0.55),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
                 color: accent.withValues(alpha: 0.22),
@@ -255,8 +315,9 @@ class ModeSelectorWidget extends ConsumerWidget {
                       accent.withValues(alpha: 0.0),
                     ],
                   ),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -267,7 +328,9 @@ class ModeSelectorWidget extends ConsumerWidget {
                         shape: BoxShape.circle,
                         color: accent.withValues(alpha: 0.15),
                         border: Border.all(
-                            color: accent.withValues(alpha: 0.6), width: 1.5),
+                          color: accent.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: accent.withValues(alpha: 0.35),
@@ -307,14 +370,19 @@ class ModeSelectorWidget extends ConsumerWidget {
                       description,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: fc.textSecondary, fontSize: 13, height: 1.4),
+                        color: fc.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     Row(
                       children: [
                         for (int i = 0; i < chips.length; i++) ...[
                           if (i > 0) const SizedBox(width: 10),
-                          Expanded(child: _buildDialogChip(fc, accent, chips[i])),
+                          Expanded(
+                            child: _buildDialogChip(fc, accent, chips[i]),
+                          ),
                         ],
                       ],
                     ),
@@ -333,14 +401,19 @@ class ModeSelectorWidget extends ConsumerWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                                color: fc.surfaceBorder, width: 1.2),
+                              color: fc.surfaceBorder,
+                              width: 1.2,
+                            ),
                           ),
                         ),
                         onPressed: () => Navigator.pop(ctx),
-                        child: Text(tr('Annuler'),
-                            style: TextStyle(
-                                color: fc.textSecondary,
-                                fontWeight: FontWeight.w700)),
+                        child: Text(
+                          tr('Annuler'),
+                          style: TextStyle(
+                            color: fc.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -360,8 +433,10 @@ class ModeSelectorWidget extends ConsumerWidget {
                               newMode;
                           Navigator.pop(ctx);
                         },
-                        child: Text(tr('Confirmer'),
-                            style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          tr('Confirmer'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
                   ],
@@ -375,7 +450,10 @@ class ModeSelectorWidget extends ConsumerWidget {
   }
 
   Widget _buildDialogChip(
-      ForgeronColorPalette fc, Color accent, _DialogStat s) {
+    ForgeronColorPalette fc,
+    Color accent,
+    _DialogStat s,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
@@ -395,12 +473,12 @@ class ModeSelectorWidget extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
+          Text.rich(
+            TextSpan(
               text: s.value,
               style: TextStyle(
                 color: accent,
+                fontFamily: 'JetBrains Mono',
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -410,12 +488,14 @@ class ModeSelectorWidget extends ConsumerWidget {
                     text: ' ${s.unit}',
                     style: TextStyle(
                       color: fc.textSecondary,
+                      fontFamily: 'JetBrains Mono',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
               ],
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -437,8 +517,11 @@ class _ModeToggle extends StatelessWidget {
   final Color accent;
   final ValueChanged<bool> onChanged;
 
-  const _ModeToggle(
-      {required this.is5Ax, required this.accent, required this.onChanged});
+  const _ModeToggle({
+    required this.is5Ax,
+    required this.accent,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -454,43 +537,54 @@ class _ModeToggle extends StatelessWidget {
           color: accent.withValues(alpha: 0.18),
           border: Border.all(color: accent),
         ),
-        child: Stack(children: [
-          Positioned(
-            left: 8,
-            top: 7,
-            child: Text('3',
+        child: Stack(
+          children: [
+            Positioned(
+              left: 8,
+              top: 7,
+              child: Text(
+                '3',
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: !is5Ax ? Colors.white : fc.textDisabled)),
-          ),
-          Positioned(
-            right: 8,
-            top: 7,
-            child: Text('5',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: is5Ax ? Colors.white : fc.textDisabled)),
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            left: is5Ax ? 30 : 2,
-            top: 2,
-            child: Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent,
-                boxShadow: [
-                  BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 6),
-                ],
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: !is5Ax ? Colors.white : fc.textDisabled,
+                ),
               ),
             ),
-          ),
-        ]),
+            Positioned(
+              right: 8,
+              top: 7,
+              child: Text(
+                '5',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: is5Ax ? Colors.white : fc.textDisabled,
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              left: is5Ax ? 30 : 2,
+              top: 2,
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -525,20 +619,25 @@ class _ForceStatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(icon, size: 12, color: accent),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(label,
+          Row(
+            children: [
+              Icon(icon, size: 12, color: accent),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: fc.textDisabled,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'JetBrains Mono')),
-            ),
-          ]),
+                    color: fc.textDisabled,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           // Réduit plutôt que coupé : « 240 mm/min » tronqué en « 24… » ferait
           // lire une fausse limite. Dans une tuile étroite, tout rétrécit.
@@ -550,16 +649,21 @@ class _ForceStatTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(value,
-                    maxLines: 1,
-                    style: TextStyle(
-                        color: fc.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'JetBrains Mono')),
+                Text(
+                  value,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
                 const SizedBox(width: 3),
-                Text(unit,
-                    style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+                Text(
+                  unit,
+                  style: TextStyle(color: fc.textDisabled, fontSize: 9),
+                ),
               ],
             ),
           ),

@@ -98,8 +98,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: fc.surface,
-        border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
+        gradient: fc.cardGradient,
+        border: Border(bottom: BorderSide(color: fc.rimHighlight)),
       ),
       child: Row(
         children: [
@@ -126,11 +126,19 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
                   border: Border.all(
                       color: i <= _step ? fc.primary : fc.surfaceBorder,
                       width: 1.5),
+                  boxShadow: i == _step
+                      ? [
+                          BoxShadow(
+                              color: fc.primary.withValues(alpha: 0.35),
+                              blurRadius: 8),
+                        ]
+                      : null,
                 ),
                 child: i < _step
                     ? const Icon(Icons.check, size: 13, color: Colors.white)
                     : Text('${i + 1}',
                         style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
                             color: i == _step ? fc.primary : fc.textDisabled,
                             fontSize: 11,
                             fontWeight: FontWeight.w900)),
@@ -167,9 +175,11 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
           Expanded(
             child: Text(title,
                 style: TextStyle(
+                    fontFamily: 'Rajdhani',
                     color: fc.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900)),
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5)),
           ),
         ]),
         const SizedBox(height: 8),

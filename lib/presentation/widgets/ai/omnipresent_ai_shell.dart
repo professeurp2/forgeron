@@ -20,6 +20,7 @@ import '../../../core/i18n/app_localizations.dart';
 import 'translation_note.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_kinetic_fx.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -80,16 +81,21 @@ class AiDockNotifier extends StateNotifier<AiDockState> {
       state = state.copyWith(mode: mode, isOpen: true);
 
   void updateFloatingOffset(Offset delta, Size bounds) {
-    final nextX = (state.floatingOffset.dx + delta.dx)
-        .clamp(12.0, (bounds.width - 392).clamp(12.0, 2400.0));
-    final nextY = (state.floatingOffset.dy + delta.dy)
-        .clamp(12.0, (bounds.height - 460).clamp(12.0, 2400.0));
+    final nextX = (state.floatingOffset.dx + delta.dx).clamp(
+      12.0,
+      (bounds.width - 392).clamp(12.0, 2400.0),
+    );
+    final nextY = (state.floatingOffset.dy + delta.dy).clamp(
+      12.0,
+      (bounds.height - 460).clamp(12.0, 2400.0),
+    );
     state = state.copyWith(floatingOffset: Offset(nextX, nextY));
   }
 }
 
-final aiDockProvider =
-    StateNotifierProvider<AiDockNotifier, AiDockState>((ref) => AiDockNotifier());
+final aiDockProvider = StateNotifierProvider<AiDockNotifier, AiDockState>(
+  (ref) => AiDockNotifier(),
+);
 
 /// Enveloppe rendant **Forgeron IA** accessible depuis les écrans métier
 /// (Tableau de bord, Palpage, Outils, Espace de travail, MDI, Diagnostics)
@@ -171,7 +177,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   void _onScroll() {
     if (!_scrollCtrl.hasClients) return;
     final atBottom =
-        _scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 60;
+        _scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 60;
     if (atBottom != _atBottom && mounted) {
       setState(() => _atBottom = atBottom);
     }
@@ -225,10 +232,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     final m = ScaffoldMessenger.maybeOf(context);
     m
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 5),
-      ));
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
+      );
   }
 
   Future<void> _startListeningSession({required bool onDevice}) async {
@@ -271,7 +277,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           onError: (e) {
             if (!mounted) return;
             final code = e.errorMsg.trim();
-            final isNetErr = code == 'error_network' ||
+            final isNetErr =
+                code == 'error_network' ||
                 code == 'error_network_timeout' ||
                 code == 'error_server' ||
                 code == 'error_server_disconnected';
@@ -398,11 +405,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     if (!widget.hideOverlay) {
       ref.read(aiDockProvider.notifier).open();
     }
-    await ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
-          trimmed,
-          imageBytes: image,
-          imageMime: mime,
-        );
+    await ref
+        .read(aiAgentControllerProvider.notifier)
+        .sendUserMessage(trimmed, imageBytes: image, imageMime: mime);
     _scrollToBottom();
   }
 
@@ -434,7 +439,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     // sur la page Agent IA.
     ref.listen<ControllerMemoryState>(controllerMemoryProvider, (prev, next) {
       final newReboot = next.esp32RebootCount > _lastSeenRebootCount;
-      final newAlarm = next.activeDiagnosis?.alarmCode != null &&
+      final newAlarm =
+          next.activeDiagnosis?.alarmCode != null &&
           next.activeDiagnosis?.alarmCode != _lastSeenAlarmCode;
 
       if (newReboot || newAlarm) {
@@ -530,9 +536,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   Container(
                     width: dock.rightWidth.clamp(320.0, size.width * 0.45),
                     decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: fc.surfaceBorder),
-                      ),
+                      border: Border(left: BorderSide(color: fc.surfaceBorder)),
                     ),
                     child: _buildChatPanel(context, fc, memory, effectiveMode),
                   ),
@@ -545,9 +549,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   Container(
                     height: dock.bottomHeight.clamp(220.0, size.height * 0.52),
                     decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: fc.surfaceBorder),
-                      ),
+                      border: Border(top: BorderSide(color: fc.surfaceBorder)),
                     ),
                     child: _buildChatPanel(context, fc, memory, effectiveMode),
                   ),
@@ -559,16 +561,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
             // ── Mode Flottant déplaçable ─────────────────────────────────
             if (dock.isOpen && effectiveMode == AiDockMode.floating)
               Positioned(
-                left: dock.floatingOffset.dx
-                    .clamp(12.0, (size.width - 392).clamp(12.0, 2400.0)),
-                top: dock.floatingOffset.dy
-                    .clamp(12.0, (size.height - 460).clamp(12.0, 2400.0)),
+                left: dock.floatingOffset.dx.clamp(
+                  12.0,
+                  (size.width - 444).clamp(12.0, 2400.0),
+                ),
+                top: dock.floatingOffset.dy.clamp(
+                  12.0,
+                  (size.height - 460).clamp(12.0, 2400.0),
+                ),
                 width: widget.isMobile
                     ? (size.width - 24).clamp(280.0, 410.0)
-                    : 380,
+                    : 432,
                 height: widget.isMobile
                     ? 420
-                    : 480.0.clamp(300.0, (size.height - 24).clamp(300.0, 560.0)),
+                    : 480.0.clamp(
+                        300.0,
+                        (size.height - 24).clamp(300.0, 560.0),
+                      ),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -609,14 +618,17 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   }
 
   Widget _buildCollapsedLauncher(
-      ForgeronColorPalette fc, ControllerMemoryState memory) {
+    ForgeronColorPalette fc,
+    ControllerMemoryState memory,
+  ) {
     final hasAlert = memory.activeDiagnosis != null;
     final unread = ref.watch(aiInboxProvider).unread;
 
     final bgColor = hasAlert ? fc.danger : fc.surfaceBright;
     final fgColor = hasAlert ? Colors.white : fc.textPrimary;
-    final borderColor =
-        hasAlert ? fc.danger : fc.primary.withValues(alpha: 0.45);
+    final borderColor = hasAlert
+        ? fc.danger
+        : fc.primary.withValues(alpha: 0.45);
 
     return Material(
       color: Colors.transparent,
@@ -636,8 +648,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
             border: Border.all(color: borderColor, width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: (hasAlert ? fc.danger : Colors.black)
-                    .withValues(alpha: hasAlert ? 0.35 : 0.22),
+                color: (hasAlert ? fc.danger : Colors.black).withValues(
+                  alpha: hasAlert ? 0.35 : 0.22,
+                ),
                 blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
@@ -646,29 +659,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasAlert
-                      ? null
-                      : LinearGradient(
-                          colors: [fc.primaryLight, fc.primary, fc.primaryDim],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  color: hasAlert ? Colors.white.withValues(alpha: 0.2) : null,
-                ),
-                child: Icon(
-                  hasAlert
-                      ? Icons.warning_amber_rounded
-                      : Icons.auto_awesome,
-                  color: hasAlert ? Colors.white : fc.background,
-                  size: 14,
-                ),
-              ),
+              if (hasAlert)
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                )
+              else
+                const ForgeAiGyroOrb(size: 26, active: true),
               const SizedBox(width: 9),
               Text(
                 hasAlert ? tr('Alerte machine') : 'Forgeron IA',
@@ -682,8 +689,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
               if (unread > 0) ...[
                 const SizedBox(width: 7),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: hasAlert ? Colors.white : fc.primary,
                     borderRadius: BorderRadius.circular(10),
@@ -748,31 +757,11 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
                     color: fc.surfaceBright,
-                    border: Border(
-                      bottom: BorderSide(color: fc.surfaceBorder),
-                    ),
+                    border: Border(bottom: BorderSide(color: fc.surfaceBorder)),
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              fc.primaryLight,
-                              fc.primary,
-                              fc.primaryDim,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Icon(Icons.auto_awesome,
-                            size: 13, color: fc.background),
-                      ),
+                      const ForgeAiGyroOrb(size: 26, active: true),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -796,7 +785,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: fc.danger.withValues(alpha: 0.14),
                                       borderRadius: BorderRadius.circular(4),
@@ -817,8 +808,13 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                               ],
                             ),
                             Text(
-                              tr(memory.activeWindowName.toUpperCase()).isNotEmpty &&
-                                      tr(memory.activeWindowName.toUpperCase()) !=
+                              tr(
+                                        memory.activeWindowName.toUpperCase(),
+                                      ).isNotEmpty &&
+                                      tr(
+                                            memory.activeWindowName
+                                                .toUpperCase(),
+                                          ) !=
                                           memory.activeWindowName.toUpperCase()
                                   ? tr(memory.activeWindowName.toUpperCase())
                                   : tr(memory.activeWindowName),
@@ -837,8 +833,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
                         tooltip: ttsOn
                             ? tr('Lecture vocale activée')
                             : tr('Lecture vocale'),
@@ -849,9 +847,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           color: ttsOn ? fc.primary : fc.textSecondary,
                           size: 16,
                         ),
-                        onPressed: () => ref
-                            .read(aiTtsEnabledProvider.notifier)
-                            .state = !ttsOn,
+                        onPressed: () =>
+                            ref.read(aiTtsEnabledProvider.notifier).state =
+                                !ttsOn,
                       ),
                       const SizedBox(width: 2),
 
@@ -882,7 +880,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                     child: Text(
                                       l.label,
                                       style: TextStyle(
-                                          color: fc.textPrimary, fontSize: 12),
+                                        color: fc.textPrimary,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -891,7 +891,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                         ],
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: fc.surfaceHigh,
                             borderRadius: BorderRadius.circular(5),
@@ -937,7 +939,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                              minWidth: 28, minHeight: 28),
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
                           tooltip: tr('Ouvrir la page Agent IA'),
                           onPressed: () => widget.onNavigateToScreen!(6),
                           icon: Icon(
@@ -949,8 +953,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
                         tooltip: tr('Fermer'),
                         onPressed: () =>
                             ref.read(aiDockProvider.notifier).close(),
@@ -978,7 +984,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                         ListView.builder(
                           controller: _scrollCtrl,
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                          itemCount: chat.messages.length +
+                          itemCount:
+                              chat.messages.length +
                               (streaming ? 1 : 0) +
                               (thinking ? 1 : 0),
                           itemBuilder: (context, index) {
@@ -1015,8 +1022,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                     border: Border.all(color: fc.surfaceBorder),
                                     boxShadow: [
                                       BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.28),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.28,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1046,8 +1054,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                 !chat.isProcessing)
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: fc.surface,
                   border: Border(top: BorderSide(color: fc.surfaceBorder)),
@@ -1064,7 +1074,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                             onTap: () => _executeSuggestion(s),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 9, vertical: 4),
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: fc.surfaceBright,
                                 borderRadius: BorderRadius.circular(6),
@@ -1108,7 +1120,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           if (_pendingImage != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: fc.surfaceBright,
                                 borderRadius: BorderRadius.circular(8),
@@ -1140,8 +1154,11 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                       _pendingImage = null;
                                       _pendingImageMime = null;
                                     }),
-                                    child: Icon(Icons.close_rounded,
-                                        size: 15, color: fc.textDisabled),
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 15,
+                                      color: fc.textDisabled,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1149,7 +1166,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           if (_pendingFileName != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 5),
+                                horizontal: 8,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: fc.surfaceBright,
                                 borderRadius: BorderRadius.circular(8),
@@ -1158,19 +1177,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.insert_drive_file_outlined,
-                                      size: 15, color: fc.secondary),
+                                  Icon(
+                                    Icons.insert_drive_file_outlined,
+                                    size: 15,
+                                    color: fc.secondary,
+                                  ),
                                   const SizedBox(width: 6),
                                   ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 180),
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 180,
+                                    ),
                                     child: Text(
                                       _pendingFileName!,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: fc.textPrimary,
                                         fontSize: 11,
-                                        fontFamily: 'JetBrainsMono',
+                                        fontFamily: 'JetBrains Mono',
                                       ),
                                     ),
                                   ),
@@ -1180,8 +1203,11 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                                       _pendingFilePath = null;
                                       _pendingFileName = null;
                                     }),
-                                    child: Icon(Icons.close_rounded,
-                                        size: 15, color: fc.textDisabled),
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 15,
+                                      color: fc.textDisabled,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1196,12 +1222,18 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
                         tooltip: tr(
-                            'Charger une pièce ou un programme (STEP, STL, NC)'),
-                        icon: Icon(Icons.attach_file_rounded,
-                            size: 18, color: fc.textSecondary),
+                          'Charger une pièce ou un programme (STEP, STL, NC)',
+                        ),
+                        icon: Icon(
+                          Icons.attach_file_rounded,
+                          size: 18,
+                          color: fc.textSecondary,
+                        ),
                         onPressed: _pickFile,
                       ),
 
@@ -1209,11 +1241,16 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
                         tooltip: tr('Joindre une image'),
-                        icon: Icon(Icons.image_outlined,
-                            size: 18, color: fc.textSecondary),
+                        icon: Icon(
+                          Icons.image_outlined,
+                          size: 18,
+                          color: fc.textSecondary,
+                        ),
                         onPressed: _pickImage,
                       ),
 
@@ -1221,8 +1258,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
                         tooltip: _listening
                             ? tr('Arrêter la dictée')
                             : tr('Dictée vocale'),
@@ -1240,20 +1279,26 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       Expanded(
                         child: TextField(
                           controller: _inputCtrl,
-                          style:
-                              TextStyle(color: fc.textPrimary, fontSize: 12.5),
+                          style: TextStyle(
+                            color: fc.textPrimary,
+                            fontSize: 12.5,
+                          ),
                           onSubmitted: _sendPrompt,
                           decoration: InputDecoration(
                             isDense: true,
                             hintText: _listening
                                 ? tr('Dictée en cours…')
                                 : tr('Écrire à Forgeron IA…'),
-                            hintStyle:
-                                TextStyle(color: fc.textDisabled, fontSize: 12),
+                            hintStyle: TextStyle(
+                              color: fc.textDisabled,
+                              fontSize: 12,
+                            ),
                             filled: true,
                             fillColor: fc.surfaceBright,
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: fc.surfaceBorder),
@@ -1278,16 +1323,22 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                           onPressed: () => ref
                               .read(aiAgentControllerProvider.notifier)
                               .stopGeneration(),
-                          icon: Icon(Icons.stop_circle_outlined,
-                              color: fc.danger, size: 20),
+                          icon: Icon(
+                            Icons.stop_circle_outlined,
+                            color: fc.danger,
+                            size: 20,
+                          ),
                         )
                       else
                         IconButton(
                           visualDensity: VisualDensity.compact,
                           tooltip: tr('Envoyer'),
                           onPressed: () => _sendPrompt(_inputCtrl.text),
-                          icon: Icon(Icons.send_rounded,
-                              color: fc.primary, size: 19),
+                          icon: Icon(
+                            Icons.send_rounded,
+                            color: fc.primary,
+                            size: 19,
+                          ),
                         ),
                     ],
                   ),
@@ -1313,16 +1364,14 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
       tooltip: tooltip,
       onPressed: () => ref.read(aiDockProvider.notifier).setMode(mode),
-      icon: Icon(
-        icon,
-        size: 15,
-        color: active ? fc.primary : fc.textSecondary,
-      ),
+      icon: Icon(icon, size: 15, color: active ? fc.primary : fc.textSecondary),
     );
   }
 
   Widget _buildLiveHardwareDiagnosisBanner(
-      ForgeronColorPalette fc, dynamic diag) {
+    ForgeronColorPalette fc,
+    dynamic diag,
+  ) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(10, 10, 10, 2),
@@ -1362,7 +1411,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
             style: TextStyle(
               color: fc.primary,
               fontSize: 10.5,
-              fontFamily: 'JetBrainsMono',
+              fontFamily: 'JetBrains Mono',
             ),
           ),
           const SizedBox(height: 8),
@@ -1386,8 +1435,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                     }
                   },
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: fc.surfaceBright,
                       borderRadius: BorderRadius.circular(6),
@@ -1411,24 +1462,16 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   }
 
   Widget _buildEmptyState(
-      ForgeronColorPalette fc, ControllerMemoryState memory) {
+    ForgeronColorPalette fc,
+    ControllerMemoryState memory,
+  ) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fc.primary.withValues(alpha: 0.12),
-                border: Border.all(color: fc.primary.withValues(alpha: 0.35)),
-              ),
-              child: Icon(Icons.auto_awesome, color: fc.primary, size: 20),
-            ),
+            const ForgeAiGyroOrb(size: 48, active: true),
             const SizedBox(height: 12),
             Text(
               'Forgeron IA',
@@ -1463,7 +1506,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                       onTap: () => _executeSuggestion(s),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
                         decoration: BoxDecoration(
                           color: fc.surfaceBright,
                           borderRadius: BorderRadius.circular(8),
@@ -1529,9 +1574,12 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   }
 
   Widget _buildConfirmationBar(
-      ForgeronColorPalette fc, AiPendingToolCall pending) {
+    ForgeronColorPalette fc,
+    AiPendingToolCall pending,
+  ) {
     final controller = ref.read(aiAgentControllerProvider.notifier);
-    final label = pending.lexicon?.label ??
+    final label =
+        pending.lexicon?.label ??
         tr('Confirmer : {}', [friendlyToolLabel(pending.toolName)]);
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 4, 10, 6),
@@ -1559,8 +1607,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           ),
           TextButton(
             onPressed: controller.rejectPendingAction,
-            child: Text(tr('Refuser'),
-                style: TextStyle(color: fc.textSecondary, fontSize: 11.5)),
+            child: Text(
+              tr('Refuser'),
+              style: TextStyle(color: fc.textSecondary, fontSize: 11.5),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1570,8 +1620,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             ),
             onPressed: controller.confirmPendingAction,
-            child:
-                Text(tr('Confirmer'), style: const TextStyle(fontSize: 11.5)),
+            child: Text(
+              tr('Confirmer'),
+              style: const TextStyle(fontSize: 11.5),
+            ),
           ),
         ],
       ),
@@ -1601,8 +1653,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
             TextButton(
               onPressed: () =>
                   ref.read(aiAgentControllerProvider.notifier).retryNow(),
-              child: Text(tr('Réessayer'),
-                  style: TextStyle(color: fc.primary, fontSize: 11.5)),
+              child: Text(
+                tr('Réessayer'),
+                style: TextStyle(color: fc.primary, fontSize: 11.5),
+              ),
             ),
         ],
       ),
@@ -1626,8 +1680,8 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
               m.isRunningTool
                   ? Icons.sync_rounded
                   : (m.toolFailed
-                      ? Icons.error_outline
-                      : Icons.check_circle_outline),
+                        ? Icons.error_outline
+                        : Icons.check_circle_outline),
               size: 13,
               color: m.toolFailed
                   ? fc.danger
@@ -1638,10 +1692,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: fc.textSecondary,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: fc.textSecondary, fontSize: 11),
               ),
             ),
           ],
@@ -1675,8 +1726,10 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxHeight: 180, maxWidth: 260),
+                      constraints: const BoxConstraints(
+                        maxHeight: 180,
+                        maxWidth: 260,
+                      ),
                       child: Image.memory(m.imageBytes!, fit: BoxFit.cover),
                     ),
                   ),
@@ -1695,8 +1748,12 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       );
     }
 
-    return _buildAssistantMessage(fc, m.text,
-        interrupted: m.interrupted, sourceText: m.sourceText);
+    return _buildAssistantMessage(
+      fc,
+      m.text,
+      interrupted: m.interrupted,
+      sourceText: m.sourceText,
+    );
   }
 
   Widget _buildAssistantMessage(
@@ -1706,7 +1763,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     String? sourceText,
   }) {
     final codeStyle = TextStyle(
-      fontFamily: 'JetBrainsMono',
+      fontFamily: 'JetBrains Mono',
       fontSize: 11.5,
       color: fc.secondary,
     );

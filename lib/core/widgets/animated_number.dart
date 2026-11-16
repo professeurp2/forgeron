@@ -32,21 +32,112 @@ class AnimatedNumberText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseStyle = (style ?? const TextStyle()).copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     // Une valeur non finie (jamais reçue, NaN) s'affiche telle quelle : pas de
     // tween vers l'infini.
     if (!value.isFinite) {
-      return Text('—$suffix', style: style, textAlign: textAlign, maxLines: maxLines);
+      return Text('—$suffix',
+          style: baseStyle, textAlign: textAlign, maxLines: maxLines);
     }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: value),
       duration: duration,
       curve: curve,
-      builder: (context, v, _) => Text(
-        '${v.toStringAsFixed(decimals)}$suffix',
-        style: style,
-        textAlign: textAlign,
-        maxLines: maxLines,
-      ),
+      builder: (context, v, _) {
+        final moving = (v - value).abs() > 0.0005;
+        final glowColor = baseStyle.color ?? Theme.of(context).colorScheme.primary;
+        final activeStyle = moving
+            ? baseStyle.copyWith(
+                shadows: [
+                  ...?baseStyle.shadows,
+                  Shadow(
+                    color: glowColor.withValues(alpha: 0.55),
+                    blurRadius: 10,
+                  ),
+                ],
+              )
+            : baseStyle;
+        return Text(
+          '${v.toStringAsFixed(decimals)}$suffix',
+          style: activeStyle,
+          textAlign: textAlign,
+          maxLines: maxLines,
+        );
+      },
+    );
+  }
+}
+
+/// Détecte le mouvement d'un axe en comparant sa cote précédente et sa cote
+/// courante, puis émet une impulsion lumineuse (`glowIntensity` de 1.0 → 0.0)
+/// sur 350 ms pour matérialiser l'axe actif sans surcharger l'affichage.
+class KineticAxisMovementDetector extends StatefulWidget {
+  final double value;
+  final Color color;
+  final Widget Function(BuildContext context, double glowIntensity) builder;
+
+  const KineticAxisMovementDetector({
+    super.key,
+    required this.value,
+    required this.color,
+    required this.builder,
+  });
+
+  @override
+  State<KineticAxisMovementDetector> createState() =>
+      _KineticAxisMovementDetectorState();
+}
+
+class _KineticAxisMovementDetectorState
+    extends State<KineticAxisMovementDetector>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late double _lastValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastValue = widget.value;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+  }
+
+  @override
+  void didUpdateWidget(KineticAxisMovementDetector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value.isFinite &&
+        _lastValue.isFinite &&
+        (widget.value - _lastValue).abs() > 0.0005) {
+      _lastValue = widget.value;
+      final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+      if (!reduce) {
+        _ctrl.forward(from: 0.0);
+      }
+    } else if (widget.value.isFinite) {
+      _lastValue = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final intensity = _ctrl.isAnimating
+            ? (1.0 - Curves.easeOut.transform(_ctrl.value)).clamp(0.0, 1.0)
+            : 0.0;
+        return widget.builder(context, intensity);
+      },
     );
   }
 }

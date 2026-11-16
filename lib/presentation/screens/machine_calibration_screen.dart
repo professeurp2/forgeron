@@ -22,8 +22,10 @@ class MachineCalibrationScreen extends ConsumerWidget {
         backgroundColor: fc.surface,
         elevation: 0,
         foregroundColor: fc.textPrimary,
-        title: Text(tr('CALIBRATION MACHINE'),
-            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text(
+          tr('CALIBRATION MACHINE'),
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: fc.surfaceBorder),
@@ -42,8 +44,14 @@ class MachineCalibrationScreen extends ConsumerWidget {
               _label(fc, 'ZÉRO MACHINE'),
               const SizedBox(height: 8),
               Text(
-                tr('Le homing amène la machine sur ses fins de course pour établir la référence absolue (zéro machine). À faire au démarrage, avant de poser une origine pièce.'),
-                style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+                tr(
+                  'Le homing amène la machine sur ses fins de course pour établir la référence absolue (zéro machine). À faire au démarrage, avant de poser une origine pièce.',
+                ),
+                style: TextStyle(
+                  color: fc.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 12),
               _bigButton(
@@ -54,8 +62,13 @@ class MachineCalibrationScreen extends ConsumerWidget {
                 onTap: () {
                   ref.read(machineRepositoryProvider).home();
                   HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(tr('Homing lancé — la machine référence ses axes…'))));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        tr('Homing lancé — la machine référence ses axes…'),
+                      ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 24),
@@ -75,41 +88,62 @@ class MachineCalibrationScreen extends ConsumerWidget {
     );
   }
 
-  Widget _label(ForgeronColorPalette fc, String text) => Text(text,
-      style: TextStyle(
-          color: fc.textDisabled,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.5));
+  Widget _label(ForgeronColorPalette fc, String text) => Text(
+    text,
+    style: TextStyle(
+      color: fc.textDisabled,
+      fontFamily: 'Rajdhani',
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1.6,
+    ),
+  );
 
-  Widget _bigButton(ForgeronColorPalette fc,
-      {required Color color,
-      required IconData icon,
-      required String label,
-      required VoidCallback onTap}) {
-    return Material(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
+  Widget _bigButton(
+    ForgeronColorPalette fc, {
+    required Color color,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.16),
+            color.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            height: 54,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontFamily: 'Rajdhani',
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        letterSpacing: 0.8)),
+              ),
+            ]),
           ),
-          child: Row(children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 12),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    letterSpacing: 0.5)),
-          ]),
         ),
       ),
     );
@@ -121,26 +155,42 @@ class MachineCalibrationScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text(tr('Redémarrer l\'ESP32 ?'),
-            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
-        content: Row(children: [
-          Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
-              style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+        title: Text(
+          tr('Redémarrer l\'ESP32 ?'),
+          style: TextStyle(color: fc.textPrimary, fontSize: 16),
+        ),
+        content: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 18, color: fc.warning),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                tr(
+                  'La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.',
+                ),
+                style: TextStyle(
+                  color: fc.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              tr('Annuler'),
+              style: TextStyle(color: fc.textSecondary),
+            ),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: fc.error, foregroundColor: Colors.white),
+              backgroundColor: fc.error,
+              foregroundColor: Colors.white,
+            ),
             child: Text(tr('Redémarrer')),
           ),
         ],

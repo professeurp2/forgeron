@@ -56,6 +56,14 @@ class ForgeBottomNav extends StatelessWidget {
       child: Container(
         height: 64,
         decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              fc.surfaceBright.withValues(alpha: fc.isDark ? 0.96 : 1.0),
+              fc.surface,
+            ],
+          ),
           border: Border(top: BorderSide(color: fc.surfaceBorder)),
         ),
         child: Row(
@@ -152,10 +160,11 @@ class _NavItem extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
+                        fontFamily: 'Rajdhani',
                         color: activeColor,
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.2,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/probing_provider.dart';
@@ -45,8 +46,11 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
   static const _emptyOffset = [0.0, 0.0, 0.0, 0.0, 0.0];
   static List<String> get _axisLabels => ['X', 'Y', 'Z', 'A', 'C'];
   static List<Color> _axisColors(ForgeronColorPalette c) => [
-    c.axisX, c.axisY, c.axisZ,
-    c.axisA, c.axisC,
+    c.axisX,
+    c.axisY,
+    c.axisZ,
+    c.axisA,
+    c.axisC,
   ];
 
   @override
@@ -68,7 +72,8 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
     final activeWCS = state.valueOrNull?.activeWCS ?? 'G54';
     final wcsOffsets = state.valueOrNull?.wcsOffsets ?? const {};
     final wcsData = [
-      for (final label in _wcsLabels) (label, wcsOffsets[label] ?? _emptyOffset)
+      for (final label in _wcsLabels)
+        (label, wcsOffsets[label] ?? _emptyOffset),
     ];
 
     return Column(
@@ -90,11 +95,12 @@ class _MobileProbingScreenState extends ConsumerState<MobileProbingScreen>
             controller: _tab,
             children: [
               _WCSTab(
-                  wcsData: wcsData,
-                  wPos: wPos,
-                  activeWCS: activeWCS,
-                  axisLabels: _axisLabels,
-                  axisColors: _axisColors(context.fc)),
+                wcsData: wcsData,
+                wPos: wPos,
+                activeWCS: activeWCS,
+                axisLabels: _axisLabels,
+                axisColors: _axisColors(context.fc),
+              ),
               const _MobileJogTab(),
               const _MobileProbingTab(),
               const _MobileHomingTab(),
@@ -126,215 +132,272 @@ class _WCSTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const ModeSelectorWidget(),
-        SizedBox(height: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ModeSelectorWidget(),
+          SizedBox(height: 20),
 
-        _MLabel(tr('SYSTÈMES DE COORDONNÉES (WCS)')),
-        SizedBox(height: 8),
-        ...wcsData.map((d) {
-          final sel = d.$1 == activeWCS;
-          return GestureDetector(
-            onTap: () {
-              ref.read(machineRepositoryProvider).sendGCode(d.$1);
-              HapticFeedback.selectionClick();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(tr('WCS actif: {}', [d.$1])),
-                backgroundColor: context.fc.primary,
-                duration: const Duration(seconds: 1),
-              ));
-            },
-            child: Container(
-              margin: EdgeInsets.only(bottom: 8),
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: context.fc.surface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: sel ? context.fc.primary : context.fc.surfaceBorder,
-                  width: sel ? 1.5 : 1,
-                ),
-              ),
-              child: Row(children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? context.fc.primary.withValues(alpha: 0.15)
-                        : context.fc.surfaceBright,
-                    borderRadius: BorderRadius.circular(4),
+          _MLabel(tr('SYSTÈMES DE COORDONNÉES (WCS)')),
+          SizedBox(height: 8),
+          ...wcsData.map((d) {
+            final sel = d.$1 == activeWCS;
+            return GestureDetector(
+              onTap: () {
+                ref.read(machineRepositoryProvider).sendGCode(d.$1);
+                HapticFeedback.selectionClick();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(tr('WCS actif: {}', [d.$1])),
+                    backgroundColor: context.fc.primary,
+                    duration: const Duration(seconds: 1),
                   ),
-                  child: Text(d.$1,
-                      style: TextStyle(
-                          color: sel ? context.fc.primary : context.fc.textSecondary,
+                );
+              },
+              child: Container(
+                margin: EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.fc.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: sel ? context.fc.primary : context.fc.surfaceBorder,
+                    width: sel ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? context.fc.primary.withValues(alpha: 0.15)
+                            : context.fc.surfaceBright,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        d.$1,
+                        style: TextStyle(
+                          color: sel
+                              ? context.fc.primary
+                              : context.fc.textSecondary,
                           fontWeight: FontWeight.w900,
                           fontSize: 15,
-                          fontFamily: 'JetBrains Mono')),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      for (int j = 0; j < 5; j++)
-                        Text(
-                          '${axisLabels[j]}:${d.$2[j].toStringAsFixed(2)}',
-                          style: TextStyle(
-                              color: axisColors[j],
-                              fontSize: 10,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.bold),
+                          fontFamily: 'JetBrains Mono',
                         ),
-                    ],
-                  ),
-                ),
-                if (sel)
-                  Icon(Icons.check_circle,
-                      color: context.fc.primary, size: 16),
-                // Saisie du décalage au clavier, pour ce WCS précis. Éditer
-                // depuis sa propre ligne lève toute ambiguïté sur la cible.
-                IconButton(
-                  icon: Icon(Icons.edit_outlined,
-                      color: context.fc.textDisabled, size: 17),
-                  tooltip: tr('Saisir le décalage de {}', [d.$1]),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.only(left: 8),
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => WcsOffsetDialog(
-                      wcs: d.$1,
-                      current: d.$2,
-                      axisLabels: axisLabels,
-                      axisColors: axisColors,
+                      ),
                     ),
-                  ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (int j = 0; j < 5; j++)
+                            Text(
+                              '${axisLabels[j]}:${d.$2[j].toStringAsFixed(2)}',
+                              style: TextStyle(
+                                color: axisColors[j],
+                                fontSize: 10,
+                                fontFamily: 'JetBrains Mono',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (sel)
+                      Icon(
+                        Icons.check_circle,
+                        color: context.fc.primary,
+                        size: 16,
+                      ),
+                    // Saisie du décalage au clavier, pour ce WCS précis. Éditer
+                    // depuis sa propre ligne lève toute ambiguïté sur la cible.
+                    IconButton(
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: context.fc.textDisabled,
+                        size: 17,
+                      ),
+                      tooltip: tr('Saisir le décalage de {}', [d.$1]),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.only(left: 8),
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => WcsOffsetDialog(
+                          wcs: d.$1,
+                          current: d.$2,
+                          axisLabels: axisLabels,
+                          axisColors: axisColors,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
-            ),
-          );
-        }),
+              ),
+            );
+          }),
 
-        SizedBox(height: 20),
-        _MLabel(tr('DRO EN DIRECT')),
-        SizedBox(height: 8),
-        ...List.generate(5, (i) {
-          final isRotary = i >= 3;
-          return Container(
-            margin: EdgeInsets.only(bottom: 4),
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: context.fc.surface,
-              border: Border(
-                  left: BorderSide(color: axisColors[i], width: 3)),
-            ),
-            child: Row(children: [
-              Text(axisLabels[i],
-                  style: TextStyle(
+          SizedBox(height: 20),
+          _MLabel(tr('DRO EN DIRECT')),
+          SizedBox(height: 8),
+          ...List.generate(5, (i) {
+            final isRotary = i >= 3;
+            return Container(
+              margin: EdgeInsets.only(bottom: 4),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: context.fc.surface,
+                border: Border(
+                  left: BorderSide(color: axisColors[i], width: 3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    axisLabels[i],
+                    style: TextStyle(
                       color: axisColors[i],
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
-                      fontFamily: 'JetBrains Mono')),
-              SizedBox(width: 4),
-              Text(isRotary ? '°' : 'mm',
-                  style: TextStyle(
-                      color: context.fc.textDisabled, fontSize: 9)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  wPos[i].toStringAsFixed(isRotary ? 2 : 3),
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                      color: context.fc.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'JetBrains Mono'),
-                ),
-              ),
-            ]),
-          );
-        }),
-
-        SizedBox(height: 20),
-        const _MLabel('DÉFINIR L\'ORIGINE PIÈCE (position actuelle = 0)'),
-        SizedBox(height: 8),
-        Row(children: [
-          for (int i = 0; i < 5; i++) ...[
-            if (i > 0) const SizedBox(width: 6),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  ref
-                      .read(machineRepositoryProvider)
-                      .sendGCode('G10 L20 P0 ${axisLabels[i]}0');
-                  HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(
-                        tr('{} = 0 à la position actuelle ({})', [axisLabels[i], activeWCS])),
-                    backgroundColor: axisColors[i],
-                    duration: const Duration(seconds: 1),
-                  ));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: axisColors[i].withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: axisColors[i].withValues(alpha: 0.5)),
+                      fontFamily: 'JetBrains Mono',
+                    ),
                   ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text(axisLabels[i],
-                        style: TextStyle(
-                            color: axisColors[i],
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            fontFamily: 'JetBrains Mono')),
-                    Text('= 0',
-                        style: TextStyle(
-                            color: axisColors[i].withValues(alpha: 0.8),
-                            fontSize: 9)),
-                  ]),
-                ),
+                  SizedBox(width: 4),
+                  Text(
+                    isRotary ? '°' : 'mm',
+                    style: TextStyle(
+                      color: context.fc.textDisabled,
+                      fontSize: 9,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      wPos[i].toStringAsFixed(isRotary ? 2 : 3),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: context.fc.textPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'JetBrains Mono',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ]),
-        SizedBox(height: 8),
-        _MActionButton(
-          'TOUT METTRE À ZÉRO (ICI)',
-          context.fc.primary,
-          Icons.adjust_rounded,
-          () {
-            ref
-                .read(machineRepositoryProvider)
-                .sendGCode('G10 L20 P0 X0 Y0 Z0 A0 C0');
-            HapticFeedback.mediumImpact();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(tr('Origine pièce définie ici ({})', [activeWCS])),
-              backgroundColor: context.fc.primary,
-              duration: const Duration(seconds: 1),
-            ));
-          },
-        ),
+            );
+          }),
 
-        SizedBox(height: 16),
-        _MActionButton(
-          tr('ALLER AU ZÉRO'),
-          context.fc.textSecondary,
-          Icons.gps_fixed,
-          () => ref.read(machineRepositoryProvider).sendGCode('G0 X0 Y0 Z0 A0 C0'),
-        ),
-        SizedBox(height: 8),
-        _MActionButton(
-          tr('ORIGINES (TOUS)'),
-          context.fc.axisZ,
-          Icons.home,
-          () => ref.read(secureJogProvider.notifier).homeAll(),
-        ),
-      ]),
+          SizedBox(height: 20),
+          const _MLabel('DÉFINIR L\'ORIGINE PIÈCE (position actuelle = 0)'),
+          SizedBox(height: 8),
+          Row(
+            children: [
+              for (int i = 0; i < 5; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      ref
+                          .read(machineRepositoryProvider)
+                          .sendGCode('G10 L20 P0 ${axisLabels[i]}0');
+                      HapticFeedback.mediumImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            tr('{} = 0 à la position actuelle ({})', [
+                              axisLabels[i],
+                              activeWCS,
+                            ]),
+                          ),
+                          backgroundColor: axisColors[i],
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: axisColors[i].withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: axisColors[i].withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            axisLabels[i],
+                            style: TextStyle(
+                              color: axisColors[i],
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              fontFamily: 'JetBrains Mono',
+                            ),
+                          ),
+                          Text(
+                            '= 0',
+                            style: TextStyle(
+                              color: axisColors[i].withValues(alpha: 0.8),
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: 8),
+          _MActionButton(
+            'TOUT METTRE À ZÉRO (ICI)',
+            context.fc.primary,
+            Icons.adjust_rounded,
+            () {
+              ref
+                  .read(machineRepositoryProvider)
+                  .sendGCode('G10 L20 P0 X0 Y0 Z0 A0 C0');
+              HapticFeedback.mediumImpact();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    tr('Origine pièce définie ici ({})', [activeWCS]),
+                  ),
+                  backgroundColor: context.fc.primary,
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+
+          SizedBox(height: 16),
+          _MActionButton(
+            tr('ALLER AU ZÉRO'),
+            context.fc.textSecondary,
+            Icons.gps_fixed,
+            () => ref
+                .read(machineRepositoryProvider)
+                .sendGCode('G0 X0 Y0 Z0 A0 C0'),
+          ),
+          SizedBox(height: 8),
+          _MActionButton(
+            tr('ORIGINES (TOUS)'),
+            context.fc.axisZ,
+            Icons.home,
+            () => ref.read(secureJogProvider.notifier).homeAll(),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -354,39 +417,43 @@ class _MobileJogTabState extends ConsumerState<_MobileJogTab> {
     final wPos = machineState?.wPos ?? [0.0, 0.0, 0.0, 0.0, 0.0];
 
     // DRO en haut, commandes de jog au milieu, JOG STOP épinglé en bas.
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: _JogDroStrip(wPos: wPos),
-      ),
-      // Commandes de jog — défilent seules si nécessaire.
-      Expanded(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [context.fc.surfaceBright, context.fc.surface],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: _JogDroStrip(wPos: wPos),
+        ),
+        // Commandes de jog — défilent seules si nécessaire.
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [context.fc.surfaceBright, context.fc.surface],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.fc.surfaceBorder),
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: context.fc.surfaceBorder),
+              child: JogControlPanel(wPos: wPos),
             ),
-            child: JogControlPanel(wPos: wPos),
           ),
         ),
-      ),
-      // JOG STOP épinglé en bas, toujours atteignable au pouce.
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: _JogStopButton(onStop: () {
-          jogN.stopJog();
-          HapticFeedback.heavyImpact();
-        }),
-      ),
-    ]);
+        // JOG STOP épinglé en bas, toujours atteignable au pouce.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: _JogStopButton(
+            onStop: () {
+              jogN.stopJog();
+              HapticFeedback.heavyImpact();
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -416,7 +483,8 @@ class _JogDroStrip extends ConsumerWidget {
     // exactement l\'information qui manque, et la coordonnee piece affichee ne
     // peut pas la donner puisqu\'elle depend de l\'origine posee.
     final mPos =
-        ref.watch(machineStateProvider).valueOrNull?.mPos ?? const [0.0, 0.0, 0.0, 0.0, 0.0];
+        ref.watch(machineStateProvider).valueOrNull?.mPos ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0];
     final kin = ref.watch(axisKinematicsProvider).valueOrNull;
 
     return Container(
@@ -446,27 +514,39 @@ class _JogDroStrip extends ConsumerWidget {
     );
   }
 
-  Widget _axis(BuildContext context, String label, Color color, bool rotary,
-      double value, double? fraction) {
+  Widget _axis(
+    BuildContext context,
+    String label,
+    Color color,
+    bool rotary,
+    double value,
+    double? fraction,
+  ) {
     final fc = context.fc;
     final nearEdge =
         fraction != null && (fraction <= _edge || fraction >= 1 - _edge);
 
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w900, fontSize: 12)),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+          ),
+        ),
         const SizedBox(height: 3),
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             rotary ? '${value.toStringAsFixed(2)}°' : value.toStringAsFixed(3),
             style: TextStyle(
-                color: nearEdge ? fc.warning : fc.textPrimary,
-                fontFamily: 'JetBrains Mono',
-                fontWeight: FontWeight.w900,
-                fontSize: 13),
+              color: nearEdge ? fc.warning : fc.textPrimary,
+              fontFamily: 'JetBrains Mono',
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
           ),
         ),
         // Course inconnue = pas de barre, plutot qu\'une proportion inventee.
@@ -478,19 +558,22 @@ class _JogDroStrip extends ConsumerWidget {
               borderRadius: BorderRadius.circular(2),
               child: SizedBox(
                 height: 3,
-                child: Stack(children: [
-                  Positioned.fill(
-                    child: ColoredBox(
-                        color: fc.surfaceBorderDim.withValues(alpha: 0.6)),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: fraction,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      color: nearEdge ? fc.warning : color,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: fc.surfaceBorderDim.withValues(alpha: 0.6),
+                      ),
                     ),
-                  ),
-                ]),
+                    FractionallySizedBox(
+                      widthFactor: fraction,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        color: nearEdge ? fc.warning : color,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -522,9 +605,10 @@ class _JogStopButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                  color: fc.danger.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  spreadRadius: -2),
+                color: fc.danger.withValues(alpha: 0.4),
+                blurRadius: 16,
+                spreadRadius: -2,
+              ),
             ],
           ),
           child: Center(
@@ -533,12 +617,15 @@ class _JogStopButton extends StatelessWidget {
               children: [
                 Icon(Icons.stop_rounded, color: Colors.white, size: 24),
                 SizedBox(width: 10),
-                Text(tr('JOG STOP'),
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        letterSpacing: 1.5)),
+                Text(
+                  tr('JOG STOP'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: 1.5,
+                  ),
+                ),
               ],
             ),
           ),
@@ -560,94 +647,139 @@ class _MobileProbingTab extends ConsumerWidget {
     return SingleChildScrollView(
       key: TutorialKeys.probingTools,
       padding: EdgeInsets.all(16),
-      child: Column(children: [
-        // Statut
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: probing.step == ProbingStep.error
-                ? context.fc.danger.withValues(alpha: 0.1)
-                : context.fc.primary.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
+      child: Column(
+        children: [
+          // Statut
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
               color: probing.step == ProbingStep.error
-                  ? context.fc.danger
-                  : context.fc.primary,
-              width: 0.5,
+                  ? context.fc.danger.withValues(alpha: 0.1)
+                  : context.fc.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: probing.step == ProbingStep.error
+                    ? context.fc.danger
+                    : context.fc.primary,
+                width: 0.5,
+              ),
             ),
-          ),
-          child: Row(children: [
-            Icon(
-              probing.step == ProbingStep.error ? Icons.error : Icons.info,
-              color: probing.step == ProbingStep.error
-                  ? context.fc.danger
-                  : context.fc.primary,
-              size: 16,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                probing.statusMessage,
-                style: TextStyle(
+            child: Row(
+              children: [
+                Icon(
+                  probing.step == ProbingStep.error ? Icons.error : Icons.info,
                   color: probing.step == ProbingStep.error
                       ? context.fc.danger
-                      : context.fc.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                      : context.fc.primary,
+                  size: 16,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    probing.statusMessage,
+                    style: TextStyle(
+                      color: probing.step == ProbingStep.error
+                          ? context.fc.danger
+                          : context.fc.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (probing.step != ProbingStep.idle &&
+              probing.step != ProbingStep.finished)
+            Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(
+                color: context.fc.primary,
+                backgroundColor: context.fc.surfaceBright,
+              ),
+            ),
+
+          SizedBox(height: 16),
+
+          // Routines 2×2
+          Row(
+            children: [
+              Expanded(
+                child: _ProbingCard(
+                  tr('HAUTEUR Z'),
+                  'G38.2 sur axe Z',
+                  Icons.vertical_align_bottom,
+                  probing.step == ProbingStep.idle
+                      ? () => probingN.startToolZRoutine()
+                      : null,
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _ProbingCard(
+                  tr('CENTRE TROU'),
+                  tr('4 points → centre'),
+                  Icons.adjust,
+                  probing.step == ProbingStep.idle
+                      ? () => probingN.startHoleCenterRoutine(20.0, -5.0)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ProbingCard(
+                  tr('ANGLE X'),
+                  tr('Inclinaison pièce X'),
+                  Icons.architecture,
+                  probing.step == ProbingStep.idle
+                      ? () => probingN.startAngleRoutine('X', 50.0)
+                      : null,
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _ProbingCard(
+                  tr('ANGLE Y'),
+                  tr('Inclinaison pièce Y'),
+                  Icons.architecture,
+                  probing.step == ProbingStep.idle
+                      ? () => probingN.startAngleRoutine('Y', 50.0)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+
+          if (probing.step != ProbingStep.idle) ...[
+            SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: context.fc.danger,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  probingN.cancel();
+                  HapticFeedback.heavyImpact();
+                },
+                child: Text(
+                  tr('ANNULER LE PALPAGE'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ),
-          ]),
-        ),
-        if (probing.step != ProbingStep.idle && probing.step != ProbingStep.finished)
-          Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(
-                color: context.fc.primary,
-                backgroundColor: context.fc.surfaceBright),
-          ),
-
-        SizedBox(height: 16),
-
-        // Routines 2×2
-        Row(children: [
-          Expanded(child: _ProbingCard(tr('HAUTEUR Z'), 'G38.2 sur axe Z',
-              Icons.vertical_align_bottom,
-              probing.step == ProbingStep.idle ? () => probingN.startToolZRoutine() : null)),
-          SizedBox(width: 10),
-          Expanded(child: _ProbingCard(tr('CENTRE TROU'), tr('4 points → centre'),
-              Icons.adjust,
-              probing.step == ProbingStep.idle
-                  ? () => probingN.startHoleCenterRoutine(20.0, -5.0) : null)),
-        ]),
-        SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _ProbingCard(tr('ANGLE X'), tr('Inclinaison pièce X'),
-              Icons.architecture,
-              probing.step == ProbingStep.idle
-                  ? () => probingN.startAngleRoutine('X', 50.0) : null)),
-          SizedBox(width: 10),
-          Expanded(child: _ProbingCard(tr('ANGLE Y'), tr('Inclinaison pièce Y'),
-              Icons.architecture,
-              probing.step == ProbingStep.idle
-                  ? () => probingN.startAngleRoutine('Y', 50.0) : null)),
-        ]),
-
-        if (probing.step != ProbingStep.idle) ...[
-          SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity, height: 54,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: context.fc.danger,
-                  foregroundColor: Colors.white),
-              onPressed: () { probingN.cancel(); HapticFeedback.heavyImpact(); },
-              child: Text(tr('ANNULER LE PALPAGE'),
-                  style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-            ),
-          ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -662,10 +794,12 @@ class _ProbingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap == null ? null : () {
-        onTap!();
-        HapticFeedback.mediumImpact();
-      },
+      onTap: onTap == null
+          ? null
+          : () {
+              onTap!();
+              HapticFeedback.mediumImpact();
+            },
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
         opacity: onTap == null ? 0.4 : 1.0,
@@ -682,63 +816,82 @@ class _ProbingCard extends StatelessWidget {
               stops: const [0.0, 0.65],
             ),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: context.fc.primary.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: context.fc.primary.withValues(alpha: 0.3),
+            ),
             boxShadow: onTap == null
                 ? null
                 : [
                     BoxShadow(
-                        color: context.fc.primary.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        spreadRadius: -4),
+                      color: context.fc.primary.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      spreadRadius: -4,
+                    ),
                   ],
           ),
-          child: Column(children: [
-            Container(
-              width: 46,
-              height: 46,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: context.fc.primary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(12),
+          child: Column(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.fc.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: context.fc.primary, size: 26),
               ),
-              child: Icon(icon, color: context.fc.primary, size: 26),
-            ),
-            SizedBox(height: 10),
-            Text(title,
+              SizedBox(height: 10),
+              Text(
+                title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: context.fc.textPrimary,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11)),
-            SizedBox(height: 4),
-            Text(desc,
+                  color: context.fc.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                desc,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: context.fc.textDisabled, fontSize: 9, height: 1.4)),
-            SizedBox(height: 10),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  context.fc.primary,
-                  context.fc.primary.withValues(alpha: 0.75),
-                ]),
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: [
-                  BoxShadow(
+                  color: context.fc.textDisabled,
+                  fontSize: 9,
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 10),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      context.fc.primary,
+                      context.fc.primary.withValues(alpha: 0.75),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: [
+                    BoxShadow(
                       color: context.fc.primary.withValues(alpha: 0.4),
                       blurRadius: 10,
-                      spreadRadius: -2),
-                ],
-              ),
-              child: Text(tr('LANCER'),
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  tr('LANCER'),
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0)),
-            ),
-          ]),
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -754,50 +907,97 @@ class _MobileHomingTab extends ConsumerWidget {
     final jogN = ref.read(secureJogProvider.notifier);
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: context.fc.axisZ.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: context.fc.axisZ.withValues(alpha: 0.2)),
-          ),
-          child: Row(children: [
-            Icon(Icons.info_outline, color: context.fc.axisZ, size: 14),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(tr('Séquence recommandée : Z → X → Y → A → C'),
-                  style: TextStyle(color: context.fc.textSecondary, fontSize: 10, height: 1.5)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: context.fc.axisZ.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: context.fc.axisZ.withValues(alpha: 0.2),
+              ),
             ),
-          ]),
-        ),
-        SizedBox(height: 16),
-        for (final e in [
-          (tr('HOME Z'), tr('Dégager broche'), context.fc.axisZ, () => jogN.homeAxis('Z')),
-          (tr('HOME X'), tr('Axe horizontal'), context.fc.axisX, () => jogN.homeAxis('X')),
-          (tr('HOME Y'), tr('Axe frontal'), context.fc.axisY, () => jogN.homeAxis('Y')),
-          (tr('HOME A'), tr('Basculement trunnion'), context.fc.axisA, () => jogN.homeAxis('A')),
-          (tr('HOME C'), tr('Rotation plateau'), context.fc.axisC, () => jogN.homeAxis('C')),
-        ])
-          Padding(
-            padding: EdgeInsets.only(bottom: 10),
-            child: _MActionButton(e.$1, e.$3, Icons.home,
-                () { e.$4(); HapticFeedback.mediumImpact(); },
-                subtitle: e.$2),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: context.fc.axisZ, size: 14),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Séquence recommandée : Z → X → Y → A → C'),
+                    style: TextStyle(
+                      color: context.fc.textSecondary,
+                      fontSize: 10,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity, height: 56,
-          child: ElevatedButton.icon(
-            icon: Icon(Icons.home_rounded, size: 20),
-            label: Text(tr('HOME ALL (\$H)'),
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: context.fc.axisZ, foregroundColor: Colors.white),
-            onPressed: () { jogN.homeAll(); HapticFeedback.heavyImpact(); },
+          SizedBox(height: 16),
+          for (final e in [
+            (
+              tr('HOME Z'),
+              tr('Dégager broche'),
+              context.fc.axisZ,
+              () => jogN.homeAxis('Z'),
+            ),
+            (
+              tr('HOME X'),
+              tr('Axe horizontal'),
+              context.fc.axisX,
+              () => jogN.homeAxis('X'),
+            ),
+            (
+              tr('HOME Y'),
+              tr('Axe frontal'),
+              context.fc.axisY,
+              () => jogN.homeAxis('Y'),
+            ),
+            (
+              tr('HOME A'),
+              tr('Basculement trunnion'),
+              context.fc.axisA,
+              () => jogN.homeAxis('A'),
+            ),
+            (
+              tr('HOME C'),
+              tr('Rotation plateau'),
+              context.fc.axisC,
+              () => jogN.homeAxis('C'),
+            ),
+          ])
+            Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: _MActionButton(e.$1, e.$3, Icons.home, () {
+                e.$4();
+                HapticFeedback.mediumImpact();
+              }, subtitle: e.$2),
+            ),
+          SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.home_rounded, size: 20),
+              label: Text(
+                tr('HOME ALL (\$H)'),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: context.fc.axisZ,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                jogN.homeAll();
+                HapticFeedback.heavyImpact();
+              },
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -819,8 +1019,7 @@ class MobileToolTableScreen extends ConsumerStatefulWidget {
       _MobileToolTableScreenState();
 }
 
-class _MobileToolTableScreenState
-    extends ConsumerState<MobileToolTableScreen> {
+class _MobileToolTableScreenState extends ConsumerState<MobileToolTableScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 
@@ -836,7 +1035,8 @@ class _MobileToolTableScreenState
       isScrollControlled: true,
       backgroundColor: context.fc.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.75,
@@ -859,11 +1059,14 @@ class _MobileToolTableScreenState
     final gcodeState = ref.watch(gcodeProvider);
     final isStreaming = ref.watch(streamingProvider);
     final machineState = ref.watch(machineStateProvider).valueOrNull;
-    final isRunning = isStreaming ||
+    final isRunning =
+        isStreaming ||
         machineState?.status == MachineStatus.run ||
         machineState?.status == MachineStatus.hold;
-    final hasProgram = gcodeState.allLines.isNotEmpty ||
-        (machineState?.sdFilename != null && machineState!.sdFilename!.isNotEmpty);
+    final hasProgram =
+        gcodeState.allLines.isNotEmpty ||
+        (machineState?.sdFilename != null &&
+            machineState!.sdFilename!.isNotEmpty);
 
     final filtered = tools.where((t) {
       if (_query.isEmpty) return true;
@@ -875,7 +1078,13 @@ class _MobileToolTableScreenState
 
     return Column(
       children: [
-        _header(fc, tools.length, activeToolNum, isRunning: isRunning, hasProgram: hasProgram),
+        _header(
+          fc,
+          tools.length,
+          activeToolNum,
+          isRunning: isRunning,
+          hasProgram: hasProgram,
+        ),
         if (tools.isNotEmpty) _searchField(fc),
         Expanded(
           child: tools.isEmpty
@@ -915,39 +1124,49 @@ class _MobileToolTableScreenState
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('OUTILS DU PROGRAMME'),
-                  style: TextStyle(
-                      color: fc.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2)),
-              const SizedBox(height: 2),
-              Text(tr('lus dans le G-code chargé'),
-                  style: TextStyle(color: fc.textDisabled, fontSize: 10)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tr('OUTILS DU PROGRAMME'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: fc.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2)),
+                const SizedBox(height: 2),
+                Text(tr('lus dans le G-code chargé'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           if (activeToolNum > 0)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: fc.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: fc.primary.withValues(alpha: 0.5)),
               ),
-              child: Text(tr('ACTIF : T{}', [activeToolNum]),
-                  style: TextStyle(
-                      color: fc.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900)),
+              child: Text(
+                tr('ACTIF : T{}', [activeToolNum]),
+                style: TextStyle(
+                  color: fc.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             )
           else if (count > 0)
-            Text(tr(count > 1 ? tr('{} outils') : tr('{} outil'), [count]),
-                style: TextStyle(color: fc.textDisabled, fontSize: 12))
+            Text(
+              tr(count > 1 ? tr('{} outils') : tr('{} outil'), [count]),
+              style: TextStyle(color: fc.textDisabled, fontSize: 12),
+            )
           else if (isRunning)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -956,25 +1175,36 @@ class _MobileToolTableScreenState
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: fc.warning.withValues(alpha: 0.5)),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.play_arrow_rounded, color: fc.warning, size: 14),
-                const SizedBox(width: 3),
-                Text(tr('EN COURS'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.play_arrow_rounded, color: fc.warning, size: 14),
+                  const SizedBox(width: 3),
+                  Text(
+                    tr('EN COURS'),
                     style: TextStyle(
-                        color: fc.warning,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900)),
-              ]),
+                      color: fc.warning,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
             )
           else if (hasProgram)
-            Text(tr('PROGRAMME ACTIF'),
-                style: TextStyle(
-                    color: fc.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900))
+            Text(
+              tr('PROGRAMME ACTIF'),
+              style: TextStyle(
+                color: fc.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            )
           else
-            Text(tr('0 outil'),
-                style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+            Text(
+              tr('0 outil'),
+              style: TextStyle(color: fc.textDisabled, fontSize: 12),
+            ),
         ],
       ),
     );
@@ -1025,7 +1255,11 @@ class _MobileToolTableScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.precision_manufacturing_rounded, color: fc.success, size: 48),
+              Icon(
+                Icons.precision_manufacturing_rounded,
+                color: fc.success,
+                size: 48,
+              ),
               const SizedBox(height: 14),
               Text(
                 tr('PROGRAMME EN COURS D\'EXÉCUTION'),
@@ -1039,15 +1273,27 @@ class _MobileToolTableScreenState
               const SizedBox(height: 8),
               Text(
                 activeToolNum > 0
-                    ? tr('Usinage en cours sur la machine avec l\'outil T{}. Aucun changement d\'outil n\'est prévu dans ce cycle.', [activeToolNum])
-                    : tr('Usinage en cours sur la machine. Le programme s\'exécute avec l\'outil monté dans la broche (aucun bloc T.. M6 dans le code).'),
+                    ? tr(
+                        'Usinage en cours sur la machine avec l\'outil T{}. Aucun changement d\'outil n\'est prévu dans ce cycle.',
+                        [activeToolNum],
+                      )
+                    : tr(
+                        'Usinage en cours sur la machine. Le programme s\'exécute avec l\'outil monté dans la broche (aucun bloc T.. M6 dans le code).',
+                      ),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: fc.textSecondary, fontSize: 12, height: 1.4),
+                style: TextStyle(
+                  color: fc.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
               ),
               if (progName != null) ...[
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: fc.surface,
                     borderRadius: BorderRadius.circular(4),
@@ -1071,7 +1317,7 @@ class _MobileToolTableScreenState
 
     if (hasProgram) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1080,6 +1326,7 @@ class _MobileToolTableScreenState
               const SizedBox(height: 14),
               Text(
                 tr('PROGRAMME CHARGÉ SANS OUTIL DÉCLARÉ'),
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: fc.textPrimary,
                   fontWeight: FontWeight.w900,
@@ -1090,10 +1337,20 @@ class _MobileToolTableScreenState
               const SizedBox(height: 8),
               Text(
                 activeToolNum > 0
-                    ? tr('Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. La machine utilisera l\'outil actif en broche (T{}).', [lineCount, activeToolNum])
-                    : tr('Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. L\'usinage s\'effectuera avec l\'outil préalablement installé dans la broche.', [lineCount]),
+                    ? tr(
+                        'Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. La machine utilisera l\'outil actif en broche (T{}).',
+                        [lineCount, activeToolNum],
+                      )
+                    : tr(
+                        'Le programme chargé ({} lignes) ne comporte aucun bloc T.. M6. L\'usinage s\'effectuera avec l\'outil préalablement installé dans la broche.',
+                        [lineCount],
+                      ),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
+                style: TextStyle(
+                  color: fc.textDisabled,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -1102,7 +1359,7 @@ class _MobileToolTableScreenState
     }
 
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1110,6 +1367,7 @@ class _MobileToolTableScreenState
             Icon(Icons.handyman_outlined, color: fc.textDisabled, size: 48),
             const SizedBox(height: 14),
             Text(tr('AUCUN PROGRAMME CHARGÉ'),
+                textAlign: TextAlign.center,
                 style: TextStyle(
                     color: fc.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -1117,9 +1375,15 @@ class _MobileToolTableScreenState
                     letterSpacing: 1)),
             const SizedBox(height: 8),
             Text(
-              tr('Les outils sont lus dans le G-code. Charge un programme depuis l\'onglet PROGRAMME pour voir ceux qu\'il utilise.'),
+              tr(
+                'Les outils sont lus dans le G-code. Charge un programme depuis l\'onglet PROGRAMME pour voir ceux qu\'il utilise.',
+              ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: fc.textDisabled, fontSize: 12, height: 1.4),
+              style: TextStyle(
+                color: fc.textDisabled,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -1149,11 +1413,21 @@ class _ToolCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isActive ? fc.primary.withValues(alpha: 0.10) : fc.surface,
+          gradient: isActive
+              ? LinearGradient(
+                  colors: [
+                    fc.primary.withValues(alpha: 0.18),
+                    fc.primary.withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : fc.cardGradient,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: isActive ? fc.primary : fc.surfaceBorder,
-              width: isActive ? 1.5 : 1),
+            color: isActive ? fc.primary : fc.rimHighlight,
+            width: isActive ? 1.5 : 1,
+          ),
         ),
         child: Row(
           children: [
@@ -1163,29 +1437,39 @@ class _ToolCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Text('T${tool.number}',
+                  Row(
+                    children: [
+                      Text(
+                        'T${tool.number}',
                         style: TextStyle(
-                            color: isActive ? fc.primary : fc.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'JetBrains Mono')),
-                    const SizedBox(width: 8),
-                    if (isActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: fc.primary,
-                          borderRadius: BorderRadius.circular(3),
+                          color: isActive ? fc.primary : fc.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'JetBrains Mono',
                         ),
-                        child: Text(tr('MONTÉ'),
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900)),
                       ),
-                  ]),
+                      const SizedBox(width: 8),
+                      if (isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: fc.primary,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            tr('MONTÉ'),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 3),
                   Text(
                     tool.description ?? 'Descriptif absent du programme',
@@ -1203,14 +1487,18 @@ class _ToolCard extends StatelessWidget {
                   ),
                   if (!tool.isBare) ...[
                     const SizedBox(height: 6),
-                    Wrap(spacing: 6, runSpacing: 4, children: [
-                      if (tool.diameterMm != null)
-                        _Chip('Ø${_trim(tool.diameterMm!)}', fc.primary),
-                      if (tool.flutes != null)
-                        _Chip('${tool.flutes} tailles', fc.info),
-                      if (tool.material != null)
-                        _Chip(tool.material!, fc.textSecondary),
-                    ]),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        if (tool.diameterMm != null)
+                          _Chip('Ø${_trim(tool.diameterMm!)}', fc.primary),
+                        if (tool.flutes != null)
+                          _Chip('${tool.flutes} tailles', fc.info),
+                        if (tool.material != null)
+                          _Chip(tool.material!, fc.textSecondary),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -1238,9 +1526,14 @@ class _Chip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -1268,183 +1561,230 @@ class _ToolDetailSheet extends ConsumerWidget {
     return SingleChildScrollView(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(
-          child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: fc.textDisabled,
-              borderRadius: BorderRadius.circular(2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: fc.textDisabled,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-        Row(children: [
-          ToolPhoto(shape: tool.shape, size: 88),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('T${tool.number}',
-                    style: TextStyle(
+          Row(
+            children: [
+              ToolPhoto(shape: tool.shape, size: 88),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'T${tool.number}',
+                      style: TextStyle(
                         color: fc.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
-                        fontFamily: 'JetBrains Mono')),
-                Text(tool.shape.label,
-                    style: TextStyle(color: fc.primary, fontSize: 12)),
-                if (isActive) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: fc.primary,
-                      borderRadius: BorderRadius.circular(4),
+                        fontFamily: 'JetBrains Mono',
+                      ),
                     ),
-                    child: Text(tr('ACTUELLEMENT MONTÉ'),
-                        style: TextStyle(
+                    Text(
+                      tool.shape.label,
+                      style: TextStyle(color: fc.primary, fontSize: 12),
+                    ),
+                    if (isActive) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: fc.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          tr('ACTUELLEMENT MONTÉ'),
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
-                            fontWeight: FontWeight.w900)),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── Ce que dit le programme ────────────────────────────────────────
+          _sectionTitle(fc, 'CE QUE DIT LE PROGRAMME'),
+          const SizedBox(height: 8),
+          if (tool.description != null)
+            _rawLine(fc, tool.description!)
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: fc.warning.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: fc.warning.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: fc.warning, size: 15),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      tr(
+                        'Le programme ne décrit pas cet outil : il n\'indique que son numéro. Aucune caractéristique n\'est affichée plutôt que d\'en inventer.',
+                      ),
+                      style: TextStyle(
+                        color: fc.textSecondary,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ],
-              ],
-            ),
-          ),
-        ]),
-
-        const SizedBox(height: 18),
-
-        // ── Ce que dit le programme ────────────────────────────────────────
-        _sectionTitle(fc, 'CE QUE DIT LE PROGRAMME'),
-        const SizedBox(height: 8),
-        if (tool.description != null)
-          _rawLine(fc, tool.description!)
-        else
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: fc.warning.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: fc.warning.withValues(alpha: 0.3)),
-            ),
-            child: Row(children: [
-              Icon(Icons.info_outline, color: fc.warning, size: 15),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  tr('Le programme ne décrit pas cet outil : il n\'indique que son numéro. Aucune caractéristique n\'est affichée plutôt que d\'en inventer.'),
-                  style: TextStyle(
-                      color: fc.textSecondary, fontSize: 11, height: 1.4),
-                ),
               ),
-            ]),
-          ),
+            ),
 
-        if (tool.operation != null) ...[
-          const SizedBox(height: 8),
-          _row(fc, 'Opération', tool.operation!),
-        ],
+          if (tool.operation != null) ...[
+            const SizedBox(height: 8),
+            _row(fc, 'Opération', tool.operation!),
+          ],
 
-        if (!tool.isBare) ...[
+          if (!tool.isBare) ...[
+            const SizedBox(height: 18),
+            _sectionTitle(fc, 'CARACTÉRISTIQUES'),
+            const SizedBox(height: 8),
+            if (tool.diameterMm != null)
+              _row(fc, 'Diamètre', '${_trim(tool.diameterMm!)} mm'),
+            if (tool.flutes != null) _row(fc, 'Tailles', '${tool.flutes}'),
+            if (tool.cuttingLengthMm != null)
+              _row(
+                fc,
+                tr('Longueur de coupe'),
+                '${_trim(tool.cuttingLengthMm!)} mm',
+              ),
+            if (tool.material != null) _row(fc, tr('Matière'), tool.material!),
+          ],
+
           const SizedBox(height: 18),
-          _sectionTitle(fc, 'CARACTÉRISTIQUES'),
+          _sectionTitle(fc, 'DANS LE PROGRAMME'),
           const SizedBox(height: 8),
-          if (tool.diameterMm != null)
-            _row(fc, 'Diamètre', '${_trim(tool.diameterMm!)} mm'),
-          if (tool.flutes != null) _row(fc, 'Tailles', '${tool.flutes}'),
-          if (tool.cuttingLengthMm != null)
-            _row(fc, tr('Longueur de coupe'),
-                '${_trim(tool.cuttingLengthMm!)} mm'),
-          if (tool.material != null) _row(fc, tr('Matière'), tool.material!),
-        ],
+          _row(fc, 'Appelé', '${tool.changeLines.length} fois'),
+          // Numérotation du FICHIER SOURCE, pas du programme affiché dans
+          // l'onglet PROGRAMME : celui-ci est la version adaptée, dont les lignes
+          // ont été renumérotées. Le préciser évite un renvoi faux.
+          _row(
+            fc,
+            tr('Ligne (fichier d\'origine)'),
+            '${tool.firstChangeLine + 1}',
+          ),
 
-        const SizedBox(height: 18),
-        _sectionTitle(fc, 'DANS LE PROGRAMME'),
-        const SizedBox(height: 8),
-        _row(fc, 'Appelé', '${tool.changeLines.length} fois'),
-        // Numérotation du FICHIER SOURCE, pas du programme affiché dans
-        // l'onglet PROGRAMME : celui-ci est la version adaptée, dont les lignes
-        // ont été renumérotées. Le préciser évite un renvoi faux.
-        _row(fc, tr('Ligne (fichier d\'origine)'), '${tool.firstChangeLine + 1}'),
-
-        if (tool.spindleSpeed != null) ...[
-          const SizedBox(height: 8),
-          // Sans cette mise en garde, l'opérateur croirait que la broche tourne
-          // à la vitesse annoncée. Sur une broche pilotée en tout-ou-rien, le
-          // mot S est reçu puis ignoré par le contrôleur.
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: fc.info.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: fc.info.withValues(alpha: 0.25)),
+          if (tool.spindleSpeed != null) ...[
+            const SizedBox(height: 8),
+            // Sans cette mise en garde, l'opérateur croirait que la broche tourne
+            // à la vitesse annoncée. Sur une broche pilotée en tout-ou-rien, le
+            // mot S est reçu puis ignoré par le contrôleur.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: fc.info.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: fc.info.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.speed, color: fc.info, size: 15),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      tr(
+                        'Le programme demande S{}. Cette valeur n\'est appliquée que si la broche est pilotée en vitesse ; en tout-ou-rien elle est ignorée.',
+                        [tool.spindleSpeed],
+                      ),
+                      style: TextStyle(
+                        color: fc.textSecondary,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.speed, color: fc.info, size: 15),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  tr('Le programme demande S{}. Cette valeur n\'est appliquée que si la broche est pilotée en vitesse ; en tout-ou-rien elle est ignorée.', [tool.spindleSpeed]),
-                  style: TextStyle(
-                      color: fc.textSecondary, fontSize: 11, height: 1.4),
+          ],
+
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.build_circle_outlined, size: 18),
+              label: Text(tr('APPELER T{}  (M6)', [tool.number])),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: fc.surfaceBright,
+                foregroundColor: fc.primary,
+                padding: const EdgeInsets.all(15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: fc.primary.withValues(alpha: 0.3)),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 1,
                 ),
               ),
-            ]),
+              onPressed: () => _confirmCall(context, ref),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.straighten, size: 18),
+              label: Text(tr('G43 H{}  (décalage longueur)', [tool.number])),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: fc.textSecondary,
+                padding: const EdgeInsets.all(15),
+                side: BorderSide(color: fc.surfaceBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              onPressed: () {
+                ref
+                    .read(machineRepositoryProvider)
+                    .sendGCode('G43 H${tool.number}');
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(tr('✓ G43 H{} appliqué', [tool.number])),
+                  ),
+                );
+              },
+            ),
           ),
         ],
-
-        const SizedBox(height: 22),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.build_circle_outlined, size: 18),
-            label: Text(tr('APPELER T{}  (M6)', [tool.number])),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: fc.surfaceBright,
-              foregroundColor: fc.primary,
-              padding: const EdgeInsets.all(15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: fc.primary.withValues(alpha: 0.3)),
-              ),
-              textStyle: const TextStyle(
-                  fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-            ),
-            onPressed: () => _confirmCall(context, ref),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.straighten, size: 18),
-            label: Text(tr('G43 H{}  (décalage longueur)', [tool.number])),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: fc.textSecondary,
-              padding: const EdgeInsets.all(15),
-              side: BorderSide(color: fc.surfaceBorder),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-            onPressed: () {
-              ref
-                  .read(machineRepositoryProvider)
-                  .sendGCode('G43 H${tool.number}');
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(tr('✓ G43 H{} appliqué', [tool.number])),
-              ));
-            },
-          ),
-        ),
-      ]),
+      ),
     );
   }
 
@@ -1453,10 +1793,15 @@ class _ToolDetailSheet extends ConsumerWidget {
       context: context,
       builder: (dctx) => AlertDialog(
         backgroundColor: context.fc.surface,
-        title: Text(tr('Appel outil T{}', [tool.number]),
-            style: TextStyle(color: context.fc.textPrimary, fontSize: 16)),
+        title: Text(
+          tr('Appel outil T{}', [tool.number]),
+          style: TextStyle(color: context.fc.textPrimary, fontSize: 16),
+        ),
         content: Text(
-          tr('Envoyer T{} M6 ?\n\nLa broche s\'arrête et le programme se met en pause pour le changement.', [tool.number]),
+          tr(
+            'Envoyer T{} M6 ?\n\nLa broche s\'arrête et le programme se met en pause pour le changement.',
+            [tool.number],
+          ),
           style: TextStyle(color: context.fc.textSecondary, fontSize: 13),
         ),
         actions: [
@@ -1480,41 +1825,50 @@ class _ToolDetailSheet extends ConsumerWidget {
   }
 
   Widget _sectionTitle(ForgeronColorPalette fc, String label) => Text(
-        label,
-        style: TextStyle(
-            color: fc.textDisabled,
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5),
-      );
+    label,
+    style: TextStyle(
+      color: fc.textDisabled,
+      fontSize: 9,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.5,
+    ),
+  );
 
   Widget _rawLine(ForgeronColorPalette fc, String text) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: fc.terminalBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: fc.surfaceBorder),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                color: fc.textPrimary,
-                fontSize: 12,
-                fontFamily: 'JetBrains Mono')),
-      );
+    width: double.infinity,
+    padding: const EdgeInsets.all(11),
+    decoration: BoxDecoration(
+      color: fc.terminalBg,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: fc.surfaceBorder),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: fc.textPrimary,
+        fontSize: 12,
+        fontFamily: 'JetBrains Mono',
+      ),
+    ),
+  );
 
   Widget _row(ForgeronColorPalette fc, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(children: [
-          Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 12)),
-          const Spacer(),
-          Text(value,
-              style: TextStyle(
-                  color: fc.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700)),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      children: [
+        Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 12)),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            color: fc.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1570,24 +1924,27 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
     });
     Future.delayed(const Duration(milliseconds: 40), () {
       if (_logScroll.hasClients) {
-        _logScroll.animateTo(_logScroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+        _logScroll.animateTo(
+          _logScroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
 
   /// Couleur d'une ligne selon son type (theme-aware, résolue au rendu).
   Color _typeColor(ForgeronColorPalette fc, String type) => switch (type) {
-        '>>>' => fc.primary,
-        'ok' => fc.success,
-        'ERR' => fc.error,
-        'MSG' => fc.warning,
-        _ => fc.secondary,
-      };
+    '>>>' => fc.primary,
+    'ok' => fc.success,
+    'ERR' => fc.error,
+    'MSG' => fc.warning,
+    _ => fc.secondary,
+  };
 
   static List<(IconData, String, String, Color)> _macros(
-          ForgeronColorPalette c) =>
-      [
+    ForgeronColorPalette c,
+  ) => [
     (Icons.home, 'ORIGINES', '\$H', c.primary),
     // Nom rectifié : la macro DÉPLACE les axes vers l'origine pièce, elle ne
     // la définit pas. Sous l'étiquette « ZÉRO PIÈCE », l'opérateur croyait
@@ -1615,15 +1972,20 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
     (Icons.lock_open_rounded, tr('DÉBLOQUER'), '\$X', c.warning),
   ];
 
-
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
-    _log.add((_fmtTime(DateTime.now()), 'INFO', tr('Terminal prêt — en attente de trafic…')));
+    _log.add((
+      _fmtTime(DateTime.now()),
+      'INFO',
+      tr('Terminal prêt — en attente de trafic…'),
+    ));
     Future.microtask(() {
-      _trafficSub =
-          ref.read(machineRepositoryProvider).trafficStream.listen(_handleTraffic);
+      _trafficSub = ref
+          .read(machineRepositoryProvider)
+          .trafficStream
+          .listen(_handleTraffic);
     });
   }
 
@@ -1665,234 +2027,298 @@ class _MobileTerminalScreenState extends ConsumerState<MobileTerminalScreen>
             controller: _tab,
             children: [
               // ── Tab 1 : Terminal ──────────────────────────────────
-              Column(children: [
-                // Header terminal
-                Container(
-                  height: 36,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  color: context.fc.surfaceBright,
-                  child: Row(children: [
-                    Icon(Icons.terminal,
-                        color: context.fc.textDisabled, size: 14),
-                    SizedBox(width: 8),
-                    Text(tr('LOG MACHINE'),
-                        style: TextStyle(
+              Column(
+                children: [
+                  // Header terminal
+                  Container(
+                    height: 36,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    color: context.fc.surfaceBright,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.terminal,
+                          color: context.fc.textDisabled,
+                          size: 14,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          tr('LOG MACHINE'),
+                          style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 10,
-                            fontWeight: FontWeight.w900)),
-                    const Spacer(),
-                    Text(tr('BUFFER: {}/128', [rxBuf]),
-                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          tr('BUFFER: {}/128', [rxBuf]),
+                          style: TextStyle(
                             color: context.fc.textDisabled,
                             fontSize: 9,
-                            fontFamily: 'JetBrains Mono')),
-                  ]),
-                ),
-                // Log
-                Expanded(
-                  key: TutorialKeys.mdiHistory,
-                  child: Container(
-                    color: context.fc.terminalBg,
-                    child: ListView.builder(
-                      controller: _logScroll,
-                      padding: EdgeInsets.all(12),
-                      itemCount: _log.length,
-                      itemBuilder: (ctx, i) {
-                        final l = _log[i];
-                        final color = _typeColor(context.fc, l.$2);
-                        return Padding(
-                          padding: EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(l.$1,
-                                  style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Log
+                  Expanded(
+                    key: TutorialKeys.mdiHistory,
+                    child: Container(
+                      color: context.fc.terminalBg,
+                      child: TacticalGridBackground(
+                        child: ListView.builder(
+                          controller: _logScroll,
+                          padding: EdgeInsets.all(12),
+                          itemCount: _log.length,
+                          itemBuilder: (ctx, i) {
+                            final l = _log[i];
+                            final color = _typeColor(context.fc, l.$2);
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l.$1,
+                                    style: TextStyle(
                                       color: context.fc.textDisabled,
                                       fontSize: 10,
-                                      fontFamily: 'JetBrains Mono')),
-                              SizedBox(width: 8),
-                              SizedBox(
-                                width: 32,
-                                child: Text(l.$2,
-                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 32,
+                                    child: Text(
+                                      l.$2,
+                                      style: TextStyle(
                                         color: color,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
-                                        fontFamily: 'JetBrains Mono')),
-                              ),
-                              SizedBox(width: 6),
-                              Expanded(
-                                child: Text(l.$3,
-                                    style: TextStyle(
+                                        fontFamily: 'JetBrains Mono',
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      l.$3,
+                                      style: TextStyle(
                                         color: color,
                                         fontSize: 12,
-                                        fontFamily: 'JetBrains Mono')),
+                                        fontFamily: 'JetBrains Mono',
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                // Input
-                Container(
-                  key: TutorialKeys.mdiInput,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                      color: context.fc.surface,
-                      border: Border(
-                          top: BorderSide(color: context.fc.surfaceBorder))),
-                  child: Row(children: [
-                    Text('❯',
-                        style: TextStyle(
-                            color: context.fc.primary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900)),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        style: TextStyle(
-                            color: context.fc.textPrimary,
-                            fontSize: 14,
-                            fontFamily: 'JetBrains Mono'),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: tr('Saisir commande G-code...'),
-                          hintStyle: TextStyle(
-                              color: context.fc.textDisabled),
+                            );
+                          },
                         ),
-                        onSubmitted: _send,
-                        textInputAction: TextInputAction.send,
                       ),
                     ),
-                    SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => _send(_ctrl.text),
-                      style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(60, 44)),
-                      child: Icon(Icons.send_rounded, size: 18),
+                  ),
+                  // Input
+                  Container(
+                    key: TutorialKeys.mdiInput,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: context.fc.surface,
+                      border: Border(
+                        top: BorderSide(color: context.fc.surfaceBorder),
+                      ),
                     ),
-                  ]),
-                ),
-              ]),
+                    child: Row(
+                      children: [
+                        Text(
+                          '❯',
+                          style: TextStyle(
+                            color: context.fc.primary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _ctrl,
+                            style: TextStyle(
+                              color: context.fc.textPrimary,
+                              fontSize: 14,
+                              fontFamily: 'JetBrains Mono',
+                            ),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: tr('Saisir commande G-code...'),
+                              hintStyle: TextStyle(
+                                color: context.fc.textDisabled,
+                              ),
+                            ),
+                            onSubmitted: _send,
+                            textInputAction: TextInputAction.send,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => _send(_ctrl.text),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(60, 44),
+                          ),
+                          child: Icon(Icons.send_rounded, size: 18),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
 
               // ── Tab 2 : Macros ────────────────────────────────────
               SingleChildScrollView(
                 padding: EdgeInsets.all(16),
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  _MLabel(tr('MACROS RAPIDES')),
-                  SizedBox(height: 12),
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.1,
-                    children: _macros(context.fc).map((m) => InkWell(
-                      onTap: () {
-                        if (m.$2 == 'ORIGINES') {
-                          ref.read(machineRepositoryProvider).home([]);
-                        } else if (m.$2 == 'PAUSE') {
-                          ref.read(machineRepositoryProvider).pause();
-                        } else if (m.$2 == 'REPRENDRE') {
-                          ref.read(machineRepositoryProvider).resume();
-                        } else if (m.$2 == 'ANNULER') {
-                          ref.read(streamingProvider.notifier).stopStream();
-                        } else if (m.$2 == 'DÉBLOQUER') {
-                          ref.read(machineRepositoryProvider).sendRaw('\$X\n');
-                        } else {
-                          ref.read(machineRepositoryProvider).sendGCode(m.$3);
-                        }
-                        HapticFeedback.selectionClick();
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      splashColor: m.$4.withValues(alpha: 0.2),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              m.$4.withValues(alpha: 0.14),
-                              m.$4.withValues(alpha: 0.03),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: m.$4.withValues(alpha: 0.3)),
-                          boxShadow: [
-                            BoxShadow(
-                                color: m.$4.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                                spreadRadius: -3),
-                          ],
-                        ),
-                        child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: m.$4.withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(9),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MLabel(tr('MACROS RAPIDES')),
+                    SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.1,
+                      children: _macros(context.fc)
+                          .map(
+                            (m) => InkWell(
+                              onTap: () {
+                                if (m.$2 == 'ORIGINES') {
+                                  ref.read(machineRepositoryProvider).home([]);
+                                } else if (m.$2 == 'PAUSE') {
+                                  ref.read(machineRepositoryProvider).pause();
+                                } else if (m.$2 == 'REPRENDRE') {
+                                  ref.read(machineRepositoryProvider).resume();
+                                } else if (m.$2 == 'ANNULER') {
+                                  ref
+                                      .read(streamingProvider.notifier)
+                                      .stopStream();
+                                } else if (m.$2 == 'DÉBLOQUER') {
+                                  ref
+                                      .read(machineRepositoryProvider)
+                                      .sendRaw('\$X\n');
+                                } else {
+                                  ref
+                                      .read(machineRepositoryProvider)
+                                      .sendGCode(m.$3);
+                                }
+                                HapticFeedback.selectionClick();
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              splashColor: m.$4.withValues(alpha: 0.2),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      m.$4.withValues(alpha: 0.14),
+                                      m.$4.withValues(alpha: 0.03),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: m.$4.withValues(alpha: 0.3),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: m.$4.withValues(alpha: 0.1),
+                                      blurRadius: 10,
+                                      spreadRadius: -3,
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: m.$4.withValues(alpha: 0.16),
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      child: Icon(m.$1, color: m.$4, size: 20),
+                                    ),
+                                    SizedBox(height: 7),
+                                    Text(
+                                      m.$2,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: m.$4,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            child: Icon(m.$1, color: m.$4, size: 20),
+                          )
+                          .toList(),
+                    ),
+                    SizedBox(height: 24),
+                    _MLabel(tr('HISTORIQUE')),
+                    SizedBox(height: 8),
+                    for (final h in _history)
+                      GestureDetector(
+                        onTap: () {
+                          _ctrl.text = h.$1;
+                          _tab.animateTo(0);
+                        },
+                        child: Container(
+                          margin: EdgeInsets.only(bottom: 6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
                           ),
-                          SizedBox(height: 7),
-                          Text(m.$2,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: m.$4,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900)),
-                        ]),
-                      ),
-                    )).toList(),
-                  ),
-                  SizedBox(height: 24),
-                  _MLabel(tr('HISTORIQUE')),
-                  SizedBox(height: 8),
-                  for (final h in _history)
-                    GestureDetector(
-                      onTap: () {
-                        _ctrl.text = h.$1;
-                        _tab.animateTo(0);
-                      },
-                      child: Container(
-                        margin: EdgeInsets.only(bottom: 6),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
+                          decoration: BoxDecoration(
                             color: context.fc.surfaceBright,
-                            borderRadius: BorderRadius.circular(6)),
-                        child: Row(children: [
-                          Icon(Icons.history,
-                              color: context.fc.textDisabled, size: 14),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(h.$1,
-                                style: TextStyle(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.history,
+                                color: context.fc.textDisabled,
+                                size: 14,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  h.$1,
+                                  style: TextStyle(
                                     color: context.fc.textPrimary,
                                     fontSize: 12,
-                                    fontFamily: 'JetBrains Mono')),
-                          ),
-                          Text(h.$2,
-                              style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                h.$2,
+                                style: TextStyle(
                                   color: context.fc.textDisabled,
                                   fontSize: 9,
-                                  fontFamily: 'JetBrains Mono')),
-                        ]),
+                                  fontFamily: 'JetBrains Mono',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                ]),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1919,15 +2345,14 @@ class _MobileDiagnosticsScreenState
   late TabController _tab;
 
   static List<(String, String, bool, Color)> _endstops(
-          ForgeronColorPalette c) =>
-      [
+    ForgeronColorPalette c,
+  ) => [
     ('X', 'GPIO 34', false, c.axisX),
     ('Y', 'GPIO 35', false, c.axisY),
     ('Z', 'GPIO 32', true, c.axisZ),
     ('A', 'GPIO 33', false, c.axisA),
     ('C', 'GPIO 25', false, c.axisC),
   ];
-
 
   @override
   void initState() {
@@ -1943,7 +2368,8 @@ class _MobileDiagnosticsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final limSw = ref.watch(machineStateProvider).valueOrNull?.limitSwitches ??
+    final limSw =
+        ref.watch(machineStateProvider).valueOrNull?.limitSwitches ??
         [false, false, false, false, false];
     final configAsync = ref.watch(configProvider);
     final machineState = ref.watch(machineStateProvider).valueOrNull;
@@ -1954,468 +2380,670 @@ class _MobileDiagnosticsScreenState
     final latColor = !net.connected
         ? context.fc.textDisabled
         : (net.latencyMs < 30
-            ? context.fc.success
-            : (net.latencyMs < 100 ? context.fc.warning : context.fc.error));
+              ? context.fc.success
+              : (net.latencyMs < 100 ? context.fc.warning : context.fc.error));
 
-
-    return Column(children: [
-      MobileTabBar(
-        controller: _tab,
-        tabs: const [
-          MobileTab(Icons.developer_board, 'GPIO'),
-          MobileTab(Icons.code, 'CONFIG'),
-          MobileTab(Icons.settings_applications, 'PARAMS'),
-        ],
-      ),
-      Expanded(
-        child: TabBarView(
+    return Column(
+      children: [
+        MobileTabBar(
           controller: _tab,
-          children: [
-            // ── GPIO & Santé système ──────────────────────────────
-            SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const _MLabel('FINS DE COURSE (LIVE)'),
-                SizedBox(height: 8),
-                for (final e in _endstops(context.fc).asMap().entries)
-                  _EndstopRow(e.value.$1, e.value.$2,
-                      limSw[e.key], e.value.$4),
-                Row(children: [
-                  Expanded(child: _SensorMini('PALPEUR', 'GPIO 36',
-                      machineState?.probeTriggered ?? false, context.fc.secondary)),
-                  SizedBox(width: 8),
-                  Expanded(child: _SensorMini(tr('E-STOP'), 'GPIO 27',
-                      machineState?.emergencyTriggered ?? false, context.fc.danger)),
-                ]),
-
-                SizedBox(height: 20),
-                const _MLabel('SANTÉ SYSTÈME'),
-                SizedBox(height: 8),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.8,
-                  children: [
-                    _HealthCard('TEMP CPU', '${temp.toStringAsFixed(0)}°C',
-                        Icons.thermostat, context.fc.warning),
-                    // RAM / Uptime / RSSI : non rapportés par FluidNC standard →
-                    // resteront statiques tant que le firmware n'envoie pas de
-                    // [MSG:] custom. Marqués « — » pour ne pas faire croire à du live.
-                    _HealthCard(tr('USAGE RAM'), '—', Icons.memory, context.fc.textDisabled),
-                    _HealthCard('UPTIME', '—', Icons.schedule, context.fc.textDisabled),
-                    _HealthCard(tr('WiFi RSSI'), '—', Icons.wifi, context.fc.textDisabled),
-                  ],
-                ),
-
-                SizedBox(height: 20),
-                const _MLabel('TÉLÉMÉTRIE RÉSEAU'),
-                SizedBox(height: 8),
-                GlassPanel(
-                  key: TutorialKeys.networkMonitor,
-                  child: Column(children: [
-                    Center(
-                      child: Column(children: [
-                        Text(tr('LATENCE'),
-                            style: TextStyle(
-                                color: context.fc.textDisabled,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900)),
-                        SizedBox(height: 4),
-                        Text(net.connected ? '${net.latencyMs}' : '—',
-                            style: TextStyle(
-                                color: latColor,
-                                fontSize: 40,
-                                fontWeight: FontWeight.w900,
-                                fontFamily: 'JetBrains Mono')),
-                        Text('ms',
-                            style: TextStyle(color: context.fc.textDisabled)),
-                      ]),
-                    ),
-                    SizedBox(height: 12),
-                    Row(children: [
-                      Text(tr('QUALITÉ'),
-                          style: TextStyle(
-                              color: context.fc.textDisabled, fontSize: 9)),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: net.qualityPct / 100,
-                            backgroundColor: context.fc.surfaceBright,
-                            color: latColor,
-                            minHeight: 6,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text('${net.qualityPct}%',
-                          style: TextStyle(
-                              color: latColor,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono',
-                              fontWeight: FontWeight.w900)),
-                    ]),
-                    SizedBox(height: 12),
-                    for (final e in [
-                      (tr('PAQUETS TX'), '${net.txCount}'),
-                      (tr('PAQUETS RX'), '${net.rxCount}'),
-                      (tr('UPTIME CONN.'), formatUptime(net.uptime)),
-                    ])
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 3),
-                        child: Row(children: [
-                          Text(e.$1,
-                              style: TextStyle(
-                                  color: context.fc.textDisabled,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900)),
-                          const Spacer(),
-                          Text(e.$2,
-                              style: TextStyle(
-                                  color: context.fc.textPrimary,
-                                  fontSize: 11,
-                                  fontFamily: 'JetBrains Mono')),
-                        ]),
-                      ),
-                  ]),
-                ),
-
-                SizedBox(height: 20),
-                const _MLabel('AMDEC — RISQUES'),
-                SizedBox(height: 8),
-                GlassPanel(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      for (final r in [
-                        ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
-                        ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
-                        ('Latence UDP', (net.latencyMs / 200).clamp(0.0, 1.0), 'Faible'),
-                        ('Perte de Pas', 0.05, 'Faible'),
-                      ])
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 10),
-                          child: Row(children: [
-                            Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Text(r.$1,
-                                    style: TextStyle(
-                                        color: context.fc.textPrimary,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold)),
-                                Text(tr('Gravité : {}', [r.$3]),
-                                    style: TextStyle(
-                                        color: context.fc.textDisabled,
-                                        fontSize: 8)),
-                              ]),
-                            ),
-                            SizedBox(
-                              width: 80,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: LinearProgressIndicator(
-                                  value: r.$2.clamp(0.0, 1.0),
-                                  backgroundColor: context.fc.surfaceBright,
-                                  color: r.$2 > 0.8
-                                      ? context.fc.error
-                                      : (r.$2 > 0.5
-                                          ? context.fc.warning
-                                          : context.fc.success),
-                                  minHeight: 5,
-                                ),
-                              ),
-                            ),
-                          ]),
-                        ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 16),
-                _MLabel(tr('MAINTENANCE PRÉVENTIVE')),
-                SizedBox(height: 8),
-                _MaintCard(),
-              ]),
-            ),
-
-            // ── Config YAML ────────────────────────────────────────
-            Column(children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                color: context.fc.surfaceBright,
-                child: Row(children: [
-                  Icon(Icons.code, color: context.fc.warning, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(tr('CONFIG.YAML — FluidNC'),
-                        style: TextStyle(
-                            color: context.fc.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ]),
-              ),
-              Expanded(
-                child: Container(
-                  color: context.fc.terminalBg,
-                  child: configAsync.when(
-                    data: (yamlStr) {
-                      final lines = yamlStr.split('\n');
-                      return ListView.builder(
-                        padding: EdgeInsets.all(12),
-                        itemCount: lines.length,
-                        itemBuilder: (ctx, i) {
-                          final l = lines[i];
-                          final isComment = l.trimLeft().startsWith('#');
-                          final parts = l.split(':');
-                          return Padding(
-                            padding: EdgeInsets.symmetric(vertical: 1),
-                            child: Row(children: [
-                              SizedBox(
-                                width: 28,
-                                child: Text('${i + 1}',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                        color: context.fc.textDisabled,
-                                        fontSize: 9,
-                                        fontFamily: 'JetBrains Mono')),
-                              ),
-                              Container(
-                                  width: 1,
-                                  height: 14,
-                                  color: context.fc.surfaceBorder,
-                                  margin: EdgeInsets.symmetric(horizontal: 8)),
-                              Expanded(
-                                child: isComment
-                                    ? Text(l,
-                                        style: TextStyle(
-                                            color: context.fc.textDisabled,
-                                            fontSize: 11,
-                                            fontFamily: 'JetBrains Mono'))
-                                    : (parts.length > 1
-                                        ? RichText(
-                                            text: TextSpan(children: [
-                                              TextSpan(
-                                                  text: '${parts[0]}:',
-                                                  style: TextStyle(
-                                                      color: context.fc.primary,
-                                                      fontSize: 11,
-                                                      fontFamily: 'JetBrains Mono',
-                                                      fontWeight: FontWeight.bold)),
-                                              TextSpan(
-                                                  text: parts.sublist(1).join(':'),
-                                                  style: TextStyle(
-                                                      color: parts.sublist(1).join(':').contains('"')
-                                                          ? context.fc.success
-                                                          : context.fc.warning,
-                                                      fontSize: 11,
-                                                      fontFamily: 'JetBrains Mono')),
-                                            ]))
-                                        : Text(l,
-                                            style: TextStyle(
-                                                color: context.fc.textPrimary,
-                                                fontSize: 11,
-                                                fontFamily: 'JetBrains Mono'))),
-                              ),
-                            ]),
-                          );
-                        },
-                      );
-                    },
-                    loading: () => Center(
-                        child: CircularProgressIndicator(
-                            color: context.fc.primary)),
-                    error: (e, _) => Center(
-                        child: Text(tr('Erreur: {}', [e]),
-                            style: TextStyle(color: context.fc.error))),
-                  ),
-                ),
-              ),
-            ]),
-
-            // ── Paramètres axes ────────────────────────────────────
-            SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                const _MLabel('IDENTITÉ FIRMWARE'),
-                SizedBox(height: 8),
-                GlassPanel(
-                  titleTrailing: fw.isKnown
-                      ? null
-                      : InkWell(
-                          onTap: () => ref
-                              .read(firmwareInfoProvider.notifier)
-                              .requestInfo(),
-                          child: Icon(Icons.refresh_rounded,
-                              size: 14, color: context.fc.textSecondary),
-                        ),
-                  child: Column(children: [
-                    for (final e in [
-                      ('Version', fw.version ?? (fw.isKnown ? '—' : 'en attente (\$I)…')),
-                      ('GRBL', fw.grblVersion ?? '—'),
-                      ('Carte', fw.board ?? '—'),
-                      ('Options', fw.options ?? '—'),
-                    ])
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 5),
-                        child: Row(children: [
-                          Text(e.$1,
-                              style: TextStyle(
-                                  color: context.fc.textDisabled, fontSize: 10)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(e.$2,
-                                textAlign: TextAlign.right,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: context.fc.textPrimary,
-                                    fontSize: 11,
-                                    fontFamily: 'JetBrains Mono',
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        ]),
-                      ),
-                  ]),
-                ),
-
-                SizedBox(height: 20),
-                const _MLabel('ACTIONS SYSTÈME'),
-                SizedBox(height: 8),
-                for (final b in <(String, IconData, Color, VoidCallback)>[
-                  (
-                    'COPIER CONFIG.YAML',
-                    Icons.copy_all_rounded,
-                    context.fc.primary,
-                    () {
-                      final cfg = ref.read(configResultProvider).valueOrNull;
-                      final m = ScaffoldMessenger.of(context);
-                      if (cfg == null) {
-                        m.showSnackBar(SnackBar(
-                            content: Text(tr('Config non chargée.'))));
-                        return;
-                      }
-                      Clipboard.setData(ClipboardData(text: cfg.yaml));
-                      HapticFeedback.mediumImpact();
-                      m.showSnackBar(SnackBar(
-                          content: Text(
-                              tr('config.yaml copié dans le presse-papiers'))));
-                    }
-                  ),
-                  (
-                    tr('REDÉMARRER ESP32'),
-                    Icons.power_settings_new,
-                    context.fc.error,
-                    () async {
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          backgroundColor: context.fc.surface,
-                          title: Text(tr('Redémarrer l\'ESP32 ?'),
-                              style: TextStyle(
-                                  color: context.fc.textPrimary, fontSize: 16)),
-                          content: Row(children: [
-                            Icon(Icons.warning_amber_rounded,
-                                size: 18, color: context.fc.warning),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                tr('La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.'),
-                                style: TextStyle(
-                                    color: context.fc.textSecondary,
-                                    fontSize: 12,
-                                    height: 1.4),
-                              ),
-                            ),
-                          ]),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: Text(tr('Annuler'),
-                                    style: TextStyle(
-                                        color: context.fc.textSecondary))),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: context.fc.error,
-                                  foregroundColor: Colors.white),
-                              child: Text(tr('Redémarrer')),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (ok == true) {
-                        ref
-                            .read(machineRepositoryProvider)
-                            .sendRaw('\$Bye\n');
-                        HapticFeedback.heavyImpact();
-                      }
-                    }
-                  ),
-                ])
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: InkWell(
-                      onTap: b.$4,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 52,
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: b.$3.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: b.$3.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(children: [
-                          Icon(b.$2, color: b.$3, size: 18),
-                          SizedBox(width: 12),
-                          Text(b.$1,
-                              style: TextStyle(
-                                  color: b.$3,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900)),
-                          const Spacer(),
-                          Icon(Icons.chevron_right,
-                              color: context.fc.textDisabled, size: 16),
-                        ]),
-                      ),
-                    ),
-                  ),
-
-                SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity, height: 52,
-                  child: ElevatedButton.icon(
-                    icon: Icon(Icons.analytics),
-                    label: Text(tr('DUMP DIAGNOSTIC (JSON)'),
-                        style: TextStyle(fontWeight: FontWeight.w900)),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: context.fc.primary,
-                        foregroundColor: Colors.white),
-                    onPressed: () {
-                      final dump = ref.read(loggerServiceProvider.notifier)
-                          .generateDiagnosticDump();
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(tr('Dump généré en console'))));
-                      debugPrint(dump);
-                    },
-                  ),
-                ),
-              ]),
-            ),
+          tabs: const [
+            MobileTab(Icons.developer_board, 'GPIO'),
+            MobileTab(Icons.code, 'CONFIG'),
+            MobileTab(Icons.settings_applications, 'PARAMS'),
           ],
         ),
-      ),
-    ]);
+        Expanded(
+          child: TabBarView(
+            controller: _tab,
+            children: [
+              // ── GPIO & Santé système ──────────────────────────────
+              SingleChildScrollView(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _MLabel('FINS DE COURSE (LIVE)'),
+                    SizedBox(height: 8),
+                    for (final e in _endstops(context.fc).asMap().entries)
+                      _EndstopRow(
+                        e.value.$1,
+                        e.value.$2,
+                        limSw[e.key],
+                        e.value.$4,
+                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SensorMini(
+                            'PALPEUR',
+                            'GPIO 36',
+                            machineState?.probeTriggered ?? false,
+                            context.fc.secondary,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: _SensorMini(
+                            tr('E-STOP'),
+                            'GPIO 27',
+                            machineState?.emergencyTriggered ?? false,
+                            context.fc.danger,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 20),
+                    const _MLabel('SANTÉ SYSTÈME'),
+                    SizedBox(height: 8),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1.8,
+                      children: [
+                        _HealthCard(
+                          'TEMP CPU',
+                          '${temp.toStringAsFixed(0)}°C',
+                          Icons.thermostat,
+                          context.fc.warning,
+                        ),
+                        // RAM / Uptime / RSSI : non rapportés par FluidNC standard →
+                        // resteront statiques tant que le firmware n'envoie pas de
+                        // [MSG:] custom. Marqués « — » pour ne pas faire croire à du live.
+                        _HealthCard(
+                          tr('USAGE RAM'),
+                          '—',
+                          Icons.memory,
+                          context.fc.textDisabled,
+                        ),
+                        _HealthCard(
+                          'UPTIME',
+                          '—',
+                          Icons.schedule,
+                          context.fc.textDisabled,
+                        ),
+                        _HealthCard(
+                          tr('WiFi RSSI'),
+                          '—',
+                          Icons.wifi,
+                          context.fc.textDisabled,
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 20),
+                    const _MLabel('TÉLÉMÉTRIE RÉSEAU'),
+                    SizedBox(height: 8),
+                    GlassPanel(
+                      key: TutorialKeys.networkMonitor,
+                      child: Column(
+                        children: [
+                          Center(
+                            child: Column(
+                              children: [
+                                Text(
+                                  tr('LATENCE'),
+                                  style: TextStyle(
+                                    color: context.fc.textDisabled,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  net.connected ? '${net.latencyMs}' : '—',
+                                  style: TextStyle(
+                                    color: latColor,
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w900,
+                                    fontFamily: 'JetBrains Mono',
+                                  ),
+                                ),
+                                Text(
+                                  'ms',
+                                  style: TextStyle(
+                                    color: context.fc.textDisabled,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Text(
+                                tr('QUALITÉ'),
+                                style: TextStyle(
+                                  color: context.fc.textDisabled,
+                                  fontSize: 9,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: net.qualityPct / 100,
+                                    backgroundColor: context.fc.surfaceBright,
+                                    color: latColor,
+                                    minHeight: 6,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                '${net.qualityPct}%',
+                                style: TextStyle(
+                                  color: latColor,
+                                  fontSize: 11,
+                                  fontFamily: 'JetBrains Mono',
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          for (final e in [
+                            (tr('PAQUETS TX'), '${net.txCount}'),
+                            (tr('PAQUETS RX'), '${net.rxCount}'),
+                            (tr('UPTIME CONN.'), formatUptime(net.uptime)),
+                          ])
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    e.$1,
+                                    style: TextStyle(
+                                      color: context.fc.textDisabled,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    e.$2,
+                                    style: TextStyle(
+                                      color: context.fc.textPrimary,
+                                      fontSize: 11,
+                                      fontFamily: 'JetBrains Mono',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 20),
+                    const _MLabel('AMDEC — RISQUES'),
+                    SizedBox(height: 8),
+                    GlassPanel(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          for (final r in [
+                            ('Gimbal Lock (A≈0°)', singularityRisk, 'Critique'),
+                            ('Surchauffe ESP32', (temp - 30) / 40, 'Moyen'),
+                            (
+                              'Latence UDP',
+                              (net.latencyMs / 200).clamp(0.0, 1.0),
+                              'Faible',
+                            ),
+                            ('Perte de Pas', 0.05, 'Faible'),
+                          ])
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          r.$1,
+                                          style: TextStyle(
+                                            color: context.fc.textPrimary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          tr('Gravité : {}', [r.$3]),
+                                          style: TextStyle(
+                                            color: context.fc.textDisabled,
+                                            fontSize: 8,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 80,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(2),
+                                      child: LinearProgressIndicator(
+                                        value: r.$2.clamp(0.0, 1.0),
+                                        backgroundColor:
+                                            context.fc.surfaceBright,
+                                        color: r.$2 > 0.8
+                                            ? context.fc.error
+                                            : (r.$2 > 0.5
+                                                  ? context.fc.warning
+                                                  : context.fc.success),
+                                        minHeight: 5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 16),
+                    _MLabel(tr('MAINTENANCE PRÉVENTIVE')),
+                    SizedBox(height: 8),
+                    _MaintCard(),
+                  ],
+                ),
+              ),
+
+              // ── Config YAML ────────────────────────────────────────
+              Column(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    color: context.fc.surfaceBright,
+                    child: Row(
+                      children: [
+                        Icon(Icons.code, color: context.fc.warning, size: 16),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            tr('CONFIG.YAML — FluidNC'),
+                            style: TextStyle(
+                              color: context.fc.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      color: context.fc.terminalBg,
+                      child: configAsync.when(
+                        data: (yamlStr) {
+                          final lines = yamlStr.split('\n');
+                          return ListView.builder(
+                            padding: EdgeInsets.all(12),
+                            itemCount: lines.length,
+                            itemBuilder: (ctx, i) {
+                              final l = lines[i];
+                              final isComment = l.trimLeft().startsWith('#');
+                              final parts = l.split(':');
+                              return Padding(
+                                padding: EdgeInsets.symmetric(vertical: 1),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 28,
+                                      child: Text(
+                                        '${i + 1}',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          color: context.fc.textDisabled,
+                                          fontSize: 9,
+                                          fontFamily: 'JetBrains Mono',
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 14,
+                                      color: context.fc.surfaceBorder,
+                                      margin: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: isComment
+                                          ? Text(
+                                              l,
+                                              style: TextStyle(
+                                                color: context.fc.textDisabled,
+                                                fontSize: 11,
+                                                fontFamily: 'JetBrains Mono',
+                                              ),
+                                            )
+                                          : (parts.length > 1
+                                                ? Text.rich(
+                                                    TextSpan(
+                                                      children: [
+                                                        TextSpan(
+                                                          text: '${parts[0]}:',
+                                                          style: TextStyle(
+                                                            color: context
+                                                                .fc
+                                                                .primary,
+                                                            fontSize: 11,
+                                                            fontFamily:
+                                                                'JetBrains Mono',
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        TextSpan(
+                                                          text: parts
+                                                              .sublist(1)
+                                                              .join(':'),
+                                                          style: TextStyle(
+                                                            color:
+                                                                parts
+                                                                    .sublist(1)
+                                                                    .join(':')
+                                                                    .contains(
+                                                                      '"',
+                                                                    )
+                                                                ? context
+                                                                      .fc
+                                                                      .success
+                                                                : context
+                                                                      .fc
+                                                                      .warning,
+                                                            fontSize: 11,
+                                                            fontFamily:
+                                                                'JetBrains Mono',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                : Text(
+                                                    l,
+                                                    style: TextStyle(
+                                                      color: context
+                                                          .fc
+                                                          .textPrimary,
+                                                      fontSize: 11,
+                                                      fontFamily:
+                                                          'JetBrains Mono',
+                                                    ),
+                                                  )),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        loading: () => Center(
+                          child: CircularProgressIndicator(
+                            color: context.fc.primary,
+                          ),
+                        ),
+                        error: (e, _) => Center(
+                          child: Text(
+                            tr('Erreur: {}', [e]),
+                            style: TextStyle(color: context.fc.error),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // ── Paramètres axes ────────────────────────────────────
+              SingleChildScrollView(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _MLabel('IDENTITÉ FIRMWARE'),
+                    SizedBox(height: 8),
+                    GlassPanel(
+                      titleTrailing: fw.isKnown
+                          ? null
+                          : InkWell(
+                              onTap: () => ref
+                                  .read(firmwareInfoProvider.notifier)
+                                  .requestInfo(),
+                              child: Icon(
+                                Icons.refresh_rounded,
+                                size: 14,
+                                color: context.fc.textSecondary,
+                              ),
+                            ),
+                      child: Column(
+                        children: [
+                          for (final e in [
+                            (
+                              'Version',
+                              fw.version ??
+                                  (fw.isKnown ? '—' : 'en attente (\$I)…'),
+                            ),
+                            ('GRBL', fw.grblVersion ?? '—'),
+                            ('Carte', fw.board ?? '—'),
+                            ('Options', fw.options ?? '—'),
+                          ])
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 5),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    e.$1,
+                                    style: TextStyle(
+                                      color: context.fc.textDisabled,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      e.$2,
+                                      textAlign: TextAlign.right,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: context.fc.textPrimary,
+                                        fontSize: 11,
+                                        fontFamily: 'JetBrains Mono',
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 20),
+                    const _MLabel('ACTIONS SYSTÈME'),
+                    SizedBox(height: 8),
+                    for (final b in <(String, IconData, Color, VoidCallback)>[
+                      (
+                        'COPIER CONFIG.YAML',
+                        Icons.copy_all_rounded,
+                        context.fc.primary,
+                        () {
+                          final cfg = ref
+                              .read(configResultProvider)
+                              .valueOrNull;
+                          final m = ScaffoldMessenger.of(context);
+                          if (cfg == null) {
+                            m.showSnackBar(
+                              SnackBar(
+                                content: Text(tr('Config non chargée.')),
+                              ),
+                            );
+                            return;
+                          }
+                          Clipboard.setData(ClipboardData(text: cfg.yaml));
+                          HapticFeedback.mediumImpact();
+                          m.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                tr('config.yaml copié dans le presse-papiers'),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      (
+                        tr('REDÉMARRER ESP32'),
+                        Icons.power_settings_new,
+                        context.fc.error,
+                        () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: context.fc.surface,
+                              title: Text(
+                                tr('Redémarrer l\'ESP32 ?'),
+                                style: TextStyle(
+                                  color: context.fc.textPrimary,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              content: Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 18,
+                                    color: context.fc.warning,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      tr(
+                                        'La liaison va être coupée : l\'app se déconnectera quelques secondes, le temps du reboot. La reconnexion est automatique.',
+                                      ),
+                                      style: TextStyle(
+                                        color: context.fc.textSecondary,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(
+                                    tr('Annuler'),
+                                    style: TextStyle(
+                                      color: context.fc.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: context.fc.error,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: Text(tr('Redémarrer')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true) {
+                            ref
+                                .read(machineRepositoryProvider)
+                                .sendRaw('\$Bye\n');
+                            HapticFeedback.heavyImpact();
+                          }
+                        },
+                      ),
+                    ])
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          onTap: b.$4,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            height: 52,
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: b.$3.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: b.$3.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(b.$2, color: b.$3, size: 18),
+                                SizedBox(width: 12),
+                                Text(
+                                  b.$1,
+                                  style: TextStyle(
+                                    color: b.$3,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: context.fc.textDisabled,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.analytics),
+                        label: Text(
+                          tr('DUMP DIAGNOSTIC (JSON)'),
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.fc.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          final dump = ref
+                              .read(loggerServiceProvider.notifier)
+                              .generateDiagnosticDump();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(tr('Dump généré en console')),
+                            ),
+                          );
+                          debugPrint(dump);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -2429,14 +3057,15 @@ class _MLabel extends StatelessWidget {
   const _MLabel(this.text);
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: TextStyle(
-          color: context.fc.textDisabled,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 2.0,
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontFamily: 'Rajdhani',
+      color: context.fc.textDisabled,
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1.8,
+    ),
+  );
 }
 
 /// Bouton d'action plein écran uniforme
@@ -2446,8 +3075,13 @@ class _MActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final String? subtitle;
-  const _MActionButton(this.label, this.color, this.icon, this.onTap,
-      {this.subtitle});
+  const _MActionButton(
+    this.label,
+    this.color,
+    this.icon,
+    this.onTap, {
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2474,46 +3108,59 @@ class _MActionButton extends StatelessWidget {
             border: Border.all(color: color.withValues(alpha: 0.4)),
             boxShadow: [
               BoxShadow(
-                  color: color.withValues(alpha: 0.14),
-                  blurRadius: 14,
-                  spreadRadius: -4),
+                color: color.withValues(alpha: 0.14),
+                blurRadius: 14,
+                spreadRadius: -4,
+              ),
             ],
           ),
-          child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 19),
               ),
-              child: Icon(icon, color: color, size: 19),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
                       style: TextStyle(
-                          color: color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                          fontFamily: 'JetBrains Mono')),
-                  if (subtitle != null) ...[
-                    SizedBox(height: 2),
-                    Text(subtitle!,
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                        fontFamily: 'JetBrains Mono',
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      SizedBox(height: 2),
+                      Text(
+                        subtitle!,
                         style: TextStyle(
-                            color: context.fc.textDisabled, fontSize: 9)),
+                          color: context.fc.textDisabled,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right,
-                color: color.withValues(alpha: 0.6), size: 18),
-          ]),
+              Icon(
+                Icons.chevron_right,
+                color: color.withValues(alpha: 0.6),
+                size: 18,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2539,49 +3186,67 @@ class _EndstopRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: context.fc.surfaceBorder),
       ),
-      child: Row(children: [
-        Container(
+      child: Row(
+        children: [
+          Container(
             width: 4,
             height: 28,
             decoration: BoxDecoration(
-                color: axisColor, borderRadius: BorderRadius.circular(2))),
-        SizedBox(width: 10),
-        Text(axis,
-            style: TextStyle(
-                color: axisColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w900)),
-        SizedBox(width: 8),
-        Text(gpio,
-            style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono')),
-        const Spacer(),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: stateColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: stateColor.withValues(alpha: 0.3)),
+              color: axisColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-          child: Row(children: [
-            Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
+          SizedBox(width: 10),
+          Text(
+            axis,
+            style: TextStyle(
+              color: axisColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(width: 8),
+          Text(
+            gpio,
+            style: TextStyle(
+              color: context.fc.textDisabled,
+              fontSize: 10,
+              fontFamily: 'JetBrains Mono',
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: stateColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: stateColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: stateColor,
-                    boxShadow: [BoxShadow(color: stateColor, blurRadius: 4)])),
-            SizedBox(width: 6),
-            Text(triggered ? 'DÉCL.' : 'OUVERT',
-                style: TextStyle(
+                    boxShadow: [BoxShadow(color: stateColor, blurRadius: 4)],
+                  ),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  triggered ? 'DÉCL.' : 'OUVERT',
+                  style: TextStyle(
                     color: stateColor,
                     fontSize: 8,
-                    fontWeight: FontWeight.w900)),
-          ]),
-        ),
-      ]),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2605,19 +3270,33 @@ class _SensorMini extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: context.fc.surfaceBorder),
       ),
-      child: Row(children: [
-        Text(label,
+      child: Row(
+        children: [
+          Text(
+            label,
             style: TextStyle(
-                color: color, fontSize: 10, fontWeight: FontWeight.w900)),
-        const Spacer(),
-        Text(triggered ? 'DÉCL.' : 'OUVERT',
-            style: TextStyle(color: s, fontSize: 8, fontWeight: FontWeight.w900)),
-        SizedBox(width: 6),
-        Container(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            triggered ? 'DÉCL.' : 'OUVERT',
+            style: TextStyle(
+              color: s,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(width: 6),
+          Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: s)),
-      ]),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: s),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2643,35 +3322,45 @@ class _HealthCard extends StatelessWidget {
         border: Border.all(color: context.fc.surfaceBorder),
         boxShadow: [
           BoxShadow(
-              color: color.withValues(alpha: 0.10),
-              blurRadius: 12,
-              spreadRadius: -4),
+            color: color.withValues(alpha: 0.10),
+            blurRadius: 12,
+            spreadRadius: -4,
+          ),
         ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 26,
-          height: 26,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(icon, color: color, size: 15),
           ),
-          child: Icon(icon, color: color, size: 15),
-        ),
-        const Spacer(),
-        Text(value,
+          const Spacer(),
+          Text(
+            value,
             style: TextStyle(
-                color: context.fc.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                fontFamily: 'JetBrains Mono')),
-        Text(label,
+              color: context.fc.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'JetBrains Mono',
+            ),
+          ),
+          Text(
+            label,
             style: TextStyle(
-                color: context.fc.textDisabled,
-                fontSize: 8,
-                fontWeight: FontWeight.w900)),
-      ]),
+              color: context.fc.textDisabled,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2682,19 +3371,25 @@ class _MaintCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: context.fc.surface,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: context.fc.surfaceBorder),
+        gradient: context.fc.cardGradient,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.fc.rimHighlight),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.engineering, color: context.fc.primary, size: 14),
+          Icon(Icons.engineering, color: context.fc.primary, size: 15),
           SizedBox(width: 8),
-          Text(tr('MAINTENANCE PRÉVENTIVE'),
-              style: TextStyle(
-                  color: context.fc.primary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900)),
+          Expanded(
+            child: Text(tr('MAINTENANCE PRÉVENTIVE'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontFamily: 'Rajdhani',
+                    color: context.fc.primary,
+                    fontSize: 13,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w800)),
+          ),
         ]),
         SizedBox(height: 10),
         for (final e in [
@@ -2721,29 +3416,41 @@ class _MaintRow extends StatelessWidget {
         : (health < 60 ? context.fc.warning : context.fc.success);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Expanded(
-            child: Text(label,
-                style: TextStyle(
-                    color: context.fc.textDisabled, fontSize: 9))),
-        Text(timeLeft,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
+            ),
+          ),
+          Text(
+            timeLeft,
             style: TextStyle(
-                color: color, fontSize: 9, fontWeight: FontWeight.bold)),
-        SizedBox(width: 8),
-        SizedBox(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(width: 8),
+          SizedBox(
             width: 40,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(1),
               child: LinearProgressIndicator(
-                  value: health / 100,
-                  backgroundColor: context.fc.surfaceBright,
-                  color: color,
-                  minHeight: 3),
-            )),
-      ]),
+                value: health / 100,
+                backgroundColor: context.fc.surfaceBright,
+                color: color,
+                minHeight: 3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CINÉMATIQUE ÉDITABLE — lit les vraies valeurs du config.yaml (live ou cache
 // offline) et envoie les modifications à FluidNC via `$/axes/<x>/<param>=<v>`.
@@ -2774,17 +3481,18 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
   void _syncFromBoard() {
     ref.invalidate(configResultProvider);
     setState(() => _overrides.clear());
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(tr('Lecture des paramètres depuis la carte…'))));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr('Lecture des paramètres depuis la carte…'))),
+    );
   }
 
   Color _axisColor(BuildContext c, String axis) => switch (axis) {
-        'X' => c.fc.axisX,
-        'Y' => c.fc.axisY,
-        'Z' => c.fc.axisZ,
-        'A' => c.fc.axisA,
-        _ => c.fc.axisC,
-      };
+    'X' => c.fc.axisX,
+    'Y' => c.fc.axisY,
+    'Z' => c.fc.axisZ,
+    'A' => c.fc.axisA,
+    _ => c.fc.axisC,
+  };
 
   double? _value(AxisKinematics k, KinematicField f) {
     final o = _overrides['${k.axis}.${f.name}'];
@@ -2806,82 +3514,112 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) {
-          final preview =
-              fluidNcSetCommand(k.axis, f, double.tryParse(ctrl.text) ?? 0);
+          final preview = fluidNcSetCommand(
+            k.axis,
+            f,
+            double.tryParse(ctrl.text) ?? 0,
+          );
           return AlertDialog(
             backgroundColor: fc.surface,
-            title: Text('${k.axis} · ${f.label}',
-                style: TextStyle(
-                    color: fc.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900)),
+            title: Text(
+              '${k.axis} · ${f.label}',
+              style: TextStyle(
+                color: fc.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    onChanged: (_) => setLocal(() {}),
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true, signed: true),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  onChanged: (_) => setLocal(() {}),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  style: TextStyle(
+                    color: fc.primary,
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 18,
+                  ),
+                  decoration: InputDecoration(
+                    suffixText: f.unit,
+                    suffixStyle: TextStyle(color: fc.textDisabled),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: fc.surfaceBorder),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  tr('COMMANDE FLUIDNC'),
+                  style: TextStyle(
+                    color: fc.textDisabled,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: fc.terminalBg,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: fc.surfaceBorder),
+                  ),
+                  child: Text(
+                    preview,
                     style: TextStyle(
-                        color: fc.primary,
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 18),
-                    decoration: InputDecoration(
-                      suffixText: f.unit,
-                      suffixStyle: TextStyle(color: fc.textDisabled),
-                      enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: fc.surfaceBorder)),
+                      color: fc.primary,
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 11,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Text(tr('COMMANDE FLUIDNC'),
-                      style: TextStyle(
-                          color: fc.textDisabled,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1)),
-                  const SizedBox(height: 4),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: fc.terminalBg,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: fc.surfaceBorder),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 13,
+                      color: fc.warning,
                     ),
-                    child: Text(preview,
-                        style: TextStyle(
-                            color: fc.primary,
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 11)),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Icon(Icons.warning_amber_rounded,
-                        size: 13, color: fc.warning),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                          tr('Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.'),
-                          style: TextStyle(color: fc.warning, fontSize: 9)),
+                        tr(
+                          'Effet immédiat mais volatil. Sauvez le YAML (onglet CONFIG) pour le rendre permanent.',
+                        ),
+                        style: TextStyle(color: fc.warning, fontSize: 9),
+                      ),
                     ),
-                  ]),
-                ]),
+                  ],
+                ),
+              ],
+            ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child:
-                      Text(tr('ANNULER'), style: TextStyle(color: fc.textDisabled))),
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  tr('ANNULER'),
+                  style: TextStyle(color: fc.textDisabled),
+                ),
+              ),
               ElevatedButton(
                 onPressed: () {
                   final v = double.tryParse(ctrl.text.trim());
                   if (v != null) Navigator.pop(ctx, v);
                 },
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: fc.primary, foregroundColor: Colors.white),
+                  backgroundColor: fc.primary,
+                  foregroundColor: Colors.white,
+                ),
                 child: Text(tr('ENVOYER')),
               ),
             ],
@@ -2897,10 +3635,17 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
     await ref.read(machineRepositoryProvider).sendGCode(cmd);
     if (!mounted) return;
     setState(() => _overrides['${k.axis}.${f.name}'] = newVal);
-    messenger.showSnackBar(SnackBar(
-        content: Text(tr('Appliqué à chaud (volatil, perdu au reboot). « Enregistrer dans la config » pour la mémoire de la carte.')),
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            'Appliqué à chaud (volatil, perdu au reboot). « Enregistrer dans la config » pour la mémoire de la carte.',
+          ),
+        ),
         backgroundColor: okColor,
-        duration: const Duration(seconds: 4)));
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -2910,29 +3655,39 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
     final cfg = ref.watch(configResultProvider).valueOrNull;
 
     Widget headerRow() => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-              color: fc.surfaceBright,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(5))),
-          child: Row(children: [
-            SizedBox(
-                width: 30,
-                child: Text(tr('AXE'),
-                    style: TextStyle(
-                        color: fc.textDisabled,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900))),
-            for (final f in KinematicField.values)
-              Expanded(
-                  child: Text(f.label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: fc.textDisabled,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900))),
-          ]),
-        );
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: fc.surfaceBright,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 30,
+            child: Text(
+              tr('AXE'),
+              style: TextStyle(
+                color: fc.textDisabled,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          for (final f in KinematicField.values)
+            Expanded(
+              child: Text(
+                f.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: fc.textDisabled,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
 
     Widget cell(AxisKinematics k, KinematicField f) {
       final v = _value(k, f);
@@ -2946,147 +3701,202 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
               v == null
                   ? '—'
                   : (v == v.roundToDouble()
-                      ? v.toStringAsFixed(0)
-                      : v.toStringAsFixed(1)),
+                        ? v.toStringAsFixed(0)
+                        : v.toStringAsFixed(1)),
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: v == null ? fc.textDisabled : fc.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'JetBrains Mono'),
+                color: v == null ? fc.textDisabled : fc.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'JetBrains Mono',
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(children: [
-          Icon(cfg?.fromCache == true ? Icons.cloud_off : Icons.cloud_done,
-              size: 12,
-              color: cfg?.fromCache == true ? fc.warning : fc.success),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              cfg == null
-                  ? 'Lecture depuis la carte…'
-                  : cfg.fromCache
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              Icon(
+                cfg?.fromCache == true ? Icons.cloud_off : Icons.cloud_done,
+                size: 12,
+                color: cfg?.fromCache == true ? fc.warning : fc.success,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  cfg == null
+                      ? 'Lecture depuis la carte…'
+                      : cfg.fromCache
                       ? 'Hors ligne — valeurs en CACHE (non synchronisées)'
                       : 'Synchronisé avec la carte (config.yaml)',
-              style: TextStyle(
-                  color: cfg?.fromCache == true ? fc.warning : fc.textDisabled,
-                  fontSize: 9),
-            ),
-          ),
-          InkWell(
-            onTap: _saving ? null : _syncFromBoard,
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.sync, size: 13, color: fc.primary),
-                const SizedBox(width: 3),
-                Text(tr('SYNCHRONISER'),
-                    style: TextStyle(
-                        color: fc.primary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900)),
-              ]),
-            ),
-          ),
-        ]),
-      ),
-      Container(
-        decoration: BoxDecoration(
-          color: fc.surface,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: fc.surfaceBorder),
-        ),
-        child: async.when(
-          loading: () => const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator())),
-          error: (e, _) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(tr('Config indisponible : {}', [e]),
-                  style: TextStyle(color: fc.textDisabled, fontSize: 11))),
-          data: (axes) {
-            final hasAny = axes.any((k) =>
-                k.stepsPerMm != null ||
-                k.maxRate != null ||
-                k.accel != null ||
-                k.maxTravel != null);
-            return Column(children: [
-              headerRow(),
-              if (!hasAny)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                      tr('Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).'),
-                      style: TextStyle(color: fc.textDisabled, fontSize: 11)),
-                )
-              else
-                for (final k in axes)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                        border: Border(
-                            bottom: BorderSide(color: fc.surfaceBorder))),
-                    child: Row(children: [
-                      SizedBox(
-                        width: 30,
-                        child: Text(k.axis,
-                            style: TextStyle(
-                                color: _axisColor(context, k.axis),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900)),
-                      ),
-                      for (final f in KinematicField.values) cell(k, f),
-                    ]),
+                  style: TextStyle(
+                    color: cfg?.fromCache == true
+                        ? fc.warning
+                        : fc.textDisabled,
+                    fontSize: 9,
                   ),
-            ]);
-          },
-        ),
-      ),
-      const SizedBox(height: 6),
-      Text(tr('Touchez une valeur : appliquée à chaud (volatile). « Enregistrer » l\'écrit dans la mémoire de la carte.'),
-          style: TextStyle(color: fc.textDisabled, fontSize: 9)),
-      const SizedBox(height: 12),
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: _saving ? null : _saveToConfig,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: fc.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              InkWell(
+                onTap: _saving ? null : _syncFromBoard,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sync, size: 13, color: fc.primary),
+                      const SizedBox(width: 3),
+                      Text(
+                        tr('SYNCHRONISER'),
+                        style: TextStyle(
+                          color: fc.primary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          icon: Icon(
-              _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
-              size: 18),
-          label: Text(
-              _saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS LA CONFIG FLUIDNC',
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
         ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-          tr('Écrit les valeurs actuelles dans config.yaml (permanent) puis redémarre FluidNC pour les appliquer.'),
-          style: TextStyle(color: fc.textDisabled, fontSize: 9)),
-    ]);
+        Container(
+          decoration: BoxDecoration(
+            color: fc.surface,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: fc.surfaceBorder),
+          ),
+          child: async.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                tr('Config indisponible : {}', [e]),
+                style: TextStyle(color: fc.textDisabled, fontSize: 11),
+              ),
+            ),
+            data: (axes) {
+              final hasAny = axes.any(
+                (k) =>
+                    k.stepsPerMm != null ||
+                    k.maxRate != null ||
+                    k.accel != null ||
+                    k.maxTravel != null,
+              );
+              return Column(
+                children: [
+                  headerRow(),
+                  if (!hasAny)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        tr(
+                          'Aucune cinématique lue depuis config.yaml (connecte-toi à l\'ESP32 une fois pour la mettre en cache).',
+                        ),
+                        style: TextStyle(color: fc.textDisabled, fontSize: 11),
+                      ),
+                    )
+                  else
+                    for (final k in axes)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: fc.surfaceBorder),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 30,
+                              child: Text(
+                                k.axis,
+                                style: TextStyle(
+                                  color: _axisColor(context, k.axis),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            for (final f in KinematicField.values) cell(k, f),
+                          ],
+                        ),
+                      ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          tr(
+            'Touchez une valeur : appliquée à chaud (volatile). « Enregistrer » l\'écrit dans la mémoire de la carte.',
+          ),
+          style: TextStyle(color: fc.textDisabled, fontSize: 9),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _saving ? null : _saveToConfig,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: fc.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: Icon(
+              _saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
+              size: 18,
+            ),
+            label: Text(
+              _saving
+                  ? 'ENREGISTREMENT…'
+                  : 'ENREGISTRER DANS LA CONFIG FLUIDNC',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          tr(
+            'Écrit les valeurs actuelles dans config.yaml (permanent) puis redémarre FluidNC pour les appliquer.',
+          ),
+          style: TextStyle(color: fc.textDisabled, fontSize: 9),
+        ),
+      ],
+    );
   }
 
   Future<void> _saveToConfig() async {
     final fc = context.fc;
     final kin = ref.read(axisKinematicsProvider).valueOrNull;
     if (kin == null || kin.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(tr('Cinématique indisponible (config non chargée).'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('Cinématique indisponible (config non chargée).')),
+        ),
+      );
       return;
     }
 
@@ -3094,16 +3904,23 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: fc.surface,
-        title: Text(tr('Enregistrer dans FluidNC ?'),
-            style: TextStyle(color: fc.textPrimary, fontSize: 16)),
+        title: Text(
+          tr('Enregistrer dans FluidNC ?'),
+          style: TextStyle(color: fc.textPrimary, fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              tr('Les valeurs de cinématique actuelles seront écrites dans config.yaml (permanent), puis FluidNC redémarrera pour les appliquer.'),
-              style:
-                  TextStyle(color: fc.textSecondary, fontSize: 13, height: 1.4),
+              tr(
+                'Les valeurs de cinématique actuelles seront écrites dans config.yaml (permanent), puis FluidNC redémarrera pour les appliquer.',
+              ),
+              style: TextStyle(
+                color: fc.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -3113,29 +3930,45 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: fc.warning.withValues(alpha: 0.4)),
               ),
-              child: Row(children: [
-                Icon(Icons.warning_amber_rounded, size: 16, color: fc.warning),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    tr('Le redémarrage va couper la liaison : l\'app sera déconnectée quelques secondes, le temps que l\'ESP32 reboote. La reconnexion est automatique.'),
-                    style: TextStyle(
-                        color: fc.warning, fontSize: 11, height: 1.35),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: fc.warning,
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tr(
+                        'Le redémarrage va couper la liaison : l\'app sera déconnectée quelques secondes, le temps que l\'ESP32 reboote. La reconnexion est automatique.',
+                      ),
+                      style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child:
-                  Text(tr('Annuler'), style: TextStyle(color: fc.textSecondary))),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              tr('Annuler'),
+              style: TextStyle(color: fc.textSecondary),
+            ),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: fc.primary, foregroundColor: Colors.white),
+              backgroundColor: fc.primary,
+              foregroundColor: Colors.white,
+            ),
             child: Text(tr('Enregistrer & redémarrer')),
           ),
         ],
@@ -3151,8 +3984,12 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
       // On repart du YAML déjà chargé (évite un GET fragile sur l'AP ESP32).
       final yaml = ref.read(configResultProvider).valueOrNull?.yaml;
       if (yaml == null || !yaml.contains('axes:')) {
-        throw Exception(tr('config.yaml non chargé ou sans section axes '
-            '(machine hors ligne ?)'));
+        throw Exception(
+          tr(
+            'config.yaml non chargé ou sans section axes '
+            '(machine hors ligne ?)',
+          ),
+        );
       }
       // Construit {axe: {clé_yaml: valeur}} depuis l'affichage (overrides inclus).
       final byAxis = <String, Map<String, double>>{};
@@ -3173,26 +4010,37 @@ class KinematicsTableState extends ConsumerState<KinematicsTable> {
         if (mounted) setState(() => _overrides.clear());
         ref.invalidate(configResultProvider);
         ref.read(machineRepositoryProvider).sendRaw('\$Bye\n');
-        messenger.showSnackBar(SnackBar(
+        messenger.showSnackBar(
+          SnackBar(
             content: Text(tr('Config enregistrée — redémarrage de FluidNC…')),
-            backgroundColor: okColor));
+            backgroundColor: okColor,
+          ),
+        );
       } catch (_) {
         // Écriture auto impossible (endpoint non supporté) → repli fiable :
         // on copie la config patchée pour la coller dans la WebUI FluidNC.
         await Clipboard.setData(ClipboardData(text: patched));
         if (!mounted) return;
-        messenger.showSnackBar(SnackBar(
-          content: Text(
-              tr('Écriture auto impossible. Config copiée : colle-la dans la WebUI FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.')),
-          backgroundColor: errColor,
-          duration: const Duration(seconds: 6),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              tr(
+                'Écriture auto impossible. Config copiée : colle-la dans la WebUI FluidNC (192.168.0.1 → Files → config.yaml), puis reboot.',
+              ),
+            ),
+            backgroundColor: errColor,
+            duration: const Duration(seconds: 6),
+          ),
+        );
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
+      messenger.showSnackBar(
+        SnackBar(
           content: Text(tr('Échec : {}', [e])),
           backgroundColor: errColor,
-          duration: const Duration(seconds: 5)));
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

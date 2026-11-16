@@ -10,6 +10,7 @@ import '../../application/providers/workspace_provider.dart';
 import '../../domain/models/gcode_file.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../core/utils/gcode_highlighter.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/widgets/gcode_editor_controller.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -19,7 +20,8 @@ class FileManagerScreen extends ConsumerStatefulWidget {
   ConsumerState<FileManagerScreen> createState() => _FileManagerScreenState();
 }
 
-class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with SingleTickerProviderStateMixin {
+class _FileManagerScreenState extends ConsumerState<FileManagerScreen>
+    with SingleTickerProviderStateMixin {
   late GCodeEditingController _editorCtrl;
   bool _isEditing = false;
   late TabController _tabCtrl;
@@ -50,17 +52,23 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     final okColor = context.fc.success;
     final errColor = context.fc.error;
     try {
-      await ref.read(fileRepositoryProvider).uploadFile(result.name, Uint8List.fromList(result.bytes));
+      await ref
+          .read(fileRepositoryProvider)
+          .uploadFile(result.name, Uint8List.fromList(result.bytes));
       ref.invalidate(fileListProvider);
-      messenger.showSnackBar(SnackBar(
-        content: Text(tr('✅ Fichier {} chargé sur la SD', [result.name])),
-        backgroundColor: okColor,
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('✅ Fichier {} chargé sur la SD', [result.name])),
+          backgroundColor: okColor,
+        ),
+      );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(tr('❌ Erreur upload: {}', [e])),
-        backgroundColor: errColor,
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('❌ Erreur upload: {}', [e])),
+          backgroundColor: errColor,
+        ),
+      );
     }
   }
 
@@ -68,7 +76,9 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     final messenger = ScaffoldMessenger.of(context);
     final errorColor = context.fc.error;
     try {
-      final content = await ref.read(fileRepositoryProvider).readFile(file.name);
+      final content = await ref
+          .read(fileRepositoryProvider)
+          .readFile(file.name);
       await ref.read(gcodeProvider.notifier).loadFile(content);
       _editorCtrl.text = content;
       // Contenu SD → plus lié à un fichier du dossier de travail.
@@ -78,8 +88,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       });
       _tabCtrl.animateTo(2); // Basculer vers l'éditeur
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-          content: Text(tr('Erreur: {}', [e])), backgroundColor: errorColor));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('Erreur: {}', [e])),
+          backgroundColor: errorColor,
+        ),
+      );
     }
   }
 
@@ -89,10 +103,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     final okColor = context.fc.success;
     await ref.read(gcodeProvider.notifier).loadFile(content);
     if (!mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(tr('✅ Programme mis à jour dans l\'unité de streaming')),
-      backgroundColor: okColor,
-    ));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(tr('✅ Programme mis à jour dans l\'unité de streaming')),
+        backgroundColor: okColor,
+      ),
+    );
     setState(() => _isEditing = false);
   }
 
@@ -105,15 +121,31 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
         final ctrl = TextEditingController(text: 'modified_program.nc');
         return AlertDialog(
           backgroundColor: context.fc.surface,
-          title: Text(tr('SAUVEGARDER SUR LA CARTE SD'), style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          title: Text(
+            tr('SAUVEGARDER SUR LA CARTE SD'),
+            style: TextStyle(
+              color: context.fc.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: TextField(
             controller: ctrl,
-            style: TextStyle(color: Colors.white),
-            decoration: InputDecoration(labelText: tr('Nom du fichier'), labelStyle: TextStyle(color: context.fc.textSecondary)),
+            style: TextStyle(color: context.fc.textPrimary),
+            decoration: InputDecoration(
+              labelText: tr('Nom du fichier'),
+              labelStyle: TextStyle(color: context.fc.textSecondary),
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('ANNULER'))),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text(tr('SAUVEGARDER'))),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('ANNULER')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: Text(tr('SAUVEGARDER')),
+            ),
           ],
         );
       },
@@ -128,9 +160,19 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
         final bytes = Uint8List.fromList(content.codeUnits);
         await ref.read(fileRepositoryProvider).uploadFile(fileName, bytes);
         ref.invalidate(fileListProvider);
-        messenger.showSnackBar(SnackBar(content: Text(tr('✅ Enregistré : {}', [fileName])), backgroundColor: okColor));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(tr('✅ Enregistré : {}', [fileName])),
+            backgroundColor: okColor,
+          ),
+        );
       } catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(tr('❌ Erreur : {}', [e])), backgroundColor: errColor));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(tr('❌ Erreur : {}', [e])),
+            backgroundColor: errColor,
+          ),
+        );
       }
     }
   }
@@ -139,31 +181,33 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
   Widget build(BuildContext context) {
     final hasProgram = ref.watch(gcodeProvider).allLines.isNotEmpty;
     final streaming = ref.watch(streamingProvider);
-    return Column(children: [
-      // ── BARRE D'ONGLETS compacte (48 px) ──────────────────────────────
-      MobileTabBar(
-        controller: _tabCtrl,
-        tabs: const [
-          MobileTab(Icons.folder_special_rounded, 'DOSSIER'),
-          MobileTab(Icons.sd_storage_rounded, 'CARTE SD'),
-          MobileTab(Icons.edit_note_rounded, 'ÉDITEUR'),
-        ],
-      ),
-
-      Expanded(
-        child: TabBarView(
+    return Column(
+      children: [
+        // ── BARRE D'ONGLETS compacte (48 px) ──────────────────────────────
+        MobileTabBar(
           controller: _tabCtrl,
-          children: [
-            _buildWorkFolderTab(),
-            _buildExplorerTab(),
-            _buildEditorTab(),
+          tabs: const [
+            MobileTab(Icons.folder_special_rounded, 'DOSSIER'),
+            MobileTab(Icons.sd_storage_rounded, 'CARTE SD'),
+            MobileTab(Icons.edit_note_rounded, 'ÉDITEUR'),
           ],
         ),
-      ),
 
-      // ── DÉPART CYCLE : disponible dès qu'un programme est chargé ──────────
-      if (hasProgram) _buildCycleStartBar(streaming),
-    ]);
+        Expanded(
+          child: TabBarView(
+            controller: _tabCtrl,
+            children: [
+              _buildWorkFolderTab(),
+              _buildExplorerTab(),
+              _buildEditorTab(),
+            ],
+          ),
+        ),
+
+        // ── DÉPART CYCLE : disponible dès qu'un programme est chargé ──────────
+        if (hasProgram) _buildCycleStartBar(streaming),
+      ],
+    );
   }
 
   /// Bandeau bas de l'écran Travail : lance le programme chargé (validé +
@@ -188,15 +232,20 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
               disabledBackgroundColor: fc.surfaceBright,
               disabledForegroundColor: fc.textDisabled,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            icon: Icon(streaming
-                ? Icons.hourglass_top_rounded
-                : Icons.play_arrow_rounded),
+            icon: Icon(
+              streaming
+                  ? Icons.hourglass_top_rounded
+                  : Icons.play_arrow_rounded,
+            ),
             label: Text(
               streaming ? 'EXÉCUTION EN COURS…' : 'DÉPART CYCLE',
               style: const TextStyle(
-                  fontWeight: FontWeight.w900, letterSpacing: 0.8),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
         ),
@@ -210,11 +259,15 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     HapticFeedback.mediumImpact();
     final result = await ref.read(streamingProvider.notifier).startStream();
     if (!result.isValid) {
-      final line = result.errorLine != null ? ' (ligne ${result.errorLine})' : '';
-      messenger.showSnackBar(SnackBar(
-        content: Text(tr('Refusé : {}{}', [result.errorMessage, line])),
-        backgroundColor: errColor,
-      ));
+      final line = result.errorLine != null
+          ? ' (ligne ${result.errorLine})'
+          : '';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('Refusé : {}{}', [result.errorMessage, line])),
+          backgroundColor: errColor,
+        ),
+      );
     }
   }
 
@@ -228,9 +281,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
     if (path != null) {
       ref.read(workFilesRefreshProvider.notifier).state++;
     } else {
-      messenger.showSnackBar(SnackBar(
+      messenger.showSnackBar(
+        SnackBar(
           content: Text(tr('Aucun dossier sélectionné')),
-          backgroundColor: errColor));
+          backgroundColor: errColor,
+        ),
+      );
     }
   }
 
@@ -250,8 +306,12 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       _tabCtrl.animateTo(2);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-          content: Text(tr('Lecture impossible : {}', [e])), backgroundColor: errColor));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('Lecture impossible : {}', [e])),
+          backgroundColor: errColor,
+        ),
+      );
     }
   }
 
@@ -267,13 +327,20 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       if (!mounted) return;
       ref.read(workFilesRefreshProvider.notifier).state++;
       setState(() => _isEditing = false);
-      messenger.showSnackBar(SnackBar(
+      messenger.showSnackBar(
+        SnackBar(
           content: Text(tr('✅ Enregistré : {}', [_openWorkFileName])),
-          backgroundColor: okColor));
+          backgroundColor: okColor,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-          content: Text(tr('Écriture impossible : {}', [e])), backgroundColor: errColor));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(tr('Écriture impossible : {}', [e])),
+          backgroundColor: errColor,
+        ),
+      );
     }
   }
 
@@ -283,189 +350,269 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
 
     if (folder == null) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.folder_off_rounded,
-                size: 56, color: context.fc.surfaceBorder),
-            const SizedBox(height: 16),
-            Text(tr('AUCUN DOSSIER DE TRAVAIL'),
-                style: TextStyle(
-                    color: context.fc.textPrimary,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    letterSpacing: 1)),
-            const SizedBox(height: 8),
-            Text(
-                tr('Choisis un dossier du téléphone contenant tes G-code. Tu pourras les ouvrir, les éditer et les enregistrer — même hors ligne.'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.folder_off_rounded,
+                size: 56,
+                color: context.fc.surfaceBorder,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('AUCUN DOSSIER DE TRAVAIL'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: context.fc.textDisabled, fontSize: 11)),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _pickWorkFolder,
-              icon: const Icon(Icons.create_new_folder_rounded, size: 18),
-              label: Text(tr('CHOISIR LE DOSSIER')),
-              style: ElevatedButton.styleFrom(
+                style: TextStyle(
+                  fontFamily: 'Rajdhani',
+                  color: context.fc.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(
+                  'Choisis un dossier du téléphone contenant tes G-code. Tu pourras les ouvrir, les éditer et les enregistrer — même hors ligne.',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 11),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _pickWorkFolder,
+                icon: const Icon(Icons.create_new_folder_rounded, size: 18),
+                label: Text(tr('CHOISIR LE DOSSIER')),
+                style: ElevatedButton.styleFrom(
                   backgroundColor: context.fc.primary,
-                  foregroundColor: Colors.white),
-            ),
-          ]),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return Column(children: [
-      // Bandeau : chemin du dossier + actions.
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
+    return Column(
+      children: [
+        // Bandeau : chemin du dossier + actions.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
             color: context.fc.surface,
-            border:
-                Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
-        child: Row(children: [
-          Icon(Icons.folder_rounded, color: context.fc.primary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(folder.split('/').last.isEmpty ? folder : folder.split('/').last,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.folder_rounded, color: context.fc.primary, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  folder.split('/').last.isEmpty
+                      ? folder
+                      : folder.split('/').last,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
                     color: context.fc.textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () =>
+                    ref.read(workFilesRefreshProvider.notifier).state++,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: context.fc.textSecondary,
+                  size: 18,
+                ),
+                tooltip: tr('Rafraîchir'),
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                onPressed: _pickWorkFolder,
+                icon: Icon(
+                  Icons.swap_horiz_rounded,
+                  color: context.fc.textSecondary,
+                  size: 18,
+                ),
+                tooltip: tr('Changer de dossier'),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: () =>
-                ref.read(workFilesRefreshProvider.notifier).state++,
-            icon: Icon(Icons.refresh_rounded,
-                color: context.fc.textSecondary, size: 18),
-            tooltip: tr('Rafraîchir'),
-            visualDensity: VisualDensity.compact,
-          ),
-          IconButton(
-            onPressed: _pickWorkFolder,
-            icon: Icon(Icons.swap_horiz_rounded,
-                color: context.fc.textSecondary, size: 18),
-            tooltip: tr('Changer de dossier'),
-            visualDensity: VisualDensity.compact,
-          ),
-        ]),
-      ),
-      Expanded(
-        child: files.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                      tr('Aucun fichier G-code lisible dans ce dossier.\n\nSur Android 11+, autorise « Accès à tous les fichiers » pour Forgeron dans les réglages, ou choisis un dossier accessible (ex. Téléchargements).'),
+        ),
+        Expanded(
+          child: files.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      tr(
+                        'Aucun fichier G-code lisible dans ce dossier.\n\nSur Android 11+, autorise « Accès à tous les fichiers » pour Forgeron dans les réglages, ou choisis un dossier accessible (ex. Téléchargements).',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: context.fc.textDisabled, fontSize: 11)),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: files.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (ctx, i) {
-                  final f = files[i];
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _openWorkFile(f),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: context.fc.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border:
-                              Border.all(color: context.fc.surfaceBorder),
-                        ),
-                        child: Row(children: [
-                          Icon(Icons.description_rounded,
-                              color: context.fc.primary, size: 20),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(f.name,
+                        color: context.fc.textDisabled,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: files.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) {
+                    final f = files[i];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _openWorkFile(f),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            gradient: context.fc.cardGradient,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: context.fc.rimHighlight),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.description_rounded,
+                                color: context.fc.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      f.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                          color: context.fc.textPrimary,
-                                          fontWeight: FontWeight.bold)),
-                                  Text('${(f.size / 1024).toStringAsFixed(1)} Ko',
+                                        color: context.fc.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${(f.size / 1024).toStringAsFixed(1)} Ko',
                                       style: TextStyle(
-                                          color: context.fc.textDisabled,
-                                          fontSize: 10)),
-                                ]),
+                                        color: context.fc.textDisabled,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.edit_rounded,
+                                color: context.fc.textDisabled,
+                                size: 18,
+                              ),
+                            ],
                           ),
-                          Icon(Icons.edit_rounded,
-                              color: context.fc.textDisabled, size: 18),
-                        ]),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-      ),
-    ]);
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
   }
 
   Widget _buildExplorerTab() {
     final filesAsync = ref.watch(fileListProvider);
-    return Column(children: [
-      Container(
-        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
             color: context.fc.background,
-            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder))),
-        child: Row(children: [
-          Text(tr('FICHIERS SUR CARTE SD'), style: TextStyle(color: context.fc.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: _uploadFile,
-            icon: Icon(Icons.add, size: 16),
-            label: Text(tr('AJOUTER')),
-            style: TextButton.styleFrom(foregroundColor: context.fc.primary),
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
           ),
-        ]),
-      ),
-      Expanded(
-        child: filesAsync.when(
-          data: (files) => ListView.separated(
-            padding: EdgeInsets.all(16),
-            itemCount: files.length,
-            separatorBuilder: (_, __) => SizedBox(height: 8),
-            itemBuilder: (ctx, i) => _FileCard(
-              file: files[i],
-              onLoad: () => _loadFileIntoEditor(files[i]),
-              onDelete: () async {
-                await ref.read(fileRepositoryProvider).deleteFile(files[i].name);
-                ref.invalidate(fileListProvider);
-              },
-            ),
+          child: Row(
+            children: [
+              Text(
+                tr('FICHIERS SUR CARTE SD'),
+                style: TextStyle(
+                  fontFamily: 'Rajdhani',
+                  color: context.fc.textSecondary,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _uploadFile,
+                icon: Icon(Icons.add, size: 16),
+                label: Text(tr('AJOUTER')),
+                style: TextButton.styleFrom(
+                  foregroundColor: context.fc.primary,
+                ),
+              ),
+            ],
           ),
-          loading: () => Center(child: CircularProgressIndicator()),
-          error: (e, s) => Center(child: Text(tr('Erreur: {}', [e]))),
         ),
-      ),
-    ]);
+        Expanded(
+          child: filesAsync.when(
+            data: (files) => ListView.separated(
+              padding: EdgeInsets.all(16),
+              itemCount: files.length,
+              separatorBuilder: (_, __) => SizedBox(height: 8),
+              itemBuilder: (ctx, i) => _FileCard(
+                file: files[i],
+                onLoad: () => _loadFileIntoEditor(files[i]),
+                onDelete: () async {
+                  await ref
+                      .read(fileRepositoryProvider)
+                      .deleteFile(files[i].name);
+                  ref.invalidate(fileListProvider);
+                },
+              ),
+            ),
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text(tr('Erreur: {}', [e]))),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildEditorTab() {
     final gcodeState = ref.watch(gcodeProvider);
-    
+
     if (gcodeState.allLines.isEmpty && !_isEditing) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.edit_document, size: 64, color: context.fc.surfaceBorder),
+            Icon(
+              Icons.edit_document,
+              size: 64,
+              color: context.fc.surfaceBorder,
+            ),
             SizedBox(height: 24),
-            Text(tr('AUCUN PROGRAMME CHARGÉ'), style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.bold)),
+            Text(
+              tr('AUCUN PROGRAMME CHARGÉ'),
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                color: context.fc.textPrimary,
+                fontSize: 16,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => _tabCtrl.animateTo(0),
@@ -476,66 +623,102 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> with Sing
       );
     }
 
-    return Column(children: [
-      Container(
-        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        color: context.fc.surfaceBright.withValues(alpha: 0.5),
-        child: Row(children: [
-          Icon(Icons.terminal, color: context.fc.primary, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(_openWorkFileName ?? 'ÉDITEUR',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: context.fc.surfaceBright.withValues(alpha: 0.5),
+          child: Row(
+            children: [
+              Icon(Icons.terminal, color: context.fc.primary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _openWorkFileName ?? 'ÉDITEUR',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
                     color: context.fc.textPrimary,
                     fontSize: 11,
-                    fontWeight: FontWeight.bold)),
-          ),
-          // Actions compactes en icônes (évite le débordement sur mobile).
-          if (_isEditing) ...[
-            _EditorAction(Icons.close_rounded, tr('Annuler'), context.fc.textDisabled,
-                () => setState(() => _isEditing = false)),
-            _EditorAction(Icons.flash_on_rounded, 'Appliquer à la machine',
-                context.fc.success, _saveEditorContent),
-            if (_openWorkFilePath != null)
-              _EditorAction(Icons.save_rounded, 'Sauver dans le dossier',
-                  context.fc.primary, _saveToWorkFile),
-          ] else ...[
-            if (_openWorkFilePath != null)
-              _EditorAction(Icons.save_rounded, 'Sauver dans le dossier',
-                  context.fc.primary, _saveToWorkFile),
-            _EditorAction(Icons.sd_card_rounded, 'Sauver sur la carte SD',
-                context.fc.textSecondary, _saveToSD),
-            _EditorAction(Icons.edit_rounded, 'Modifier', context.fc.primary,
-                () => setState(() => _isEditing = true)),
-          ],
-        ]),
-      ),
-      Expanded(
-        child: Container(
-          color: context.fc.terminalBg,
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: _isEditing
-              ? TextField(
-                  controller: _editorCtrl,
-                  maxLines: null,
-                  style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: context.fc.textPrimary, height: 1.5),
-                  decoration: const InputDecoration(border: InputBorder.none),
-                )
-              : ListView.builder(
-                  itemCount: gcodeState.allLines.length,
-                  itemBuilder: (context, index) {
-                    return _GCodeLine(
-                      index: index + 1,
-                      content: gcodeState.allLines[index],
-                      isCurrent: index == gcodeState.currentLineIndex,
-                    );
-                  },
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+              ),
+              // Actions compactes en icônes (évite le débordement sur mobile).
+              if (_isEditing) ...[
+                _EditorAction(
+                  Icons.close_rounded,
+                  tr('Annuler'),
+                  context.fc.textDisabled,
+                  () => setState(() => _isEditing = false),
+                ),
+                _EditorAction(
+                  Icons.flash_on_rounded,
+                  'Appliquer à la machine',
+                  context.fc.success,
+                  _saveEditorContent,
+                ),
+                if (_openWorkFilePath != null)
+                  _EditorAction(
+                    Icons.save_rounded,
+                    'Sauver dans le dossier',
+                    context.fc.primary,
+                    _saveToWorkFile,
+                  ),
+              ] else ...[
+                if (_openWorkFilePath != null)
+                  _EditorAction(
+                    Icons.save_rounded,
+                    'Sauver dans le dossier',
+                    context.fc.primary,
+                    _saveToWorkFile,
+                  ),
+                _EditorAction(
+                  Icons.sd_card_rounded,
+                  'Sauver sur la carte SD',
+                  context.fc.textSecondary,
+                  _saveToSD,
+                ),
+                _EditorAction(
+                  Icons.edit_rounded,
+                  'Modifier',
+                  context.fc.primary,
+                  () => setState(() => _isEditing = true),
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
-    ]);
+        Expanded(
+          child: Container(
+            color: context.fc.terminalBg,
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _isEditing
+                ? TextField(
+                    controller: _editorCtrl,
+                    maxLines: null,
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
+                      color: context.fc.textPrimary,
+                      height: 1.5,
+                    ),
+                    decoration: const InputDecoration(border: InputBorder.none),
+                  )
+                : ListView.builder(
+                    itemCount: gcodeState.allLines.length,
+                    itemBuilder: (context, index) {
+                      return _GCodeLine(
+                        index: index + 1,
+                        content: gcodeState.allLines[index],
+                        isCurrent: index == gcodeState.currentLineIndex,
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -543,29 +726,59 @@ class _FileCard extends StatelessWidget {
   final GCodeFile file;
   final VoidCallback onLoad;
   final VoidCallback onDelete;
-  const _FileCard({required this.file, required this.onLoad, required this.onDelete});
+  const _FileCard({
+    required this.file,
+    required this.onLoad,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final fc = context.fc;
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: context.fc.surface,
+        gradient: fc.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.fc.surfaceBorder),
+        border: Border.all(color: fc.rimHighlight),
       ),
-      child: Row(children: [
-        Icon(Icons.insert_drive_file, color: context.fc.textSecondary),
-        SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(file.name, style: TextStyle(color: context.fc.textPrimary, fontWeight: FontWeight.bold)),
-            Text('${(file.size / 1024).toStringAsFixed(1)} Ko', style: TextStyle(color: context.fc.textDisabled, fontSize: 10)),
-          ]),
-        ),
-        IconButton(onPressed: onLoad, icon: Icon(Icons.file_open_rounded, color: context.fc.primary), tooltip: tr('Charger dans l\'éditeur')),
-        IconButton(onPressed: onDelete, icon: Icon(Icons.delete_outline, color: context.fc.danger)),
-      ]),
+      child: Row(
+        children: [
+          Icon(Icons.insert_drive_file, color: fc.textSecondary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  file.name,
+                  style: TextStyle(
+                    color: fc.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${(file.size / 1024).toStringAsFixed(1)} Ko',
+                  style: TextStyle(
+                    color: fc.textDisabled,
+                    fontSize: 10,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onLoad,
+            icon: Icon(Icons.file_open_rounded, color: fc.primary),
+            tooltip: tr('Charger dans l\'éditeur'),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: Icon(Icons.delete_outline, color: fc.danger),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -575,22 +788,35 @@ class _GCodeLine extends StatelessWidget {
   final String content;
   final bool isCurrent;
 
-  const _GCodeLine({required this.index, required this.content, required this.isCurrent});
+  const _GCodeLine({
+    required this.index,
+    required this.content,
+    required this.isCurrent,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: isCurrent ? context.fc.primary.withValues(alpha: 0.1) : Colors.transparent,
+    return LaserActiveLineWrapper(
+      isCurrent: isCurrent,
+      color: context.fc.primary,
+      padding: EdgeInsets.only(left: isCurrent ? 5.0 : 8.0, right: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 40,
-            child: Text('$index', style: TextStyle(color: context.fc.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono')),
+            child: Text(
+              '$index',
+              style: TextStyle(
+                color: context.fc.textDisabled,
+                fontSize: 10,
+                fontFamily: 'JetBrains Mono',
+              ),
+            ),
           ),
           Expanded(
-            child: RichText(
-              text: TextSpan(
+            child: Text.rich(
+              TextSpan(
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 13,
@@ -605,6 +831,7 @@ class _GCodeLine extends StatelessWidget {
     );
   }
 }
+
 /// Bouton d'action compact (icône) pour la barre de l'éditeur.
 class _EditorAction extends StatelessWidget {
   final IconData icon;

@@ -175,10 +175,11 @@ class _FeatureHandsOnModalState extends ConsumerState<FeatureHandsOnModal>
                       Text(
                         tr('CENTRE DE DÉMONSTRATION & PRISES EN MAIN MULTIMÉDIA'),
                         style: const TextStyle(
+                          fontFamily: 'Rajdhani',
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 17,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
+                          letterSpacing: 0.9,
                         ),
                       ),
                       Text(
@@ -462,9 +463,9 @@ class _FeatureHandsOnModalState extends ConsumerState<FeatureHandsOnModal>
             },
           ),
 
-          // Vignette Image de référence (en haut à droite)
+          // Vignette Image de référence (en bas à droite, au-dessus de la barre)
           Positioned(
-            top: 10,
+            bottom: 42,
             right: 10,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -564,7 +565,7 @@ class _FeatureHandsOnModalState extends ConsumerState<FeatureHandsOnModal>
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
-                      fontFamily: 'monospace',
+                      fontFamily: 'JetBrains Mono',
                     ),
                   ),
                 ],
@@ -1076,7 +1077,8 @@ class _HandsOnVideoSimulationPainter extends CustomPainter {
     );
   }
 
-  void _drawCaption(Canvas canvas, Offset offset, String text, Color color) {
+  void _drawCaption(Canvas canvas, Offset offset, String text, Color color,
+      [double maxWidth = 480]) {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
@@ -1084,11 +1086,13 @@ class _HandsOnVideoSimulationPainter extends CustomPainter {
           color: color,
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          fontFamily: 'monospace',
+          fontFamily: 'JetBrains Mono',
         ),
       ),
+      maxLines: 1,
+      ellipsis: '…',
       textDirection: TextDirection.ltr,
-    )..layout();
+    )..layout(maxWidth: maxWidth);
     tp.paint(canvas, offset);
   }
 

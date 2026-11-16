@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/widgets/readable_width.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
@@ -188,14 +189,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
         centerTitle: false,
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: fc.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.smart_toy_outlined, color: fc.primary, size: 20),
-            ),
+            const ForgeAiGyroOrb(size: 28, active: true),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -206,10 +200,11 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                     tr('AGENT IA'),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      fontFamily: 'Rajdhani',
                       color: fc.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.4,
                     ),
                   ),
                   Text(
@@ -525,7 +520,11 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                           initialValue: modelState.active.id,
                           isExpanded: true,
                           dropdownColor: fc.surface,
-                          style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                          style: TextStyle(
+                            color: fc.textPrimary,
+                            fontSize: 13,
+                            fontFamily: 'JetBrains Mono',
+                          ),
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: fc.background.withValues(alpha: 0.4),

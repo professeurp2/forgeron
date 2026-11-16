@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'trunnion_visualizer_windows.dart';
 import 'trunnion_visualizer_mobile.dart';
 import 'viewer_scene.dart';
-import '../../core/i18n/app_localizations.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 
 /// Aiguilleur du visualiseur 3D pour les plateformes non-web.
 ///
@@ -72,12 +72,18 @@ class TrunnionVisualizer extends StatelessWidget {
       );
     }
 
-    // Linux / macOS : aucun WebView embarqué n'est câblé pour l'instant.
-    return Center(
-      child: Text(
-        tr('Simulateur 3D non supporté sur cette plateforme'),
-        style: TextStyle(fontSize: 11),
-      ),
+    // Linux / macOS : moteur 3D natif Flutter haute fidélité.
+    return ForgeNativeTrunnionCanvas(
+      mPos: mPos,
+      targetPos: targetPos,
+      toolpath: toolpath,
+      activeIndex: activeIndex,
+      showVectors: showVectors,
+      machineLimits: machineLimits,
+      partMesh: partMesh,
+      showMachine: scene.machine,
+      showWorkpiece: scene.workpiece,
+      showToolpath: scene.toolpath,
     );
   }
 }

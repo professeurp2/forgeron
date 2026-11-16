@@ -11,6 +11,7 @@ import '../../core/theme/forgeron_colors.dart';
 import '../widgets/trunnion_visualizer.dart';
 import '../widgets/viewer_scene.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 
 /// Les deux fenêtres 3D détachées de l'agent IA.
 ///
@@ -43,7 +44,6 @@ class _ViewerFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
     final fc = context.fc;
     return ScaffoldPage(
       padding: EdgeInsets.zero,
@@ -64,27 +64,49 @@ class _ViewerFrame extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
             decoration: BoxDecoration(
-              color: fc.surface,
-              border: Border(top: BorderSide(color: fc.surfaceBorder)),
+              gradient: fc.cardGradient,
+              border: Border(top: BorderSide(color: fc.rimHighlight, width: 1.2)),
             ),
             child: Row(
               children: [
+                const ForgeAiGyroOrb(size: 24, active: true),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(title, style: theme.typography.bodyStrong),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Rajdhani',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: fc.textPrimary,
+                        ),
+                      ),
                       if (subtitle != null)
-                        Text(subtitle!, style: theme.typography.caption),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 11,
+                            color: fc.textSecondary,
+                          ),
+                        ),
                     ],
                   ),
                 ),
                 for (final entry in info.entries)
                   Padding(
-                    padding: const EdgeInsets.only(left: 18),
+                    padding: const EdgeInsets.only(left: 10),
                     child: _InfoChip(label: entry.key, value: '${entry.value}'),
                   ),
               ],
@@ -148,7 +170,11 @@ class _DockButtonState extends State<_DockButton> {
         onPressed: _busy ? null : _dock,
         style: ButtonStyle(
           backgroundColor: WidgetStatePropertyAll(
-              fc.surface.withValues(alpha: .85)),
+              fc.surface.withValues(alpha: .88)),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+            side: BorderSide(color: fc.rimHighlight),
+            borderRadius: BorderRadius.circular(6),
+          )),
           padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
         ),
@@ -161,7 +187,14 @@ class _DockButtonState extends State<_DockButton> {
             else
               Icon(Icons.open_in_browser_rounded, size: 14, color: fc.textSecondary),
             const SizedBox(width: 8),
-            Text(tr('Fenêtre principale'), style: TextStyle(fontSize: 11.5)),
+            Text(
+              tr('Fenêtre principale'),
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 11.5,
+                color: fc.textPrimary,
+              ),
+            ),
           ],
         ),
       ),
@@ -177,29 +210,38 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: fc.textDisabled,
-            fontSize: 9.5,
-            letterSpacing: .8,
-            fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: fc.background.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: fc.rimHighlight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontFamily: 'Rajdhani',
+              color: fc.textSecondary,
+              fontSize: 10,
+              letterSpacing: .9,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: fc.lcdText,
-            fontFamily: 'JetBrainsMono',
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+          Text(
+            value,
+            style: TextStyle(
+              color: fc.lcdText,
+              fontFamily: 'JetBrains Mono',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -266,6 +308,11 @@ class _ToolpathWindowState extends ConsumerState<ToolpathWindow> {
   }
 
   Future<void> _load() async {
+    if (ref.read(renderToolpathProvider).isNotEmpty &&
+        widget.payload['gcodePath'] == null) {
+      _loading = false;
+      return;
+    }
     final path = widget.payload['gcodePath'] as String?;
     try {
       final content = path != null
@@ -310,7 +357,8 @@ class _ToolpathWindowState extends ConsumerState<ToolpathWindow> {
     final toolpath = ref.watch(renderToolpathProvider);
     return _ViewerFrame(
       title: title,
-      subtitle: widget.payload['gcodePath'] as String?,
+      subtitle: (widget.payload['subtitle'] as String?) ??
+          (widget.payload['gcodePath'] as String?),
       info: {'points': toolpath.length, ...info},
       dockAs: AiDockedViewer.toolpath,
       child: TrunnionVisualizer(

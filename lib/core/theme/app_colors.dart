@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Design System "Forge Noire" — Palette industrielle premium Forgeron v2
-/// Inspiré de Mazak SmoothAi + cockpit automobile 2025
+/// Design System "Forge Titanium & Magma v3" — Palette industrielle premium Forgeron
+/// Inspiré des pupitres aéronautiques et CNC 5 axes haute précision
 class AppColors {
   AppColors._();
 
@@ -14,6 +14,9 @@ class AppColors {
   static const Color surfaceBorder = Color(0xFF2A2F3E); // bordures nettes (opaque)
   static const Color surfaceBorderDim = Color(0x332A2F3E); // bordures discrètes
   static const Color terminalBg    = Color(0xFF080A10);
+  static const Color rimHighlight  = Color(0x26FFFFFF); // liseré spéculaire usiné
+  static const Color ambientGlow   = Color(0x22FF6B35); // halo thermique magma
+  static const Color tacticalGrid  = Color(0x09FFFFFF); // grille tactique de fond
 
   // ── BRAND PRIMARY ───────────────────────────────────────────────────────────
   static const Color primary       = Color(0xFFFF6B35); // orange forgeron (accentuation principale)

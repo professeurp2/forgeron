@@ -308,8 +308,16 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
     final healthAsync = ref.watch(reco3dHealthProvider);
 
     return Scaffold(
+      backgroundColor: context.fc.background,
       appBar: AppBar(
-        title: Text(tr('Scan 3D — Photo vers Usinage')),
+        backgroundColor: context.fc.surface,
+        foregroundColor: context.fc.textPrimary,
+        title: Text(tr('Scan 3D — Photo vers Usinage'),
+            style: TextStyle(
+                fontFamily: 'Rajdhani',
+                color: context.fc.textPrimary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -348,11 +356,16 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                 icon: const Icon(Icons.camera),
                 label: Text(
                   tr('Lancer la reconstruction 3D'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontFamily: 'Rajdhani',
+                      fontSize: 17,
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w800),
                 ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor: context.fc.primary,
+                  foregroundColor: Colors.white,
                 ),
               ),
 
@@ -866,7 +879,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                       Expanded(
                         child: Text(
                           'STEP : ${scanState.downloadedStepFile!.path}',
-                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                          style: TextStyle(fontSize: 11, color: context.fc.textSecondary, fontFamily: 'JetBrains Mono'),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -882,7 +895,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                       Expanded(
                         child: Text(
                           'STL : ${scanState.downloadedMeshFile!.path}',
-                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                          style: TextStyle(fontSize: 11, color: context.fc.textSecondary, fontFamily: 'JetBrains Mono'),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1105,7 +1118,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                         ? '${isStep ? "STEP CAO" : "STL"} : ${effectiveStl.path.split(Platform.pathSeparator).last}'
                             '${effectiveApprox ? " (échelle approximative)" : " (échelle métrique)"}'
                         : tr('Aucun fichier 3D sélectionné (importez un STL/STEP ou lancez un scan).'),
-                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    style: const TextStyle(fontSize: 12, fontFamily: 'JetBrains Mono'),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1118,6 +1131,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           DropdownButtonFormField<MedicalImplantType>(
             key: ValueKey<MedicalImplantType>(medState.implantType),
             initialValue: medState.implantType,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: tr('Type de dispositif médical'),
               isDense: true,
@@ -1127,7 +1141,9 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
               for (final t in MedicalImplantType.values)
                 DropdownMenuItem(
                   value: t,
-                  child: Text(t.label, style: const TextStyle(fontSize: 13)),
+                  child: Text(t.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13)),
                 ),
             ],
             onChanged: (val) {
@@ -1140,6 +1156,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
           DropdownButtonFormField<MedicalMaterialId>(
             key: ValueKey<MedicalMaterialId>(medState.material),
             initialValue: medState.material,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: tr('Matériau biomédical & enveloppe machine'),
               isDense: true,
@@ -1150,7 +1167,6 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                 DropdownMenuItem(
                   value: m,
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         m.spec.machinable ? Icons.check_circle_outline : Icons.block,
@@ -1158,7 +1174,7 @@ class _Scan3dScreenState extends ConsumerState<Scan3dScreen> {
                         color: m.spec.machinable ? Colors.greenAccent : Colors.redAccent,
                       ),
                       const SizedBox(width: 6),
-                      Flexible(
+                      Expanded(
                         child: Text(
                           '${m.spec.name} (${m.spec.machinable ? "ap ≤ ${m.spec.apMax} mm" : "Hors capacité 200 W"})',
                           style: TextStyle(

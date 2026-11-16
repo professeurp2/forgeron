@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../application/providers/config_provider.dart';
 import '../../application/providers/machine_provider.dart';
@@ -45,181 +46,192 @@ class DiagnosticsScreen extends ConsumerWidget {
             ? fc.success
             : (net.latencyMs < 100 ? fc.warning : fc.error));
 
-    final leftPanel = SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label(context, tr('GPIO & CAPTEURS (LIVE)')),
-        SizedBox(height: 12),
-        for (final e in _endstops(fc).asMap().entries)
-          _endstopCard(context, e.value.$1, e.value.$2, limSw[e.key], e.value.$3),
-        Row(children: [
-          Expanded(child: _sensorMini(context, 'PALPEUR', 'GPIO 36',
-              machineState?.probeTriggered ?? false, fc.secondary)),
-          SizedBox(width: 6),
-          Expanded(child: _sensorMini(context, tr('E-STOP'), 'GPIO 27',
-              machineState?.emergencyTriggered ?? false, fc.danger)),
-        ]),
-        SizedBox(height: 24),
-        _label(context, tr('TÉLÉMÉTRIE RÉSEAU')),
-        SizedBox(height: 12),
-        GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
-          Center(child: Column(children: [
-            Text(tr('LATENCE'), style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
-            SizedBox(height: 4),
-            Text(net.connected ? '${net.latencyMs}' : '—',
-                style: TextStyle(color: latColor, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-            Text('ms', style: TextStyle(color: fc.textDisabled, fontSize: 12)),
-          ])),
+    final leftPanel = BentoCascadeEntry(
+      index: 0,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _label(context, tr('GPIO & CAPTEURS (LIVE)')),
           SizedBox(height: 12),
+          for (final e in _endstops(fc).asMap().entries)
+            _endstopCard(context, e.value.$1, e.value.$2, limSw[e.key], e.value.$3),
           Row(children: [
-            Text(tr('QUALITÉ'), style: TextStyle(color: fc.textDisabled, fontSize: 9)),
-            SizedBox(width: 8),
-            Expanded(child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(value: net.qualityPct / 100, backgroundColor: fc.surfaceBright, color: latColor, minHeight: 6),
-            )),
-            SizedBox(width: 8),
-            Text('${net.qualityPct}%', style: TextStyle(color: latColor, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
+            Expanded(child: _sensorMini(context, 'PALPEUR', 'GPIO 36',
+                machineState?.probeTriggered ?? false, fc.secondary)),
+            SizedBox(width: 6),
+            Expanded(child: _sensorMini(context, tr('E-STOP'), 'GPIO 27',
+                machineState?.emergencyTriggered ?? false, fc.danger)),
           ]),
+          SizedBox(height: 24),
+          _label(context, tr('TÉLÉMÉTRIE RÉSEAU')),
           SizedBox(height: 12),
-          for (final e in [
-            (tr('PAQUETS TX'), '${net.txCount}'),
-            (tr('PAQUETS RX'), '${net.rxCount}'),
-            (tr('UPTIME CONN.'), formatUptime(net.uptime)),
-          ])
-            Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [
-              Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
-              const Spacer(),
-              Text(e.$2, style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono')),
+          GlassPanel(key: TutorialKeys.networkMonitor, child: Column(children: [
+            Center(child: Column(children: [
+              Text(tr('LATENCE'), style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
+              SizedBox(height: 4),
+              Text(net.connected ? '${net.latencyMs}' : '—',
+                  style: TextStyle(color: latColor, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+              Text('ms', style: TextStyle(color: fc.textDisabled, fontSize: 12)),
             ])),
-        ])),
-        SizedBox(height: 24),
-        _label(context, 'SANTÉ SYSTÈME'),
-        SizedBox(height: 12),
-        Container(
-          key: TutorialKeys.performanceMetrics,
-          // Hauteur fixe des tuiles : avec un ratio, une colonne étroite
-          // (tablette) donnait des cases trop basses pour leurs trois lignes.
-          child: GridView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, mainAxisExtent: 86),
-            children: [
-            _healthCard(context, 'TEMP CPU', '${temp.toStringAsFixed(0)}°C', Icons.thermostat, fc.warning),
-            // RAM / Uptime / RSSI : non rapportés par FluidNC standard → « — »
-            // tant que le firmware n'envoie pas de [MSG:] custom. Afficher des
-            // valeurs inventées ferait passer l'écran pour du live.
-            _healthCard(context, tr('USAGE RAM'), '—', Icons.memory, fc.textDisabled),
-            _healthCard(context, 'UPTIME', '—', Icons.schedule, fc.textDisabled),
-            _healthCard(context, tr('WiFi RSSI'), '—', Icons.wifi, fc.textDisabled),
-          ]),
-        ),
-        SizedBox(height: 24),
-        _label(context, tr('AMDEC & MAINT. PRÉVENTIVE')),
-        SizedBox(height: 12),
-        _AmdecRiskPanel(singularityRisk: singularityRisk, temp: temp, latencyMs: net.latencyMs),
-        SizedBox(height: 12),
-        _MaintenanceForecastCard(),
+            SizedBox(height: 12),
+            Row(children: [
+              Text(tr('QUALITÉ'), style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+              SizedBox(width: 8),
+              Expanded(child: LaserShimmerBar(
+                value: net.qualityPct / 100,
+                height: 6,
+                color: latColor,
+                backgroundColor: fc.surfaceBright,
+              )),
+              SizedBox(width: 8),
+              Text('${net.qualityPct}%', style: TextStyle(color: latColor, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.w900)),
+            ]),
+            SizedBox(height: 12),
+            for (final e in [
+              (tr('PAQUETS TX'), '${net.txCount}'),
+              (tr('PAQUETS RX'), '${net.rxCount}'),
+              (tr('UPTIME CONN.'), formatUptime(net.uptime)),
+            ])
+              Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [
+                Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 9, fontWeight: FontWeight.w900)),
+                const Spacer(),
+                Text(e.$2, style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono')),
+              ])),
+          ])),
+          SizedBox(height: 24),
+          _label(context, 'SANTÉ SYSTÈME'),
+          SizedBox(height: 12),
+          Container(
+            key: TutorialKeys.performanceMetrics,
+            // Hauteur fixe des tuiles : avec un ratio, une colonne étroite
+            // (tablette) donnait des cases trop basses pour leurs trois lignes.
+            child: GridView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, mainAxisExtent: 86),
+              children: [
+              _healthCard(context, 'TEMP CPU', '${temp.toStringAsFixed(0)}°C', Icons.thermostat, fc.warning),
+              // RAM / Uptime / RSSI : non rapportés par FluidNC standard → « — »
+              // tant que le firmware n'envoie pas de [MSG:] custom. Afficher des
+              // valeurs inventées ferait passer l'écran pour du live.
+              _healthCard(context, tr('USAGE RAM'), '—', Icons.memory, fc.textDisabled),
+              _healthCard(context, 'UPTIME', '—', Icons.schedule, fc.textDisabled),
+              _healthCard(context, tr('WiFi RSSI'), '—', Icons.wifi, fc.textDisabled),
+            ]),
+          ),
+          SizedBox(height: 24),
+          _label(context, tr('AMDEC & MAINT. PRÉVENTIVE')),
+          SizedBox(height: 12),
+          _AmdecRiskPanel(singularityRisk: singularityRisk, temp: temp, latencyMs: net.latencyMs),
+          SizedBox(height: 12),
+          _MaintenanceForecastCard(),
+        ]),
+      ),
+    );
+
+    final yamlPanel = BentoCascadeEntry(
+      index: 1,
+      child: Column(children: [
+        Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(gradient: fc.cardGradient, border: Border(bottom: BorderSide(color: fc.surfaceBorder))),
+          child: Row(children: [
+            Icon(Icons.code, color: fc.warning, size: 16),
+            SizedBox(width: 8),
+            Flexible(child: Text(tr('CONFIG.YAML'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Rajdhani', color: fc.textPrimary, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.0))),
+            SizedBox(width: 16),
+            Flexible(child: Text(tr('Configuration Machine FluidNC'), style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              icon: Icon(Icons.copy_all_rounded, size: 14),
+              label: Text(tr('COPIER'), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: fc.surfaceBorder), minimumSize: Size(0, 32)),
+              onPressed: () => _copyConfig(context, ref),
+            ),
+          ])),
+        Expanded(child: Container(color: fc.terminalBg, child: configAsync.when(
+          data: (yamlStr) {
+            final lines = yamlStr.split('\n');
+            return ListView.builder(padding: EdgeInsets.all(16), itemCount: lines.length, itemBuilder: (ctx, i) {
+              final l = lines[i];
+              final isComment = l.trimLeft().startsWith('#');
+              final parts = l.split(':');
+              final rest = parts.length > 1 ? parts.sublist(1).join(':') : '';
+              return Padding(padding: EdgeInsets.symmetric(vertical: 1), child: Row(children: [
+                SizedBox(width: 30, child: Text('${i + 1}', textAlign: TextAlign.right, style: TextStyle(color: fc.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono'))),
+                Container(width: 1, height: 16, color: fc.surfaceBorder, margin: EdgeInsets.symmetric(horizontal: 10)),
+                Expanded(child: isComment
+                  ? Text(l, style: TextStyle(color: fc.textDisabled, fontSize: 12, fontFamily: 'JetBrains Mono'))
+                  : parts.length > 1
+                    ? Text.rich(TextSpan(children: [
+                        TextSpan(text: '${parts[0]}:', style: TextStyle(color: fc.primary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
+                        TextSpan(text: rest, style: TextStyle(color: rest.contains('"') ? fc.success : fc.warning, fontSize: 12, fontFamily: 'JetBrains Mono')),
+                      ]))
+                    : Text(l, style: TextStyle(color: fc.textPrimary, fontSize: 12, fontFamily: 'JetBrains Mono'))),
+              ]));
+            });
+          },
+          loading: () => Center(child: CircularProgressIndicator(color: fc.primary)),
+          error: (e, st) => Center(child: Text(tr('Erreur de chargement: {}', [e]), style: TextStyle(color: fc.error))),
+        ))),
       ]),
     );
 
-    final yamlPanel = Column(children: [
-      Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: fc.surfaceBright, border: Border(bottom: BorderSide(color: fc.surfaceBorder))),
-        child: Row(children: [
-          Icon(Icons.code, color: fc.warning, size: 16),
-          SizedBox(width: 8),
-          Flexible(child: Text(tr('CONFIG.YAML'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold))),
-          SizedBox(width: 16),
-          Flexible(child: Text(tr('Configuration Machine FluidNC'), style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            icon: Icon(Icons.copy_all_rounded, size: 14),
-            label: Text(tr('COPIER'), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
-            style: OutlinedButton.styleFrom(side: BorderSide(color: fc.surfaceBorder), minimumSize: Size(0, 32)),
-            onPressed: () => _copyConfig(context, ref),
+    final paramsPanel = BentoCascadeEntry(
+      index: 2,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _label(context, tr('CINÉMATIQUE DES AXES')),
+          SizedBox(height: 12),
+          // Table éditable branchée sur le config.yaml réel de la carte. Les
+          // valeurs étaient auparavant codées en dur ici et avaient dérivé de la
+          // machine (160 pas/mm affichés sur X contre 264 réels).
+          const KinematicsTable(),
+          SizedBox(height: 24),
+          _label(context, 'IDENTITÉ FIRMWARE'),
+          SizedBox(height: 12),
+          GlassPanel(
+            titleTrailing: fw.isKnown
+                ? null
+                : InkWell(
+                    onTap: () => ref.read(firmwareInfoProvider.notifier).requestInfo(),
+                    child: Icon(Icons.refresh_rounded, size: 14, color: fc.textSecondary),
+                  ),
+            child: Column(children: [
+              for (final e in [
+                ('Version', fw.version ?? (fw.isKnown ? '—' : 'en attente (\$I)…')),
+                ('GRBL', fw.grblVersion ?? '—'),
+                ('Carte', fw.board ?? '—'),
+                ('Options', fw.options ?? '—'),
+              ])
+                Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Row(children: [
+                  Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(e.$2, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))),
+                ])),
+            ]),
           ),
-        ])),
-      Expanded(child: Container(color: fc.terminalBg, child: configAsync.when(
-        data: (yamlStr) {
-          final lines = yamlStr.split('\n');
-          return ListView.builder(padding: EdgeInsets.all(16), itemCount: lines.length, itemBuilder: (ctx, i) {
-            final l = lines[i];
-            final isComment = l.trimLeft().startsWith('#');
-            final parts = l.split(':');
-            final rest = parts.length > 1 ? parts.sublist(1).join(':') : '';
-            return Padding(padding: EdgeInsets.symmetric(vertical: 1), child: Row(children: [
-              SizedBox(width: 30, child: Text('${i + 1}', textAlign: TextAlign.right, style: TextStyle(color: fc.textDisabled, fontSize: 10, fontFamily: 'JetBrains Mono'))),
-              Container(width: 1, height: 16, color: fc.surfaceBorder, margin: EdgeInsets.symmetric(horizontal: 10)),
-              Expanded(child: isComment
-                ? Text(l, style: TextStyle(color: fc.textDisabled, fontSize: 12, fontFamily: 'JetBrains Mono'))
-                : parts.length > 1
-                  ? RichText(text: TextSpan(children: [
-                      TextSpan(text: '${parts[0]}:', style: TextStyle(color: fc.primary, fontSize: 12, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold)),
-                      TextSpan(text: rest, style: TextStyle(color: rest.contains('"') ? fc.success : fc.warning, fontSize: 12, fontFamily: 'JetBrains Mono')),
-                    ]))
-                  : Text(l, style: TextStyle(color: fc.textPrimary, fontSize: 12, fontFamily: 'JetBrains Mono'))),
-            ]));
-          });
-        },
-        loading: () => Center(child: CircularProgressIndicator(color: fc.primary)),
-        error: (e, st) => Center(child: Text(tr('Erreur de chargement: {}', [e]), style: TextStyle(color: fc.error))),
-      ))),
-    ]);
-
-    final paramsPanel = SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label(context, tr('CINÉMATIQUE DES AXES')),
-        SizedBox(height: 12),
-        // Table éditable branchée sur le config.yaml réel de la carte. Les
-        // valeurs étaient auparavant codées en dur ici et avaient dérivé de la
-        // machine (160 pas/mm affichés sur X contre 264 réels).
-        const KinematicsTable(),
-        SizedBox(height: 24),
-        _label(context, 'IDENTITÉ FIRMWARE'),
-        SizedBox(height: 12),
-        GlassPanel(
-          titleTrailing: fw.isKnown
-              ? null
-              : InkWell(
-                  onTap: () => ref.read(firmwareInfoProvider.notifier).requestInfo(),
-                  child: Icon(Icons.refresh_rounded, size: 14, color: fc.textSecondary),
-                ),
-          child: Column(children: [
-            for (final e in [
-              ('Version', fw.version ?? (fw.isKnown ? '—' : 'en attente (\$I)…')),
-              ('GRBL', fw.grblVersion ?? '—'),
-              ('Carte', fw.board ?? '—'),
-              ('Options', fw.options ?? '—'),
-            ])
-              Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Row(children: [
-                Text(e.$1, style: TextStyle(color: fc.textDisabled, fontSize: 10)),
-                const SizedBox(width: 12),
-                Expanded(child: Text(e.$2, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: fc.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold))),
-              ])),
-          ]),
-        ),
-        SizedBox(height: 24),
-        _label(context, 'ACTIONS SYSTÈME'),
-        SizedBox(height: 12),
-        _actionRow(context, 'COPIER CONFIG.YAML', Icons.copy_all_rounded, fc.primary,
-            () => _copyConfig(context, ref)),
-        _actionRow(context, 'REDÉMARRER ESP32', Icons.power_settings_new, fc.error,
-            () => _rebootEsp(context, ref)),
-        SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity, height: 50,
-          child: ElevatedButton.icon(
-            icon: Icon(Icons.analytics),
-            label: Text(tr('GÉNÉRER DUMP DIAGNOSTIC (JSON)'), style: TextStyle(fontWeight: FontWeight.w900)),
-            style: ElevatedButton.styleFrom(backgroundColor: fc.primary, foregroundColor: Colors.white),
-            onPressed: () {
-              final dump = ref.read(loggerServiceProvider.notifier).generateDiagnosticDump();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Dump diagnostic généré en console'))));
-              debugPrint(dump);
-            },
+          SizedBox(height: 24),
+          _label(context, 'ACTIONS SYSTÈME'),
+          SizedBox(height: 12),
+          _actionRow(context, 'COPIER CONFIG.YAML', Icons.copy_all_rounded, fc.primary,
+              () => _copyConfig(context, ref)),
+          _actionRow(context, 'REDÉMARRER ESP32', Icons.power_settings_new, fc.error,
+              () => _rebootEsp(context, ref)),
+          SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity, height: 50,
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.analytics),
+              label: Text(tr('GÉNÉRER DUMP DIAGNOSTIC (JSON)'), style: TextStyle(fontWeight: FontWeight.w900)),
+              style: ElevatedButton.styleFrom(backgroundColor: fc.primary, foregroundColor: Colors.white),
+              onPressed: () {
+                final dump = ref.read(loggerServiceProvider.notifier).generateDiagnosticDump();
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Dump diagnostic généré en console'))));
+                debugPrint(dump);
+              },
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
     );
 
     final split = ResizableSplitView(
@@ -294,7 +306,7 @@ class DiagnosticsScreen extends ConsumerWidget {
   }
 
   Widget _label(BuildContext context, String text) => Text(text,
-      style: TextStyle(color: context.fc.textSecondary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0));
+      style: TextStyle(fontFamily: 'Rajdhani', color: context.fc.textSecondary, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 2.0));
 
   Widget _actionRow(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) {
     return Padding(

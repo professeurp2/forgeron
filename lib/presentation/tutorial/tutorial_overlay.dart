@@ -39,7 +39,12 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
   @override
   Widget build(BuildContext context) {
     final tutorialState = ref.watch(tutorialProvider);
-    if (!tutorialState.isActive) return widget.child;
+    if (!tutorialState.isActive) {
+      return Stack(
+        fit: StackFit.passthrough,
+        children: [widget.child],
+      );
+    }
 
     // Auto-correction : le parcours dépend de la mise en page RÉELLE au moment
     // où l'on peint, pas d'un drapeau figé au démarrage. Sans ça, un mobile
@@ -65,6 +70,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final step = steps[index];
 
     return Stack(
+      fit: StackFit.passthrough,
       children: [
         widget.child,
         _buildOverlay(step, tutorialState),

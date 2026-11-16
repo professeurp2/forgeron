@@ -14,6 +14,7 @@ FluentThemeData forgeronFluentTheme(ForgeronColorPalette c) {
 
   return FluentThemeData(
     brightness: brightness,
+    fontFamily: 'JetBrains Mono',
     accentColor: c.primary.toAccentColor(),
     scaffoldBackgroundColor: c.background,
     micaBackgroundColor: c.background,

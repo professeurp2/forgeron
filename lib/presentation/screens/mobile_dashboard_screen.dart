@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/animated_number.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/machine_params_provider.dart';
 import '../../application/providers/di_providers.dart';
@@ -157,43 +159,59 @@ class _MasterTab extends ConsumerWidget {
 
           const SizedBox(height: 12),
           // ── DRO : une seule carte, cinq lignes alignées ──
-          _DroCard(wPos: wPos, mPos: mPos),
+          BentoCascadeEntry(
+            index: 0,
+            child: _DroCard(wPos: wPos, mPos: mPos),
+          ),
 
           const SizedBox(height: 14),
           // ── CORRECTIONS ──
           // Juste au-dessus des actions de cycle : c'est le levier qu'on
           // cherche quand la passe est déjà lancée et qu'elle va trop vite.
-          const OverridePanel(),
+          const BentoCascadeEntry(
+            index: 1,
+            child: OverridePanel(),
+          ),
 
           const SizedBox(height: 24),
           // ── ACTIONS DE CYCLE (Accessibles immédiatement) ──
-          _MasterActionButton(
-            label: state?.status == MachineStatus.hold ? 'REPRENDRE' : 'DÉPART CYCLE',
-            icon: Icons.play_arrow_rounded,
-            color: fc.success,
-            onTap: () => _handleStart(context, ref),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MasterActionButton(
-                  label: tr('PAUSE'),
-                  icon: Icons.pause_rounded,
-                  color: fc.warning,
-                  onTap: () => ref.read(machineRepositoryProvider).pause(),
+          BentoCascadeEntry(
+            index: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MasterActionButton(
+                  label: state?.status == MachineStatus.hold
+                      ? 'REPRENDRE'
+                      : 'DÉPART CYCLE',
+                  icon: Icons.play_arrow_rounded,
+                  color: fc.success,
+                  onTap: () => _handleStart(context, ref),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MasterActionButton(
-                  label: tr('STOP'),
-                  icon: Icons.stop_rounded,
-                  color: fc.danger,
-                  onTap: () => ref.read(machineRepositoryProvider).reset(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MasterActionButton(
+                        label: tr('PAUSE'),
+                        icon: Icons.pause_rounded,
+                        color: fc.warning,
+                        onTap: () => ref.read(machineRepositoryProvider).pause(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _MasterActionButton(
+                        label: tr('STOP'),
+                        icon: Icons.stop_rounded,
+                        color: fc.danger,
+                        onTap: () => ref.read(machineRepositoryProvider).reset(),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -433,14 +451,10 @@ class _ExecutionProgressPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
+          LaserShimmerBar(
+            value: p.fraction,
+            height: 6,
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: p.fraction,
-              minHeight: 6,
-              backgroundColor: fc.surfaceBorder,
-              color: fc.primary,
-            ),
           ),
         ],
       ),
@@ -557,13 +571,9 @@ class _GCodeListViewState extends State<_GCodeListView> {
       itemExtent: _extent,
       itemBuilder: (ctx, i) {
         final isCurrent = i == widget.current;
-        return Container(
-          decoration: BoxDecoration(
-            color: isCurrent ? fc.primary.withValues(alpha: 0.18) : null,
-            border: isCurrent
-                ? Border(left: BorderSide(color: fc.primary, width: 3))
-                : null,
-          ),
+        return LaserActiveLineWrapper(
+          isCurrent: isCurrent,
+          color: fc.primary,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(children: [
             SizedBox(
@@ -579,14 +589,14 @@ class _GCodeListViewState extends State<_GCodeListView> {
                     fontFamily: 'JetBrains Mono')),
             const SizedBox(width: 10),
             Expanded(
-              child: RichText(
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                text: TextSpan(
+              child: Text.rich(
+                TextSpan(
                   style: const TextStyle(
                       fontSize: 14, fontFamily: 'JetBrains Mono'),
                   children: GCodeHighlighter.buildSpans(widget.lines[i], isCurrent),
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ]),
@@ -648,14 +658,14 @@ class _DroCard extends ConsumerWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: fc.surface,
+        gradient: fc.cardGradient,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: fc.surfaceBorder),
+        border: Border.all(color: fc.rimHighlight),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 6,
-              offset: const Offset(0, 3)),
+              color: Colors.black.withValues(alpha: fc.isDark ? 0.28 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -673,65 +683,92 @@ class _DroCard extends ConsumerWidget {
   Widget _row(
       BuildContext context, int i, Color color, AxisKinematics? kinematics) {
     final fc = context.fc;
+    final axisVal = i < wPos.length ? wPos[i] : 0.0;
     final machine = i < mPos.length ? mPos[i] : 0.0;
     final fraction = kinematics?.travelFraction(machine);
     final nearEdge = TravelGaugeFill.isNearEdge(fraction);
 
-    return SizedBox(
-      height: 36,
-      child: Stack(
-        children: [
-          // Jauge de fond, partagee avec le DRO desktop. Sans course connue,
-          // aucune barre : mieux vaut ne rien montrer qu'une proportion
-          // inventee.
-          TravelGaugeFill(fraction: fraction, color: color),
+    return KineticAxisMovementDetector(
+      value: axisVal,
+      color: color,
+      builder: (context, glow) {
+        return SizedBox(
+          height: 36,
+          child: Stack(
+            children: [
+              // Jauge de fond, partagee avec le DRO desktop. Sans course connue,
+              // aucune barre : mieux vaut ne rien montrer qu'une proportion
+              // inventee.
+              TravelGaugeFill(fraction: fraction, color: color),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration:
-                    BoxDecoration(shape: BoxShape.circle, color: color),
-              ),
-              const SizedBox(width: 8),
-              Text(_axes[i].$1,
-                  style: TextStyle(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900)),
-              if (fraction != null) ...[
-                const SizedBox(width: 7),
-                Text('${(fraction * 100).round()}%',
+                      boxShadow: glow > 0.05
+                          ? [
+                              BoxShadow(
+                                color: color.withValues(alpha: 0.7 * glow),
+                                blurRadius: 6,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(_axes[i].$1,
+                      style: TextStyle(
+                          fontFamily: 'Rajdhani',
+                          color: color,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700)),
+                  if (fraction != null) ...[
+                    const SizedBox(width: 7),
+                    Text('${(fraction * 100).round()}%',
+                        style: TextStyle(
+                            color: nearEdge ? fc.warning : fc.textDisabled,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                  const Spacer(),
+                  AnimatedNumberText(
+                    axisVal,
+                    decimals: i >= 3 ? 2 : 3,
                     style: TextStyle(
-                        color: nearEdge ? fc.warning : fc.textDisabled,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700)),
-              ],
-              const Spacer(),
-              Text(
-                (i < wPos.length ? wPos[i] : 0.0).toStringAsFixed(3),
-                style: TextStyle(
-                    color: fc.textPrimary,
-                    fontSize: 21,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'JetBrains Mono',
-                    letterSpacing: -0.5),
+                        color: fc.textPrimary,
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'JetBrains Mono',
+                        letterSpacing: -0.5,
+                        shadows: glow > 0.05
+                            ? [
+                                Shadow(
+                                  color: color.withValues(alpha: 0.55 * glow),
+                                  blurRadius: 10,
+                                ),
+                              ]
+                            : null),
+                  ),
+                  SizedBox(
+                    width: 26,
+                    child: Text(_axes[i].$2,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                            color: fc.textDisabled,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ]),
               ),
-              SizedBox(
-                width: 26,
-                child: Text(_axes[i].$2,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                        color: fc.textDisabled,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ]),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

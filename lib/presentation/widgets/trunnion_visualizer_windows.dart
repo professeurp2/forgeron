@@ -13,9 +13,9 @@ import '../../application/providers/theme_provider.dart';
 import '../../application/providers/viewer_snapshot_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/utils/three_viewer_asset_cache.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import 'viewer_scene.dart';
 import 'viewer_theme_payload.dart';
-import '../../core/i18n/app_localizations.dart';
 
 /// Visualiseur 3D pour **Windows** (`webview_windows` / WebView2).
 class WindowsTrunnionVisualizer extends ConsumerStatefulWidget {
@@ -307,20 +307,21 @@ class _WindowsTrunnionVisualizerState
       }
     });
 
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            tr('Simulateur 3D indisponible\n{}', [_error]),
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11),
-          ),
-        ),
+    if (_error != null || !_isInitialized) {
+      return ForgeNativeTrunnionCanvas(
+        mPos: widget.mPos,
+        targetPos: widget.targetPos,
+        toolpath: widget.toolpath,
+        activeIndex: widget.activeIndex,
+        showVectors: widget.showVectors,
+        machineLimits: widget.machineLimits,
+        partMesh: widget.partMesh,
+        showMachine: widget.scene.machine,
+        showWorkpiece: widget.scene.workpiece,
+        showToolpath: widget.scene.toolpath,
+        isInitialLoading: !_isInitialized && _error == null,
+        fallbackReason: _error,
       );
-    }
-    if (!_isInitialized) {
-      return const Center(child: CircularProgressIndicator());
     }
 
     final isDark = isDarkTheme(context, ref.watch(themeModeProvider));
