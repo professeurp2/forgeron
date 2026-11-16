@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/widgets/animated_number.dart';
-import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/gcode_provider.dart';
@@ -112,31 +111,27 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
     final isCamera =
         ref.watch(effectiveVisualizerModeProvider) == VisualizerMode.camera;
 
-    return TacticalGridBackground(
-      child: Column(
-        children: [
-          // ── Header machine compact ──────────────────────────────────────
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              gradient: context.fc.cardGradient,
-              border: Border(
-                bottom: BorderSide(color: context.fc.surfaceBorder),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  tr('FORGERON'),
-                  style: TextStyle(
-                    fontFamily: 'Rajdhani',
-                    color: context.fc.primary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.2,
-                  ),
+    return Column(
+      children: [
+        // ── Header machine compact ──────────────────────────────────────
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: context.fc.surface,
+            border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
+          ),
+          child: Row(
+            children: [
+              Text(
+                tr('FORGERON'),
+                style: TextStyle(
+                  color: context.fc.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
                 ),
+              ),
               const SizedBox(width: 12),
               // Indicateur statut
               Container(
@@ -155,16 +150,27 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
               const SizedBox(width: 8),
               // Barre d'avance
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: LaserShimmerBar(
-                    value:
+                child: Container(
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: context.fc.surfaceBorder,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor:
                         ((state?.overrides.isNotEmpty == true
                                     ? state!.overrides[0]
                                     : 100) /
                                 200)
                             .clamp(0.0, 1.0),
-                    height: 6,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: context.fc.primary,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -207,16 +213,7 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
             decoration: BoxDecoration(
               color: context.fc.background,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: context.fc.rimHighlight),
-              boxShadow: [
-                BoxShadow(
-                  color: context.fc.isDark
-                      ? Colors.black.withValues(alpha: 0.4)
-                      : Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              border: Border.all(color: context.fc.surfaceBorder),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(7),
@@ -347,11 +344,8 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
                     });
 
                     return Expanded(
-                      child: BentoCascadeEntry(
-                        index: 1,
-                        child: _DashCard(
-                          title: tr('PROGRAMME'),
-                          expandChild: true,
+                      child: _DashCard(
+                        title: tr('PROGRAMME'),
                         action: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -404,69 +398,81 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
                                   fontSize: 10,
                                 ),
                               )
-                            : ListView.builder(
-                                controller: scrollController,
-                                itemCount: gcodeState.allLines.length,
-                                itemExtent: 22,
-                                itemBuilder: (ctx, i) {
-                                  final isCurrent = i == currentIndex;
-                                  return LaserActiveLineWrapper(
-                                    isCurrent: isCurrent,
-                                    color: context.fc.primary,
-                                    padding: EdgeInsets.only(
-                                      left: isCurrent ? 5.0 : 8.0,
-                                      right: 8.0,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 32,
-                                          child: Text(
-                                            '${i + 1}',
-                                            style: TextStyle(
-                                              color: isCurrent
-                                                  ? context.fc.primary
-                                                  : context.fc.textDisabled,
-                                              fontSize: 9,
-                                              fontFamily: 'JetBrains Mono',
-                                              fontWeight: isCurrent
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text.rich(
-                                            TextSpan(
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontFamily: 'JetBrains Mono',
+                            : SizedBox(
+                                height: 185,
+                                child: ListView.builder(
+                                  controller: scrollController,
+                                  itemCount: gcodeState.allLines.length,
+                                  itemExtent: 22,
+                                  itemBuilder: (ctx, i) {
+                                    final isCurrent = i == currentIndex;
+                                    return Container(
+                                      decoration: isCurrent
+                                          ? BoxDecoration(
+                                              color: context.fc.primary
+                                                  .withValues(alpha: 0.08),
+                                              border: Border(
+                                                left: BorderSide(
+                                                  color: context.fc.primary,
+                                                  width: 3,
+                                                ),
                                               ),
-                                              children:
-                                                  GCodeHighlighter.buildSpans(
-                                                    gcodeState.allLines[i],
-                                                    isCurrent,
-                                                  ),
+                                            )
+                                          : null,
+                                      padding: EdgeInsets.only(
+                                        left: isCurrent ? 5.0 : 8.0,
+                                        right: 8.0,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 32,
+                                            child: Text(
+                                              '${i + 1}',
+                                              style: TextStyle(
+                                                color: isCurrent
+                                                    ? context.fc.primary
+                                                    : context.fc.textDisabled,
+                                                fontSize: 9,
+                                                fontFamily: 'JetBrains Mono',
+                                                fontWeight: isCurrent
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        if (isCurrent)
-                                          Icon(
-                                            Icons.chevron_left,
-                                            color: context.fc.primary,
-                                            size: 12,
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: RichText(
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              text: TextSpan(
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontFamily: 'JetBrains Mono',
+                                                ),
+                                                children:
+                                                    GCodeHighlighter.buildSpans(
+                                                      gcodeState.allLines[i],
+                                                      isCurrent,
+                                                    ),
+                                              ),
+                                            ),
                                           ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                                          if (isCurrent)
+                                            Icon(
+                                              Icons.chevron_left,
+                                              color: context.fc.primary,
+                                              size: 12,
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
-                        ),
-                          ),
-                        );
+                      ),
+                    );
                   },
                 ),
               ],
@@ -474,7 +480,6 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
           ),
         ),
       ],
-      ),
     );
   }
 }
@@ -483,31 +488,15 @@ class _DashCard extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? action;
-  final bool expandChild;
-  const _DashCard({
-    required this.title,
-    required this.child,
-    this.action,
-    this.expandChild = false,
-  });
+  const _DashCard({required this.title, required this.child, this.action});
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return Container(
       decoration: BoxDecoration(
-        gradient: fc.cardGradient,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: fc.rimHighlight),
-        boxShadow: [
-          BoxShadow(
-            color: fc.isDark
-                ? Colors.black.withValues(alpha: 0.34)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: context.fc.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: context.fc.surfaceBorder),
       ),
       padding: const EdgeInsets.all(12),
       // La carte remplit la hauteur qu'on lui donne et son contenu prend le
@@ -515,27 +504,17 @@ class _DashCard extends StatelessWidget {
       // sur tous les postes (balayage).
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: expandChild ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Container(
-                width: 2,
-                height: 12,
-                margin: const EdgeInsets.only(right: 6),
-                decoration: BoxDecoration(
-                  color: fc.primary,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
               Text(
                 title,
                 style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
+                  color: context.fc.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
                 ),
               ),
               if (action != null)
@@ -543,13 +522,13 @@ class _DashCard extends StatelessWidget {
               else
                 Icon(
                   Icons.more_horiz,
-                  color: fc.textDisabled,
+                  color: context.fc.textDisabled,
                   size: 14,
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          expandChild ? Expanded(child: child) : child,
+          child,
         ],
       ),
     );
@@ -573,42 +552,18 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.55)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.22),
-            blurRadius: 8,
-          ),
-        ],
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: 4),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            status.name.toUpperCase(),
-            style: TextStyle(
-              fontFamily: 'Rajdhani',
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
+      child: Text(
+        status.name.toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
       ),
     );
   }
@@ -635,206 +590,185 @@ class _RightPanel extends ConsumerWidget {
     return Container(
       color: context.fc.surface,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 64),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── POSITION DRO ──────────────────────────────────────────
-            BentoCascadeEntry(
-              index: 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PanelSectionHeader(
-                    title: tr('POSITION DRO'),
-                    trailing: Text(
-                      tr('W-value − Target'),
-                      style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _DroBig(
-                      label: 'X',
-                      value: wPos[0],
-                      color: context.fc.axisX,
-                      travelFraction: travel(0)),
-                  _DroBig(
-                      label: 'Y',
-                      value: wPos[1],
-                      color: context.fc.axisY,
-                      travelFraction: travel(1)),
-                  _DroBig(
-                      label: 'Z',
-                      value: wPos[2],
-                      color: context.fc.axisZ,
-                      travelFraction: travel(2)),
-                  _DroBig(
-                    label: 'A',
-                    value: wPos[3],
-                    color: context.fc.axisA,
-                    isRotary: true,
-                    travelFraction: travel(3),
-                  ),
-                  _DroBig(
-                    label: 'C',
-                    value: wPos[4],
-                    color: context.fc.axisC,
-                    isRotary: true,
-                    travelFraction: travel(4),
-                  ),
-                ],
+            _PanelSectionHeader(
+              title: tr('POSITION DRO'),
+              trailing: Text(
+                tr('W-value − Target'),
+                style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
               ),
             ),
+            const SizedBox(height: 8),
+            _DroBig(
+                label: 'X',
+                value: wPos[0],
+                color: context.fc.axisX,
+                travelFraction: travel(0)),
+            _DroBig(
+                label: 'Y',
+                value: wPos[1],
+                color: context.fc.axisY,
+                travelFraction: travel(1)),
+            _DroBig(
+                label: 'Z',
+                value: wPos[2],
+                color: context.fc.axisZ,
+                travelFraction: travel(2)),
+            _DroBig(
+              label: 'A',
+              value: wPos[3],
+              color: context.fc.axisA,
+              isRotary: true,
+              travelFraction: travel(3),
+            ),
+            _DroBig(
+              label: 'C',
+              value: wPos[4],
+              color: context.fc.axisC,
+              isRotary: true,
+              travelFraction: travel(4),
+            ),
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             // Section PROGRESSION & AVANCES
-            BentoCascadeEntry(
-              index: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PanelSectionHeader(title: tr('PROGRESSION & AVANCES')),
-                  const SizedBox(height: 6),
+            _PanelSectionHeader(title: tr('PROGRESSION & AVANCES')),
+            const SizedBox(height: 8),
 
-                  // Progression (Historique)
-                  Row(
-                    children: [
-                      Text(
-                        tr('HISTORIQUE'),
-                        style: TextStyle(
-                          fontFamily: 'Rajdhani',
-                          color: context.fc.textDisabled,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${progress.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          color: context.fc.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'JetBrains Mono',
-                        ),
-                      ),
-                    ],
+            // Progression (Historique)
+            Row(
+              children: [
+                Text(
+                  tr('HISTORIQUE'),
+                  style: TextStyle(
+                    color: context.fc.textDisabled,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 4),
-                  LaserShimmerBar(
-                    value: (progress / 100).clamp(0.0, 1.0),
-                    height: 6,
+                ),
+                const Spacer(),
+                Text(
+                  '${progress.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    color: context.fc.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
                   ),
-                  const SizedBox(height: 8),
-
-                  // Corrections d'avance et de rapides — REGLABLES.
-                  // Le panneau n'affichait que deux barres en lecture seule : on
-                  // voyait la correction sans pouvoir la toucher, alors que c'est le
-                  // seul moyen de ralentir une passe en cours sans arreter le
-                  // programme. Densite desktop : plat, compact, sans carte — le rail
-                  // porte deja sa surface et son en-tete de section.
-                  const OverridePanel(dense: true),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: progress / 100,
+                minHeight: 6,
+                backgroundColor: context.fc.surfaceBorder,
+                color: context.fc.primary,
               ),
             ),
+            const SizedBox(height: 8),
 
-            const SizedBox(height: 6),
+            // Corrections d'avance et de rapides — REGLABLES.
+            // Le panneau n'affichait que deux barres en lecture seule : on
+            // voyait la correction sans pouvoir la toucher, alors que c'est le
+            // seul moyen de ralentir une passe en cours sans arreter le
+            // programme. Densite desktop : plat, compact, sans carte — le rail
+            // porte deja sa surface et son en-tete de section.
+            const OverridePanel(dense: true),
+
+            const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
-            BentoCascadeEntry(
-              index: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PanelSectionHeader(title: tr('QUICK ACTIONS')),
-                  const SizedBox(height: 6),
+            _PanelSectionHeader(title: tr('QUICK ACTIONS')),
+            const SizedBox(height: 8),
 
-                  Consumer(
-                    builder: (ctx, r, _) {
-                      final repo = r.read(machineRepositoryProvider);
-                      final audio = r.read(audioServiceProvider);
-                      return Row(
-                        children: [
-                          _QAction(
-                            label: tr('CYCLE\nSTART'),
-                            color: context.fc.success,
-                            icon: Icons.play_arrow_rounded,
-                            onTap: () async {
-                              final latestState = r
-                                  .read(machineStateProvider)
-                                  .valueOrNull;
-                              if (latestState?.status == MachineStatus.hold) {
-                                repo.resume();
-                                audio.play(SoundEffect.click);
-                                HapticFeedback.mediumImpact();
-                              } else {
-                                final messenger = ScaffoldMessenger.of(ctx);
-                                final errorColor = context.fc.error;
-                                final result = await r
-                                    .read(streamingProvider.notifier)
-                                    .startStream();
-                                if (!result.isValid) {
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
-                                      ),
-                                      backgroundColor: errorColor,
-                                    ),
-                                  );
-                                  audio.play(SoundEffect.alert);
-                                  HapticFeedback.heavyImpact();
-                                } else {
-                                  audio.play(SoundEffect.click);
-                                  HapticFeedback.mediumImpact();
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 6),
-                          _QAction(
-                            label: tr('FEED\nHOLD'),
-                            color: context.fc.warning,
-                            icon: Icons.pause_rounded,
-                            onTap: () {
-                              repo.pause();
-                              audio.play(SoundEffect.click);
-                              HapticFeedback.mediumImpact();
-                            },
-                          ),
-                          const SizedBox(width: 6),
-                          _QAction(
-                            label: tr('E-STOP'),
-                            color: context.fc.danger,
-                            icon: Icons.bolt_rounded,
-                            onTap: () {
-                              r.read(streamingProvider.notifier).stopStream();
-                              audio.play(SoundEffect.alarm);
-                              HapticFeedback.vibrate();
-                            },
-                          ),
-                          const SizedBox(width: 6),
-                          _QAction(
-                            label: tr('JOG\nSTOP'),
-                            color: context.fc.primary,
-                            icon: Icons.stop_rounded,
-                            onTap: () {
-                              r.read(secureJogProvider.notifier).stopJog();
-                              audio.play(SoundEffect.alert);
-                              HapticFeedback.heavyImpact();
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
+            Consumer(
+              builder: (ctx, r, _) {
+                final repo = r.read(machineRepositoryProvider);
+                final audio = r.read(audioServiceProvider);
+                return Row(
+                  children: [
+                    _QAction(
+                      label: tr('CYCLE\nSTART'),
+                      color: context.fc.success,
+                      icon: Icons.play_arrow_rounded,
+                      onTap: () async {
+                        final latestState = r
+                            .read(machineStateProvider)
+                            .valueOrNull;
+                        if (latestState?.status == MachineStatus.hold) {
+                          repo.resume();
+                          audio.play(SoundEffect.click);
+                          HapticFeedback.mediumImpact();
+                        } else {
+                          final messenger = ScaffoldMessenger.of(ctx);
+                          final errorColor = context.fc.error;
+                          final result = await r
+                              .read(streamingProvider.notifier)
+                              .startStream();
+                          if (!result.isValid) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
+                                ),
+                                backgroundColor: errorColor,
+                              ),
+                            );
+                            audio.play(SoundEffect.alert);
+                            HapticFeedback.heavyImpact();
+                          } else {
+                            audio.play(SoundEffect.click);
+                            HapticFeedback.mediumImpact();
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _QAction(
+                      label: tr('FEED\nHOLD'),
+                      color: context.fc.warning,
+                      icon: Icons.pause_rounded,
+                      onTap: () {
+                        repo.pause();
+                        audio.play(SoundEffect.click);
+                        HapticFeedback.mediumImpact();
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _QAction(
+                      label: tr('E-STOP'),
+                      color: context.fc.danger,
+                      icon: Icons.bolt_rounded,
+                      onTap: () {
+                        r.read(streamingProvider.notifier).stopStream();
+                        audio.play(SoundEffect.alarm);
+                        HapticFeedback.vibrate();
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _QAction(
+                      label: tr('JOG\nSTOP'),
+                      color: context.fc.primary,
+                      icon: Icons.stop_rounded,
+                      onTap: () {
+                        r.read(secureJogProvider.notifier).stopJog();
+                        audio.play(SoundEffect.alert);
+                        HapticFeedback.heavyImpact();
+                      },
+                    ),
+                  ],
+                );
+              },
             ),
             // Respiration entre les actions rapides et le jog : les quatre
             // boutons touchaient l'en-tête de la section suivante.
@@ -842,10 +776,7 @@ class _RightPanel extends ConsumerWidget {
             Container(height: 1, color: context.fc.surfaceBorder),
             const SizedBox(height: 10),
             // ── JOG CONTROL ──────────────────────────────────────────
-            BentoCascadeEntry(
-              index: 3,
-              child: JogControlPanel(wPos: wPos),
-            ),
+            JogControlPanel(wPos: wPos),
 
             const SizedBox(height: 8),
             Container(height: 1, color: context.fc.surfaceBorder),
@@ -866,39 +797,25 @@ class _PanelSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     // Le titre cède la place avant tout : à largeur naturelle, il débordait
     // de 12 px dans la colonne de droite sur TOUS les postes (balayage).
     return Row(
       children: [
-        Container(
-          width: 2,
-          height: 12,
-          margin: const EdgeInsets.only(right: 6),
-          decoration: BoxDecoration(
-            color: fc.primary,
-            borderRadius: BorderRadius.circular(1),
-            boxShadow: [
-              BoxShadow(color: fc.ambientGlow, blurRadius: 4),
-            ],
-          ),
-        ),
         Expanded(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: 'Rajdhani',
-              color: fc.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
+              color: context.fc.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
             ),
           ),
         ),
         if (trailing case final t?) t,
-        Icon(Icons.more_horiz, color: fc.textDisabled, size: 14),
+        Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
       ],
     );
   }
@@ -925,129 +842,69 @@ class _DroBig extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     final nearEdge = TravelGaugeFill.isNearEdge(travelFraction);
-    return KineticAxisMovementDetector(
-      value: value,
-      color: color,
-      builder: (context, glow) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 3),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.lerp(
-                  fc.background,
-                  color,
-                  fc.isDark ? (0.06 + 0.12 * glow) : (0.03 + 0.08 * glow),
-                )!,
-                fc.background,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: color.withValues(alpha: 0.22 + 0.50 * glow),
-              width: 1.0,
-            ),
-            boxShadow: glow > 0.02
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.24 * glow),
-                      blurRadius: 12 * glow,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Stack(
-            children: [
-              // Liseré latéral gauche lumineux selon le mouvement d'axe
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 3,
-                  decoration: BoxDecoration(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: context.fc.background,
+        borderRadius: BorderRadius.circular(4),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Stack(
+        children: [
+          // Jauge de course, identique au DRO mobile.
+          TravelGaugeFill(fraction: travelFraction, color: color),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
                     color: color,
-                    boxShadow: glow > 0.05
-                        ? [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.65 * glow),
-                              blurRadius: 8,
-                            ),
-                          ]
-                        : null,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'JetBrains Mono',
                   ),
                 ),
-              ),
-              // Jauge de course, identique au DRO mobile.
-              TravelGaugeFill(fraction: travelFraction, color: color),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Row(
-                  children: [
-                    Text(
-                      label,
+                // Meme lecture que sur mobile : la position dans la course, en clair.
+                if (travelFraction != null) ...[
+                  const SizedBox(width: 7),
+                  Text('${(travelFraction! * 100).round()}%',
                       style: TextStyle(
-                        fontFamily: 'Rajdhani',
-                        color: color,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        shadows: glow > 0.05
-                            ? [
-                                Shadow(
-                                  color: color.withValues(alpha: 0.6 * glow),
-                                  blurRadius: 10,
-                                ),
-                              ]
-                            : null,
-                      ),
+                          color: nearEdge
+                              ? context.fc.warning
+                              : context.fc.textDisabled,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700)),
+                ],
+                const SizedBox(width: 8),
+                Expanded(
+                  // Glisse d'un rapport de la carte au suivant au lieu de
+                  // sauter : la cote reste lisible pendant un mouvement.
+                  child: AnimatedNumberText(
+                    value,
+                    decimals: isRotary ? 2 : 3,
+                    suffix: isRotary ? '°' : '',
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'JetBrains Mono',
+                      shadows: [
+                        Shadow(color: color.withValues(alpha: 0.4), blurRadius: 12),
+                      ],
                     ),
-                    // Meme lecture que sur mobile : la position dans la course, en clair.
-                    if (travelFraction != null) ...[
-                      const SizedBox(width: 7),
-                      Text('${(travelFraction! * 100).round()}%',
-                          style: TextStyle(
-                              color: nearEdge
-                                  ? fc.warning
-                                  : fc.textDisabled,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                    const SizedBox(width: 8),
-                    Expanded(
-                      // Glisse d'un rapport de la carte au suivant au lieu de
-                      // sauter : la cote reste lisible pendant un mouvement.
-                      child: AnimatedNumberText(
-                        value,
-                        decimals: isRotary ? 2 : 3,
-                        suffix: isRotary ? '°' : '',
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'JetBrains Mono',
-                          shadows: [
-                            Shadow(
-                              color: color.withValues(alpha: 0.4 + 0.28 * glow),
-                              blurRadius: 12 + 6 * glow,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

@@ -167,11 +167,7 @@ class AppSettingsScreen extends ConsumerWidget {
                   initialValue: language.id,
                   isExpanded: true,
                   dropdownColor: fc.surface,
-                  style: TextStyle(
-                    color: fc.textPrimary,
-                    fontSize: 13,
-                    fontFamily: 'JetBrains Mono',
-                  ),
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: fc.background.withValues(alpha: 0.4),
@@ -346,19 +342,18 @@ class AppSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(text,
             style: TextStyle(
-                fontFamily: 'Rajdhani',
                 color: fc.textDisabled,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.8)),
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5)),
       );
 
   Widget _card(ForgeronColorPalette fc, {required Widget child}) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: fc.cardGradient,
+          color: fc.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: fc.rimHighlight),
+          border: Border.all(color: fc.surfaceBorder),
         ),
         child: child,
       );

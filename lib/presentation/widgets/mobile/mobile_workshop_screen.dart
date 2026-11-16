@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
 import '../../../core/widgets/animated_number.dart';
-import '../../../core/widgets/forge_kinetic_fx.dart';
 import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/ui_state_provider.dart';
 import '../../../application/providers/di_providers.dart';
@@ -24,9 +23,8 @@ class MobileWorkshopScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.black, // Contraste maximum
-      body: TacticalGridBackground(
-        child: SafeArea(
-          child: Column(
+      body: SafeArea(
+        child: Column(
           children: [
             // Alarme, flux suspendu, arrêt d'urgence non transmis : le pupitre
             // masque le reste de l'application, il doit donc porter lui-même
@@ -132,7 +130,6 @@ class MobileWorkshopScreen extends ConsumerWidget {
             ),
           ],
         ),
-        ),
       ),
     );
   }
@@ -184,90 +181,42 @@ class _GiantAxisRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KineticAxisMovementDetector(
-      value: value,
-      color: color,
-      builder: (context, glow) {
-        return Container(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: small ? 10 : 14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(const Color(0xFF141822), color, 0.08 + 0.14 * glow)!,
-                const Color(0xFF0A0C10),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: color.withValues(alpha: 0.34 + 0.50 * glow),
-              width: 1.5,
-            ),
-            boxShadow: glow > 0.04
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.28 * glow),
-                      blurRadius: 16 * glow,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Text(
-                axis,
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: small ? 10 : 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Text(axis, style: TextStyle(color: color, fontSize: small ? 24 : 32, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 12),
+          // A et C partagent la largeur de l'écran : sur un téléphone de
+          // 360 dp, « -123.45 » en corps 32 débordait de sa carte. On garde le
+          // chiffre le plus gros possible en le laissant rétrécir au besoin.
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: AnimatedNumberText(
+                value,
+                decimals: small ? 2 : 3,
+                maxLines: 1,
                 style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: color,
-                  fontSize: small ? 26 : 34,
-                  fontWeight: FontWeight.w700,
-                  shadows: glow > 0.05
-                      ? [
-                          Shadow(
-                            color: color.withValues(alpha: 0.65 * glow),
-                            blurRadius: 12,
-                          ),
-                        ]
-                      : null,
+                  color: Colors.white,
+                  fontSize: small ? 32 : 52,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JetBrains Mono',
+                  shadows: [Shadow(color: color.withValues(alpha: 0.5), blurRadius: 15)],
                 ),
               ),
-              const SizedBox(width: 12),
-              // A et C partagent la largeur de l'écran : sur un téléphone de
-              // 360 dp, « -123.45 » en corps 32 débordait de sa carte. On garde le
-              // chiffre le plus gros possible en le laissant rétrécir au besoin.
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: AnimatedNumberText(
-                    value,
-                    decimals: small ? 2 : 3,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: small ? 32 : 52,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'JetBrains Mono',
-                      shadows: [
-                        Shadow(
-                          color: color.withValues(alpha: 0.5 + 0.3 * glow),
-                          blurRadius: 15 + 6 * glow,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                small ? '°' : 'mm',
-                style: const TextStyle(color: Colors.white38, fontSize: 14),
-              ),
-            ],
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 10),
+          Text(small ? '°' : 'mm', style: const TextStyle(color: Colors.white24, fontSize: 14)),
+        ],
+      ),
     );
   }
 }

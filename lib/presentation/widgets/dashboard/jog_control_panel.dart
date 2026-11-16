@@ -124,7 +124,7 @@ class JogControlPanel extends ConsumerWidget {
 
             // ── AXES ROTATIFS (A / C) ──────────────────────────────────
             _JogSectionLabel('AXES ROTATIFS'),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
             Row(
               spacing: 4.0,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -456,7 +456,6 @@ class _StepMultiplierSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fc = context.fc;
     final multiplier = ref.watch(cncJogMultiplierProvider);
     return Row(
       children: [
@@ -470,53 +469,30 @@ class _StepMultiplierSelector extends ConsumerWidget {
                   ref.read(audioServiceProvider).play(SoundEffect.click);
                   HapticFeedback.selectionClick();
                 },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
+                child: Container(
                   height: 46, // cible tactile confortable (gants/atelier)
                   decoration: BoxDecoration(
-                    gradient: multiplier == mult
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              fc.primary.withValues(alpha: 0.28),
-                              fc.primaryDim.withValues(alpha: 0.14),
-                            ],
-                          )
-                        : null,
-                    color: multiplier == mult ? null : fc.surfaceBright,
+                    color: multiplier == mult
+                        ? context.fc.primary.withValues(alpha: 0.15)
+                        : context.fc.surfaceBright,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: multiplier == mult ? fc.primary : fc.surfaceBorder,
+                      color: multiplier == mult
+                          ? context.fc.primary
+                          : context.fc.surfaceBorder,
                       width: 1.5,
                     ),
-                    boxShadow: multiplier == mult
-                        ? [
-                            BoxShadow(
-                              color: fc.primary.withValues(alpha: 0.24),
-                              blurRadius: 10,
-                              spreadRadius: -1,
-                            ),
-                          ]
-                        : null,
                   ),
                   child: Center(
                     child: Text(
                       '×$mult',
                       style: TextStyle(
-                        color: multiplier == mult ? fc.primary : fc.textSecondary,
+                        color: multiplier == mult
+                            ? context.fc.primary
+                            : context.fc.textSecondary,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                         fontFamily: 'JetBrains Mono',
-                        shadows: multiplier == mult
-                            ? [
-                                Shadow(
-                                  color: fc.primary.withValues(alpha: 0.45),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
                       ),
                     ),
                   ),
@@ -538,11 +514,9 @@ class _JogSectionLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        fontFamily: 'Rajdhani',
         color: context.fc.textDisabled,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
+        fontSize: 9,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
@@ -556,23 +530,13 @@ class _JogSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 3,
-          height: 11,
-          margin: const EdgeInsets.only(right: 6),
-          decoration: BoxDecoration(
-            color: context.fc.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
         Text(
           title,
           style: TextStyle(
-            fontFamily: 'Rajdhani',
             color: context.fc.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
           ),
         ),
         const Spacer(),

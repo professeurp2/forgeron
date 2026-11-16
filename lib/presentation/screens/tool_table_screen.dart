@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
-import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/split_view.dart';
 import '../../core/utils/gcode_tool_extractor.dart';
@@ -147,11 +146,10 @@ class _ToolTableScreenState extends ConsumerState<ToolTableScreen> {
           children: [
             Text(tr('OUTILS DU PROGRAMME'),
                 style: TextStyle(
-                    color: fc.textPrimary,
-                    fontFamily: 'Rajdhani',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.8)),
+                    color: fc.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.0)),
             const SizedBox(height: 2),
             Text(tr('lus dans le G-code chargé'),
                 style: TextStyle(color: fc.textDisabled, fontSize: 9)),
@@ -403,20 +401,13 @@ class _ToolRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    accent.withValues(alpha: 0.14),
-                    fc.surface,
-                  ],
-                )
-              : fc.cardGradient,
+          color: isSelected
+              ? fc.primary.withValues(alpha: 0.08)
+              : fc.surface,
           border: Border(
             bottom: BorderSide(color: fc.surfaceBorder),
             left: BorderSide(
-                color: isSelected ? accent : Colors.transparent, width: 3),
+                color: isSelected ? fc.primary : Colors.transparent, width: 3),
           ),
         ),
         child: Row(children: [
@@ -579,11 +570,9 @@ class _ToolDetailPanel extends ConsumerWidget {
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: BentoCascadeEntry(
-              index: 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 _sectionTitle(fc, 'CE QUE DIT LE PROGRAMME'),
                 const SizedBox(height: 12),
                 if (tool.description != null)
@@ -654,7 +643,6 @@ class _ToolDetailPanel extends ConsumerWidget {
                 ],
               ],
             ),
-            ),
           ),
         ),
       ],
@@ -694,11 +682,10 @@ class _ToolDetailPanel extends ConsumerWidget {
   Widget _sectionTitle(ForgeronColorPalette fc, String label) => Text(
         label,
         style: TextStyle(
-            fontFamily: 'Rajdhani',
-            color: fc.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.8),
+            color: fc.textDisabled,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2.0),
       );
 
   Widget _rawLine(ForgeronColorPalette fc, String text) => Container(
@@ -760,11 +747,9 @@ class _ToolDetailPanel extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label,
               style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textSecondary,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1)),
+                  color: fc.textDisabled,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -784,10 +769,7 @@ class _ToolDetailPanel extends ConsumerWidget {
               if (unit.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Text(unit,
-                    style: TextStyle(
-                        color: fc.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: fc.textDisabled, fontSize: 10)),
               ],
             ],
           ),

@@ -42,7 +42,7 @@ class CubePageView extends StatelessWidget {
           builder: (context, _) {
             // Position courante du défilement (fraction de page).
             double page = controller.initialPage.toDouble();
-            if (controller.positions.length == 1 &&
+            if (controller.hasClients &&
                 controller.position.haveDimensions) {
               page = controller.page ?? page;
             }

@@ -112,10 +112,7 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
                         size: 18),
                     label: Text(_saving ? 'ENREGISTREMENT…' : 'ENREGISTRER DANS FLUIDNC',
                         style: const TextStyle(
-                            fontFamily: 'Rajdhani',
-                            letterSpacing: 1.0,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14)),
+                            fontWeight: FontWeight.w900, fontSize: 12)),
                   ),
                 ),
               ],
@@ -147,9 +144,9 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: fc.cardGradient,
+        color: fc.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: fc.rimHighlight),
+        border: Border.all(color: fc.surfaceBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -163,19 +160,14 @@ class _LimitConfigScreenState extends ConsumerState<LimitConfigScreen> {
                 border: Border.all(color: color.withValues(alpha: 0.6))),
             child: Text(_axes[i],
                 style: TextStyle(
-                    fontFamily: 'Rajdhani',
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16)),
+                    color: color, fontWeight: FontWeight.w900, fontSize: 15)),
           ),
           const SizedBox(width: 10),
           Text(tr('Axe {}', [_axes[i]]),
               style: TextStyle(
-                  fontFamily: 'Rajdhani',
                   color: fc.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  fontSize: 16)),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
         ]),
         const SizedBox(height: 12),
         TextField(controller: _neg[i], style: TextStyle(color: fc.textPrimary, fontSize: 13), decoration: deco('limit_neg_pin')),

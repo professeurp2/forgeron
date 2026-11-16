@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forgeron/application/services/audio_service.dart';
 import '../../core/theme/forgeron_colors.dart';
-import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/streaming_provider.dart';
 import '../../domain/models/machine_state.dart';
@@ -189,11 +188,9 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
               Text(
                 tr('TERMINAL MDI / LOGS'),
                 style: TextStyle(
-                  color: context.fc.textSecondary,
-                  fontFamily: 'Rajdhani',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+                  color: context.fc.textDisabled,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
               Spacer(),
@@ -217,8 +214,7 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
           key: TutorialKeys.mdiHistory,
           child: Container(
             color: context.fc.terminalBg,
-            child: TacticalGridBackground(
-              child: ListView.builder(
+            child: ListView.builder(
               controller: _scrollController,
               padding: EdgeInsets.all(16),
               itemCount: _logLines.length,
@@ -265,7 +261,6 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
                   ),
                 );
               },
-            ),
             ),
           ),
         ),
@@ -377,144 +372,132 @@ class _MDITerminalScreenState extends ConsumerState<MDITerminalScreen> {
             tr('MACROS RAPIDES'),
             style: TextStyle(
               color: context.fc.textSecondary,
-              fontFamily: 'Rajdhani',
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.8,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           // Boutons de largeur fixe, disposés en flux : le panneau faisait
           // 3 colonnes de tuiles carrées, soit des pavés de 200 dp de côté qui
           // occupaient la moitié de l'écran pour douze raccourcis. Ici la
           // rangée se remplit selon la largeur disponible et le terminal — la
           // raison d'être de la page — garde la place.
-          BentoCascadeEntry(
-            index: 0,
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _macros
-                  .map<Widget>(
-                    (m) => SizedBox(
-                      width: 132,
-                      height: 34,
-                      child: InkWell(
-                      onTap: () {
-                        final label = m.$2;
-                        final repo = ref.read(machineRepositoryProvider);
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _macros
+                .map<Widget>(
+                  (m) => SizedBox(
+                    width: 132,
+                    height: 34,
+                    child: InkWell(
+                    onTap: () {
+                      final label = m.$2;
+                      final repo = ref.read(machineRepositoryProvider);
 
-                        if (label == 'ORIGINES') {
-                          repo.home([]);
-                        } else if (label == 'ZÉRO PIÈCE') {
-                          repo.sendGCode('G92 X0 Y0 Z0 A0 C0');
-                        } else if (label == 'PALPAGE Z') {
-                          repo.sendGCode('G38.2 Z-50 F100');
-                        } else if (label == 'BROCHE H') {
-                          // S1000 = 100 % de la speed_map FluidNC : la broche
-                          // est un relais tout-ou-rien, pas une broche à régime
-                          // variable. S5000 affichait un régime imaginaire.
-                          repo.sendGCode('M3 S1000');
-                        } else if (label == 'ARRÊT B.') {
-                          repo.sendGCode('M5');
-                        } else if (label == 'BROCHE AH') {
-                          repo.sendGCode('M4 S1000');
-                        } else if (label == 'ARROSAGE ON') {
-                          repo.sendGCode('M8');
-                        } else if (label == 'ARROSAGE OFF') {
-                          repo.sendGCode('M9');
-                        } else if (label == 'SOUFFLAGE') {
-                          repo.sendGCode('M7');
-                        } else if (label == 'Z SÉCU') {
-                          repo.sendGCode('G0 Z50');
-                        } else if (label == 'PARKING') {
-                          repo.sendGCode('G28');
-                        } else if (label == 'CHG OUTIL') {
-                          repo.sendGCode('M6 T1');
-                        } else if (label == 'REPRENDRE') {
-                          final latestState = ref
-                              .read(machineStateProvider)
-                              .valueOrNull;
-                          final audio = ref.read(audioServiceProvider);
-                          if (latestState?.status == MachineStatus.hold) {
-                            repo.resume();
-                            audio.play(SoundEffect.click);
-                          } else {
-                            final messenger = ScaffoldMessenger.of(context);
-                            ref.read(streamingProvider.notifier).startStream().then((
-                              result,
-                            ) {
-                              if (!result.isValid) {
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
-                                    ),
-                                    backgroundColor: Colors.redAccent,
+                      if (label == 'ORIGINES') {
+                        repo.home([]);
+                      } else if (label == 'ZÉRO PIÈCE') {
+                        repo.sendGCode('G92 X0 Y0 Z0 A0 C0');
+                      } else if (label == 'PALPAGE Z') {
+                        repo.sendGCode('G38.2 Z-50 F100');
+                      } else if (label == 'BROCHE H') {
+                        // S1000 = 100 % de la speed_map FluidNC : la broche
+                        // est un relais tout-ou-rien, pas une broche à régime
+                        // variable. S5000 affichait un régime imaginaire.
+                        repo.sendGCode('M3 S1000');
+                      } else if (label == 'ARRÊT B.') {
+                        repo.sendGCode('M5');
+                      } else if (label == 'BROCHE AH') {
+                        repo.sendGCode('M4 S1000');
+                      } else if (label == 'ARROSAGE ON') {
+                        repo.sendGCode('M8');
+                      } else if (label == 'ARROSAGE OFF') {
+                        repo.sendGCode('M9');
+                      } else if (label == 'SOUFFLAGE') {
+                        repo.sendGCode('M7');
+                      } else if (label == 'Z SÉCU') {
+                        repo.sendGCode('G0 Z50');
+                      } else if (label == 'PARKING') {
+                        repo.sendGCode('G28');
+                      } else if (label == 'CHG OUTIL') {
+                        repo.sendGCode('M6 T1');
+                      } else if (label == 'REPRENDRE') {
+                        final latestState = ref
+                            .read(machineStateProvider)
+                            .valueOrNull;
+                        final audio = ref.read(audioServiceProvider);
+                        if (latestState?.status == MachineStatus.hold) {
+                          repo.resume();
+                          audio.play(SoundEffect.click);
+                        } else {
+                          final messenger = ScaffoldMessenger.of(context);
+                          ref.read(streamingProvider.notifier).startStream().then((
+                            result,
+                          ) {
+                            if (!result.isValid) {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    tr('Erreur Lookahead : {} (ligne {})', [result.errorMessage, result.errorLine]),
                                   ),
-                                );
-                                audio.play(SoundEffect.alert);
-                              } else {
-                                audio.play(SoundEffect.click);
-                              }
-                            });
-                          }
-                        } else if (label == 'PAUSE') {
-                          repo.pause();
-                        } else if (label == 'ANNULER') {
-                          ref.read(streamingProvider.notifier).stopStream();
-                        } else if (label == 'DÉBLOQUER') {
-                          repo.sendRaw('\$X\n');
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              m.$3.withValues(alpha: 0.14),
-                              m.$3.withValues(alpha: 0.04),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: m.$3.withValues(alpha: 0.35)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(m.$1, color: m.$3, size: 14),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                m.$2,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: m.$3,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
+                                  backgroundColor: Colors.redAccent,
                                 ),
+                              );
+                              audio.play(SoundEffect.alert);
+                            } else {
+                              audio.play(SoundEffect.click);
+                            }
+                          });
+                        }
+                      } else if (label == 'PAUSE') {
+                        repo.pause();
+                      } else if (label == 'ANNULER') {
+                        ref.read(streamingProvider.notifier).stopStream();
+                      } else if (label == 'DÉBLOQUER') {
+                        repo.sendRaw('\$X\n');
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: m.$3.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: m.$3.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(m.$1, color: m.$3, size: 14),
+                          SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              m.$2,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: m.$3,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    ),
-                  )
-                  .toList(),
-            ),
+                  ),
+                  ),
+                )
+                .toList(),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Text(
             tr('HISTORIQUE COMMANDES'),
             style: TextStyle(
               color: context.fc.textSecondary,
-              fontFamily: 'Rajdhani',
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.8,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
             ),
           ),
           SizedBox(height: 8),

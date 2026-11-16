@@ -43,34 +43,16 @@ class TravelGaugeFill extends StatelessWidget {
 
     final alert = isNearEdge(f);
     final barColor = alert ? context.fc.warning : color;
-    final clamped = f.clamp(0.0, 1.0);
 
     return Positioned.fill(
       child: Align(
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
-          widthFactor: clamped,
+          widthFactor: f,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  barColor.withValues(alpha: 0.06),
-                  barColor.withValues(alpha: alert ? 0.34 : 0.24),
-                ],
-              ),
-              border: clamped > 0.005
-                  ? Border(
-                      right: BorderSide(
-                        color: barColor.withValues(alpha: alert ? 0.95 : 0.70),
-                        width: 2.0,
-                      ),
-                    )
-                  : null,
-            ),
+            color: barColor.withValues(alpha: alert ? 0.26 : 0.16),
           ),
         ),
       ),

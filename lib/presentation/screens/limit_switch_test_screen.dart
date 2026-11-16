@@ -102,19 +102,10 @@ class _LimitSwitchTestScreenState
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        gradient: active
-            ? LinearGradient(
-                colors: [
-                  color.withValues(alpha: 0.22),
-                  color.withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : fc.cardGradient,
+        color: active ? color.withValues(alpha: 0.15) : fc.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: active ? color : fc.rimHighlight,
+          color: active ? color : fc.surfaceBorder,
           width: active ? 2 : 1,
         ),
       ),
@@ -130,21 +121,17 @@ class _LimitSwitchTestScreenState
           ),
           child: Text(axis,
               style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20)),
+                  color: color, fontWeight: FontWeight.w900, fontSize: 18)),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Text(
             active ? 'ACTIF' : 'relâché',
             style: TextStyle(
-              fontFamily: 'Rajdhani',
               color: active ? color : fc.textDisabled,
-              fontSize: 18,
-              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-              letterSpacing: active ? 1.2 : 0.4,
+              fontSize: 16,
+              fontWeight: active ? FontWeight.w900 : FontWeight.w500,
+              letterSpacing: active ? 1 : 0,
             ),
           ),
         ),

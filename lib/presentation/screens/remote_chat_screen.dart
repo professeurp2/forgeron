@@ -115,13 +115,7 @@ class _RemoteChatScreenState extends ConsumerState<RemoteChatScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          Text(tr('Chat du PC'),
-              style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                  fontSize: 18)),
+          Text(tr('Chat du PC'), style: TextStyle(color: fc.textPrimary, fontSize: 16)),
         ]),
         actions: [
           if (connected)

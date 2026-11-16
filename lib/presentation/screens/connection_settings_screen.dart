@@ -315,9 +315,8 @@ class _ConnectionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: context.fc.cardGradient,
+                color: context.fc.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: context.fc.rimHighlight),
               ),
               child: Icon(Icons.settings_input_component,
                   color: context.fc.primary, size: 20),
@@ -331,11 +330,10 @@ class _ConnectionSettingsScreenState
                   Text(
                     tr('CONNEXION'),
                     style: TextStyle(
-                      fontFamily: 'Rajdhani',
                       color: context.fc.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
                     ),
                   ),
                   Text(
@@ -508,11 +506,7 @@ class _ConnectionSettingsScreenState
                   value: dropdownValue,
                   isExpanded: true,
                   dropdownColor: fc.surface,
-                  style: TextStyle(
-                    color: fc.textPrimary,
-                    fontSize: 13,
-                    fontFamily: 'JetBrains Mono',
-                  ),
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
                   decoration: InputDecoration(
                     labelText: 'Port COM / USB',
                     labelStyle: TextStyle(color: fc.textDisabled, fontSize: 12),
@@ -549,11 +543,7 @@ class _ConnectionSettingsScreenState
                 child: DropdownButtonFormField<int>(
                   value: _selectedBaudRate,
                   dropdownColor: fc.surface,
-                  style: TextStyle(
-                    color: fc.textPrimary,
-                    fontSize: 13,
-                    fontFamily: 'JetBrains Mono',
-                  ),
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
                   decoration: InputDecoration(
                     labelText: 'Débit (bauds)',
                     labelStyle: TextStyle(color: fc.textDisabled, fontSize: 12),
@@ -598,8 +588,7 @@ class _ConnectionSettingsScreenState
                   backgroundColor: fc.primary,
                   foregroundColor: Colors.black,
                   textStyle: const TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
                 ),
@@ -852,11 +841,7 @@ class _ConnectionSettingsScreenState
                 backgroundColor: context.fc.primary.withValues(alpha: 0.1),
                 foregroundColor: context.fc.primary,
                 elevation: 0,
-                textStyle: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
+                textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
               ),
             ),
       child: Column(
@@ -931,12 +916,12 @@ class _ConnectionSettingsScreenState
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          gradient: context.fc.cardGradient,
+          color: context.fc.surfaceBright.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isFluidNC
-                ? context.fc.success.withValues(alpha: 0.45)
-                : context.fc.rimHighlight,
+                ? context.fc.success.withValues(alpha: 0.3)
+                : context.fc.surfaceBorder,
           ),
         ),
         child: isMobile
@@ -1119,12 +1104,7 @@ class _ConnectionSettingsScreenState
                   borderRadius: BorderRadius.circular(8),
                   side: BorderSide(color: context.fc.primary.withValues(alpha: 0.3)),
                 ),
-                textStyle: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  letterSpacing: 1,
-                ),
+                textStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
               ),
             ),
           ),
@@ -1347,8 +1327,7 @@ class _ConnectionSettingsScreenState
                           color: context.fc.primary.withValues(alpha: 0.3)),
                     ),
                     textStyle: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w900,
                         fontSize: 12,
                         letterSpacing: 1),
                   ),

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../../core/theme/forgeron_colors.dart';
-import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/utils/chat_markdown.dart';
 import '../../core/utils/clipboard_image_helper.dart';
 import '../../core/utils/file_picker_service.dart';
@@ -721,7 +720,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               child: Row(
                 children: [
-                  const ForgeAiGyroOrb(size: 24, active: true),
+                  Icon(Icons.auto_awesome_rounded, size: 22, color: fc.primary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -1103,9 +1102,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _avatar(ForgeronColorPalette fc) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 4),
-      child: ForgeAiGyroOrb(size: 28, active: true),
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: CircleAvatar(
+        radius: 14,
+        backgroundColor: fc.primary.withValues(alpha: 0.14),
+        child: Icon(Icons.auto_awesome_rounded, size: 15, color: fc.primary),
+      ),
     );
   }
 
@@ -1276,7 +1279,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          const ForgeAiGyroOrb(size: 56, active: true),
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: fc.primary.withValues(alpha: 0.14),
+            child: Icon(Icons.auto_awesome_rounded, size: 28, color: fc.primary),
+          ),
           const SizedBox(height: 16),
           Text(tr('Assistant Forgeron'),
               style: TextStyle(

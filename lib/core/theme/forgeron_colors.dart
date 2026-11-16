@@ -76,30 +76,6 @@ class ForgeronColorPalette {
     required this.panelBody,
     required this.panelSection,
   });
-
-  /// Vrai si le thème courant est sombre (Forge Titanium & Magma Dark).
-  bool get isDark => background.computeLuminance() < 0.5;
-
-  /// Liseré spéculaire supérieur pour surfaces d'aluminium anodisé.
-  Color get rimHighlight =>
-      isDark ? const Color(0x26FFFFFF) : const Color(0xCCFFFFFF);
-
-  /// Halo d'ambiance thermique magma.
-  Color get ambientGlow =>
-      isDark ? const Color(0x22FF6B35) : const Color(0x14FF6B35);
-
-  /// Grille technique de fond pour les zones cockpit et simulateur.
-  Color get tacticalGrid =>
-      isDark ? const Color(0x09FFFFFF) : const Color(0x08000000);
-
-  /// Dégradé anodisé directionnel des cartes et panneaux.
-  LinearGradient get cardGradient => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? [surfaceBright.withValues(alpha: 0.92), surface]
-            : [surface, surfaceBright.withValues(alpha: 0.85)],
-      );
 }
 
 const forgeronDarkColors = ForgeronColorPalette(

@@ -111,9 +111,9 @@ class LimitRecoveryScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: fc.cardGradient,
+              color: fc.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: fc.rimHighlight),
+              border: Border.all(color: fc.surfaceBorder),
             ),
             child: JogControlPanel(wPos: wPos),
           ),
@@ -156,20 +156,13 @@ class LimitRecoveryScreen extends ConsumerWidget {
         ),
         child: Text('$n',
             style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                color: fc.primary,
-                fontWeight: FontWeight.w900,
-                fontSize: 12)),
+                color: fc.primary, fontWeight: FontWeight.w900, fontSize: 12)),
       ),
       const SizedBox(width: 10),
       Expanded(
         child: Text(text,
             style: TextStyle(
-                fontFamily: 'Rajdhani',
-                color: fc.textPrimary,
-                fontSize: 17,
-                letterSpacing: 0.4,
-                fontWeight: FontWeight.w800)),
+                color: fc.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
       ),
     ]);
   }

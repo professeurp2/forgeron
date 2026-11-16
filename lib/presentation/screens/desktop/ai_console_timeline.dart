@@ -447,7 +447,7 @@ class _ToolRunTileState extends State<ToolRunTile> {
             style: TextStyle(
               color: run.isRunning ? fc.primary : fc.textDisabled,
               fontSize: 10.5,
-              fontFamily: 'JetBrains Mono',
+              fontFamily: 'JetBrainsMono',
             ),
           ),
           if (!run.isRunning && run.elapsed > Duration.zero) ...[
@@ -456,7 +456,7 @@ class _ToolRunTileState extends State<ToolRunTile> {
             Text(
               formatDuration(run.elapsed),
               style: TextStyle(
-                  color: fc.textDisabled, fontSize: 10.5, fontFamily: 'JetBrains Mono'),
+                  color: fc.textDisabled, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
             ),
           ],
           const SizedBox(width: 6),
@@ -578,7 +578,7 @@ class _StepRowState extends State<StepRow> {
                         style: TextStyle(
                             color: fc.primary,
                             fontSize: 10.5,
-                            fontFamily: 'JetBrains Mono'),
+                            fontFamily: 'JetBrainsMono'),
                       )
                     : Text(
                         resultSummary(step.toolName ?? '', result ?? ''),
@@ -664,7 +664,7 @@ class _StepRowState extends State<StepRow> {
             style: TextStyle(
               color: danger ? fc.danger : fc.textSecondary,
               fontSize: 11,
-              fontFamily: 'JetBrains Mono',
+              fontFamily: 'JetBrainsMono',
               height: 1.5,
             ),
           ),
@@ -722,8 +722,8 @@ class _StreamingBubbleState extends State<StreamingBubble>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text.rich(
-              TextSpan(
+            child: RichText(
+              text: TextSpan(
                 style: TextStyle(color: fc.textPrimary, fontSize: 13.5, height: 1.6),
                 children: [
                   TextSpan(text: widget.text),

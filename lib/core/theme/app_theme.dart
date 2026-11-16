@@ -1,72 +1,10 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 import 'forgeron_colors.dart';
 
-/// Thème MaterialApp global pour Forgeron — Design System « Forge Titanium & Magma v3 ».
+/// Thème MaterialApp global pour Forgeron.
 /// Supporte les modes Sombre et Clair.
 abstract class AppTheme {
-  static TextTheme _buildTextTheme(ForgeronColorPalette c) {
-    const tabular = [FontFeature.tabularFigures()];
-    return TextTheme(
-      headlineLarge: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textPrimary,
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-      headlineMedium: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textPrimary,
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-      headlineSmall: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textPrimary,
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-      titleLarge: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textPrimary,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-      titleMedium: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textPrimary,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-      bodyLarge: TextStyle(
-        color: c.textPrimary,
-        fontSize: 14,
-        fontFeatures: tabular,
-      ),
-      bodyMedium: TextStyle(
-        color: c.textPrimary,
-        fontSize: 13,
-        fontFeatures: tabular,
-      ),
-      bodySmall: TextStyle(
-        color: c.textSecondary,
-        fontSize: 12,
-        fontFeatures: tabular,
-      ),
-      labelSmall: TextStyle(
-        fontFamily: 'Rajdhani',
-        color: c.textSecondary,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-      ),
-    );
-  }
-
   static ThemeData get darkTheme {
     return ThemeData(
       brightness: Brightness.dark,
@@ -77,14 +15,39 @@ abstract class AppTheme {
         surface: forgeronDarkColors.surface,
         error: forgeronDarkColors.danger,
       ),
-      fontFamily: 'JetBrains Mono',
-      textTheme: _buildTextTheme(forgeronDarkColors),
+      fontFamily: 'RobotoMono',
+      textTheme: TextTheme(
+        headlineLarge: TextStyle(
+          color: forgeronDarkColors.textPrimary,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+        headlineMedium: TextStyle(
+          color: forgeronDarkColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: TextStyle(
+          color: forgeronDarkColors.textPrimary,
+          fontSize: 14,
+        ),
+        bodySmall: TextStyle(
+          color: forgeronDarkColors.textSecondary,
+          fontSize: 12,
+        ),
+        labelSmall: TextStyle(
+          color: forgeronDarkColors.textSecondary,
+          fontSize: 10,
+          letterSpacing: 1.5,
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: forgeronDarkColors.primary,
           foregroundColor: forgeronDarkColors.background,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
@@ -108,14 +71,39 @@ abstract class AppTheme {
         surface: forgeronLightColors.surface,
         error: forgeronLightColors.danger,
       ),
-      fontFamily: 'JetBrains Mono',
-      textTheme: _buildTextTheme(forgeronLightColors),
+      fontFamily: 'RobotoMono',
+      textTheme: TextTheme(
+        headlineLarge: TextStyle(
+          color: forgeronLightColors.textPrimary,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+        headlineMedium: TextStyle(
+          color: forgeronLightColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: TextStyle(
+          color: forgeronLightColors.textPrimary,
+          fontSize: 14,
+        ),
+        bodySmall: TextStyle(
+          color: forgeronLightColors.textSecondary,
+          fontSize: 12,
+        ),
+        labelSmall: TextStyle(
+          color: forgeronLightColors.textSecondary,
+          fontSize: 10,
+          letterSpacing: 1.5,
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: forgeronLightColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),

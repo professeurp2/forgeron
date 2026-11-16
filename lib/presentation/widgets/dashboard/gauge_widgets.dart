@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,12 +7,12 @@ import '../../../application/services/audio_service.dart';
 import '../../../core/i18n/app_localizations.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FORGERON GAUGE WIDGETS — Jauges cinétiques à traînée lumineuse (A et C)
+// FORGERON GAUGE WIDGETS — Jauges premium pour axes rotatifs A et C
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Jauge en demi-arc pour l'axe A (Tilt), limite [-90°, +90°].
-/// Ressemble à un tachymètre aéronautique : arc avec graduations fines,
-/// aiguille lumineuse et traînée cinétique lors du déplacement.
+/// Ressemble à un tachymètre de voiture : arc avec graduations fines,
+/// aiguille lumineuse, valeur numérique au centre.
 class ArcGauge extends StatefulWidget {
   final double value;       // valeur courante en degrés
   final double minValue;    // minimum (défaut -90)
@@ -40,43 +39,25 @@ class _ArcGaugeState extends State<ArcGauge>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
-  late Animation<double> _trailAnim;
   double _displayValue = 0;
-  double _trailValue = 0;
 
   @override
   void initState() {
     super.initState();
     _displayValue = widget.value;
-    _trailValue = widget.value;
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 520));
+        vsync: this, duration: const Duration(milliseconds: 400));
     _anim = Tween<double>(begin: widget.value, end: widget.value)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _trailAnim = Tween<double>(begin: widget.value, end: widget.value).animate(
-        CurvedAnimation(
-            parent: _ctrl,
-            curve: const Interval(0.18, 1.0, curve: Curves.easeInOutCubic)));
-    _ctrl.addListener(() {
-      setState(() {
-        _displayValue = _anim.value;
-        _trailValue = _trailAnim.value;
-      });
-    });
+    _anim.addListener(() => setState(() => _displayValue = _anim.value));
   }
 
   @override
   void didUpdateWidget(ArcGauge old) {
     super.didUpdateWidget(old);
     if (old.value != widget.value) {
-      final fromMain = _displayValue;
-      final fromTrail = _ctrl.isAnimating ? _trailValue : _displayValue;
-      _anim = Tween<double>(begin: fromMain, end: widget.value)
+      _anim = Tween<double>(begin: _displayValue, end: widget.value)
           .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-      _trailAnim = Tween<double>(begin: fromTrail, end: widget.value).animate(
-          CurvedAnimation(
-              parent: _ctrl,
-              curve: const Interval(0.18, 1.0, curve: Curves.easeInOutCubic)));
       _ctrl.forward(from: 0);
     }
   }
@@ -89,10 +70,8 @@ class _ArcGaugeState extends State<ArcGauge>
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     final atLimit = _displayValue >= widget.maxValue - 0.5 ||
         _displayValue <= widget.minValue + 0.5;
-    final activeColor = atLimit ? fc.danger : widget.color;
 
     return SizedBox(
       width: widget.size,
@@ -100,13 +79,12 @@ class _ArcGaugeState extends State<ArcGauge>
       child: CustomPaint(
         painter: _ArcGaugePainter(
           value: _displayValue,
-          trailValue: _trailValue,
           minValue: widget.minValue,
           maxValue: widget.maxValue,
-          color: activeColor,
-          surfaceBorder: fc.surfaceBorder,
-          textDisabled: fc.textDisabled,
-          danger: fc.danger,
+          color: atLimit ? context.fc.danger : widget.color,
+          surfaceBorder: context.fc.surfaceBorder,
+          textDisabled: context.fc.textDisabled,
+          danger: context.fc.danger,
         ),
         child: Align(
           alignment: const Alignment(0, 0.5),
@@ -116,14 +94,14 @@ class _ArcGaugeState extends State<ArcGauge>
               Text(
                 '${_displayValue >= 0 ? '+' : ''}${_displayValue.toStringAsFixed(1)}°',
                 style: TextStyle(
-                  color: atLimit ? fc.danger : fc.textPrimary,
+                  color: atLimit ? context.fc.danger : context.fc.textPrimary,
                   fontSize: widget.size * 0.135,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono',
-                  fontFeatures: const [FontFeature.tabularFigures()],
                   shadows: [
                     Shadow(
-                      color: activeColor.withValues(alpha: 0.5),
+                      color: (atLimit ? context.fc.danger : widget.color)
+                          .withValues(alpha: 0.5),
                       blurRadius: 12,
                     ),
                   ],
@@ -132,9 +110,8 @@ class _ArcGaugeState extends State<ArcGauge>
               Text(
                 tr('AXE {}', [widget.axisLabel]),
                 style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textDisabled,
-                  fontSize: widget.size * 0.072,
+                  color: context.fc.textDisabled,
+                  fontSize: widget.size * 0.065,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
                 ),
@@ -149,7 +126,6 @@ class _ArcGaugeState extends State<ArcGauge>
 
 class _ArcGaugePainter extends CustomPainter {
   final double value;
-  final double trailValue;
   final double minValue;
   final double maxValue;
   final Color color;
@@ -159,7 +135,6 @@ class _ArcGaugePainter extends CustomPainter {
 
   _ArcGaugePainter({
     required this.value,
-    required this.trailValue,
     required this.minValue,
     required this.maxValue,
     required this.color,
@@ -173,23 +148,10 @@ class _ArcGaugePainter extends CustomPainter {
     final cx = size.width / 2;
     final cy = size.height * 0.72;
     final radius = size.width * 0.44;
-    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
 
     // Arc va de 210° à 330° (demi-cercle bas vers haut)
     const startAngle = math.pi * 1.1;   // gauche
     const sweepAngle = math.pi * 0.8;   // 144° de sweep total
-
-    // ── Arc intérieur fin métallique ──
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(cx, cy), radius: radius - 7),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..color = surfaceBorder.withValues(alpha: 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
 
     // ── Arc de fond (piste grise) ──
     final trackPaint = Paint()
@@ -197,12 +159,14 @@ class _ArcGaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, startAngle, sweepAngle, false, trackPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+      startAngle, sweepAngle, false, trackPaint,
+    );
 
     // ── Arc de valeur (progression colorée) ──
     final range = maxValue - minValue;
     final normalizedValue = ((value - minValue) / range).clamp(0.0, 1.0);
-    final normalizedTrail = ((trailValue - minValue) / range).clamp(0.0, 1.0);
     final valueSweep = sweepAngle * normalizedValue;
 
     if (valueSweep > 0) {
@@ -212,41 +176,16 @@ class _ArcGaugePainter extends CustomPainter {
           startAngle: startAngle,
           endAngle: startAngle + valueSweep,
           colors: [
-            color.withValues(alpha: 0.45),
+            color.withValues(alpha: 0.5),
             color,
           ],
-        ).createShader(rect)
+        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
         ..strokeCap = StrokeCap.round;
-      canvas.drawArc(rect, startAngle, valueSweep, false, valuePaint);
-    }
-
-    // ── Traînée cinétique entre ancienne position et aiguille ──
-    final trailDelta = (normalizedValue - normalizedTrail).abs();
-    if (trailDelta > 0.004) {
-      final a1 = startAngle + sweepAngle * normalizedTrail;
-      final a2 = startAngle + sweepAngle * normalizedValue;
-      final arcStart = math.min(a1, a2);
-      final arcSweep = (a2 - a1).abs();
-      final forward = a2 >= a1;
-      final trailPaint = Paint()
-        ..shader = SweepGradient(
-          startAngle: arcStart,
-          endAngle: arcStart + arcSweep,
-          colors: forward
-              ? [color.withValues(alpha: 0.05), color.withValues(alpha: 0.72)]
-              : [color.withValues(alpha: 0.72), color.withValues(alpha: 0.05)],
-        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius + 4))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
-        ..strokeCap = StrokeCap.round;
       canvas.drawArc(
-        Rect.fromCircle(center: Offset(cx, cy), radius: radius + 2),
-        arcStart,
-        arcSweep,
-        false,
-        trailPaint,
+        Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+        startAngle, valueSweep, false, valuePaint,
       );
     }
 
@@ -261,8 +200,8 @@ class _ArcGaugePainter extends CustomPainter {
       final innerR = outerR - tickLen;
       final tickPaint = Paint()
         ..color = isMajor
-            ? textDisabled.withValues(alpha: 0.65)
-            : textDisabled.withValues(alpha: 0.28)
+            ? textDisabled.withValues(alpha: 0.6)
+            : textDisabled.withValues(alpha: 0.25)
         ..strokeWidth = isMajor ? 1.5 : 1.0;
       canvas.drawLine(
         Offset(cx + math.cos(angle) * innerR, cy + math.sin(angle) * innerR),
@@ -276,7 +215,7 @@ class _ArcGaugePainter extends CustomPainter {
     final needleOuter = radius + 16;
     final needleInner = radius - 8;
     final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.38)
+      ..color = color.withValues(alpha: 0.35)
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(
@@ -322,15 +261,12 @@ class _ArcGaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ArcGaugePainter old) =>
-      old.value != value ||
-      old.trailValue != trailValue ||
-      old.color != color ||
-      old.surfaceBorder != surfaceBorder;
+      old.value != value || old.color != color;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 /// Jauge anneau 360° pour l'axe C (plateau rotatif).
-/// Anneau donut avec tick lumineux, traînée cinétique, 12 points cardinaux, valeur au centre.
+/// Anneau donut avec tick lumineux, 12 points cardinaux, valeur au centre.
 class RingGauge extends StatefulWidget {
   final double value;  // 0 à 360
   final Color color;
@@ -353,43 +289,25 @@ class _RingGaugeState extends State<RingGauge>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
-  late Animation<double> _trailAnim;
   double _displayValue = 0;
-  double _trailValue = 0;
 
   @override
   void initState() {
     super.initState();
     _displayValue = widget.value;
-    _trailValue = widget.value;
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 480));
+        vsync: this, duration: const Duration(milliseconds: 350));
     _anim = Tween<double>(begin: widget.value, end: widget.value)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _trailAnim = Tween<double>(begin: widget.value, end: widget.value).animate(
-        CurvedAnimation(
-            parent: _ctrl,
-            curve: const Interval(0.18, 1.0, curve: Curves.easeInOutCubic)));
-    _ctrl.addListener(() {
-      setState(() {
-        _displayValue = _anim.value;
-        _trailValue = _trailAnim.value;
-      });
-    });
+    _anim.addListener(() => setState(() => _displayValue = _anim.value));
   }
 
   @override
   void didUpdateWidget(RingGauge old) {
     super.didUpdateWidget(old);
     if (old.value != widget.value) {
-      final fromMain = _displayValue;
-      final fromTrail = _ctrl.isAnimating ? _trailValue : _displayValue;
-      _anim = Tween<double>(begin: fromMain, end: widget.value)
+      _anim = Tween<double>(begin: _displayValue, end: widget.value)
           .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-      _trailAnim = Tween<double>(begin: fromTrail, end: widget.value).animate(
-          CurvedAnimation(
-              parent: _ctrl,
-              curve: const Interval(0.18, 1.0, curve: Curves.easeInOutCubic)));
       _ctrl.forward(from: 0);
     }
   }
@@ -402,17 +320,15 @@ class _RingGaugeState extends State<RingGauge>
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return SizedBox(
       width: widget.size,
       height: widget.size,
       child: CustomPaint(
         painter: _RingGaugePainter(
           value: _displayValue,
-          trailValue: _trailValue,
           color: widget.color,
-          surfaceBorder: fc.surfaceBorder,
-          textDisabled: fc.textDisabled,
+          surfaceBorder: context.fc.surfaceBorder,
+          textDisabled: context.fc.textDisabled,
         ),
         child: Center(
           child: Column(
@@ -421,11 +337,10 @@ class _RingGaugeState extends State<RingGauge>
               Text(
                 '${_displayValue.toStringAsFixed(1)}°',
                 style: TextStyle(
-                  color: fc.textPrimary,
+                  color: context.fc.textPrimary,
                   fontSize: widget.size * 0.13,
                   fontWeight: FontWeight.w900,
                   fontFamily: 'JetBrains Mono',
-                  fontFeatures: const [FontFeature.tabularFigures()],
                   shadows: [
                     Shadow(
                       color: widget.color.withValues(alpha: 0.5),
@@ -437,9 +352,8 @@ class _RingGaugeState extends State<RingGauge>
               Text(
                 tr('AXE {}', [widget.axisLabel]),
                 style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textDisabled,
-                  fontSize: widget.size * 0.072,
+                  color: context.fc.textDisabled,
+                  fontSize: widget.size * 0.065,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
                 ),
@@ -454,14 +368,12 @@ class _RingGaugeState extends State<RingGauge>
 
 class _RingGaugePainter extends CustomPainter {
   final double value;
-  final double trailValue;
   final Color color;
   final Color surfaceBorder;
   final Color textDisabled;
 
   const _RingGaugePainter({
     required this.value,
-    required this.trailValue,
     required this.color,
     required this.surfaceBorder,
     required this.textDisabled,
@@ -474,17 +386,6 @@ class _RingGaugePainter extends CustomPainter {
     final outerR = size.width * 0.46;
     final innerR = size.width * 0.35;
     final midR = (outerR + innerR) / 2;
-    final ringRect = Rect.fromCircle(center: Offset(cx, cy), radius: midR);
-
-    // ── Anneau interne biseauté ──
-    canvas.drawCircle(
-      Offset(cx, cy),
-      innerR - 3,
-      Paint()
-        ..color = surfaceBorder.withValues(alpha: 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
 
     // ── Piste de fond ──
     final trackPaint = Paint()
@@ -500,54 +401,31 @@ class _RingGaugePainter extends CustomPainter {
         ..shader = SweepGradient(
           startAngle: -math.pi / 2,
           endAngle: -math.pi / 2 + progressAngle,
-          colors: [color.withValues(alpha: 0.35), color],
-        ).createShader(ringRect)
+          colors: [color.withValues(alpha: 0.4), color],
+        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: midR))
         ..style = PaintingStyle.stroke
         ..strokeWidth = outerR - innerR
         ..strokeCap = StrokeCap.butt;
       canvas.drawArc(
-        ringRect,
+        Rect.fromCircle(center: Offset(cx, cy), radius: midR),
         -math.pi / 2, progressAngle, false, arcPaint,
       );
-    }
-
-    // ── Traînée cinétique angulaire (hors franchissement 360°→0°) ──
-    final degDiff = (value - trailValue).abs();
-    if (degDiff > 1.0 && degDiff < 180.0) {
-      final a1 = (trailValue - 90) * math.pi / 180;
-      final a2 = (value - 90) * math.pi / 180;
-      final arcStart = math.min(a1, a2);
-      final arcSweep = (a2 - a1).abs();
-      final forward = value >= trailValue;
-      final trailPaint = Paint()
-        ..shader = SweepGradient(
-          startAngle: arcStart,
-          endAngle: arcStart + arcSweep,
-          colors: forward
-              ? [color.withValues(alpha: 0.05), color.withValues(alpha: 0.72)]
-              : [color.withValues(alpha: 0.72), color.withValues(alpha: 0.05)],
-        ).createShader(ringRect)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = (outerR - innerR) + 4
-        ..strokeCap = StrokeCap.round;
-      canvas.drawArc(ringRect, arcStart, arcSweep, false, trailPaint);
     }
 
     // ── Points cardinaux (0°, 30°, 60°, ...) ──
     for (int i = 0; i < 12; i++) {
       final angle = (i * 30 - 90) * math.pi / 180;
       final isMajor = i % 3 == 0;
-      final dotR = isMajor ? 3.2 : 1.5;
+      final dotR = isMajor ? 3.0 : 1.5;
       final dotPos = Offset(
         cx + math.cos(angle) * (outerR + 6),
         cy + math.sin(angle) * (outerR + 6),
       );
       canvas.drawCircle(
-        dotPos,
-        dotR,
+        dotPos, dotR,
         Paint()
           ..color = isMajor
-              ? color.withValues(alpha: 0.75)
+              ? textDisabled.withValues(alpha: 0.6)
               : textDisabled.withValues(alpha: 0.25),
       );
     }
@@ -561,7 +439,7 @@ class _RingGaugePainter extends CustomPainter {
       Offset(cx + math.cos(needleAngle) * (outerR + 10),
           cy + math.sin(needleAngle) * (outerR + 10)),
       Paint()
-        ..color = color.withValues(alpha: 0.42)
+        ..color = color.withValues(alpha: 0.35)
         ..strokeWidth = 7
         ..strokeCap = StrokeCap.round,
     );
@@ -573,7 +451,7 @@ class _RingGaugePainter extends CustomPainter {
           cy + math.sin(needleAngle) * (outerR + 10)),
       Paint()
         ..color = color
-        ..strokeWidth = 2.2
+        ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
 
@@ -583,17 +461,14 @@ class _RingGaugePainter extends CustomPainter {
       Offset(cx + math.cos(needleAngle) * innerR,
           cy + math.sin(needleAngle) * innerR),
       Paint()
-        ..color = color.withValues(alpha: 0.18)
+        ..color = color.withValues(alpha: 0.15)
         ..strokeWidth = 1,
     );
   }
 
   @override
   bool shouldRepaint(_RingGaugePainter old) =>
-      old.value != value ||
-      old.trailValue != trailValue ||
-      old.color != color ||
-      old.surfaceBorder != surfaceBorder;
+      old.value != value || old.color != color;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -702,7 +577,6 @@ class _DpadBtnState extends ConsumerState<_DpadBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return GestureDetector(
       onTapDown: (_) {
         setState(() => _pressed = true);
@@ -713,49 +587,39 @@ class _DpadBtnState extends ConsumerState<_DpadBtn> {
       },
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _pressed
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [fc.surfaceBright, fc.surface],
-                  ),
-            color: _pressed ? widget.color.withValues(alpha: 0.25) : null,
-            border: Border.all(
-              color: _pressed
-                  ? widget.color.withValues(alpha: 0.75)
-                  : fc.surfaceBorder,
-              width: 1.5,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _pressed
+              ? widget.color.withValues(alpha: 0.25)
+              : context.fc.surfaceBright,
+          border: Border.all(
+            color: _pressed
+                ? widget.color.withValues(alpha: 0.7)
+                : context.fc.surfaceBorder,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _pressed ? 0.15 : 0.4),
+              blurRadius: _pressed ? 2 : 8,
+              offset: Offset(0, _pressed ? 0 : 3),
             ),
-            boxShadow: [
+            if (_pressed)
               BoxShadow(
-                color: Colors.black.withValues(alpha: _pressed ? 0.15 : 0.38),
-                blurRadius: _pressed ? 2 : 8,
-                offset: Offset(0, _pressed ? 0 : 3),
+                color: widget.color.withValues(alpha: 0.3),
+                blurRadius: 12,
+                spreadRadius: 1,
               ),
-              if (_pressed)
-                BoxShadow(
-                  color: widget.color.withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-            ],
-          ),
-          child: Icon(
-            widget.icon,
-            color: _pressed ? widget.color : fc.textSecondary,
-            size: widget.size * 0.55,
-          ),
+          ],
+        ),
+        child: Icon(
+          widget.icon,
+          color: _pressed ? widget.color : context.fc.textSecondary,
+          size: widget.size * 0.55,
         ),
       ),
     );
@@ -777,7 +641,6 @@ class _DpadStopBtnState extends ConsumerState<_DpadStopBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return GestureDetector(
       onTapDown: (_) {
         if (widget.onStop == null) return;
@@ -789,51 +652,41 @@ class _DpadStopBtnState extends ConsumerState<_DpadStopBtn> {
       },
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.90 : 1.0,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _pressed
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [fc.surfaceBright, fc.surface],
-                  ),
-            color: _pressed ? fc.danger.withValues(alpha: 0.22) : null,
-            border: Border.all(
-              color: _pressed
-                  ? fc.danger.withValues(alpha: 0.7)
-                  : fc.surfaceBorder,
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: _pressed ? 0.15 : 0.38),
-                blurRadius: _pressed ? 2 : 8,
-                offset: Offset(0, _pressed ? 0 : 2),
-              ),
-              if (_pressed)
-                BoxShadow(
-                  color: fc.danger.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-            ],
-          ),
-          child: Icon(
-            Icons.stop_rounded,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _pressed
+              ? context.fc.danger.withValues(alpha: 0.2)
+              : context.fc.surfaceBright,
+          border: Border.all(
             color: _pressed
-                ? fc.danger
-                : fc.textDisabled.withValues(alpha: 0.55),
-            size: widget.size * 0.45,
+                ? context.fc.danger.withValues(alpha: 0.6)
+                : context.fc.surfaceBorder,
+            width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _pressed ? 0.15 : 0.4),
+              blurRadius: _pressed ? 2 : 8,
+              offset: Offset(0, _pressed ? 0 : 2),
+            ),
+            if (_pressed)
+              BoxShadow(
+                color: context.fc.danger.withValues(alpha: 0.25),
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+          ],
+        ),
+        child: Icon(
+          Icons.stop_rounded,
+          color: _pressed
+              ? context.fc.danger
+              : context.fc.textDisabled.withValues(alpha: 0.5),
+          size: widget.size * 0.45,
         ),
       ),
     );
@@ -858,7 +711,6 @@ class _ZAxisButtonState extends ConsumerState<ZAxisButton> {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return GestureDetector(
       onTapDown: (_) {
         setState(() => _pressed = true);
@@ -868,53 +720,43 @@ class _ZAxisButtonState extends ConsumerState<ZAxisButton> {
       },
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          width: 60,
-          height: 52, // cible tactile confortable (≥ 48 dp)
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: _pressed
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [fc.surfaceBright, fc.surface],
-                  ),
-            color: _pressed ? fc.axisZ.withValues(alpha: 0.22) : null,
-            border: Border.all(
-              color: _pressed
-                  ? fc.axisZ.withValues(alpha: 0.75)
-                  : fc.surfaceBorder,
-              width: 1.5,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: 60,
+        height: 52, // cible tactile confortable (≥ 48 dp)
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: _pressed
+              ? context.fc.axisZ.withValues(alpha: 0.2)
+              : context.fc.surfaceBright,
+          border: Border.all(
+            color: _pressed
+                ? context.fc.axisZ.withValues(alpha: 0.7)
+                : context.fc.surfaceBorder,
+            width: 1.5,
+          ),
+          boxShadow: _pressed
+              ? [BoxShadow(color: context.fc.axisZ.withValues(alpha: 0.2), blurRadius: 8)]
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.isPlus ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
+              color: _pressed ? context.fc.axisZ : context.fc.axisZ.withValues(alpha: 0.6),
+              size: 22,
             ),
-            boxShadow: _pressed
-                ? [BoxShadow(color: fc.axisZ.withValues(alpha: 0.25), blurRadius: 10)]
-                : [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 6, offset: const Offset(0, 2))],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                widget.isPlus ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
-                color: _pressed ? fc.axisZ : fc.axisZ.withValues(alpha: 0.65),
-                size: 22,
+            Text(
+              widget.isPlus ? 'Z+' : 'Z−',
+              style: TextStyle(
+                color: _pressed ? context.fc.axisZ : context.fc.axisZ.withValues(alpha: 0.6),
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'JetBrains Mono',
               ),
-              Text(
-                widget.isPlus ? 'Z+' : 'Z−',
-                style: TextStyle(
-                  color: _pressed ? fc.axisZ : fc.axisZ.withValues(alpha: 0.65),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono',
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -947,7 +789,6 @@ class _RotaryJogButtonState extends ConsumerState<RotaryJogButton> {
 
   @override
   Widget build(BuildContext context) {
-    final fc = context.fc;
     return GestureDetector(
       onTapDown: (_) {
         setState(() => _pressed = true);
@@ -958,57 +799,47 @@ class _RotaryJogButtonState extends ConsumerState<RotaryJogButton> {
       },
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: _pressed
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [fc.surfaceBright, fc.surface],
-                  ),
-            color: _pressed ? widget.color.withValues(alpha: 0.22) : null,
-            border: Border.all(
-              color: _pressed
-                  ? widget.color.withValues(alpha: 0.85)
-                  : widget.color.withValues(alpha: 0.35),
-              width: 1.5,
-            ),
-            boxShadow: _pressed
-                ? [BoxShadow(color: widget.color.withValues(alpha: 0.28), blurRadius: 10)]
-                : [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 6, offset: const Offset(0, 2))],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: _pressed
+              ? widget.color.withValues(alpha: 0.2)
+              : context.fc.surfaceBright,
+          border: Border.all(
+            color: _pressed
+                ? widget.color.withValues(alpha: 0.8)
+                : widget.color.withValues(alpha: 0.3),
+            width: 1.5,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!widget.isPlus)
-                Icon(Icons.rotate_left_rounded,
-                    color: _pressed ? widget.color : widget.color.withValues(alpha: 0.65),
-                    size: 16),
-              const SizedBox(width: 4),
-              Text(
-                '${widget.axisLabel}${widget.isPlus ? '+' : '−'}',
-                style: TextStyle(
-                  color: _pressed ? widget.color : widget.color.withValues(alpha: 0.85),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'JetBrains Mono',
-                ),
+          boxShadow: _pressed
+              ? [BoxShadow(color: widget.color.withValues(alpha: 0.25), blurRadius: 10)]
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!widget.isPlus)
+              Icon(Icons.rotate_left_rounded,
+                  color: _pressed ? widget.color : widget.color.withValues(alpha: 0.6),
+                  size: 16),
+            SizedBox(width: 4),
+            Text(
+              '${widget.axisLabel}${widget.isPlus ? '+' : '−'}',
+              style: TextStyle(
+                color: _pressed ? widget.color : widget.color.withValues(alpha: 0.8),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'JetBrains Mono',
               ),
-              const SizedBox(width: 4),
-              if (widget.isPlus)
-                Icon(Icons.rotate_right_rounded,
-                    color: _pressed ? widget.color : widget.color.withValues(alpha: 0.65),
-                    size: 16),
-            ],
-          ),
+            ),
+            SizedBox(width: 4),
+            if (widget.isPlus)
+              Icon(Icons.rotate_right_rounded,
+                  color: _pressed ? widget.color : widget.color.withValues(alpha: 0.6),
+                  size: 16),
+          ],
         ),
       ),
     );
@@ -1038,7 +869,6 @@ class DroBigCard extends StatefulWidget {
 class _DroBigCardState extends State<DroBigCard> {
   double? _oldValue;
   String _direction = 'idle';
-  Timer? _idleTimer;
 
   @override
   void didUpdateWidget(DroBigCard old) {
@@ -1047,8 +877,7 @@ class _DroBigCardState extends State<DroBigCard> {
       final diff = widget.value - _oldValue!;
       if (diff.abs() > 0.0005) {
         setState(() => _direction = diff > 0 ? 'up' : 'down');
-        _idleTimer?.cancel();
-        _idleTimer = Timer(const Duration(milliseconds: 600), () {
+        Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) setState(() => _direction = 'idle');
         });
       }
@@ -1060,12 +889,6 @@ class _DroBigCardState extends State<DroBigCard> {
   void initState() {
     super.initState();
     _oldValue = widget.value;
-  }
-
-  @override
-  void dispose() {
-    _idleTimer?.cancel();
-    super.dispose();
   }
 
   @override

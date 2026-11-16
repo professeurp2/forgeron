@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
-import '../../application/providers/gcode_provider.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
 import '../../application/providers/di_providers.dart';
@@ -63,25 +62,22 @@ class CncPanelScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      color: context.fc.panelBody,
-      child: LayoutBuilder(builder: (context, c) {
-        final fits = c.maxWidth >= designWidth && c.maxHeight >= designHeight;
-        if (fits) return _CncPanelBody();
-        return Container(
-          color: context.fc.panelBody,
-          alignment: Alignment.center,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: designWidth,
-              height: designHeight,
-              child: _CncPanelBody(),
-            ),
+    return LayoutBuilder(builder: (context, c) {
+      final fits = c.maxWidth >= designWidth && c.maxHeight >= designHeight;
+      if (fits) return _CncPanelBody();
+      return Container(
+        color: context.fc.panelBody,
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: SizedBox(
+            width: designWidth,
+            height: designHeight,
+            child: _CncPanelBody(),
           ),
-        );
-      }),
-    );
+        ),
+      );
+    });
   }
 }
 
@@ -100,12 +96,10 @@ class _CncPanelBody extends ConsumerWidget {
           end: Alignment.bottomRight,
           colors: [
             context.fc.panelBody,
-            context.fc.isDark
-                ? const Color(0xFF14192F)
-                : context.fc.surfaceBright,
+            Color(0xFF14192F),
             context.fc.panelBody,
           ],
-          stops: const [0.0, 0.5, 1.0],
+          stops: [0.0, 0.5, 1.0],
         ),
       ),
       child: SafeArea(
@@ -153,8 +147,6 @@ class _CncPanelBody extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: TrunnionVisualizer(
                           mPos: ref.watch(renderMPosProvider),
-                          toolpath: ref.watch(renderToolpathProvider),
-                          activeIndex: state?.activeLineIndex ?? 0,
                         ),
                       ),
                     ),
@@ -226,10 +218,9 @@ class _PanelHeader extends ConsumerWidget {
           Text(
             tr('FORGERON'),
             style: TextStyle(
-              fontFamily: 'Rajdhani',
               color: context.fc.primary,
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
               fontStyle: FontStyle.italic,
               letterSpacing: 2.0,
             ),
@@ -238,10 +229,9 @@ class _PanelHeader extends ConsumerWidget {
           Text(
             tr('CNC-5X'),
             style: TextStyle(
-              fontFamily: 'Rajdhani',
-              color: context.fc.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              color: context.fc.textDisabled,
+              fontSize: 11,
+              fontWeight: FontWeight.w300,
               letterSpacing: 1.5,
             ),
           ),
@@ -376,7 +366,7 @@ class _LcdDisplayColumn extends StatelessWidget {
             children: [
               // LCD position machine
               Expanded(
-                flex: 5,
+                flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -406,7 +396,7 @@ class _LcdDisplayColumn extends StatelessWidget {
 
               // LCD état modal
               Expanded(
-                flex: 4,
+                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -476,8 +466,10 @@ class _LcdDisplayColumn extends StatelessWidget {
                 fontFamily: 'JetBrains Mono',
                 fontWeight: FontWeight.bold)),
         const Spacer(),
-        const SizedBox(width: 4),
-        // Flexible + ellipse : évite le débordement sur les étroites largeurs du LCD modal.
+        const SizedBox(width: 8),
+        // Flexible + ellipse : « F reel » suivi de « 0 mm/min » ne tenait pas
+        // dans la colonne etroite du pupitre, et la ligne debordait (bandes
+        // jaunes et noires par-dessus l'etat modal).
         Flexible(
           child: Text(
             unit != null ? '$value $unit' : value,
@@ -486,9 +478,9 @@ class _LcdDisplayColumn extends StatelessWidget {
             textAlign: TextAlign.right,
             style: TextStyle(
               color: context.fc.lcdText,
-              fontSize: 10,
+              fontSize: 11,
               fontFamily: 'JetBrains Mono',
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ),

@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/forgeron_colors.dart';
-import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../application/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,7 +65,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   /// Pilote la navigation en cube 3D sur mobile. Détenu ici pour synchroniser
   /// la barre du bas (tap) et le glissement horizontal.
-  late final PageController _pageController;
+  final PageController _pageController = PageController();
   bool _wasTransitioning = false;
 
   @override
@@ -79,7 +78,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   /// Signale « transition en cours » dès que la page quitte un entier, pour que
   /// le simulateur (WebView) se masque le temps de la rotation du cube.
   void _onPageScroll() {
-    if (_pageController.positions.length != 1 ||
+    if (!_pageController.hasClients ||
         !_pageController.position.haveDimensions) {
       return;
     }
@@ -94,10 +93,6 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(
-      initialPage:
-          ref.read(selectedNavIndexProvider).clamp(0, _mobileScreens.length - 1),
-    );
     _pageController.addListener(_onPageScroll);
     // Démarre le journal d'activité dès l'ouverture (pour que l'IA connaisse
     // toutes les actions opérateur, même celles faites avant d'ouvrir l'IA).
@@ -556,7 +551,27 @@ class _AiAssistantPage extends ConsumerWidget {
         titleSpacing: 0,
         title: Row(
           children: [
-            const ForgeAiGyroOrb(size: 34, active: true),
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [fc.primary, fc.primary.withValues(alpha: 0.7)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: fc.primary.withValues(alpha: 0.4),
+                    blurRadius: 10,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: const Text('🤖', style: TextStyle(fontSize: 18)),
+            ),
             const SizedBox(width: 10),
             Flexible(
               child: Column(
@@ -566,11 +581,10 @@ class _AiAssistantPage extends ConsumerWidget {
                   Text('Forgeron IA',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontFamily: 'Rajdhani',
                           color: fc.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                          fontSize: 15,
                           height: 1.1)),
                   Text(tr('Assistant CNC'),
                       overflow: TextOverflow.ellipsis,
@@ -707,9 +721,9 @@ class _GlobalProgressBar extends ConsumerWidget {
               ],
             ),
           ),
-          LaserShimmerBar(
+          LinearProgressIndicator(
             value: p.fraction,
-            height: 4,
+            minHeight: 3,
             backgroundColor: fc.surfaceBorder,
             color: fc.primary,
           ),
@@ -754,9 +768,9 @@ class _DraggableAiButtonState extends State<_DraggableAiButton> {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // Défaut : bas-droite, au-dessus des barres d'action et du FAB E-STOP.
+        // Défaut : bas-droite (au-dessus du FAB E-STOP central).
         final pos = _clamp(
-          _pos ?? Offset(w - _size - 14, h - _size - 108),
+          _pos ?? Offset(w - _size - 16, h - _size - 24),
           w,
           h,
         );
@@ -872,15 +886,12 @@ class _FloatingAiButtonState extends State<_FloatingAiButton>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              fc.surfaceBright,
-                              fc.background,
+                              fc.primary,
+                              fc.primary.withValues(alpha: 0.75),
                             ],
                           ),
                           border: Border.all(
-                            color: (widget.problem
-                                    ? fc.danger
-                                    : (widget.alert ? fc.warning : fc.primary))
-                                .withValues(alpha: 0.65),
+                            color: Colors.white.withValues(alpha: 0.25),
                             width: 1.5,
                           ),
                           boxShadow: [
@@ -890,19 +901,14 @@ class _FloatingAiButtonState extends State<_FloatingAiButton>
                               spreadRadius: 1,
                             ),
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
+                              color: Colors.black.withValues(alpha: 0.30),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         alignment: Alignment.center,
-                        child: ForgeAiGyroOrb(
-                          size: 50,
-                          alert: widget.alert,
-                          problem: widget.problem,
-                          active: true,
-                        ),
+                        child: const Text('🤖', style: TextStyle(fontSize: 28)),
                       ),
                       if (badge != null) badge,
                     ],
@@ -1032,17 +1038,8 @@ class _HeaderBar extends ConsumerWidget {
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        gradient: context.fc.cardGradient,
-        border: Border(
-          bottom: BorderSide(color: context.fc.surfaceBorder),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: context.fc.isDark ? 0.25 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: context.fc.surface,
+        border: Border(bottom: BorderSide(color: context.fc.surfaceBorder)),
       ),
       // Fenêtre étroite : on retire d'abord le décoratif (nom en toutes
       // lettres, adresse IP, second badge), JAMAIS le bouton d'arrêt
@@ -1285,11 +1282,10 @@ class _StatusBadgeState extends State<_StatusBadge>
             const SizedBox(width: 8),
             Text(tr(widget.label),
                 style: TextStyle(
-                    fontFamily: 'Rajdhani',
                     color: widget.color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                    letterSpacing: 1.2)),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 1.0)),
           ],
         ),
       ),
@@ -1375,29 +1371,7 @@ class _Sidebar extends StatelessWidget {
               child: showLabels
                   ? Row(
                       children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                context.fc.surfaceBright,
-                                context.fc.background,
-                              ],
-                            ),
-                            border: Border.all(
-                              color: context.fc.primary.withValues(alpha: 0.45),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.precision_manufacturing_rounded,
-                            color: context.fc.primary,
-                            size: 18,
-                          ),
-                        ),
+                        const ForgeronLogoGlow(height: 32),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -1407,42 +1381,17 @@ class _Sidebar extends StatelessWidget {
                               Text(tr('CNC_TRUNNION_5X'),
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                      fontFamily: 'Rajdhani',
                                       color: context.fc.primary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.0)),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900)),
                               const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  for (final c in [
-                                    context.fc.axisX,
-                                    context.fc.axisY,
-                                    context.fc.axisZ,
-                                    context.fc.axisA,
-                                    context.fc.axisC,
-                                  ])
-                                    Container(
-                                      width: 5,
-                                      height: 5,
-                                      margin: const EdgeInsets.only(right: 3),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: c,
-                                      ),
-                                    ),
-                                  const SizedBox(width: 3),
-                                  Flexible(
-                                    child: Text(tr('AXES: X Y Z A C'),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            color: context.fc.success,
-                                            fontSize: 8,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'JetBrains Mono')),
-                                  ),
-                                ],
-                              ),
+                              Text(tr('AXES: X Y Z A C'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: context.fc.success,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'JetBrains Mono')),
                             ],
                           ),
                         ),
@@ -1654,33 +1603,28 @@ class _NavItemState extends State<_NavItem> {
           height: widget.height,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            gradient: selected
-                ? LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      fc.primary.withValues(alpha: 0.14),
-                      Colors.transparent,
-                    ],
-                  )
-                : null,
+            // Fond neutre : l'orange de la marque en transparence donnait un
+            // brun-rouge sur le fond sombre, pris pour une tache (signalé à
+            // l'écran). La sélection se lit au liseré, à l'icône et au gras.
             color: selected
-                ? null
-                : (_hover
+                ? fc.textPrimary.withValues(alpha: 0.08)
+                : _hover
                     ? fc.textPrimary.withValues(alpha: 0.05)
-                    : Colors.transparent),
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
             children: [
-              // Liseré de sélection : il grandit depuis le centre avec halo.
+              // Liseré de sélection : il grandit depuis le centre.
               Positioned(
                 left: 0,
                 top: 0,
                 bottom: 0,
                 child: Center(
                   // Courbe SANS dépassement : easeOutBack faisait passer la
-                  // hauteur sous zéro en rétrécissant (28 → 0).
+                  // hauteur sous zéro en rétrécissant (28 → 0), et l'entrée
+                  // quittée s'affichait en écran d'erreur rouge le temps de
+                  // l'animation (signalé et capturé à l'écran).
                   child: AnimatedContainer(
                     duration: d,
                     curve: Curves.easeOutCubic,
@@ -1689,14 +1633,6 @@ class _NavItemState extends State<_NavItem> {
                     decoration: BoxDecoration(
                       color: fc.primary,
                       borderRadius: BorderRadius.circular(2),
-                      boxShadow: selected
-                          ? [
-                              BoxShadow(
-                                color: fc.primary.withValues(alpha: 0.6),
-                                blurRadius: 8,
-                              ),
-                            ]
-                          : null,
                     ),
                   ),
                 ),
@@ -1722,14 +1658,13 @@ class _NavItemState extends State<_NavItem> {
                         // défaut au lieu de le compléter : sans famille dite
                         // ici, le libellé prenait la police de l'OS.
                         style: TextStyle(
-                          fontFamily: 'Rajdhani',
                           color: selected || _hover
                               ? fc.textPrimary
                               : fc.textSecondary,
                           fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w600,
-                          fontSize: 12.5,
-                          letterSpacing: 1.1,
+                              selected ? FontWeight.w900 : FontWeight.normal,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
                         ),
                         child: Text(widget.title,
                             overflow: TextOverflow.ellipsis),
@@ -1768,83 +1703,58 @@ class _StatusFooter extends ConsumerWidget {
     final isOnline = state?.status != null &&
         state?.status != MachineStatus.offline;
 
-    final fc = context.fc;
-    const monoStyle = TextStyle(
-      fontSize: 10,
-      fontFamily: 'JetBrains Mono',
-      fontFeatures: [FontFeature.tabularFigures()],
-    );
-
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: fc.surface,
-        border: Border(top: BorderSide(color: fc.surfaceBorder)),
+        color: context.fc.surface,
+        border: Border(top: BorderSide(color: context.fc.surfaceBorder)),
       ),
       child: Row(
         children: [
           Text(tr('FORGERON v1.0.0'),
               style: TextStyle(
-                  fontFamily: 'Rajdhani',
-                  color: fc.textDisabled,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0)),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text.rich(
-                  TextSpan(
-                    style: monoStyle.copyWith(color: fc.textSecondary),
-                    children: [
-                      TextSpan(text: 'X:', style: TextStyle(color: fc.axisX, fontWeight: FontWeight.w700)),
-                      TextSpan(text: '${mPos[0].toStringAsFixed(3)}  '),
-                      TextSpan(text: 'Y:', style: TextStyle(color: fc.axisY, fontWeight: FontWeight.w700)),
-                      TextSpan(text: '${mPos[1].toStringAsFixed(3)}  '),
-                      TextSpan(text: 'Z:', style: TextStyle(color: fc.axisZ, fontWeight: FontWeight.w700)),
-                      TextSpan(text: '${mPos[2].toStringAsFixed(3)}  '),
-                      TextSpan(text: 'A:', style: TextStyle(color: fc.axisA, fontWeight: FontWeight.w700)),
-                      TextSpan(text: '${mPos[3].toStringAsFixed(2)}°  '),
-                      TextSpan(text: 'C:', style: TextStyle(color: fc.axisC, fontWeight: FontWeight.w700)),
-                      TextSpan(text: '${mPos[4].toStringAsFixed(2)}°'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              children: [
+                  color: context.fc.textDisabled,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono')),
+          const SizedBox(width: 24),
+          Text(
+              'X:${mPos[0].toStringAsFixed(3)}  Y:${mPos[1].toStringAsFixed(3)}  Z:${mPos[2].toStringAsFixed(3)}  A:${mPos[3].toStringAsFixed(2)}°  C:${mPos[4].toStringAsFixed(2)}°',
+              style: TextStyle(
+                  color: context.fc.secondary,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono')),
+          const Spacer(),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(children: [
                 Text('F:$feed mm/min',
-                    style: monoStyle.copyWith(color: fc.primary)),
+                    style: TextStyle(
+                        color: context.fc.primary,
+                        fontSize: 10,
+                        fontFamily: 'JetBrains Mono')),
                 const SizedBox(width: 16),
                 Text('S:$spindle RPM',
-                    style: monoStyle.copyWith(color: fc.primary)),
+                    style: TextStyle(
+                        color: context.fc.primary,
+                        fontSize: 10,
+                        fontFamily: 'JetBrains Mono')),
                 const SizedBox(width: 24),
                 Icon(
                   isOnline ? Icons.wifi : Icons.wifi_off,
-                  color: isOnline ? fc.success : fc.error,
+                  color: isOnline ? context.fc.success : context.fc.error,
                   size: 12,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   isOnline ? 'ESP32 CONNECTÉ' : 'DÉCONNECTÉ',
                   style: TextStyle(
-                      fontFamily: 'Rajdhani',
-                      color: isOnline ? fc.success : fc.error,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8),
+                      color: isOnline ? context.fc.success : context.fc.error,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
-              ],
+              ]),
             ),
           ),
         ],
