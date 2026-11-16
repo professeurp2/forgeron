@@ -76,23 +76,16 @@ import 'lexicon_provider.dart';
 
 import 'machine_params_provider.dart';
 
-
-
 // Porte d'entrée « lexique fermé » du contrôleur : voir ai_lexicon_front.dart.
 
 part 'ai_lexicon_front.dart';
 
-
-
 class AiChatMessage {
-
   final String role; // 'user' | 'assistant' | 'tool'
 
   final String text;
 
   final DateTime timestamp;
-
-
 
   /// Réponse coupée en cours de route par l'opérateur (bouton « Stop ») :
 
@@ -100,15 +93,11 @@ class AiChatMessage {
 
   final bool interrupted;
 
-
-
   /// Miniature de l'image jointe (session uniquement, non persistée pour ne
 
   /// pas gonfler le stockage). Sert à l'aperçu dans l'historique.
 
   final Uint8List? imageBytes;
-
-
 
   // ── Étape d'outil (role == 'tool') ─────────────────────────────────────
 
@@ -126,27 +115,19 @@ class AiChatMessage {
 
   // indicateur générique le temps que ça tombe.
 
-
-
   /// Nom technique de l'outil (`run_step_pipeline`, `home`…).
 
   final String? toolName;
 
-
-
   /// Arguments passés à l'outil, tels que le modèle les a produits.
 
   final Map<String, dynamic>? toolArgs;
-
-
 
   /// Résultat brut. `null` tant que l'outil tourne — c'est CE champ qui
 
   /// distingue une étape en cours d'une étape terminée, jamais le texte.
 
   final String? toolResult;
-
-
 
   /// Temps d'exécution, `null` tant que l'outil tourne.
 
@@ -159,10 +140,7 @@ class AiChatMessage {
 
   bool get isMachineTranslated => sourceText != null;
 
-
-
   const AiChatMessage({
-
     required this.role,
 
     required this.text,
@@ -182,17 +160,12 @@ class AiChatMessage {
     this.toolDuration,
 
     this.sourceText,
-
   });
-
-
 
   /// Étape d'outil qui vient de démarrer : pas encore de résultat.
 
   factory AiChatMessage.toolStarted(String name, Map<String, dynamic> args) =>
-
       AiChatMessage(
-
         role: 'tool',
 
         text: '$name → …',
@@ -202,19 +175,14 @@ class AiChatMessage {
         toolName: name,
 
         toolArgs: args,
-
       );
-
-
 
   /// La même étape, aboutie. Reprend l'horodatage de départ pour que l'ordre
 
   /// du fil ne bouge pas sous les yeux de l'opérateur.
 
   AiChatMessage toolFinished(String result, {Uint8List? image}) =>
-
       AiChatMessage(
-
         role: 'tool',
 
         text: '${toolName ?? role} → $result',
@@ -230,20 +198,13 @@ class AiChatMessage {
         toolResult: result,
 
         toolDuration: DateTime.now().difference(timestamp),
-
       );
 
-
-
   bool get isTool => role == 'tool';
-
-
 
   /// Étape encore en cours d'exécution.
 
   bool get isRunningTool => isTool && toolResult == null;
-
-
 
   /// Étape terminée en échec. Les outils signalent leurs échecs par un
 
@@ -251,11 +212,7 @@ class AiChatMessage {
 
   /// qui remonterait jusqu'ici.
 
-  bool get toolFailed =>
-
-      toolResult != null && toolResult!.startsWith('Erreur');
-
-
+  bool get toolFailed => toolResult != null && toolResult!.startsWith('Erreur');
 
   // Les arguments sont bornés à la persistance : `write_workspace_file` peut
 
@@ -265,24 +222,18 @@ class AiChatMessage {
 
   static const _kMaxPersistedArgs = 2000;
 
-
-
   Map<String, dynamic> toJson() {
-
     final args = toolArgs;
 
     String? encodedArgs;
 
     if (args != null && args.isNotEmpty) {
-
       final raw = jsonEncode(args);
 
       if (raw.length <= _kMaxPersistedArgs) encodedArgs = raw;
-
     }
 
     return {
-
       'role': role,
 
       'text': text,
@@ -298,27 +249,19 @@ class AiChatMessage {
       if (toolDuration != null) 'ms': toolDuration!.inMilliseconds,
 
       'src': ?sourceText,
-
     };
-
   }
 
-
-
   factory AiChatMessage.fromJson(Map<String, dynamic> j) {
-
     final role = j['role'] as String? ?? 'assistant';
 
     final text = j['text'] as String? ?? '';
-
-
 
     String? toolName = j['tool'] as String?;
 
     String? toolResult;
 
     if (role == 'tool') {
-
       // Discussions enregistrées avant que l'étape ne soit structurée : tout
 
       // ce qu'on a est le texte « nom → résultat », qu'on redécoupe.
@@ -333,43 +276,32 @@ class AiChatMessage {
 
       // pendant son exécution, elle resterait sinon à tourner pour toujours.
 
-      if (toolResult == '…') toolResult = 'Erreur: interrompu (application fermée)';
-
+      if (toolResult == '…')
+        toolResult = 'Erreur: interrompu (application fermée)';
     }
-
-
 
     Map<String, dynamic>? args;
 
     final rawArgs = j['args'];
 
     if (rawArgs is String) {
-
       try {
-
         args = (jsonDecode(rawArgs) as Map).cast<String, dynamic>();
-
       } catch (_) {
-
         // Arguments illisibles : l'étape reste affichable sans eux.
-
       }
-
     }
-
-
 
     final ms = (j['ms'] as num?)?.toInt();
 
     return AiChatMessage(
-
       role: role,
 
       text: text,
 
       timestamp: DateTime.fromMillisecondsSinceEpoch(
-
-          (j['ts'] as num?)?.toInt() ?? 0),
+        (j['ts'] as num?)?.toInt() ?? 0,
+      ),
 
       interrupted: j['cut'] == true,
 
@@ -382,21 +314,15 @@ class AiChatMessage {
       toolDuration: ms == null ? null : Duration(milliseconds: ms),
 
       sourceText: j['src'] as String?,
-
     );
-
   }
-
 }
-
-
 
 /// Fiche d'une discussion sauvegardée (le contenu, lui, est stocké à part
 
 /// pour ne charger que la conversation ouverte).
 
 class AiConversationMeta {
-
   final String id;
 
   final String title;
@@ -407,10 +333,7 @@ class AiConversationMeta {
 
   final int messageCount;
 
-
-
   const AiConversationMeta({
-
     required this.id,
 
     required this.title,
@@ -420,76 +343,55 @@ class AiConversationMeta {
     required this.updatedAt,
 
     this.messageCount = 0,
-
   });
 
-
-
   AiConversationMeta copyWith({
-
     String? title,
 
     DateTime? updatedAt,
 
     int? messageCount,
+  }) => AiConversationMeta(
+    id: id,
 
-  }) =>
+    title: title ?? this.title,
 
-      AiConversationMeta(
+    createdAt: createdAt,
 
-        id: id,
+    updatedAt: updatedAt ?? this.updatedAt,
 
-        title: title ?? this.title,
-
-        createdAt: createdAt,
-
-        updatedAt: updatedAt ?? this.updatedAt,
-
-        messageCount: messageCount ?? this.messageCount,
-
-      );
-
-
+    messageCount: messageCount ?? this.messageCount,
+  );
 
   Map<String, dynamic> toJson() => {
+    'id': id,
 
-        'id': id,
+    'title': title,
 
-        'title': title,
+    'created': createdAt.millisecondsSinceEpoch,
 
-        'created': createdAt.millisecondsSinceEpoch,
+    'updated': updatedAt.millisecondsSinceEpoch,
 
-        'updated': updatedAt.millisecondsSinceEpoch,
-
-        'count': messageCount,
-
-      };
-
-
+    'count': messageCount,
+  };
 
   factory AiConversationMeta.fromJson(Map<String, dynamic> j) =>
-
       AiConversationMeta(
-
         id: j['id'] as String? ?? '',
 
         title: j['title'] as String? ?? AiAgentController.kDefaultTitle,
 
         createdAt: DateTime.fromMillisecondsSinceEpoch(
-
-            (j['created'] as num?)?.toInt() ?? 0),
+          (j['created'] as num?)?.toInt() ?? 0,
+        ),
 
         updatedAt: DateTime.fromMillisecondsSinceEpoch(
-
-            (j['updated'] as num?)?.toInt() ?? 0),
+          (j['updated'] as num?)?.toInt() ?? 0,
+        ),
 
         messageCount: (j['count'] as num?)?.toInt() ?? 0,
-
       );
-
 }
-
-
 
 /// Appel d'outil en attente de confirmation utilisateur (catégorie gatée par
 
@@ -500,14 +402,11 @@ class AiConversationMeta {
 /// d'appel, les réponses de fonction sont corrélées par nom/ordre.
 
 class AiPendingToolCall {
-
   final String id;
 
   final String toolName;
 
   final Map<String, dynamic> input;
-
-
 
   /// Renseigné quand l'action vient du **lexique fermé** et non du modèle : la
 
@@ -517,10 +416,7 @@ class AiPendingToolCall {
 
   final AiLexiconCall? lexicon;
 
-
-
   const AiPendingToolCall({
-
     required this.id,
 
     required this.toolName,
@@ -528,19 +424,13 @@ class AiPendingToolCall {
     required this.input,
 
     this.lexicon,
-
   });
-
 }
-
-
 
 /// Ce que le lexique a compris, gardé avec l'action en attente.
 
 class AiLexiconCall {
-
   const AiLexiconCall({
-
     required this.match,
 
     required this.originalText,
@@ -550,67 +440,43 @@ class AiLexiconCall {
     required this.label,
 
     required this.reasonText,
-
   });
 
-
-
   final LexiconMatch match;
-
-
 
   /// Le message tel que l'opérateur l'a écrit (pour l'historique protocole).
 
   final String originalText;
 
-
-
   final Set<ConfirmReason> reasons;
-
-
 
   /// Action en une phrase ordinaire (« Allumer la broche »).
 
   final String label;
 
-
-
   /// Pourquoi on demande, en une ligne sans jargon.
 
   final String reasonText;
-
-
 
   /// Ce qui a été reconnu, mot à mot (« broche→objet:broche »).
 
   List<String> get evidence => match.evidence;
 
-
-
   /// Langues des mots reconnus, déjà libellées (« bambara », « français »).
 
   List<String> get languageLabels =>
-
       match.languages.map(lexiconLanguageLabel).toList();
-
-
 
   /// Au moins un mot vient d'une langue pas encore relue par un locuteur.
 
   bool get isDraft => !match.trusted;
 
-
-
   /// Appariement souple : une suggestion.
 
   bool get isSuggestion => match.relaxed;
-
 }
 
-
-
 class AiChatState {
-
   final List<AiChatMessage> messages;
 
   final bool isProcessing;
@@ -619,21 +485,15 @@ class AiChatState {
 
   final String? error;
 
-
-
   /// Une action est en attente de renvoi (échec réseau) → l'UI propose
 
   /// « Réessayer » et la reprise automatique tente dès que la 4G revient.
 
   final bool retryable;
 
-
-
   /// Reprise automatique armée : on attend le retour du réseau.
 
   final bool awaitingNetwork;
-
-
 
   /// Texte de la réponse en cours de streaming (aperçu live, non encore
 
@@ -641,19 +501,13 @@ class AiChatState {
 
   final String? streamingText;
 
-
-
   /// Discussions sauvegardées, la plus récemment utilisée en tête.
 
   final List<AiConversationMeta> conversations;
 
-
-
   /// Identifiant de la discussion ouverte (`null` avant la restauration).
 
   final String? activeId;
-
-
 
   /// Nom de l'outil en cours d'exécution, `null` sinon.
 
@@ -671,8 +525,6 @@ class AiChatState {
 
   final String? runningTool;
 
-
-
   /// Début du tour en cours — `null` au repos. L'écran s'en sert pour une
 
   /// ligne d'état vivante (« 1 min 12 s · 12.4k jetons · exécution des
@@ -683,15 +535,11 @@ class AiChatState {
 
   final DateTime? turnStartedAt;
 
-
-
   /// Jetons consommés depuis le début de l'échange en cours (cumul des
 
   /// allers-retours, appels d'outils compris).
 
   final int turnTokens;
-
-
 
   /// Spécialistes qui traitent le tour en cours (groupes du [ToolRouter], ou
 
@@ -701,10 +549,7 @@ class AiChatState {
 
   final List<String> specialists;
 
-
-
   const AiChatState({
-
     this.messages = const [],
 
     this.isProcessing = false,
@@ -730,13 +575,9 @@ class AiChatState {
     this.turnTokens = 0,
 
     this.specialists = const [],
-
   });
 
-
-
   AiChatState copyWith({
-
     List<AiChatMessage>? messages,
 
     bool? isProcessing,
@@ -772,19 +613,14 @@ class AiChatState {
     int? turnTokens,
 
     List<String>? specialists,
-
   }) {
-
     return AiChatState(
-
       messages: messages ?? this.messages,
 
       isProcessing: isProcessing ?? this.isProcessing,
 
       pendingConfirmation: clearPendingConfirmation
-
           ? null
-
           : (pendingConfirmation ?? this.pendingConfirmation),
 
       error: clearError ? null : (error ?? this.error),
@@ -793,33 +629,26 @@ class AiChatState {
 
       awaitingNetwork: awaitingNetwork ?? this.awaitingNetwork,
 
-      streamingText:
-
-          clearStreamingText ? null : (streamingText ?? this.streamingText),
+      streamingText: clearStreamingText
+          ? null
+          : (streamingText ?? this.streamingText),
 
       conversations: conversations ?? this.conversations,
 
       activeId: activeId ?? this.activeId,
 
-      runningTool:
+      runningTool: clearRunningTool ? null : (runningTool ?? this.runningTool),
 
-          clearRunningTool ? null : (runningTool ?? this.runningTool),
-
-      turnStartedAt:
-
-          clearTurnStartedAt ? null : (turnStartedAt ?? this.turnStartedAt),
+      turnStartedAt: clearTurnStartedAt
+          ? null
+          : (turnStartedAt ?? this.turnStartedAt),
 
       turnTokens: turnTokens ?? this.turnTokens,
 
       specialists: specialists ?? this.specialists,
-
     );
-
   }
-
 }
-
-
 
 /// Orchestre la conversation avec Gemini : historique brut (`contents`,
 
@@ -832,7 +661,6 @@ class AiChatState {
 /// [AiAgentSettings]).
 
 class AiAgentController extends StateNotifier<AiChatState> {
-
   final Ref _ref;
 
   final List<Map<String, dynamic>> _contents = [];
@@ -845,15 +673,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   int _callCounter = 0;
 
-
-
   /// Interruption demandée par l'opérateur : lue par la boucle de streaming
 
   /// et par la chaîne d'appels d'outils, qui se soldent proprement.
 
   bool _cancelled = false;
-
-
 
   /// Incrémenté à chaque changement de discussion (nouvelle, bascule,
 
@@ -867,15 +691,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   int _epoch = 0;
 
-
-
   /// Action à rejouer après un échec réseau (renvoi manuel ou automatique).
 
   Future<void> Function()? _retry;
 
   Timer? _autoRetryTimer;
-
-
 
   /// Ce qui dit que la reprise automatique peut partir : le réseau mobile pour
 
@@ -883,11 +703,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   Future<bool> Function()? _retryProbe;
 
-
-
   // ── Surveillance et routage d'outils ──────────────────────────────────────
-
-
 
   /// Routage d'outils (n'exposer au modèle local que les outils utiles au
 
@@ -897,11 +713,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   static const _useToolRouting = true;
 
-
-
   String? _latestStreamingText;
-
-
 
   AiTurnJournal? _journal;
 
@@ -946,7 +758,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
         callId: callId,
         origin: origin ?? _turnOrigin,
       );
-    } catch (_) {/* le backoffice n'arrête jamais l'agent */}
+    } catch (_) {
+      /* le backoffice n'arrête jamais l'agent */
+    }
   }
 
   /// Aperçu court d'un texte pour le journal (jamais le message entier).
@@ -957,8 +771,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   // ── Porte d'entrée « lexique fermé » (voir ai_lexicon_front.dart) ─────────
 
-
-
   /// Le lexique a reconnu une QUESTION ou une NÉGATION dans le message en
 
   /// cours : le modèle n'a, pour ce tour, que les outils de lecture. Remis à
@@ -967,60 +779,45 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   bool _readOnlyTurn = false;
 
-
-
   /// Ce que le lexique a décidé pour le tour en cours (`lexique:refus:…`,
 
   /// `lexique:lecture_seule:question`) — recopié dans la ligne du journal.
 
   String? _frontTag;
 
-
-
   /// Empreintes du prompt fixe et des outils, calculées une fois : elles
 
   /// disent, dans chaque ligne du journal, QUELLE version de l'IA a répondu.
 
   static final String _releaseTag = () {
-
     final prompt = fingerprint(baseSystemPrompt);
 
-    final tools = fingerprint(jsonEncode(AiToolCatalog.tools
-
-        .map((t) => t.toGeminiFunctionDeclaration())
-
-        .toList()));
+    final tools = fingerprint(
+      jsonEncode(
+        AiToolCatalog.tools
+            .map((t) => t.toGeminiFunctionDeclaration())
+            .toList(),
+      ),
+    );
 
     return '${prompt.substring(0, 8)}/${tools.substring(0, 8)}';
-
   }();
 
-
-
   Future<AiTurnJournal?> _journalOrNull() async {
-
     if (_journal != null) return _journal;
 
     try {
-
       final dir = await getApplicationSupportDirectory();
 
       return _journal = AiTurnJournal(dir.path);
-
     } catch (_) {
-
       return null; // pas de journal ≠ pas d'agent
-
     }
-
   }
-
-
 
   /// Écrit une ligne dans le journal, sans jamais attendre ni échouer.
 
   void _logTurn(
-
     AiBackend service,
 
     AiTurnOutcome outcome,
@@ -1030,7 +827,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     AiApiResponse? response,
 
     String? errorKind,
-
   }) {
     final backend = service.usesCellular ? 'gemini' : 'local';
     final tools = [
@@ -1046,13 +842,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _audit(
       'ia.tour',
       '${service.model} ($backend) → ${_outcomeLabel(outcome)}'
-      '${tools.isEmpty ? '' : ', outil(s) : ${tools.join(', ')}'}'
-      '${notes.isEmpty ? '' : ', garde-fou(s) : ${notes.join(', ')}'}'
-      ' — $latency ms',
+          '${tools.isEmpty ? '' : ', outil(s) : ${tools.join(', ')}'}'
+          '${notes.isEmpty ? '' : ', garde-fou(s) : ${notes.join(', ')}'}'
+          ' — $latency ms',
       severity: switch (outcome) {
-        AiTurnOutcome.ok => notes.isEmpty ? BackofficeSeverity.info : BackofficeSeverity.notice,
+        AiTurnOutcome.ok =>
+          notes.isEmpty ? BackofficeSeverity.info : BackofficeSeverity.notice,
         AiTurnOutcome.cancelled => BackofficeSeverity.notice,
-        AiTurnOutcome.empty || AiTurnOutcome.error => BackofficeSeverity.warning,
+        AiTurnOutcome.empty ||
+        AiTurnOutcome.error => BackofficeSeverity.warning,
       },
       details: {
         'backend': backend,
@@ -1074,68 +872,57 @@ class AiAgentController extends StateNotifier<AiChatState> {
     );
 
     unawaited(() async {
-
       final journal = await _journalOrNull();
 
       if (journal == null) return;
 
-      await journal.record(AiTurnRecord(
+      await journal.record(
+        AiTurnRecord(
+          time: DateTime.now(),
+          backend: backend,
+          model: service.model,
 
-        time: DateTime.now(),
-        backend: backend,
-        model: service.model,
+          outcome: outcome,
+          latencyMs: latency,
+          tokens: tokens,
+          tools: tools,
+          notes: notes,
+          declaredTools: _declaredToolCount,
 
-        outcome: outcome,
-        latencyMs: latency,
-        tokens: tokens,
-        tools: tools,
-        notes: notes,
-        declaredTools: _declaredToolCount,
+          release: _releaseTag,
 
-        release: _releaseTag,
+          errorKind: errorKind,
 
-        errorKind: errorKind,
+          front: _frontTag,
 
-        front: _frontTag,
-
-        lexicon: _lexiconStamp,
-
-      ));
-
+          lexicon: _lexiconStamp,
+        ),
+      );
     }());
-
   }
 
   static String _outcomeLabel(AiTurnOutcome o) => switch (o) {
-        AiTurnOutcome.ok => 'réponse livrée',
-        AiTurnOutcome.empty => 'réponse VIDE',
-        AiTurnOutcome.error => 'ERREUR',
-        AiTurnOutcome.cancelled => 'interrompu',
-      };
+    AiTurnOutcome.ok => 'réponse livrée',
+    AiTurnOutcome.empty => 'réponse VIDE',
+    AiTurnOutcome.error => 'ERREUR',
+    AiTurnOutcome.cancelled => 'interrompu',
+  };
 
   /// Texte du dernier message de l'opérateur (celui qui pilote le routage).
 
   String _lastUserText() {
-
     for (final c in _contents.reversed) {
-
       if (c['role'] != 'user') continue;
 
       for (final p in (c['parts'] as List? ?? const []).whereType<Map>()) {
-
         final t = p['text'];
 
         if (t is String && t.isNotEmpty) return t;
-
       }
-
     }
 
     return '';
-
   }
-
-
 
   /// Outils déclarés au modèle pour ce tour : tous, ou — modèle local avec le
 
@@ -1146,7 +933,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// une question de connaissance ou si le corpus n'est pas chargé.
 
   String? _docsBlockOrNull() {
-
     // Une question posée sur une image porte sur l'image, pas sur les fiches.
 
     // Sans ce garde, « qu'est-ce que tu vois ? » (un « ? » suffit) recevait la
@@ -1162,20 +948,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (_imageInPlay()) return null;
 
     try {
-
       final corpus = _ref.read(docCorpusProvider).valueOrNull;
 
       return corpus == null ? null : docsBlock(_lastUserText(), corpus.index);
-
     } catch (_) {
-
       return null;
-
     }
-
   }
-
-
 
   /// Groupes d'outils retenus pour le tour en cours, `null` quand le modèle
 
@@ -1187,16 +966,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   Set<String>? _turnGroups;
 
-
-
   List<Map<String, dynamic>> _declarationsFor(AiBackend service) {
-
     _turnGroups = null;
 
     var all = AiToolCatalog.tools
-
         .map((t) => t.toGeminiFunctionDeclaration())
-
         .toList();
 
     // Les fiches sont déjà dans le prompt : déclarer aussi search_docs poussait
@@ -1206,9 +980,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // texte au lieu de répondre) — mesuré au banc.
 
     if (_docsBlockOrNull() != null) {
-
       all = all.where((d) => d['name'] != 'search_docs').toList();
-
     }
 
     // Question ou négation reconnue par le lexique : lecture seule, quel que
@@ -1216,50 +988,39 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // soit le fournisseur (c'est une règle de sécurité, pas d'économie de jetons).
 
     if (_readOnlyTurn) {
-
-      final readOnly =
-
-          all.where((d) => isReadOnlyToolName('${d['name']}')).toList();
+      final readOnly = all
+          .where((d) => isReadOnlyToolName('${d['name']}'))
+          .toList();
 
       _declaredToolCount = readOnly.length;
 
       return readOnly;
-
     }
 
     if (!_useToolRouting || service.usesCellular) {
-
       _declaredToolCount = all.length;
 
       return all;
-
     }
 
     final routing = const ToolRouter().route(
-
       text: _lastUserText(),
 
       allTools: all.map((d) => d['name'] as String),
 
       recentGroups: _recentToolGroups,
-
     );
 
     _recentToolGroups = routing.groups;
 
     if (routing.routed) _turnGroups = routing.groups;
 
-    final routed =
-
-        all.where((d) => routing.tools.contains(d['name'])).toList();
+    final routed = all.where((d) => routing.tools.contains(d['name'])).toList();
 
     _declaredToolCount = routed.length;
 
     return routed;
-
   }
-
-
 
   // Persistance locale des conversations : l'historique protocole Gemini
 
@@ -1275,19 +1036,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   static String _payloadKey(String id) => 'ai_conversation_$id';
 
-
-
   // Clés de l'ancien format « conversation unique », migrées au 1er lancement.
 
   static const _kLegacyContentsKey = 'ai_history_contents_v1';
 
   static const _kLegacyMessagesKey = 'ai_history_messages_v1';
 
-
-
   static const kDefaultTitle = 'Nouvelle discussion';
-
-
 
   List<AiConversationMeta> _conversations = [];
 
@@ -1300,15 +1055,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// disparaissait : sendUserMessage l'attend.
   late final Future<void> _restoring;
 
-
-
   AiAgentController(this._ref) : super(const AiChatState()) {
-
     _restoring = _restore();
-
   }
-
-
 
   // ---------------------------------------------------------------------
 
@@ -1316,134 +1065,95 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   // ---------------------------------------------------------------------
 
-
-
   static String _newId() =>
-
       DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-
-
 
   /// Recharge l'index des discussions et ouvre la dernière utilisée.
 
   Future<void> _restore() async {
-
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       final rawIndex = prefs.getString(_kIndexKey);
 
       if (rawIndex == null) {
-
         await _migrateLegacy(prefs);
-
       } else {
-
         _conversations = (jsonDecode(rawIndex) as List)
-
-            .map((e) =>
-
-                AiConversationMeta.fromJson((e as Map).cast<String, dynamic>()))
-
+            .map(
+              (e) => AiConversationMeta.fromJson(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
             .where((c) => c.id.isNotEmpty)
-
             .toList();
-
       }
 
       _sortConversations();
 
-
-
       final saved = prefs.getString(_kActiveKey);
 
       _activeId = _conversations.any((c) => c.id == saved)
-
           ? saved
-
           : (_conversations.isNotEmpty ? _conversations.first.id : null);
 
-
-
-      final messages =
-
-          _activeId == null ? <AiChatMessage>[] : await _loadPayload(prefs, _activeId!);
+      final messages = _activeId == null
+          ? <AiChatMessage>[]
+          : await _loadPayload(prefs, _activeId!);
 
       state = state.copyWith(
-
         messages: messages,
 
         conversations: _conversations,
 
         activeId: _activeId,
-
       );
-
     } catch (_) {
-
       // Historique corrompu → on repart proprement, sans planter.
-
     } finally {
-
       _restored = true;
-
     }
-
   }
-
-
 
   /// Reprend l'unique conversation de l'ancien format et la convertit en
 
   /// première discussion du nouveau, puis efface les anciennes clés.
 
   Future<void> _migrateLegacy(SharedPreferences prefs) async {
-
     final rawContents = prefs.getString(_kLegacyContentsKey);
 
     final rawMessages = prefs.getString(_kLegacyMessagesKey);
 
     if (rawContents == null && rawMessages == null) return;
 
-
-
     final messages = <AiChatMessage>[];
 
     if (rawMessages != null) {
-
       try {
-
-        messages.addAll((jsonDecode(rawMessages) as List).map((e) =>
-
-            AiChatMessage.fromJson((e as Map).cast<String, dynamic>())));
-
+        messages.addAll(
+          (jsonDecode(rawMessages) as List).map(
+            (e) => AiChatMessage.fromJson((e as Map).cast<String, dynamic>()),
+          ),
+        );
       } catch (_) {}
-
     }
 
     final id = _newId();
 
     await prefs.setString(
-
       _payloadKey(id),
 
       jsonEncode({
-
         'contents': rawContents != null ? jsonDecode(rawContents) : const [],
 
         'messages': messages.map((m) => m.toJson()).toList(),
-
       }),
-
     );
 
     final now = DateTime.now();
 
     _conversations = [
-
       AiConversationMeta(
-
         id: id,
 
         title: _titleFrom(messages),
@@ -1453,33 +1163,29 @@ class AiAgentController extends StateNotifier<AiChatState> {
         updatedAt: messages.isNotEmpty ? messages.last.timestamp : now,
 
         messageCount: messages.length,
-
       ),
-
     ];
 
     await prefs.setString(
-
-        _kIndexKey, jsonEncode(_conversations.map((c) => c.toJson()).toList()));
+      _kIndexKey,
+      jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+    );
 
     await prefs.setString(_kActiveKey, id);
 
     await prefs.remove(_kLegacyContentsKey);
 
     await prefs.remove(_kLegacyMessagesKey);
-
   }
-
-
 
   /// Charge le contenu d'une discussion dans `_contents` et retourne ses
 
   /// messages d'affichage.
 
   Future<List<AiChatMessage>> _loadPayload(
-
-      SharedPreferences prefs, String id) async {
-
+    SharedPreferences prefs,
+    String id,
+  ) async {
     _contents.clear();
 
     final raw = prefs.getString(_payloadKey(id));
@@ -1487,7 +1193,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (raw == null) return const [];
 
     try {
-
       final payload = (jsonDecode(raw) as Map).cast<String, dynamic>();
 
       final contents = payload['contents'] as List? ?? const [];
@@ -1497,27 +1202,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
       final messages = payload['messages'] as List? ?? const [];
 
       return messages
-
-          .map((e) => AiChatMessage.fromJson((e as Map).cast<String, dynamic>()))
-
+          .map(
+            (e) => AiChatMessage.fromJson((e as Map).cast<String, dynamic>()),
+          )
           .toList();
-
     } catch (_) {
-
       _contents.clear();
 
       return const [];
-
     }
-
   }
-
-
 
   /// Sauvegarde la discussion courante (best-effort, non bloquant).
 
   Future<void> _persist() async {
-
     if (!_restored) return; // évite d'écraser avant la fin du chargement
 
     // Rien à sauvegarder et aucune discussion ouverte : ne pas en fabriquer
@@ -1527,48 +1225,37 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // vide derrière elle).
 
     if (_activeId == null && state.messages.isEmpty && _contents.isEmpty) {
-
       return;
-
     }
 
     final id = _activeId ??= _newId();
 
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString(
-
         _payloadKey(id),
 
         jsonEncode({
-
           'contents': _sanitizeForStorage(),
 
           'messages': state.messages.map((m) => m.toJson()).toList(),
-
         }),
-
       );
 
       _touchMeta(id);
 
-      await prefs.setString(_kIndexKey,
+      await prefs.setString(
+        _kIndexKey,
 
-          jsonEncode(_conversations.map((c) => c.toJson()).toList()));
+        jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+      );
 
       await prefs.setString(_kActiveKey, id);
-
     } catch (_) {
-
       // Échec d'écriture non critique.
-
     }
-
   }
-
-
 
   /// Met à jour (ou crée) la fiche de la discussion courante : titre déduit du
 
@@ -1577,19 +1264,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// conservé.
 
   void _touchMeta(String id) {
-
     final now = DateTime.now();
 
     final index = _conversations.indexWhere((c) => c.id == id);
 
     if (index < 0) {
-
       _conversations.insert(
-
         0,
 
         AiConversationMeta(
-
           id: id,
 
           title: _titleFrom(state.messages),
@@ -1599,51 +1282,37 @@ class AiAgentController extends StateNotifier<AiChatState> {
           updatedAt: now,
 
           messageCount: state.messages.length,
-
         ),
-
       );
-
     } else {
-
       final current = _conversations[index];
 
       _conversations[index] = current.copyWith(
-
         title: current.title == kDefaultTitle
-
             ? _titleFrom(state.messages)
-
             : current.title,
 
         updatedAt: now,
 
         messageCount: state.messages.length,
-
       );
-
     }
 
     _sortConversations();
 
-    state = state.copyWith(conversations: List.of(_conversations), activeId: id);
-
+    state = state.copyWith(
+      conversations: List.of(_conversations),
+      activeId: id,
+    );
   }
 
-
-
   void _sortConversations() =>
-
       _conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-
 
   /// Titre auto : début du premier message de l'opérateur.
 
   static String _titleFrom(List<AiChatMessage> messages) {
-
     for (final m in messages) {
-
       if (m.role != 'user') continue;
 
       final t = m.text.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -1651,51 +1320,36 @@ class AiAgentController extends StateNotifier<AiChatState> {
       if (t.isEmpty) continue;
 
       return t.length <= 42 ? t : '${t.substring(0, 42)}…';
-
     }
 
     return kDefaultTitle;
-
   }
-
-
 
   /// Copie de `_contents` où les images inline sont remplacées par un marqueur :
 
   /// on évite de stocker des Mo de base64 dans les préférences.
 
   List<Map<String, dynamic>> _sanitizeForStorage() {
-
     return _contents.map((entry) {
-
       final parts = entry['parts'];
 
       if (parts is! List) return entry;
 
       final cleaned = parts.map((p) {
-
         if (p is Map && p.containsKey('inlineData')) {
-
           return {'text': '[image jointe]'};
-
         }
 
         return p;
-
       }).toList();
 
       return {...entry, 'parts': cleaned};
-
     }).toList();
-
   }
-
-
 
   /// Ouvre une discussion vierge (la courante est sauvegardée telle quelle).
 
   Future<void> newConversation() async {
-
     stopGeneration();
 
     await _persist();
@@ -1705,8 +1359,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // garder ferait proposer d'ouvrir la pièce d'une AUTRE conversation.
 
     _ref.read(aiArtifactsProvider.notifier).clear();
-
-
 
     final id = _newId();
 
@@ -1735,39 +1387,34 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _autoRetryTimer?.cancel();
 
     _conversations.insert(
-
       0,
 
       AiConversationMeta(
-
-          id: id, title: kDefaultTitle, createdAt: now, updatedAt: now),
-
+        id: id,
+        title: kDefaultTitle,
+        createdAt: now,
+        updatedAt: now,
+      ),
     );
 
-    state = AiChatState(
-
-        conversations: List.of(_conversations), activeId: id);
+    state = AiChatState(conversations: List.of(_conversations), activeId: id);
 
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString(_kActiveKey, id);
 
-      await prefs.setString(_kIndexKey,
+      await prefs.setString(
+        _kIndexKey,
 
-          jsonEncode(_conversations.map((c) => c.toJson()).toList()));
-
+        jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+      );
     } catch (_) {}
-
   }
-
-
 
   /// Bascule sur une autre discussion sauvegardée.
 
   Future<void> switchConversation(String id) async {
-
     if (id == _activeId) return;
 
     stopGeneration();
@@ -1776,10 +1423,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     _ref.read(aiArtifactsProvider.notifier).clear();
 
-
-
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       final messages = await _loadPayload(prefs, id);
@@ -1805,45 +1449,37 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _autoRetryTimer?.cancel();
 
       state = AiChatState(
-
         messages: messages,
 
         conversations: List.of(_conversations),
 
         activeId: id,
-
       );
 
       await prefs.setString(_kActiveKey, id);
-
     } catch (_) {}
-
   }
-
-
 
   /// Supprime une discussion (et bascule ailleurs si c'était la courante).
 
   Future<void> deleteConversation(String id) async {
-
     _conversations.removeWhere((c) => c.id == id);
 
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.remove(_payloadKey(id));
 
-      await prefs.setString(_kIndexKey,
+      await prefs.setString(
+        _kIndexKey,
 
-          jsonEncode(_conversations.map((c) => c.toJson()).toList()));
+        jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+      );
 
       if (id != _activeId) {
-
         state = state.copyWith(conversations: List.of(_conversations));
 
         return;
-
       }
 
       // C'était la discussion ouverte → on ouvre la plus récente, ou une neuve.
@@ -1851,7 +1487,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
       stopGeneration();
 
       if (_conversations.isEmpty) {
-
         _epoch++;
 
         _activeId = null;
@@ -1865,7 +1500,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
         await newConversation();
 
         return;
-
       }
 
       final next = _conversations.first.id;
@@ -1881,27 +1515,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _collectedResults = [];
 
       state = AiChatState(
-
         messages: messages,
 
         conversations: List.of(_conversations),
 
         activeId: next,
-
       );
 
       await prefs.setString(_kActiveKey, next);
-
     } catch (_) {}
-
   }
-
-
 
   /// Renomme une discussion (titre figé : plus d'auto-titrage ensuite).
 
   Future<void> renameConversation(String id, String title) async {
-
     final clean = title.trim();
 
     if (clean.isEmpty) return;
@@ -1915,38 +1542,29 @@ class AiAgentController extends StateNotifier<AiChatState> {
     state = state.copyWith(conversations: List.of(_conversations));
 
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
-      await prefs.setString(_kIndexKey,
+      await prefs.setString(
+        _kIndexKey,
 
-          jsonEncode(_conversations.map((c) => c.toJson()).toList()));
-
+        jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+      );
     } catch (_) {}
-
   }
-
-
 
   /// Retire les discussions vides autres que la courante, pour que le sélecteur
 
   /// ne se remplisse pas de fils jamais utilisés.
 
   void _pruneEmpty() {
-
     _conversations.removeWhere((c) => c.messageCount == 0 && c.id != _activeId);
-
   }
-
-
 
   // ---------------------------------------------------------------------
 
   // Prompt système
 
   // ---------------------------------------------------------------------
-
-
 
   // Le prompt système est découpé en un TRONC COMMUN (identité, lecture de
 
@@ -1958,288 +1576,155 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   // identique, mot pour mot, à celui d'avant le découpage.
 
-
-
   /// Tronc commun, début : identité, écrans, lecture de l'état.
 
   static const _promptIdentity =
-
       'Tu es l\'assistant intégré de Forgeron, un contrôleur CNC 5 axes piloté '
-
       'par un firmware FluidNC/GRBL sur ESP32. '
-
       'Forgeron est une application Flutter (mobile/desktop) reliée à la machine '
-
       'par WebSocket : l\'ESP32 crée un point d\'accès WiFi sans Internet, donc '
-
       'tes propres appels passent par la 4G. La machine est un trunnion : table '
-
       'rotative C dans un berceau basculant A, plus les axes linéaires X, Y, Z. '
-
       'Écrans de l\'app : Tableau de bord (DRO, simulateur 3D, jog, exécution de '
-
       'programme), Palpage & Origines (WCS G54..G59, ForceGuard), Magasin '
-
       'd\'outils, Espace de travail (fichiers G-code), Terminal MDI, Diagnostics '
-
       '(température, réseau, firmware, GPIO, AMDEC), et toi (Agent IA). '
-
       'Concepts clés : ForceGuard bride l\'avance selon la force résultante en '
-
       'usinage 5 axes ; modes 3AX/5AX ; RTCP (G43.4) ; risque de singularité ; '
-
       'watchdog de streaming. '
-
       'Pour toute question factuelle sur la machine (état, config, cinématique, '
-
       'diagnostics, offsets, actions récentes), utilise les outils de lecture '
-
       '(get_machine_state, get_config, get_axis_kinematics, get_diagnostics, '
-
       'get_wcs_offsets, get_activity_log) plutôt que de deviner. Ce qu\'un '
-
       'résultat plus haut dans la discussion t\'a appris (position, statut, '
-
       'alarme) est PÉRIMÉ dès que la machine bouge : à chaque question sur '
-
       'l\'état présent, rappelle l\'outil de lecture, même si tu viens de le '
-
       'faire — ne recopie jamais une ancienne valeur comme si elle était actuelle. ';
-
-
 
   /// Spécialiste fichiers / programme : lecture, adaptation et contrôle
 
   /// du G-code avant exécution.
 
   static const _promptGcodeFiles =
-
       'Tu peux lister, lire, analyser et écrire les fichiers G-code de l\'espace '
-
       'de travail (list_workspace_files, read_workspace_file, analyze_gcode, '
-
       'write_workspace_file). Au chargement, Forgeron adapte automatiquement le '
-
       'G-code CAM pour FluidNC (cycles fixes développés, G43/H retirés, M6→pause). '
-
       'COWORK correction : quand un fichier SolidWorks/CAM pose souci, utilise '
-
       'analyze_gcode pour lister ce qui est traduit et ce qui BLOQUE, explique '
-
       'chaque point et guide l\'opérateur. Les blocages (RTCP G43.4, compensation '
-
       'de rayon MACHINE G41/G42) se corrigent dans le POST SolidWorks '
-
       '(compensation « ordinateur », sortie en coordonnées machine), PAS dans le '
-
       'G-code — ne les réécris pas toi-même. '
-
       'Avant d\'exécuter, VÉRIFIE qu\'aucun mouvement ne dépasse les courses '
-
       'indiquées dans la cinématique ci-dessous (coordonnées machine, après '
-
       'homing) : si un dépassement est détecté, SIGNALE la ligne et l\'axe '
-
       'fautif à l\'opérateur et propose une correction. '
-
       'N\'écris JAMAIS une version « corrigée » en '
-
       'silence : garde l\'original intact (écris sous un nouveau nom) et fais '
-
       'confirmer — un rognage aveugle des coordonnées peut abîmer la pièce ou '
-
       'provoquer une collision. ';
-
-
 
   /// Tronc commun, fin : sécurité (jamais de G-code écrit par le modèle,
 
   /// confirmations) et style des réponses.
 
   static const _promptRules =
-
       'Tu reçois en contexte le journal des actions récentes (manuelles de '
-
       'l\'opérateur ET les tiennes) : surveille-le pour la sécurité et '
-
       'l\'optimisation — signale spontanément tout enchaînement risqué (ex. '
-
       'lancer un programme sans homing, changer d\'origine en plein usinage). '
-
       'Tu es un véritable opérateur d\'usinage CNC 5 axes expérimenté. '
-
       'ROUTINE OPÉRATEUR CNC 5 AXES (à exécuter étape par étape devant l\'opérateur) : '
-
       'Lorsque l\'opérateur démarre la machine ou te demande de préparer et lancer un fichier G-code précis (ou un programme généré), exécute cette routine complète dans l\'ordre en appelant les outils les uns après les autres (chaque appel s\'affiche en direct dans le fil pour montrer le pipeline en cours) : '
-
       '1. DIAGNOSTIC & RECOVERY : appelle get_machine_state. Si la machine est en alarme (ou bloquée au démarrage), exécute reset (soft reset) puis unlock_alarm (\$X) et re-vérifie get_machine_state. '
-
       '2. HOMING : si la machine sort d\'une alarme d\'origine (ALARM:14 / Unhomed) ou n\'a pas encore fait son homing, exécute home (\$H) pour référencer X, Y, Z, A, C. (Si une erreur matérielle bloque comme Check startup pins / E-STOP, arrête et informe l\'opérateur.) '
-
       '3. AUTO-CHARGEMENT DU FICHIER G-CODE : si le programme n\'est pas encore chargé, appelle list_workspace_files si besoin puis load_gcode_file avec le nom du fichier pour le charger dans le contrôleur et afficher le parcours 3D. '
-
       '4. VÉRIFICATION DU CODE : appelle analyze_gcode pour contrôler les courses machine (X 0..88 mm, Y 0..150 mm, Z -110..0 mm, A -266..-88°, C -720..0°), les avances, les collisions/Z de sécurité et M3/M5. '
-
       '5. CHOIX DU BON WCS SÉCURISÉ : appelle get_wcs_offsets pour inspecter G54..G59, vérifie la cohérence avec le programme et sélectionne le bon WCS avec select_wcs (en vérifiant que Z est dégagé au-dessus de la pièce). Si l\'opérateur te demande de prendre la position actuelle comme zéro WCS / zéro pièce, appelle directement set_work_zero (avec `wcs` et `axes` si précisés). '
-
       '6. EXÉCUTION IMMÉDIATE : dès que les vérifications 1→5 sont OK, appelle directement run_program (pour un fichier chargé ou un programme généré par run_step_pipeline / generate_5axis_dome) ou run_gcode_program (pour un G-code multi-lignes fourni en texte ou généré). '
-
       'RÈGLE ANTI-BOUCLE : quand l\'opérateur demande d\'exécuter/lancer un G-code (fichier ou programme généré), APPELLE l\'outil run_program ou run_gcode_program — ne réponds JAMAIS uniquement en texte pour redemander "Voulez-vous que je lance ?". Si la sécurité exige une confirmation, l\'interface affiche automatiquement la carte de confirmation sur l\'appel d\'outil. '
-
       'Tu peux utiliser run_step_pipeline sur un fichier STEP, generate_5axis_dome pour un dôme 5 axes, load_gcode_file sur un fichier de l\'espace de travail, ou run_gcode_program pour exécuter directement du G-code. '
-
       'Sois concis et confirme toujours ce que tu as fait à chaque étape. Si une action semble '
-
       'risquée ou ambiguë (dépassement de course, E-STOP ouvert), explique-le clairement. '
-
       'Réponds en texte clair : tu peux utiliser du **gras** et des listes à '
-
       'puces simples, mais évite le LaTeX et les formules mathématiques (\$...\$) '
-
       '— écris les valeurs et unités en clair (ex. « 15 mm »). '
-
       'Quand tu cites des lignes de G-code (extraites d\'un fichier existant ou '
-
       'données par l\'opérateur), mets-les TOUJOURS dans un bloc de code '
-
       'markdown ouvert par ```gcode et fermé par ``` : l\'app y ajoute alors '
-
       'les boutons « copier » et « enregistrer dans l\'espace de travail ». '
-
       'MONTRE, ne décris pas : l\'opérateur n\'est ni développeur ni '
-
       'programmeur CAM, une liste de coordonnées ne lui apprend rien. Même '
-
       'chose pour le vocabulaire : "pièce de révolution", "prismatique", '
-
       '"FreeCAD", "pipeline", "OCP", "axe détecté" sont des termes internes, '
-
       'pas des mots à employer avec l\'opérateur — dis ce que tu fais et ce '
-
       'que ça donne ("j\'ai généré le G-code, 68 lignes, 3 passes"), jamais '
-
       'par quel moyen technique. Le nom de l\'outil déclenché ne doit jamais '
-
       'apparaître non plus tel quel (run_step_pipeline, etc.). ';
-
-
 
   /// Spécialiste FAO : aperçu 3D (STEP/STL), génération G-code et chargement machine.
 
   static const _promptCam =
-
       'PIPELINE FAO & USINAGE AUTOMATIQUE (STEP & STL) : '
-
       'Dès qu\'un fichier 3D (STEP ou STL) est mentionné ou transmis par l\'opérateur '
-
       'pour préparer, charger ou générer l\'usinage, DÉCLENCHE DIRECTEMENT les outils '
-
       'appropriés sans attendre et sans poser de question préalable : '
-
       '1. Ouvre l\'aperçu 3D avec preview_step_file. '
-
       '2. Exécute la génération de G-code avec run_step_pipeline (ce qui charge automatiquement '
-
       'le programme fini dans le contrôleur de la machine). '
-
       '3. Affiche le tracé 3D avec open_toolpath_window. '
-
       'N\'écris JAMAIS de code, de nom de commande ni de JSON technique en texte '
-
       '(pas de "preview_step_file(...)" ou "run_step_pipeline(...)"). '
-
       'Ne fais PAS de tutoriel décrivant les étapes théoriques à l\'avance (« Étape 1... »). '
-
       'Exécute les outils en coulisse et présente directement le résultat fini à l\'opérateur dans sa langue active (avec un ton humain, chaleureux et fluide adapté à la lecture vocale) : '
       'Si l\'opérateur demande d\'usiner ou de fraiser un dôme (ex: "Mill a 20mm dome on aluminium", "Usine un dôme de 20 mm en aluminium"), appelle immédiatement generate_5axis_dome avec diameter_mm et material, puis présente chaleureusement le parcours 5 axes généré et demande confirmation avant de lancer run_program. '
-
       'la pièce est prête, le tracé d\'outil est visible, et le programme est déjà chargé dans la machine. '
-
       'POSTURE D\'AGENT AUTONOME ET RÉSOLUTIF : '
-
       'Tu es un agent d\'usinage autonome, et NON un simple assistant passif qui se contente de '
-
       'rapporter des erreurs ou d\'inviter l\'opérateur non technique à modifier son fichier dans un autre logiciel. '
-
       'Si un modèle 3D présente une difficulté géométrique (dépassement des courses machine 88×150×110 mm, '
-
       'courbure prononcée provoquant un refus de rejeu avec un outil donné) : '
-
       'prends l\'initiative d\'adapter la stratégie en relançant run_step_pipeline avec des paramètres '
-
       'optimisés (fraise plus fine comme tool_diameter: 4.0 mm, stepover affiné, auto-fit dans l\'enveloppe). '
-
       'Prends une capture d\'écran (capture_workspace_view) du simulateur ou du parcours pour '
-
       'vérifier visuellement la conformité, puis livre le résultat prêt à usiner. '
-
       'LANCEMENT DE L\'USINAGE EN LANGAGE NATUREL : '
-
       'Dès que l\'opérateur demande en langage naturel d\'exécuter, d\'usiner ou de démarrer '
-
       '(ex: "lance l\'usinage", "usinons-le", "exécute ce code", "démarre la machine", "lance la pièce") : '
-
       'déclenche directement l\'outil run_program pour lancer l\'usinage réel sur FluidNC avec ForceGuard, '
-
       'puis confirme chaleureusement en langage humain que l\'usinage est en cours. ';
-
-
 
   /// Spécialiste scan 3D en machine.
 
   static const _promptScan =
-
       'SCAN 3D & NUMÉRISATION EN MACHINE : quand l\'opérateur veut numériser une pièce '
-
       'ou un maître bridé sur la machine, utilise start_machine_scan pour piloter la rotation '
-
       'calibrée des axes A et C et capturer les vues multi-angles. Vérifie d\'abord que '
-
       'le poste de calcul est joignable (get_reco3d_status, ou discover_reco3d_server si besoin). '
-
       'Suis l\'avancement avec get_scan_job_status, et une fois terminé, télécharge le résultat '
-
       'avec download_scan_result (format "step" ou "mesh") pour afficher immédiatement la pièce '
-
       'dans le visualiseur 3D. Rappelle honnêtement que la géométrie est approximative tant que '
-
       'l\'échelle n\'est pas certifiée par mire.';
-
-
 
   /// Spécialiste inspection visuelle : capture d'écran du simulateur 3D,
 
   /// du parcours d'outil, de la pièce CAO, de la caméra ESP32-CAM et de l'écran.
 
   static const _promptVision =
-
       'INSPECTION VISUELLE & CAPTURE D\'ÉCRAN : '
-
       'Quand l\'opérateur te demande de prendre une capture d\'écran, de regarder '
-
       'ou de vérifier ce qui se passe dans le simulateur 3D, le parcours d\'outil, '
-
       'l\'aperçu de la pièce, la caméra ou l\'écran, utilise capture_workspace_view '
-
       '(target: "simulator" pour le jumeau 5 axes et l\'enlèvement de matière, '
-
       '"toolpath" pour le tracé G0/G1 dégagé, "part" pour le maillage CAO, '
-
       '"camera" pour l\'ESP32-CAM, ou "screen" pour l\'interface complète ; '
-
       'camera_preset optionnel: "ISOMETRIC", "TOP", "FRONT", "RIGHT"). '
-
       'Appuie ton constat sur l\'image capturée ET les mesures exactes fournies, '
-
       'sans jamais inventer ce qu\'une caméra hors ligne ne montre pas. ';
 
-
-
   static const _systemPrompt =
-
       '$_promptIdentity$_promptGcodeFiles$_promptRules$_promptCam$_promptScan$_promptVision';
-
-
 
   /// Prompt système COMPACT pour le modèle d'images (gemma3n…) : sa fenêtre de
 
@@ -2250,28 +1735,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// décrivait alors la machine du prompt au lieu des pixels de la capture.
 
   @visibleForTesting
-
   static const visionSystemPrompt =
-
       'Tu es l\'œil de Forgeron, l\'assistant d\'une fraiseuse CNC 5 axes trunnion '
-
       '(X, Y, Z linéaires, berceau basculant A, plateau rotatif C). '
-
       'On te montre une capture d\'écran (simulateur 3D, parcours d\'outil G0 rouge / '
-
       'G1 vert, pièce CAO, caméra atelier ou interface) avec ses télémesures exactes. '
-
       'Décris UNIQUEMENT ce que montrent réellement les pixels et les télémesures : '
-
       'position de l\'outil, avancement de l\'usinage, matière restante, anomalies '
-
       'visibles (collision, outil hors brut, parcours incohérent). Cite les valeurs '
-
       'chiffrées des télémesures. N\'invente rien qui ne soit ni visible ni mesuré. '
-
       'Réponds en quelques phrases claires pour un opérateur non technicien.';
-
-
 
   /// Spécificités matérielles réelles de CETTE machine (faits qualitatifs qui
 
@@ -2282,52 +1755,28 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// recopier ici les ferait dériver à chaque recalibrage.
 
   static const _machineSpecs =
-
       '=== SPÉCIFICITÉS DE CETTE MACHINE (à respecter absolument) ===\n'
-
       'BROCHE : moteur à courant continu en TOUT-OU-RIEN via un relais 5 V '
-
       '(FluidNC type Relay sur gpio.21). Pour la démarrer il FAUT une vitesse '
-
       '> 0 : « M3 S1000 ». « M3 » seul (S0) ne l\'allume PAS. « M5 » l\'arrête. '
-
       'PAS de vitesse variable : la valeur S ne change pas le régime, et '
-
       'set_spindle_override n\'a AUCUN effet réel — ne le propose jamais comme '
-
       'réglage de vitesse. Alim broche actuellement sous-dimensionnée (chargeur '
-
       'PC 19,5 V / 3,3 A) → étincelles et instabilité ; correctif matériel en '
-
       'attente (alim forte + MOSFET) — pertinent si l\'opérateur signale des '
-
       'ratés de broche. '
-
       'AXES : X a une vis à pas de 3 mm, différente de Y/Z (pas de 2 mm) — leurs '
-
       'pas/mm ne sont donc PAS interchangeables. A et C sont rotatifs SANS fin '
-
       'de course (donc pas de homing possible sur A/C). '
-
       'FINS DE COURSE : X/Y/Z sur gpio.4/13/14, câblés en NC (fail-safe). '
-
       'soft_limits ET hard_limits actifs sur X/Y/Z. '
-
       'HOMING : le capteur Z est EN HAUT → Z se home vers le HAUT et se dégage '
-
       '(retrait outil), convention standard. Zéro machine Z en haut, course '
-
       'utile vers le bas (Z négatif). Le zéro pièce (haut du brut) est donc à '
-
       'un Z machine négatif, et l\'usinage descend en Z négatif — comme un CAO '
-
       'standard. Homer à chaque démarrage pour activer les soft_limits. '
-
       'RÉCUPÉRATION d\'une alarme fin de course : « \$X » pour déverrouiller, '
-
       'puis jog DOUX pour éloigner l\'axe du switch (voir écran Récupération).';
-
-
 
   /// Règle des questions techniques, placée EN FIN de prompt (le modèle local
 
@@ -2338,20 +1787,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// et le reste inventait une procédure (y compris avec des outils d'action).
 
   static const _docsRule =
-
       '=== QUESTIONS TECHNIQUES ===\n'
-
       'Section « FICHES TROUVÉES » ou « AUCUNE FICHE » plus bas = résultat de la '
-
       'recherche : réponds avec elle, cite (identifiant), sans search_docs. Sinon, '
-
       'question technique : search_docs d\'abord, jamais de mémoire. Rien trouvé : '
-
       'UNE phrase « Je ne trouve pas cette information dans mes fiches. ». Valeurs '
-
       'machine : get_axis_kinematics ou get_config. Une question n\'est pas un ordre.';
-
-
 
   /// La partie FIXE du prompt système (identité, règles, spécificités machine),
 
@@ -2364,12 +1805,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// `LocalAiAgentService.historyBudgetChars`).
 
   @visibleForTesting
-
   static const baseSystemPrompt =
-
       '$_systemPrompt\n\n$_machineSpecs\n\n$_docsRule';
-
-
 
   /// Sections de spécialiste, et les groupes du [ToolRouter] qui en ont
 
@@ -2378,7 +1815,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// envoyée : c'est le pendant, côté prompt, du routage des outils.
 
   static const _specialistSections = <String, Set<String>>{
-
     _promptGcodeFiles: {'fichiers', 'programme'},
 
     _promptCam: {'cao', 'simulation'},
@@ -2386,10 +1822,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _promptScan: {'scan'},
 
     _promptVision: {'camera', 'simulation', 'cao'},
-
   };
-
-
 
   /// Prompt fixe d'un tour routé vers les groupes [groups] : le tronc commun
 
@@ -2400,22 +1833,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// inutiles sont retirées.
 
   @visibleForTesting
-
   static String specialistSystemPrompt(Set<String> groups) {
-
     String section(String text) =>
-
         _specialistSections[text]!.any(groups.contains) ? text : '';
 
     return '$_promptIdentity${section(_promptGcodeFiles)}$_promptRules'
-
         '${section(_promptCam)}${section(_promptScan)}${section(_promptVision)}'
-
         '\n\n$_machineSpecs\n\n$_docsRule';
-
   }
-
-
 
   /// Cinématique réelle lue dans la config FluidNC (live ou cache offline).
 
@@ -2441,39 +1866,32 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   String _glossaireBlockOrEmpty(AppLanguage langue) {
     if (!langue.lowResource) return '';
-    final glossaire =
-        _ref.read(lexiconLoadProvider).valueOrNull?.glossaries[langue.id];
+    final glossaire = _ref
+        .read(lexiconLoadProvider)
+        .valueOrNull
+        ?.glossaries[langue.id];
     return glossaire == null ? '' : '\n\n$glossaire';
   }
 
-
-
   String _kinematicsBlock() {
-
     final axes = _ref.read(axisKinematicsProvider).asData?.value ?? const [];
 
     if (axes.isEmpty) {
-
       return 'Cinématique : configuration machine pas encore chargée. '
-
           'N\'annonce AUCUNE course ni pas/mm de mémoire — appelle '
-
           'get_axis_kinematics d\'abord.';
-
     }
 
     final buffer = StringBuffer(
-
-        'Cinématique réelle (lue dans la config FluidNC de la machine) :\n');
+      'Cinématique réelle (lue dans la config FluidNC de la machine) :\n',
+    );
 
     for (final a in axes) {
-
       final rotary = a.axis == 'A' || a.axis == 'C';
 
       final unit = rotary ? '°' : 'mm';
 
       final fields = <String>[
-
         if (a.maxTravel != null) 'course ${_num(a.maxTravel!)} $unit',
 
         if (a.stepsPerMm != null) '${_num(a.stepsPerMm!)} pas/$unit',
@@ -2481,28 +1899,19 @@ class AiAgentController extends StateNotifier<AiChatState> {
         if (a.maxRate != null) 'F max ${_num(a.maxRate!)} $unit/min',
 
         if (a.accel != null) 'accél. ${_num(a.accel!)} $unit/s²',
-
       ];
 
       if (fields.isEmpty) continue;
 
       buffer.writeln('- ${a.axis} : ${fields.join(', ')}');
-
     }
 
     return buffer.toString().trimRight();
-
   }
 
-
-
   static String _num(double v) => v == v.roundToDouble()
-
       ? v.toStringAsFixed(0)
-
       : v.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
-
-
 
   /// Prompt système = base + specs machine + cinématique réelle + journal des
 
@@ -2511,7 +1920,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// actions de l'opérateur, sans appel API supplémentaire).
 
   String _buildSystemPrompt() {
-
     final activity = formatRecentActivity(_ref.read(activityLogProvider));
 
     // État lu À L'INSTANT de l'appel : le prompt est reconstruit à chaque
@@ -2525,23 +1933,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
     String liveState;
 
     try {
-
       final s = _ref.read(machineRepositoryProvider).currentState;
 
       liveState = liveStateBlock(
-
         state: machineStateMap(s),
 
         offline: s.status == MachineStatus.offline,
 
         now: DateTime.now(),
-
       );
-
     } catch (_) {
-
-      liveState = liveStateBlock(state: null, offline: true, now: DateTime.now());
-
+      liveState = liveStateBlock(
+        state: null,
+        offline: true,
+        now: DateTime.now(),
+      );
     }
 
     // Question de connaissance : les fiches pertinentes sont cherchées par
@@ -2553,8 +1959,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final block = _docsBlockOrNull();
 
     final docs = block == null ? '' : '\n\n$block';
-    final controllerMem =
-        _ref.read(controllerMemoryProvider).toSystemPromptBlock();
+    final controllerMem = _ref
+        .read(controllerMemoryProvider)
+        .toSystemPromptBlock();
 
     // UNE seule langue de réponse pour tout le prompt : le bloc du milieu, le
     // glossaire, la règle d'atelier et la consigne de fin la tirent tous de
@@ -2564,8 +1971,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final (lang, reply) = _turnLanguages();
 
     final groups = _turnGroups;
-    final fixed =
-        groups == null ? baseSystemPrompt : specialistSystemPrompt(groups);
+    final fixed = groups == null
+        ? baseSystemPrompt
+        : specialistSystemPrompt(groups);
     final langBlock = _languageEnforcementBlock(lang, reply);
     final glossaire = _glossaireBlockOrEmpty(reply);
 
@@ -2620,7 +2028,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (local is! LocalAiAgentService) return null;
     final settings = _ref.read(aiAgentSettingsProvider);
     final name = settings.localTranslatorModel;
-    if (!settings.localTranslatorEnabled || name.isEmpty || name == local.model) {
+    if (!settings.localTranslatorEnabled ||
+        name.isEmpty ||
+        name == local.model) {
       return null;
     }
     final current = _translator;
@@ -2646,8 +2056,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (target.isAuto || backendWritesLanguage(service, target.id)) return;
     final translator = _translatorFor(service);
     if (translator == null || !translator.covers(target.id)) return;
-    final result =
-        await translator.translate(reply.text, target.promptName ?? target.id);
+    final result = await translator.translate(
+      reply.text,
+      target.promptName ?? target.id,
+    );
     // Contrôleur fermé ou discussion changée pendant les ~20 s de traduction.
     if (!mounted || _epoch != epoch) return;
     final text = result.text;
@@ -2703,11 +2115,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final target = reply.writesPoorly
         ? 'français simple'
         : reply.lowResource
-            ? '${reply.promptName} (avec mots d\'atelier CNC et coordonnées en français)'
-            : (reply.promptName ?? 'français');
+        ? '${reply.promptName} (avec mots d\'atelier CNC et coordonnées en français)'
+        : (reply.promptName ?? 'français');
     final uiLine = ui.isAuto
         ? "Interface de l'application : langue du téléphone (réglage "
-            '« auto »).'
+              '« auto »).'
         : "Interface de l'application : ${ui.promptName}.";
     return '=== RÈGLE STRICTE : LANGUE DE RÉPONSE ===\n'
         'Langue de ta réponse à ce message : $target.\n'
@@ -2730,15 +2142,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
         '${lang.isAuto && !reply.writesPoorly ? reply.atelierRule : ''}';
   }
 
-
-
   // ---------------------------------------------------------------------
 
   // Conversation
 
   // ---------------------------------------------------------------------
-
-
 
   /// Pose un faux fournisseur de modèle (tests du contrôleur). Il est réutilisé
 
@@ -2747,28 +2155,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// actif et qu'aucune adresse locale n'est renseignée.
 
   @visibleForTesting
-
   void debugUseBackend(AiBackend backend) => _service = backend;
 
-
-
   // ── Modèle pour les images ────────────────────────────────────────────────
-
-
 
   AiBackend? _visionService;
 
   String? _autoProbedVisionUrl;
 
-
-
   /// Pose un faux modèle d'images (tests du contrôleur).
 
   @visibleForTesting
-
   void debugUseVisionBackend(AiBackend backend) => _visionService = backend;
-
-
 
   /// Modèle local qui lit les images, s'il est réglé (ou auto-détecté sur le
 
@@ -2777,7 +2175,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// `null` sinon (le principal s'en charge, ou aucune image n'est lisible).
 
   Future<AiBackend?> _ensureVisionService() async {
-
     final settings = _ref.read(aiAgentSettingsProvider);
 
     // En ligne, Gemini lit les images lui-même : pas de modèle d'images local.
@@ -2787,90 +2184,73 @@ class AiAgentController extends StateNotifier<AiChatState> {
     var name = settings.localVisionModel;
 
     if (_visionService != null && _visionService is! LocalAiAgentService) {
-
       // Un faux posé par un test reste prioritaire.
 
       return _visionService;
-
     }
 
     if (url.isNotEmpty &&
-
-        name.isEmpty &&
-
         _autoProbedVisionUrl != url &&
-
         (_service == null || _service is LocalAiAgentService)) {
-
       _autoProbedVisionUrl = url;
 
       try {
-
         final norm = LocalAiAgentService.normalizeBaseUrl(url);
 
         final disc = OllamaDiscovery(
-
           probeTimeout: const Duration(milliseconds: 1200),
-
         );
 
         final srv = await disc.probe(norm);
 
         if (srv != null) {
-
           final full = await disc.describe(srv);
+          final available = full.models.map((m) => m.name).toSet();
+          final hasConfigured = name.isNotEmpty &&
+              (available.contains(name) ||
+                  (!name.contains(':') && available.contains('$name:latest')));
 
-          final rec = OllamaDiscovery.recommendVision(
+          if (!hasConfigured) {
+            final rec = OllamaDiscovery.recommendVision(
+              full.models,
+              main: settings.localModel,
+            );
 
-            full.models,
+            if (rec != null) {
+              name = rec.name;
 
-            main: settings.localModel,
-
-          );
-
-          if (rec != null) {
-
-            name = rec.name;
-
-            _ref
-
-                .read(aiAgentSettingsProvider.notifier)
-
-                .setLocalVisionModel(name);
-
+              _ref
+                  .read(aiAgentSettingsProvider.notifier)
+                  .setLocalVisionModel(name);
+            }
           }
-
         }
-
       } catch (_) {}
-
     }
 
     if (url.isEmpty || name.isEmpty || name == settings.localModel) {
-
       if (_visionService != null) {
-
         _visionService!.dispose();
 
         _visionService = null;
-
       }
 
       return null;
-
     }
 
-    if (_visionService != null && _visionService!.model == name) return _visionService;
+    if (_visionService != null && _visionService!.model == name)
+      return _visionService;
 
     _visionService?.dispose();
 
     final info = await LocalAiAgentService.probe(url, name);
 
-    return _visionService = LocalAiAgentService(baseUrl: url, model: name, info: info);
-
+    return _visionService = LocalAiAgentService(
+      baseUrl: url,
+      model: name,
+      info: info,
+    );
   }
-
-
 
   /// Enrichit une copie superficielle de `_contents` pour un modèle de vision
 
@@ -2887,7 +2267,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// toucher à `_contents`.
 
   List<Map<String, dynamic>> _contentsForVision() {
-
     if (_contents.isEmpty) return _contents;
 
     final last = _contents.last;
@@ -2901,11 +2280,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (!hasInline) return _contents;
 
     final frParts = parts
-
         .whereType<Map>()
-
         .where((p) => p.containsKey('functionResponse'))
-
         .toList();
 
     if (frParts.isEmpty) return _contents;
@@ -2913,66 +2289,44 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final summaries = <String>[];
 
     for (final fr in frParts) {
-
       final inner = fr['functionResponse'];
 
       if (inner is Map) {
-
         final resp = inner['response'];
 
         final resText = (resp is Map && resp['result'] != null)
-
             ? '${resp['result']}'
-
             : jsonEncode(resp ?? const {});
 
         summaries.add(resText);
-
       }
-
     }
 
     if (summaries.isEmpty) return _contents;
 
     return [
-
       ..._contents.sublist(0, _contents.length - 1),
 
       {
-
         ...last,
 
         'parts': [
-
           ...parts,
 
           {
-
-            'text': '[Télémesures exactes au moment de la capture : '
-
+            'text':
+                '[Télémesures exactes au moment de la capture : '
                 '${summaries.join(' | ')}]\n'
-
                 'Décris précisément ce que montre cette capture d\'écran ET '
-
                 'cite les valeurs clés des télémesures ci-dessus (coordonnées '
-
                 'des axes X/Y/Z/A/C, avancement ou pourcentage de brut coupé, '
-
                 'outil actif, collisions éventuelles) pour répondre directement '
-
                 'en français à l\'opérateur.',
-
           },
-
         ],
-
       },
-
     ];
-
   }
-
-
 
   /// Joint à l'image ce qu'en a dit le modèle d'images, pour les tours
 
@@ -2983,30 +2337,26 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// l'ajout de la réponse : le message qui porte l'image est l'avant-dernier.
 
   void _attachImageFiche(String description, String model) {
-
     if (_contents.length < 2) return;
 
     final i = _contents.length - 2;
 
     final parts = _contents[i]['parts'];
 
-    if (parts is! List || !parts.any((p) => p is Map && p.containsKey('inlineData'))) {
-
+    if (parts is! List ||
+        !parts.any((p) => p is Map && p.containsKey('inlineData'))) {
       return;
-
     }
 
     _contents[i] = {
-
       ..._contents[i],
 
-      'parts': [...parts, LocalAiAgentService.imageFichePart(description, model)],
-
+      'parts': [
+        ...parts,
+        LocalAiAgentService.imageFichePart(description, model),
+      ],
     };
-
   }
-
-
 
   /// Groupes d'outils qui AGISSENT : une demande qui en relève, jointe à une
 
@@ -3019,18 +2369,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// question sur une photo, et relanceraient le pilote pour rien.
 
   static const _actionGroups = {
-
-    'mouvement', 'broche', 'programme', 'scan', 'simulation',
-
+    'mouvement',
+    'broche',
+    'programme',
+    'scan',
+    'simulation',
   };
-
-
 
   /// Préfixe du message de relais (voir [_handOffImageRequestToPilot]).
 
   static const kImageRelayPrefix = '[Relais du modèle d\'images]';
-
-
 
   /// Si le message qui portait l'image demande une action, ajoute au fil un
 
@@ -3045,7 +2393,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// qui l'on rend la parole sur sa propre réponse n'a rien à exécuter.
 
   bool _handOffImageRequestToPilot() {
-
     if (_contents.length < 2) return false;
 
     final imageTurn = _contents[_contents.length - 2];
@@ -3059,50 +2406,34 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // (caméra) : celle-là répond déjà à un appel du modèle principal.
 
     if (parts.any((p) => p is Map && p.containsKey('functionResponse'))) {
-
       return false;
-
     }
 
     final request = _lastUserText();
 
     if (request.isEmpty || request.startsWith(kImageRelayPrefix)) return false;
 
-    final groups = const ToolRouter().route(
-
-      text: request,
-
-      allTools: const [],
-
-    ).groups;
+    final groups = const ToolRouter()
+        .route(text: request, allTools: const [])
+        .groups;
 
     if (groups.intersection(_actionGroups).isEmpty) return false;
 
     _contents.add({
-
       'role': 'user',
 
       'parts': [
-
         {
-
-          'text': '$kImageRelayPrefix La description de l\'image est faite '
-
+          'text':
+              '$kImageRelayPrefix La description de l\'image est faite '
               '(voir la fiche). Exécute maintenant la demande de l\'opérateur, '
-
               'avec tes outils : « $request »',
-
-        }
-
+        },
       ],
-
     });
 
     return true;
-
   }
-
-
 
   /// Le message de l'opérateur en cours porte-t-il sur une image : photo
 
@@ -3111,11 +2442,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// modèle principal ?
 
   bool _imageInPlay() {
-
     if (_lastTurnHasImage()) return true;
 
     for (final c in _contents.reversed) {
-
       if (c['role'] != 'user') continue;
 
       final parts = (c['parts'] as List? ?? const []).whereType<Map>().toList();
@@ -3124,36 +2453,30 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       if (parts.any((p) => p.containsKey('inlineData'))) return true;
 
-      return parts.any((p) =>
-
-          p['text'] is String && (p['text'] as String).startsWith(kImageRelayPrefix));
-
+      return parts.any(
+        (p) =>
+            p['text'] is String &&
+            (p['text'] as String).startsWith(kImageRelayPrefix),
+      );
     }
 
     return false;
-
   }
-
-
 
   /// Le dernier message du fil porte-t-il une image (photo jointe, ou image
 
   /// rendue par un outil comme la caméra) ?
 
   bool _lastTurnHasImage() {
-
     if (_contents.isEmpty) return false;
 
     final parts = _contents.last['parts'];
 
-    return parts is List && parts.any((p) => p is Map && p.containsKey('inlineData'));
-
+    return parts is List &&
+        parts.any((p) => p is Map && p.containsKey('inlineData'));
   }
 
-
-
   Future<AiBackend?> _ensureService() async {
-
     // Une adresse de serveur local renseignée l'emporte : l'agent tourne alors
 
     // entièrement sur le réseau de l'atelier, sans Internet ni clé API.
@@ -3164,34 +2487,25 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     final useLocal = settings.usesLocal;
 
-    final modelId =
-
-        useLocal ? settings.localModel : _ref.read(aiModelProvider).active.id;
-
-
+    final modelId = useLocal
+        ? settings.localModel
+        : _ref.read(aiModelProvider).active.id;
 
     // Réutilise le service si ni le modèle ni le fournisseur n'ont changé.
 
     final isLocal = _service is LocalAiAgentService;
 
     if (_service != null && _service!.model == modelId && isLocal == useLocal) {
-
       return _service;
-
     }
 
     if (_service != null) {
-
       _service!.dispose();
 
       _service = null;
-
     }
 
-
-
     if (useLocal) {
-
       // Client HTTP standard, volontairement : le process est déjà lié au WiFi
 
       // de l'ESP32 par bindProcessToNetwork, et c'est sur CE réseau que vit le
@@ -3211,39 +2525,34 @@ class AiAgentController extends StateNotifier<AiChatState> {
       final info = await LocalAiAgentService.probe(localUrl, modelId);
 
       final local = LocalAiAgentService(
-
-          baseUrl: localUrl, model: modelId, info: info);
+        baseUrl: localUrl,
+        model: modelId,
+        info: info,
+      );
 
       final problem = local.configurationProblem;
 
       if (problem != null) {
-
         local.dispose();
 
         state = state.copyWith(error: problem);
 
         return null;
-
       }
 
       _service = local;
 
       return _service;
-
     }
 
     final key = await _ref.read(aiAgentSettingsProvider.notifier).readApiKey();
 
     if (key == null || key.isEmpty) {
-
       state = state.copyWith(
-
         error: 'Aucune clé API Gemini configurée (Paramètres > Agent IA).',
-
       );
 
       return null;
-
     }
 
     // Client cellulaire : force les appels Gemini sur la 4G/5G quand le
@@ -3257,24 +2566,17 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // changer de fournisseur ne doit pas changer les contraintes.
 
     _service = GuardedBackend(
-
-        AiAgentService(apiKey: key, model: modelId, client: CellularHttpClient()));
+      AiAgentService(apiKey: key, model: modelId, client: CellularHttpClient()),
+    );
 
     return _service;
-
   }
 
-
-
   void _addMessage(AiChatMessage message, {bool persist = true}) {
-
     state = state.copyWith(messages: [...state.messages, message]);
 
     if (persist) unawaited(_persist());
-
   }
-
-
 
   /// Remplace un message par sa version aboutie, en place — l'étape ne saute
 
@@ -3295,7 +2597,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// plus ouvert.
 
   void _replaceMessage(AiChatMessage previous, AiChatMessage next) {
-
     final messages = state.messages;
 
     final index = messages.lastIndexWhere((m) => identical(m, previous));
@@ -3309,10 +2610,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     state = state.copyWith(messages: updated);
 
     unawaited(_persist());
-
   }
-
-
 
   /// Envoie un message. [imageBytes] (optionnel) joint une image analysée par
 
@@ -3329,7 +2627,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// désactivé le passent à faux.
 
   Future<void> sendUserMessage(
-
     String text, {
 
     Uint8List? imageBytes,
@@ -3339,12 +2636,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
     bool allowModel = true,
     String origin = BackofficeOrigin.local,
   }) async {
-
     final lang = _ref.read(effectiveAiLanguageProvider);
-    final normalized = WaxalVoiceEngine.normalizeSttInput(text, activeLanguageId: lang.id);
+    final normalized = WaxalVoiceEngine.normalizeSttInput(
+      text,
+      activeLanguageId: lang.id,
+    );
     final trimmed = normalized.trim();
-
-
 
     // Tout message de l'opérateur ouvre une nouvelle chaîne pour le
     // backoffice, même s'il est refusé plus bas (agent occupé) : le refus
@@ -3354,8 +2651,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _audit(
       'ia.message',
       'Message ${origin == BackofficeOrigin.relais ? 'du téléphone (relais)' : 'de l\'opérateur'}'
-      '${imageBytes != null ? ' avec image' : ''}'
-      '${trimmed.isEmpty ? '' : ' : « ${_preview(trimmed, 80)} »'}',
+          '${imageBytes != null ? ' avec image' : ''}'
+          '${trimmed.isEmpty ? '' : ' : « ${_preview(trimmed, 80)} »'}',
       details: {
         'longueur': trimmed.length,
         'image_octets': ?imageBytes?.length,
@@ -3371,14 +2668,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // probabiliste — et même si l'agent est en train de répondre.
 
     if (imageBytes == null && isEmergencyStopRequest(trimmed)) {
-
       await _emergencyStopFromChat(trimmed);
 
       return;
-
     }
-
-
 
     // Porte d'entrée « lexique fermé » : lit le message AVANT le modèle. Elle
 
@@ -3389,33 +2682,30 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // (« jɔ sisan ») ne doit pas être jeté parce que le modèle réfléchit.
 
     final front = (imageBytes == null && trimmed.isNotEmpty)
-
         ? await _readFront(trimmed)
-
         : null;
 
     if (front != null && front.isEmergencyStop) {
-
       await _emergencyStopFromChat(trimmed, front: front);
 
       return;
-
     }
 
     // Après les chemins d'arrêt d'urgence, qui n'attendent jamais.
     await _restoring;
     if (trimmed.isEmpty && imageBytes == null) return;
     if (state.isProcessing) {
-      _audit('ia.message_ignore', 'Message ignoré : l\'agent répond déjà',
-          severity: BackofficeSeverity.notice);
+      _audit(
+        'ia.message_ignore',
+        'Message ignoré : l\'agent répond déjà',
+        severity: BackofficeSeverity.notice,
+      );
       return;
     }
 
     // Une traduction encore en cours occupe la carte graphique : le pilote
     // passe avant, la réponse précédente reste en français.
     _translator?.cancel();
-
-
 
     // Nouveau tour : l'éventuelle action du lexique restée en attente est
 
@@ -3433,33 +2723,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
           r"^\s*(?:confirm|confirmed|yes(?:\s+please)?|start|go(?:\s+ahead)?|ok(?:\s+(?:start|go|vas-y|lance))?|proceed|do\s+it|run(?:\s+it)?|confirme|confirmer|oui(?:\s+(?:lance(?:-le)?|vas-y|ex[ée]cute(?:-le)?|ok))?|d'accord|dac|lance(?:-le)?|lancer|ex[ée]cute(?:-le)?|executer|d[ée]marre|demarre|vas-y|fais-le)\s*[.!]*\s*$",
           caseSensitive: false,
         ).hasMatch(trimmed)) {
-      _addMessage(AiChatMessage(
-        role: 'user',
-        text: trimmed,
-        timestamp: DateTime.now(),
-      ));
+      _addMessage(
+        AiChatMessage(role: 'user', text: trimmed, timestamp: DateTime.now()),
+      );
       await confirmPendingAction();
       return;
     }
     if (state.pendingConfirmation?.lexicon != null) {
-
       _dropLexiconPending('remplacée par un nouveau message', quiet: true);
-
     }
-
-
 
     if (front != null) {
-
       if (await _applyFront(trimmed, front, allowModel: allowModel)) return;
-
     } else if (!allowModel) {
-
       return; // agent désactivé et rien que le lexique puisse faire de ce message
-
     }
-
-
 
     if (allowModel &&
         imageBytes == null &&
@@ -3470,8 +2748,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final service = await _ensureService();
 
     if (service == null) {
-      _audit('ia.indisponible', 'Aucun modèle joignable : ${state.error ?? 'raison inconnue'}',
-          severity: BackofficeSeverity.warning, details: {'raison': ?state.error});
+      _audit(
+        'ia.indisponible',
+        'Aucun modèle joignable : ${state.error ?? 'raison inconnue'}',
+        severity: BackofficeSeverity.warning,
+        details: {'raison': ?state.error},
+      );
       // Pas de modèle joignable (pas de clé, serveur absent) : le lexique reste
 
       // utile, et dit à l'opérateur ce qui marche quand même.
@@ -3479,20 +2761,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
       if (front != null) _answerWithoutModel(trimmed, front.refusal);
 
       return;
-
     }
-
-
 
     _cancelled = false;
 
     try {
-
       await _ref.read(docCorpusProvider.future);
-
-    } catch (_) {/* pas de fiches : le modèle répond comme avant */}
-
-
+    } catch (_) {
+      /* pas de fiches : le modèle répond comme avant */
+    }
 
     // Construit les parts au format Gemini : texte + éventuelle image inline.
 
@@ -3501,48 +2778,34 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (trimmed.isNotEmpty) parts.add({'text': trimmed});
 
     if (imageBytes != null) {
-
       parts.add({
-
         'inlineData': {
-
           'mimeType': imageMime ?? 'image/jpeg',
 
           'data': base64Encode(imageBytes),
-
         },
-
       });
-
     }
 
     _contents.add({'role': 'user', 'parts': parts});
 
-
-
     if (imageBytes != null) {
-
       _ref.read(aiUsageProvider.notifier).recordImage();
-
     }
 
+    _addMessage(
+      AiChatMessage(
+        role: 'user',
 
+        text: trimmed,
 
-    _addMessage(AiChatMessage(
+        timestamp: DateTime.now(),
 
-      role: 'user',
-
-      text: trimmed,
-
-      timestamp: DateTime.now(),
-
-      imageBytes: imageBytes,
-
-    ));
+        imageBytes: imageBytes,
+      ),
+    );
 
     state = state.copyWith(turnStartedAt: DateTime.now(), turnTokens: 0);
-
-
 
     // Pré-vérif réseau : le WiFi de l'ESP32 n'a pas d'Internet, l'IA distante
 
@@ -3561,30 +2824,19 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // machine, données mobiles coupées ou absentes.
 
     if (service.usesCellular && !await CellularNetwork.isAvailable()) {
-
       _armRetry(
-
         () => _runTurn(service),
 
         'Données mobiles désactivées : l\'IA a besoin de la 4G/5G, car le WiFi '
-
         'de l\'ESP32 n\'a pas d\'accès Internet. Active les données mobiles (en '
-
         'gardant le WiFi) — l\'envoi reprendra tout seul.',
-
       );
 
       return;
-
     }
 
-
-
     await _runTurn(service);
-
   }
-
-
 
   /// Arrêt d'urgence demandé dans le chat : exécuté tout de suite, sans
 
@@ -3595,14 +2847,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// dépendre d'un tirage probabiliste.
 
   Future<void> _emergencyStopFromChat(String text, {_Front? front}) async {
-
     final clock = Stopwatch()..start();
 
     final wasBusy = state.isProcessing || state.pendingConfirmation != null;
 
-    _addMessage(AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
-
-
+    _addMessage(
+      AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()),
+    );
 
     var result = 'ERREUR: outil d\'arrêt d\'urgence introuvable';
 
@@ -3611,26 +2862,23 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final tool = AiToolCatalog.byName('emergency_stop');
     final callId = 'emergency_stop_${_callCounter++}';
     if (tool != null) {
-      parts = await _executeTool(tool, 'emergency_stop', const {},
-          callId: callId,
-          origin: front != null ? BackofficeOrigin.lexique : _turnOrigin);
+      parts = await _executeTool(
+        tool,
+        'emergency_stop',
+        const {},
+        callId: callId,
+        origin: front != null ? BackofficeOrigin.lexique : _turnOrigin,
+      );
       final response = parts.isEmpty
-
           ? null
-
           : (parts.first['functionResponse'] as Map?)?['response'] as Map?;
 
       result = '${response?['result'] ?? response?['error'] ?? result}';
-
     }
-
-
 
     // Un tour en cours est interrompu APRÈS l'arrêt, jamais avant : l'arrêt prime.
 
     if (wasBusy) stopGeneration();
-
-
 
     final sent = result.startsWith('OK');
     _audit(
@@ -3654,31 +2902,38 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // message d'échec est le même texte que lexiconReply('estop_failed') :
     // une seule traduction à tenir.
     final reply = inLanguage(
-        _replyLanguageFor(text),
-        () => match != null
-            // Compris par le lexique : phrase fixe, relue pour la langue si
-            // elle l'est (voir CommandLexicon.reply).
-            ? lexiconReply(
-                match: match, toolResult: result, lexicon: front!.lexicon)
-            : sent
-                ? tr('Arrêt d\'urgence envoyé à la machine.')
-                : tr(
-                    'ATTENTION — {}. Utilise le bouton rouge « Arrêt d\'urgence » ou coupe l\'alimentation.',
-                    [result]));
+      _replyLanguageFor(text),
+      () => match != null
+          // Compris par le lexique : phrase fixe, relue pour la langue si
+          // elle l'est (voir CommandLexicon.reply).
+          ? lexiconReply(
+              match: match,
+              toolResult: result,
+              lexicon: front!.lexicon,
+            )
+          : sent
+          ? tr('Arrêt d\'urgence envoyé à la machine.')
+          : tr(
+              'ATTENTION — {}. Utilise le bouton rouge « Arrêt d\'urgence » ou coupe l\'alimentation.',
+              [result],
+            ),
+    );
 
     if (front != null) {
+      _logFront(
+        front,
+        'lexique:direct:emergencyStop:urgence',
+        clock,
 
-      _logFront(front, 'lexique:direct:emergencyStop:urgence', clock,
-
-          tools: const ['emergency_stop']);
-
+        tools: const ['emergency_stop'],
+      );
     }
 
-    _addMessage(AiChatMessage(role: 'assistant', text: reply, timestamp: DateTime.now()));
+    _addMessage(
+      AiChatMessage(role: 'assistant', text: reply, timestamp: DateTime.now()),
+    );
 
     _ref.read(aiInboxProvider.notifier).pushAlert(reply, problem: !sent);
-
-
 
     // Fil de protocole valide (texte, appel, réponse, texte) — sauf si un tour
 
@@ -3687,44 +2942,42 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // réponse de ce tour.
 
     if (!wasBusy) {
-
       _contents
-
-        ..add({'role': 'user', 'parts': [{'text': text}]})
-
         ..add({
-
+          'role': 'user',
+          'parts': [
+            {'text': text},
+          ],
+        })
+        ..add({
           'role': 'model',
 
           'parts': [
-
-            {'functionCall': {'name': 'emergency_stop', 'args': <String, dynamic>{}}}
-
-          ]
-
+            {
+              'functionCall': {
+                'name': 'emergency_stop',
+                'args': <String, dynamic>{},
+              },
+            },
+          ],
         })
-
         ..add({
-
           'role': 'user',
 
           'parts': parts.isEmpty
-
               ? [_functionResponse('emergency_stop', result: result)]
-
               : parts,
-
         })
-
-        ..add({'role': 'model', 'parts': [{'text': reply}]});
+        ..add({
+          'role': 'model',
+          'parts': [
+            {'text': reply},
+          ],
+        });
 
       unawaited(_persist());
-
     }
-
   }
-
-
 
   /// Interrompt la génération en cours (bouton « Stop »). Le texte déjà reçu
 
@@ -3735,23 +2988,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// « interrompu », faute de quoi Gemini rejetterait le tour suivant).
 
   void stopGeneration() {
-
     final pending = state.pendingConfirmation;
 
     if (!state.isProcessing && pending == null) return;
-
-
 
     // Action du lexique en attente : aucune boucle de modèle à interrompre,
 
     // aucune réponse d'outil à fabriquer pour l'historique du modèle.
 
     if (pending?.lexicon != null) {
-
       _dropLexiconPending('annulée par l\'opérateur');
 
       return;
-
     }
 
     _cancelled = true;
@@ -3764,70 +3012,63 @@ class AiAgentController extends StateNotifier<AiChatState> {
       callId: pending?.id,
     );
 
-
-
     if (pending != null) {
-
       // Aucune boucle asynchrone en vol dans ce cas : on solde immédiatement.
 
-      _collectedResults.add(_functionResponse(pending.toolName,
+      _collectedResults.add(
+        _functionResponse(
+          pending.toolName,
 
-          error: 'Interrompu par l\'utilisateur.'));
+          error: 'Interrompu par l\'utilisateur.',
+        ),
+      );
 
       _abortToolChain();
 
       return;
-
     }
-
-
 
     final partial = _latestStreamingText ?? state.streamingText;
 
     _latestStreamingText = null;
 
     state = state.copyWith(
+      isProcessing: false,
 
-        isProcessing: false,
+      clearStreamingText: true,
 
-        clearStreamingText: true,
-
-        clearTurnStartedAt: true);
+      clearTurnStartedAt: true,
+    );
 
     if (partial != null && partial.trim().isNotEmpty) {
+      _addMessage(
+        AiChatMessage(
+          role: 'assistant',
 
-      _addMessage(AiChatMessage(
+          text: partial,
 
-        role: 'assistant',
+          timestamp: DateTime.now(),
 
-        text: partial,
-
-        timestamp: DateTime.now(),
-
-        interrupted: true,
-
-      ));
-
+          interrupted: true,
+        ),
+      );
     }
-
   }
-
-
 
   /// Arme une reprise : mémorise l'action à rejouer, affiche l'erreur et lance
 
   /// la surveillance réseau qui la relancera automatiquement dès que possible.
 
-  void _armRetry(Future<void> Function() action, String message,
-
-      {Future<bool> Function()? probe}) {
-
+  void _armRetry(
+    Future<void> Function() action,
+    String message, {
+    Future<bool> Function()? probe,
+  }) {
     _retry = action;
 
     _retryProbe = probe;
 
     state = state.copyWith(
-
       isProcessing: false,
 
       error: message,
@@ -3837,52 +3078,41 @@ class AiAgentController extends StateNotifier<AiChatState> {
       awaitingNetwork: true,
 
       clearTurnStartedAt: true,
-
     );
-    _audit('ia.reprise_armee', 'Tour en attente de reprise : ${_preview(message, 120)}',
-        severity: BackofficeSeverity.warning, details: {'message': message});
+    _audit(
+      'ia.reprise_armee',
+      'Tour en attente de reprise : ${_preview(message, 120)}',
+      severity: BackofficeSeverity.warning,
+      details: {'message': message},
+    );
     // Alerte « problème » sur le bouton IA si l'écran n'est pas ouvert.
 
     _ref.read(aiInboxProvider.notifier).pushAlert(message, problem: true);
 
     _startAutoRetryWatch();
-
   }
 
-
-
   void _startAutoRetryWatch() {
-
     _autoRetryTimer?.cancel();
 
     _autoRetryTimer = Timer.periodic(const Duration(seconds: 4), (t) async {
-
       if (_retry == null) {
-
         t.cancel();
 
         return;
-
       }
 
       if (await (_retryProbe ?? CellularNetwork.isAvailable)()) {
-
         t.cancel();
 
         await retryNow();
-
       }
-
     });
-
   }
-
-
 
   /// Rejoue immédiatement la dernière action échouée (bouton « Réessayer »).
 
   Future<void> retryNow() async {
-
     final action = _retry;
 
     if (action == null) return;
@@ -3892,41 +3122,33 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _autoRetryTimer?.cancel();
 
     _cancelled = false;
-    _audit('ia.reprise', 'Tour rejoué après un échec', severity: BackofficeSeverity.notice);
+    _audit(
+      'ia.reprise',
+      'Tour rejoué après un échec',
+      severity: BackofficeSeverity.notice,
+    );
     state = state.copyWith(
-
       clearError: true,
 
       retryable: false,
 
       awaitingNetwork: false,
-
     );
 
     await action();
-
   }
 
-
-
   void _clearRetry() {
-
     _retry = null;
 
     _autoRetryTimer?.cancel();
 
     if (state.retryable || state.awaitingNetwork) {
-
       state = state.copyWith(retryable: false, awaitingNetwork: false);
-
     }
-
   }
 
-
-
   Future<void> _runTurn(AiBackend baseService) async {
-
     final epoch = _epoch;
 
     // Un tour qui porte une image va au modèle d'images (s'il y en a un), SANS
@@ -3941,16 +3163,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Le backoffice doit voir QUI lit l'image : le modèle d'images (gemma),
       // ou personne — un pilote qui ne voit pas la laisse tomber en silence.
       if (vision != null) {
-        _audit('ia.vision.tour',
-            'Image confiée au modèle d\'images ${vision.model} (décrit, sans outils)',
-            details: {'modele_images': vision.model, 'pilote': baseService.model},
-            origin: BackofficeOrigin.modele);
+        _audit(
+          'ia.vision.tour',
+          'Image confiée au modèle d\'images ${vision.model} (décrit, sans outils)',
+          details: {'modele_images': vision.model, 'pilote': baseService.model},
+          origin: BackofficeOrigin.modele,
+        );
       } else {
-        _audit('ia.vision.absente',
-            'Image jointe, mais aucun modèle d\'images branché : ${baseService.model} ne la verra pas',
-            severity: BackofficeSeverity.warning,
-            details: {'pilote': baseService.model},
-            origin: BackofficeOrigin.modele);
+        _audit(
+          'ia.vision.absente',
+          'Image jointe, mais aucun modèle d\'images branché : ${baseService.model} ne la verra pas',
+          severity: BackofficeSeverity.warning,
+          details: {'pilote': baseService.model},
+          origin: BackofficeOrigin.modele,
+        );
       }
     }
     _turnGroups = null; // reposé par _declarationsFor pour un tour avec outils
@@ -3962,18 +3188,18 @@ class AiAgentController extends StateNotifier<AiChatState> {
     compactGeminiContents(_contents, maxChars: service.historyBudgetChars);
 
     state = state.copyWith(
+      isProcessing: true,
 
-        isProcessing: true,
+      clearError: true,
 
-        clearError: true,
+      retryable: false,
 
-        retryable: false,
+      awaitingNetwork: false,
 
-        awaitingNetwork: false,
+      clearStreamingText: true,
 
-        clearStreamingText: true,
-
-        turnStartedAt: state.turnStartedAt ?? DateTime.now());
+      turnStartedAt: state.turnStartedAt ?? DateTime.now(),
+    );
 
     final clock = Stopwatch()..start();
 
@@ -3982,7 +3208,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     var lastDeltaEmit = DateTime.fromMillisecondsSinceEpoch(0);
 
     void onStreamDelta(String partial) {
-
       if (_cancelled) return;
 
       _latestStreamingText = partial;
@@ -3990,71 +3215,49 @@ class AiAgentController extends StateNotifier<AiChatState> {
       final now = DateTime.now();
 
       if (now.difference(lastDeltaEmit).inMilliseconds >= 40) {
-
         lastDeltaEmit = now;
 
         state = state.copyWith(streamingText: partial);
-
       }
-
     }
 
-
-
     try {
-
       var declarations = vision != null
-
           ? const <Map<String, dynamic>>[]
-
           : _declarationsFor(service);
 
       final groups = _turnGroups;
 
       state = state.copyWith(
-
-          specialists: vision != null
-
-              ? const ['images']
-
-              : (groups == null ? const [] : (groups.toList()..sort())));
+        specialists: vision != null
+            ? const ['images']
+            : (groups == null ? const [] : (groups.toList()..sort())),
+      );
 
       if (vision is LocalAiAgentService &&
-
           baseService is LocalAiAgentService &&
-
           vision.model != baseService.model) {
-
         await baseService.evictFromMemory();
-
       }
 
       AiApiResponse response;
 
       try {
-
         response = await service.streamMessages(
-
           contents: vision != null ? _contentsForVision() : _contents,
 
           functionDeclarations: declarations,
 
           systemPrompt: vision != null
-
               ? '$visionSystemPrompt\n\n${_currentLanguageBlock()}'
-
               : _buildSystemPrompt(),
 
           // Aperçu live cadencé à ~25 Hz (40 ms) pour éviter 80 rebuilds/s.
-
           onDelta: onStreamDelta,
 
           shouldCancel: () => _cancelled || _epoch != epoch,
-
         );
-
       } catch (_) {
-
         // Repli résilient : si le modèle de vision échoue (ex. saturation VRAM
 
         // CUDA au chargement simultané sur portable) sur une capture d'outil qui
@@ -4064,19 +3267,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
         // sans interrompre l'opérateur.
 
         final lastParts = _contents.isNotEmpty
-
             ? (_contents.last['parts'] as List? ?? const [])
-
             : const [];
 
-        final isToolCapture =
-
-            lastParts.any((p) => p is Map && p.containsKey('functionResponse'));
+        final isToolCapture = lastParts.any(
+          (p) => p is Map && p.containsKey('functionResponse'),
+        );
 
         if (vision == null || !isToolCapture || _cancelled || _epoch != epoch) {
-
           rethrow;
-
         }
 
         vision = null;
@@ -4088,7 +3287,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
         declarations = _declarationsFor(service);
 
         response = await service.streamMessages(
-
           contents: _contents,
 
           functionDeclarations: declarations,
@@ -4098,22 +3296,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
           onDelta: onStreamDelta,
 
           shouldCancel: () => _cancelled || _epoch != epoch,
-
         );
-
       }
 
       if (vision is LocalAiAgentService &&
-
           baseService is LocalAiAgentService &&
-
           vision.model != baseService.model) {
-
         unawaited(vision.evictFromMemory());
-
       }
-
-
 
       // La discussion a changé pendant l'appel : cette réponse appartient à un
 
@@ -4121,19 +3311,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       if (_epoch != epoch) return;
 
-
-
       if (_cancelled) {
-
         _logTurn(service, AiTurnOutcome.cancelled, clock, response: response);
 
         _finishCancelled(response);
 
         return;
-
       }
-
-
 
       // Réponse vide : ni texte, ni appel d'outil. Ne PAS l'inscrire dans
 
@@ -4146,13 +3330,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // « Arrête tout, c'est urgent ! » a rendu une réponse vide.
 
       if (response.text.trim().isEmpty && response.functionCalls.isEmpty) {
-
         _logTurn(service, AiTurnOutcome.empty, clock, response: response);
 
         _ref
-
             .read(aiUsageProvider.notifier)
-
             .recordRequest(service.model, tokens: response.totalTokens);
 
         _retry = () => _runTurn(baseService);
@@ -4160,28 +3341,22 @@ class AiAgentController extends StateNotifier<AiChatState> {
         _retryProbe = null;
 
         state = state.copyWith(
-
           clearStreamingText: true,
 
           isProcessing: false,
 
-          error: 'L\'assistant n\'a rien répondu. Réessaie ; si cela se '
-
+          error:
+              'L\'assistant n\'a rien répondu. Réessaie ; si cela se '
               'répète, reformule ta demande. Pour un arrêt immédiat, utilise '
-
               'le bouton rouge « Arrêt d\'urgence ».',
 
           retryable: true,
 
           clearTurnStartedAt: true,
-
         );
 
         return;
-
       }
-
-
 
       // Fin du streaming : on efface l'aperçu et on fige le message.
 
@@ -4190,9 +3365,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _contents.add({'role': 'model', 'parts': response.parts});
 
       if (vision != null && response.text.isNotEmpty) {
-
         _attachImageFiche(response.text, vision.model);
-
       }
 
       unawaited(_persist());
@@ -4200,46 +3373,40 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // Comptabilise l'appel abouti (quotas du jour, par modèle).
 
       _ref
-
           .read(aiUsageProvider.notifier)
-
           .recordRequest(service.model, tokens: response.totalTokens);
 
       _logTurn(service, AiTurnOutcome.ok, clock, response: response);
 
       state = state.copyWith(
-
-          turnTokens: state.turnTokens + response.totalTokens);
-
-
+        turnTokens: state.turnTokens + response.totalTokens,
+      );
 
       AiChatMessage? finalReply;
 
       if (response.text.isNotEmpty) {
-
         // Après une recherche (fiches trouvées ou non), un refus est un refus :
 
         // sans « cependant » ni procédure tirée de la mémoire du modèle.
 
         final block = _docsBlockOrNull();
 
-        _addMessage(finalReply = AiChatMessage(
+        _addMessage(
+          finalReply = AiChatMessage(
+            role: 'assistant',
 
-          role: 'assistant',
+            text: block != null
+                ? enforceNoFicheReply(response.text, block: block)
+                : response.text,
 
-          text: block != null ? enforceNoFicheReply(response.text, block: block) : response.text,
-
-          timestamp: DateTime.now(),
-
-        ));
+            timestamp: DateTime.now(),
+          ),
+        );
 
         // Badge le bouton IA si l'écran n'est pas ouvert (info à présenter).
 
         _ref.read(aiInboxProvider.notifier).pushAlert(response.text);
-
       }
-
-
 
       // Photo + ordre (« regarde et lance le scan ») : le modèle d'images n'a
 
@@ -4248,27 +3415,23 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // principal, qui a la fiche et les outils, pour exécuter la demande.
 
       if (vision != null && _handOffImageRequestToPilot()) {
-        _audit('ia.vision.relais',
-            'Photo + ordre : ${vision.model} a décrit, le pilote ${baseService.model} prend la main avec ses outils',
-            severity: BackofficeSeverity.notice,
-            details: {'modele_images': vision.model, 'pilote': baseService.model},
-            origin: BackofficeOrigin.modele);
+        _audit(
+          'ia.vision.relais',
+          'Photo + ordre : ${vision.model} a décrit, le pilote ${baseService.model} prend la main avec ses outils',
+          severity: BackofficeSeverity.notice,
+          details: {'modele_images': vision.model, 'pilote': baseService.model},
+          origin: BackofficeOrigin.modele,
+        );
         unawaited(_persist());
 
         return _runTurn(baseService);
-
       }
 
-
-
       if (response.functionCalls.isNotEmpty) {
-
         _pendingToolQueue = List.of(response.functionCalls);
 
         await _processNextToolCall(baseService, epoch);
-
       } else {
-
         _clearRetry();
 
         state = state.copyWith(isProcessing: false, clearTurnStartedAt: true);
@@ -4278,61 +3441,51 @@ class AiAgentController extends StateNotifier<AiChatState> {
         // n'écrit pas la langue de l'opérateur. Le français est déjà affiché.
 
         if (finalReply != null && !_cancelled) {
-
           unawaited(_translateFinalReply(finalReply, epoch));
-
         }
-
       }
-
     } catch (e) {
-
       if (_epoch != epoch) return; // discussion changée → erreur sans objet
 
       state = state.copyWith(clearStreamingText: true);
 
-
-
       // Interruption demandée : l'échec est attendu, pas une panne à rejouer.
 
       if (_cancelled) {
-
         _logTurn(service, AiTurnOutcome.cancelled, clock);
 
-        _finishCancelled(const AiApiResponse(parts: [], finishReason: 'CANCELLED'));
+        _finishCancelled(
+          const AiApiResponse(parts: [], finishReason: 'CANCELLED'),
+        );
 
         return;
-
       }
-
-
 
       final raw = e.toString();
       final errorKind = _isQuota(raw)
           ? 'quota'
           : _isUnreachable(e)
-              ? 'unreachable'
-              : 'other';
+          ? 'unreachable'
+          : 'other';
       _logTurn(service, AiTurnOutcome.error, clock, errorKind: errorKind);
-      _audit('ia.erreur', 'Échec du tour ($errorKind) : ${_preview(raw, 140)}',
-          severity: BackofficeSeverity.warning,
-          details: {'type': errorKind, 'erreur': _preview(raw, 400)},
-          origin: BackofficeOrigin.modele);
-
-
+      _audit(
+        'ia.erreur',
+        'Échec du tour ($errorKind) : ${_preview(raw, 140)}',
+        severity: BackofficeSeverity.warning,
+        details: {'type': errorKind, 'erreur': _preview(raw, 400)},
+        origin: BackofficeOrigin.modele,
+      );
 
       // Quota gratuit épuisé (429) → bascule automatique sur le modèle suivant.
 
       if (_isQuota(raw)) {
-
         _ref.read(aiUsageProvider.notifier).markQuotaHit();
 
-        final next =
-
-            _ref.read(aiModelProvider.notifier).handleQuotaHit(service.model);
+        final next = _ref
+            .read(aiModelProvider.notifier)
+            .handleQuotaHit(service.model);
 
         if (next != null) {
-
           // Rebâtit le service avec le nouveau modèle et rejoue le tour.
 
           _service?.dispose();
@@ -4342,36 +3495,24 @@ class AiAgentController extends StateNotifier<AiChatState> {
           final s = await _ensureService();
 
           if (s != null) return _runTurn(s);
-
         }
 
         final auto = _ref.read(aiModelProvider).auto;
 
         _armRetry(
-
           () => _runTurn(baseService),
 
           auto
-
               ? 'Quota gratuit atteint sur tous les modèles disponibles. '
-
-                  'Réessaie plus tard (remise à zéro quotidienne) ou active la '
-
-                  'facturation.'
-
+                    'Réessaie plus tard (remise à zéro quotidienne) ou active la '
+                    'facturation.'
               : 'Quota atteint sur ${service.model}. Active la bascule '
-
-                  'automatique (Paramètres > Modèle IA) ou choisis un autre '
-
-                  'modèle.',
-
+                    'automatique (Paramètres > Modèle IA) ou choisis un autre '
+                    'modèle.',
         );
 
         return;
-
       }
-
-
 
       // Échec réseau/API → on garde le tour en mémoire pour le rejouer (le
 
@@ -4380,20 +3521,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // automatique dès que la connexion revient.
 
       _armRetry(
-
         () => _runTurn(baseService),
 
         _friendlyError(e, service),
 
         probe: service.usesCellular ? null : service.isReachable,
-
       );
-
     }
-
   }
-
-
 
   /// Solde un tour interrompu : seul le texte reçu entre dans l'historique
 
@@ -4402,23 +3537,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
   /// `functionResponse`, ils rendraient tout le fil invalide pour Gemini.
 
   void _finishCancelled(AiApiResponse response) {
-
     final text = response.text;
 
     if (text.isNotEmpty) {
-
       _contents.add({
-
         'role': 'model',
 
         'parts': [
-
           {'text': text},
-
         ],
-
       });
-
     }
 
     _pendingToolQueue = [];
@@ -4430,47 +3558,39 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _clearRetry();
 
     state = state.copyWith(
+      isProcessing: false,
 
-        isProcessing: false,
+      clearStreamingText: true,
 
-        clearStreamingText: true,
+      clearPendingConfirmation: true,
 
-        clearPendingConfirmation: true,
-
-        clearTurnStartedAt: true);
+      clearTurnStartedAt: true,
+    );
 
     unawaited(_persist());
-
   }
-
-
 
   /// Solde une chaîne d'appels d'outils interrompue : chaque appel encore en
 
   /// file reçoit une réponse d'échec, pour que l'historique reste appairé.
 
   void _abortToolChain() {
-
     for (final block in _pendingToolQueue) {
-
       final call = (block['functionCall'] as Map?)?.cast<String, dynamic>();
 
       final name = call?['name'] as String? ?? 'unknown';
 
-      _collectedResults
-
-          .add(_functionResponse(name, error: 'Interrompu par l\'utilisateur.'));
-
+      _collectedResults.add(
+        _functionResponse(name, error: 'Interrompu par l\'utilisateur.'),
+      );
     }
 
     _pendingToolQueue = [];
 
     if (_collectedResults.isNotEmpty) {
-
       _contents.add({'role': 'user', 'parts': _collectedResults});
 
       _collectedResults = [];
-
     }
 
     _cancelled = false;
@@ -4478,85 +3598,58 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _clearRetry();
 
     state = state.copyWith(
+      isProcessing: false,
 
-        isProcessing: false,
+      clearStreamingText: true,
 
-        clearStreamingText: true,
+      clearPendingConfirmation: true,
 
-        clearPendingConfirmation: true,
-
-        clearTurnStartedAt: true);
+      clearTurnStartedAt: true,
+    );
 
     unawaited(_persist());
-
   }
 
-
-
   bool _isQuota(String raw) =>
-
       raw.contains('HTTP 429') ||
-
       raw.contains('RESOURCE_EXHAUSTED') ||
-
       raw.contains('Too Many Requests');
-
-
 
   /// Traduit une erreur technique en message court et actionnable.
 
   String _friendlyError(Object e, AiBackend service) {
-
     if (e is CellularNetworkException) return e.toString();
 
     if (_isUnreachable(e)) return service.unreachableMessage;
 
     return e.toString();
-
   }
-
-
 
   /// Échec de joignabilité (réseau coupé, serveur éteint, délai dépassé).
 
   bool _isUnreachable(Object e) {
-
     final raw = e.toString();
 
     return raw.contains('SocketException') ||
-
         raw.contains('Failed host lookup') ||
-
         raw.contains('TimeoutException') ||
-
         raw.contains('Connection');
-
   }
 
-
-
   Future<void> _processNextToolCall(AiBackend service, int epoch) async {
-
     // Discussion changée pendant l'exécution d'un outil : la chaîne appartient
 
     // à un fil qui n'est plus ouvert, on l'abandonne sans toucher à l'état.
 
     if (_epoch != epoch) return;
 
-
-
     if (_cancelled) {
-
       _abortToolChain();
 
       return;
-
     }
 
-
-
     if (_pendingToolQueue.isEmpty) {
-
       _contents.add({'role': 'user', 'parts': _collectedResults});
 
       _collectedResults = [];
@@ -4566,10 +3659,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       await _runTurn(service);
 
       return;
-
     }
-
-
 
     final block = _pendingToolQueue.removeAt(0);
 
@@ -4577,7 +3667,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     final toolName = functionCall['name'] as String;
 
-    final input = ((functionCall['args'] as Map?) ?? const {}).cast<String, dynamic>();
+    final input = ((functionCall['args'] as Map?) ?? const {})
+        .cast<String, dynamic>();
 
     final callId = '${toolName}_${_callCounter++}';
 
@@ -4586,32 +3677,34 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _audit(
       'ia.outil.demande',
       'Le modèle demande $toolName'
-      '${input.isEmpty ? '' : ' ${_preview(jsonEncode(input), 100)}'}',
-      details: {'outil': toolName, 'arguments': input, 'categorie': ?tool?.category?.name},
+          '${input.isEmpty ? '' : ' ${_preview(jsonEncode(input), 100)}'}',
+      details: {
+        'outil': toolName,
+        'arguments': input,
+        'categorie': ?tool?.category?.name,
+      },
       callId: callId,
       origin: BackofficeOrigin.modele,
     );
 
     if (tool == null) {
-      _audit('garde.outil_inconnu', 'Outil inconnu « $toolName » : appel refusé',
-          source: BackofficeSource.garde,
-          severity: BackofficeSeverity.warning,
-          details: {'outil': toolName, 'arguments': input},
-          callId: callId,
-          origin: BackofficeOrigin.modele);
+      _audit(
+        'garde.outil_inconnu',
+        'Outil inconnu « $toolName » : appel refusé',
+        source: BackofficeSource.garde,
+        severity: BackofficeSeverity.warning,
+        details: {'outil': toolName, 'arguments': input},
+        callId: callId,
+        origin: BackofficeOrigin.modele,
+      );
       _collectedResults.add(
-
         _functionResponse(toolName, error: 'Outil inconnu "$toolName"'),
-
       );
 
       await _processNextToolCall(service, epoch);
 
       return;
-
     }
-
-
 
     // Le lexique a lu une question ou une négation : seuls les outils de
 
@@ -4622,81 +3715,88 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // souhait.
 
     if (_readOnlyTurn && !isReadOnlyToolName(toolName)) {
-      _audit('garde.lecture_seule',
-          '$toolName non exécuté : tour en lecture seule (question ou négation)',
-          source: BackofficeSource.garde,
-          severity: BackofficeSeverity.warning,
-          details: {'outil': toolName, 'arguments': input},
-          callId: callId,
-          origin: BackofficeOrigin.lexique);
-      _collectedResults.add(_functionResponse(toolName,
+      _audit(
+        'garde.lecture_seule',
+        '$toolName non exécuté : tour en lecture seule (question ou négation)',
+        source: BackofficeSource.garde,
+        severity: BackofficeSeverity.warning,
+        details: {'outil': toolName, 'arguments': input},
+        callId: callId,
+        origin: BackofficeOrigin.lexique,
+      );
+      _collectedResults.add(
+        _functionResponse(
+          toolName,
 
-          error: 'Non exécuté : le message est une question ou une négation, '
-
-              'aucune action sur la machine n\'est permise pour ce tour.'));
+          error:
+              'Non exécuté : le message est une question ou une négation, '
+              'aucune action sur la machine n\'est permise pour ce tour.',
+        ),
+      );
 
       await _processNextToolCall(service, epoch);
 
       return;
-
     }
-
-
 
     final category = tool.category;
 
-    final needsConfirmation = category != null &&
-
+    final needsConfirmation =
+        category != null &&
         _ref.read(aiAgentSettingsProvider).levelFor(category) ==
-
             AiAutonomyLevel.requireConfirmation;
-
-
 
     if (needsConfirmation) {
       _audit(
         'ia.outil.attente',
         'Confirmation demandée à l\'opérateur pour $toolName',
         severity: BackofficeSeverity.notice,
-        details: {'outil': toolName, 'arguments': input, 'categorie': category.name},
+        details: {
+          'outil': toolName,
+          'arguments': input,
+          'categorie': category.name,
+        },
         callId: callId,
         origin: _turnOrigin,
       );
 
       state = state.copyWith(
-
         isProcessing: false,
 
         clearTurnStartedAt: true,
 
-        pendingConfirmation:
-
-            AiPendingToolCall(id: callId, toolName: toolName, input: input),
-
+        pendingConfirmation: AiPendingToolCall(
+          id: callId,
+          toolName: toolName,
+          input: input,
+        ),
       );
 
       return;
-
     }
-
-
 
     state = state.copyWith(runningTool: toolName);
 
-    _collectedResults.addAll(await _executeTool(tool, toolName, input, callId: callId, origin: BackofficeOrigin.modele));
+    _collectedResults.addAll(
+      await _executeTool(
+        tool,
+        toolName,
+        input,
+        callId: callId,
+        origin: BackofficeOrigin.modele,
+      ),
+    );
 
     state = state.copyWith(clearRunningTool: true);
 
     await _processNextToolCall(service, epoch);
-
   }
-
-
 
   /// Approuve l'appel d'outil en attente et poursuit la conversation.
 
-  Future<void> confirmPendingAction({String origin = BackofficeOrigin.local}) async {
-
+  Future<void> confirmPendingAction({
+    String origin = BackofficeOrigin.local,
+  }) async {
     final pending = state.pendingConfirmation;
 
     // Action venue du lexique : pas de modèle dans la boucle, donc pas besoin
@@ -4704,7 +3804,6 @@ class AiAgentController extends StateNotifier<AiChatState> {
     // d'un service — la confirmation marche même agent désactivé ou hors ligne.
 
     if (pending?.lexicon != null) {
-
       await _confirmLexiconPending(pending!);
       return;
     }
@@ -4712,14 +3811,11 @@ class AiAgentController extends StateNotifier<AiChatState> {
       await _confirmDomePending(pending);
 
       return;
-
     }
 
     final service = _service;
 
     if (pending == null || service == null) return;
-
-
 
     final epoch = _epoch;
 
@@ -4739,39 +3835,41 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final tool = AiToolCatalog.byName(pending.toolName);
 
     if (tool == null) {
-
       _collectedResults.add(
-
-        _functionResponse(pending.toolName, error: 'Outil inconnu "${pending.toolName}"'),
-
+        _functionResponse(
+          pending.toolName,
+          error: 'Outil inconnu "${pending.toolName}"',
+        ),
       );
-
     } else {
-
       state = state.copyWith(runningTool: pending.toolName);
 
-      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input, callId: pending.id, origin: origin));
+      _collectedResults.addAll(
+        await _executeTool(
+          tool,
+          pending.toolName,
+          pending.input,
+          callId: pending.id,
+          origin: origin,
+        ),
+      );
 
       state = state.copyWith(clearRunningTool: true);
-
     }
 
     await _processNextToolCall(service, epoch);
-
   }
-
-
 
   /// Refuse l'appel d'outil en attente : Gemini reçoit une functionResponse
 
   /// d'échec et la conversation continue sans que l'action soit exécutée.
 
-  Future<void> rejectPendingAction({String origin = BackofficeOrigin.local}) async {
-
+  Future<void> rejectPendingAction({
+    String origin = BackofficeOrigin.local,
+  }) async {
     final pending = state.pendingConfirmation;
 
     if (pending?.lexicon != null) {
-
       _dropLexiconPending('refusée par l\'opérateur');
       return;
     }
@@ -4794,39 +3892,35 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     if (pending == null || service == null) return;
 
-
-
     _collectedResults.add(
-
-      _functionResponse(pending.toolName, error: 'Action refusée par l\'utilisateur.'),
-
+      _functionResponse(
+        pending.toolName,
+        error: 'Action refusée par l\'utilisateur.',
+      ),
     );
 
-    _addMessage(AiChatMessage(
+    _addMessage(
+      AiChatMessage(
+        role: 'tool',
 
-      role: 'tool',
+        text: '${pending.toolName} → refusé par l\'utilisateur',
 
-      text: '${pending.toolName} → refusé par l\'utilisateur',
+        timestamp: DateTime.now(),
 
-      timestamp: DateTime.now(),
+        toolName: pending.toolName,
 
-      toolName: pending.toolName,
+        toolArgs: pending.input,
 
-      toolArgs: pending.input,
+        toolResult: 'refusé par l\'utilisateur',
 
-      toolResult: 'refusé par l\'utilisateur',
-
-      toolDuration: Duration.zero,
-
-    ));
+        toolDuration: Duration.zero,
+      ),
+    );
 
     state = state.copyWith(isProcessing: true, clearPendingConfirmation: true);
 
     await _processNextToolCall(service, _epoch);
-
   }
-
-
 
   /// Exécute un outil et retourne les parts à joindre au tour.
 
@@ -4858,12 +3952,26 @@ class AiAgentController extends StateNotifier<AiChatState> {
     final id = callId ?? '${toolName}_${_callCounter++}';
     final who = origin ?? _turnOrigin;
     try {
-      _bus.beginAction(BackofficeActor(callId: id, tool: toolName, origin: who, turnId: _turnId));
+      _bus.beginAction(
+        BackofficeActor(
+          callId: id,
+          tool: toolName,
+          origin: who,
+          turnId: _turnId,
+        ),
+      );
     } catch (_) {}
 
     try {
       final result = await tool.execute(input, _ref);
-      _auditToolResult(toolName, input, result, started.timestamp, callId: id, origin: who);
+      _auditToolResult(
+        toolName,
+        input,
+        result,
+        started.timestamp,
+        callId: id,
+        origin: who,
+      );
 
       // On vide systématiquement la boîte aux lettres, même si l'outil n'a
       // finalement rien déposé : une image oubliée là serait rattachée au
@@ -4873,7 +3981,10 @@ class AiAgentController extends StateNotifier<AiChatState> {
       // L'image apparaît dans le fil de discussion : l'opérateur doit pouvoir
       // voir exactement ce que l'agent a vu, sinon il n'a aucun moyen de juger
       // si son analyse repose sur une image exploitable.
-      _replaceMessage(started, started.toolFinished(result, image: image?.bytes));
+      _replaceMessage(
+        started,
+        started.toolFinished(result, image: image?.bytes),
+      );
       _updateControllerMemoryAfterTool(toolName, input, result);
 
       final parts = <Map<String, dynamic>>[
@@ -4895,7 +4006,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
       return parts;
     } catch (e) {
       final message = 'Erreur: $e';
-      _auditToolResult(toolName, input, message, started.timestamp, callId: id, origin: who);
+      _auditToolResult(
+        toolName,
+        input,
+        message,
+        started.timestamp,
+        callId: id,
+        origin: who,
+      );
       _replaceMessage(started, started.toolFinished(message));
       if (tool.producesImage) _readAndClearToolImage();
       return [_functionResponse(toolName, error: message)];
@@ -4906,20 +4024,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     }
   }
 
-
-
   AiToolImage? _readAndClearToolImage() {
-
     final image = _ref.read(aiToolImageProvider);
 
     if (image != null) _ref.read(aiToolImageProvider.notifier).state = null;
 
     return image;
-
   }
-
-
-
 
   /// Met à jour la Mémoire du Contrôleur et régénère les suggestions après
   /// l'exécution d'un outil IA.
@@ -4930,7 +4041,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
   ) {
     final mem = _ref.read(controllerMemoryProvider.notifier);
     if (toolName == 'preview_step_file' || toolName == 'analyze_step_file') {
-      final p = input['stepPath'] as String? ??
+      final p =
+          input['stepPath'] as String? ??
           input['path'] as String? ??
           input['step_path'] as String?;
       mem.recordOperation(
@@ -4941,7 +4053,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     } else if (toolName == 'run_step_pipeline' ||
         toolName == 'load_gcode_file' ||
         toolName == 'generate_5axis_dome') {
-      final p = input['stepPath'] as String? ??
+      final p =
+          input['stepPath'] as String? ??
           input['path'] as String? ??
           input['step_path'] as String?;
       mem.recordOperation(
@@ -4984,31 +4097,23 @@ class AiAgentController extends StateNotifier<AiChatState> {
       _addMessage(stepMsg);
     }
     _addMessage(
-      AiChatMessage(
-        role: 'assistant',
-        text: text,
-        timestamp: DateTime.now(),
-      ),
+      AiChatMessage(role: 'assistant', text: text, timestamp: DateTime.now()),
     );
   }
 
-  Map<String, dynamic> _functionResponse(String name, {String? result, String? error}) {
-
+  Map<String, dynamic> _functionResponse(
+    String name, {
+    String? result,
+    String? error,
+  }) {
     return {
-
       'functionResponse': {
-
         'name': name,
 
         'response': error != null ? {'error': error} : {'result': result},
-
       },
-
     };
-
   }
-
-
 
   /// Vide la discussion courante (historique API, affichage et stockage), sans
 
@@ -5048,7 +4153,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     ).firstMatch(lower);
     final double diameter = diamMatch != null
         ? (double.tryParse(diamMatch.group(1)!.replaceAll(',', '.')) ?? 20.0)
-            .clamp(6.0, 50.0)
+              .clamp(6.0, 50.0)
         : 20.0;
 
     String material = 'aluminium';
@@ -5065,16 +4170,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
       material = 'plastic';
     }
 
-    final replyLang = _replyLanguageFor(text) ??
+    final replyLang =
+        _replyLanguageFor(text) ??
         LanguageDetector.detectOperatorLanguage(text, fallback: 'fr');
     final isEn = replyLang == 'en';
 
     final epoch = _epoch;
-    _addMessage(AiChatMessage(
-      role: 'user',
-      text: text,
-      timestamp: DateTime.now(),
-    ));
+    _addMessage(
+      AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()),
+    );
 
     final tool = AiToolCatalog.byName('generate_5axis_dome');
     final args = <String, dynamic>{
@@ -5122,19 +4226,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     final String replyText = isEn
         ? "I've prepared the 5-axis continuous toolpath for your ${diamLabel}mm dome on $material, and opened it in the 3D simulator. "
-            'Using a 6mm ball-nose end mill at $rpm RPM with a safe feedrate of ${feedrate.toInt()} mm/min ($lineCount G-code blocks), '
-            'both the roughing and the simultaneous 5-axis finishing passes stay safely within the machine envelope. '
-            'Please review the 3D trajectory and tap Confirm whenever you are ready to start machining.'
+              'Using a 6mm ball-nose end mill at $rpm RPM with a safe feedrate of ${feedrate.toInt()} mm/min ($lineCount G-code blocks), '
+              'both the roughing and the simultaneous 5-axis finishing passes stay safely within the machine envelope. '
+              'Please review the 3D trajectory and tap Confirm whenever you are ready to start machining.'
         : "J'ai préparé le parcours d'usinage 5 axes continu pour votre dôme de $diamLabel mm en $matFr, et je l'ai affiché dans le simulateur 3D. "
-            'Avec une fraise hémisphérique de 6 mm à $rpm tr/min et une avance sécurisée de ${feedrate.toInt()} mm/min ($lineCount blocs G-code), '
-            "l'ébauche et la finition 5 axes simultanée respectent parfaitement l'enveloppe de la machine. "
-            "Vérifiez l'aperçu 3D et appuyez sur Confirmer dès que vous êtes prêt à lancer l'usinage.";
+              'Avec une fraise hémisphérique de 6 mm à $rpm tr/min et une avance sécurisée de ${feedrate.toInt()} mm/min ($lineCount blocs G-code), '
+              "l'ébauche et la finition 5 axes simultanée respectent parfaitement l'enveloppe de la machine. "
+              "Vérifiez l'aperçu 3D et appuyez sur Confirmer dès que vous êtes prêt à lancer l'usinage.";
 
-    _addMessage(AiChatMessage(
-      role: 'assistant',
-      text: replyText,
-      timestamp: DateTime.now(),
-    ));
+    _addMessage(
+      AiChatMessage(
+        role: 'assistant',
+        text: replyText,
+        timestamp: DateTime.now(),
+      ),
+    );
     _ref.read(aiInboxProvider.notifier).pushAlert(replyText);
 
     _contents
@@ -5148,18 +4254,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
         'role': 'model',
         'parts': [
           {
-            'functionCall': {
-              'name': 'generate_5axis_dome',
-              'args': args,
-            },
+            'functionCall': {'name': 'generate_5axis_dome', 'args': args},
           },
         ],
       })
       ..add({
         'role': 'user',
-        'parts': [
-          _functionResponse('generate_5axis_dome', result: resultJson),
-        ],
+        'parts': [_functionResponse('generate_5axis_dome', result: resultJson)],
       })
       ..add({
         'role': 'model',
@@ -5200,7 +4301,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (trimmed.isEmpty) return false;
     final lower = trimmed.toLowerCase();
 
-    final replyLang = _replyLanguageFor(trimmed) ??
+    final replyLang =
+        _replyLanguageFor(trimmed) ??
         LanguageDetector.detectOperatorLanguage(trimmed, fallback: 'fr');
     final isEn = replyLang == 'en';
 
@@ -5217,17 +4319,21 @@ class AiAgentController extends StateNotifier<AiChatState> {
             .toSet()
             .toList();
         if (rawAxes.isNotEmpty) {
-          final linearAxes =
-              rawAxes.where((a) => a == 'X' || a == 'Y' || a == 'Z').toList();
-          final rotaryAxes =
-              rawAxes.where((a) => a == 'A' || a == 'C').toList();
+          final linearAxes = rawAxes
+              .where((a) => a == 'X' || a == 'Y' || a == 'Z')
+              .toList();
+          final rotaryAxes = rawAxes
+              .where((a) => a == 'A' || a == 'C')
+              .toList();
 
           final epoch = _epoch;
-          _addMessage(AiChatMessage(
-            role: 'user',
-            text: trimmed,
-            timestamp: DateTime.now(),
-          ));
+          _addMessage(
+            AiChatMessage(
+              role: 'user',
+              text: trimmed,
+              timestamp: DateTime.now(),
+            ),
+          );
 
           String toolName = 'home';
           Map<String, dynamic> toolArgs = {'axes': linearAxes};
@@ -5246,7 +4352,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
               final resp = parts.isEmpty
                   ? null
                   : (parts.first['functionResponse'] as Map?)?['response']
-                      as Map?;
+                        as Map?;
               toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
             }
           } else if (rotaryAxes.isNotEmpty) {
@@ -5262,13 +4368,12 @@ class AiAgentController extends StateNotifier<AiChatState> {
                 runningTool: 'goto_position',
                 clearError: true,
               );
-              final parts =
-                  await _executeTool(tool, 'goto_position', toolArgs);
+              final parts = await _executeTool(tool, 'goto_position', toolArgs);
               if (_epoch != epoch) return true;
               final resp = parts.isEmpty
                   ? null
                   : (parts.first['functionResponse'] as Map?)?['response']
-                      as Map?;
+                        as Map?;
               toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
             }
           }
@@ -5279,8 +4384,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
             final rotaryNote = rotaryAxes.isEmpty
                 ? ''
                 : (isEn
-                    ? ' Note that rotary axis ${rotaryAxes.join('/')} has no hardware limit switch on this trunnion table.'
-                    : " Notez que l'axe rotatif ${rotaryAxes.join('/')} n'a pas de capteur de fin de course matériel sur ce berceau.");
+                      ? ' Note that rotary axis ${rotaryAxes.join('/')} has no hardware limit switch on this trunnion table.'
+                      : " Notez que l'axe rotatif ${rotaryAxes.join('/')} n'a pas de capteur de fin de course matériel sur ce berceau.");
             replyText = isEn
                 ? 'Homing cycle launched on the $axesStr axis (\$H${linearAxes.join('')}). The axis is moving to its reference switch.$rotaryNote'
                 : "Prise d'origine (homing) lancée sur l'axe $axesStr (\$H${linearAxes.join('')}). L'axe rejoint son capteur de fin de course.$rotaryNote";
@@ -5296,11 +4401,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
             clearRunningTool: true,
             clearTurnStartedAt: true,
           );
-          _addMessage(AiChatMessage(
-            role: 'assistant',
-            text: replyText,
-            timestamp: DateTime.now(),
-          ));
+          _addMessage(
+            AiChatMessage(
+              role: 'assistant',
+              text: replyText,
+              timestamp: DateTime.now(),
+            ),
+          );
           _contents
             ..add({
               'role': 'user',
@@ -5357,11 +4464,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
           }
 
           final epoch = _epoch;
-          _addMessage(AiChatMessage(
-            role: 'user',
-            text: trimmed,
-            timestamp: DateTime.now(),
-          ));
+          _addMessage(
+            AiChatMessage(
+              role: 'user',
+              text: trimmed,
+              timestamp: DateTime.now(),
+            ),
+          );
 
           String toolResult = 'OK';
           final tool = AiToolCatalog.byName('goto_position');
@@ -5376,7 +4485,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
             final resp = parts.isEmpty
                 ? null
                 : (parts.first['functionResponse'] as Map?)?['response']
-                    as Map?;
+                      as Map?;
             toolResult = '${resp?['result'] ?? resp?['error'] ?? 'OK'}';
           }
 
@@ -5390,11 +4499,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
             clearRunningTool: true,
             clearTurnStartedAt: true,
           );
-          _addMessage(AiChatMessage(
-            role: 'assistant',
-            text: replyText,
-            timestamp: DateTime.now(),
-          ));
+          _addMessage(
+            AiChatMessage(
+              role: 'assistant',
+              text: replyText,
+              timestamp: DateTime.now(),
+            ),
+          );
           _contents
             ..add({
               'role': 'user',
@@ -5433,11 +4544,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     ).hasMatch(lower);
     if (isDiagIntent) {
       final epoch = _epoch;
-      _addMessage(AiChatMessage(
-        role: 'user',
-        text: trimmed,
-        timestamp: DateTime.now(),
-      ));
+      _addMessage(
+        AiChatMessage(role: 'user', text: trimmed, timestamp: DateTime.now()),
+      );
 
       String resultJson = '{}';
       final tool = AiToolCatalog.byName('get_diagnostics');
@@ -5447,8 +4556,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
           runningTool: 'get_diagnostics',
           clearError: true,
         );
-        final parts =
-            await _executeTool(tool, 'get_diagnostics', const {});
+        final parts = await _executeTool(tool, 'get_diagnostics', const {});
         if (_epoch != epoch) return true;
         final resp = parts.isEmpty
             ? null
@@ -5488,11 +4596,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
         clearRunningTool: true,
         clearTurnStartedAt: true,
       );
-      _addMessage(AiChatMessage(
-        role: 'assistant',
-        text: replyText,
-        timestamp: DateTime.now(),
-      ));
+      _addMessage(
+        AiChatMessage(
+          role: 'assistant',
+          text: replyText,
+          timestamp: DateTime.now(),
+        ),
+      );
       _contents
         ..add({
           'role': 'user',
@@ -5532,11 +4642,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
     ).hasMatch(lower);
     if (isAnalyzeGcodeIntent) {
       final epoch = _epoch;
-      _addMessage(AiChatMessage(
-        role: 'user',
-        text: trimmed,
-        timestamp: DateTime.now(),
-      ));
+      _addMessage(
+        AiChatMessage(role: 'user', text: trimmed, timestamp: DateTime.now()),
+      );
 
       String resultJson = '{}';
       final tool = AiToolCatalog.byName('analyze_gcode');
@@ -5589,11 +4697,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
         clearRunningTool: true,
         clearTurnStartedAt: true,
       );
-      _addMessage(AiChatMessage(
-        role: 'assistant',
-        text: replyText,
-        timestamp: DateTime.now(),
-      ));
+      _addMessage(
+        AiChatMessage(
+          role: 'assistant',
+          text: replyText,
+          timestamp: DateTime.now(),
+        ),
+      );
       _contents
         ..add({
           'role': 'user',
@@ -5636,11 +4746,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
       final stepPath = fileMatch.group(1)!.trim();
       if (File(stepPath).existsSync()) {
         final epoch = _epoch;
-        _addMessage(AiChatMessage(
-          role: 'user',
-          text: trimmed,
-          timestamp: DateTime.now(),
-        ));
+        _addMessage(
+          AiChatMessage(role: 'user', text: trimmed, timestamp: DateTime.now()),
+        );
 
         final previewTool = AiToolCatalog.byName('preview_step_file');
         if (previewTool != null) {
@@ -5649,8 +4757,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
             runningTool: 'preview_step_file',
             clearError: true,
           );
-          await _executeTool(
-              previewTool, 'preview_step_file', {'stepPath': stepPath});
+          await _executeTool(previewTool, 'preview_step_file', {
+            'stepPath': stepPath,
+          });
           if (_epoch != epoch) return true;
         }
 
@@ -5662,8 +4771,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
             runningTool: 'run_step_pipeline',
             clearError: true,
           );
-          final parts = await _executeTool(
-              pipelineTool, 'run_step_pipeline', {'stepPath': stepPath});
+          final parts = await _executeTool(pipelineTool, 'run_step_pipeline', {
+            'stepPath': stepPath,
+          });
           if (_epoch != epoch) return true;
           final resp = parts.isEmpty
               ? null
@@ -5687,8 +4797,9 @@ class AiAgentController extends StateNotifier<AiChatState> {
               isProcessing: true,
               runningTool: 'open_toolpath_window',
             );
-            await _executeTool(
-                openTool, 'open_toolpath_window', {'gcodePath': gcodePath});
+            await _executeTool(openTool, 'open_toolpath_window', {
+              'gcodePath': gcodePath,
+            });
             if (_epoch != epoch) return true;
           }
         }
@@ -5701,20 +4812,27 @@ class AiAgentController extends StateNotifier<AiChatState> {
               ? 'I loaded the 3D preview for $fileName, but the automatic toolpath generator reported an issue: $pipelineResult'
               : "J'ai affiché l'aperçu 3D de $fileName, mais le générateur de parcours a signalé une contrainte : $pipelineResult";
         } else {
-          final blocksInfo = linesCount > 0 ? ' ($linesCount G-code blocks)' : '';
-          final blocksInfoFr =
-              linesCount > 0 ? ' ($linesCount blocs G-code)' : '';
+          final blocksInfo = linesCount > 0
+              ? ' ($linesCount G-code blocks)'
+              : '';
+          final blocksInfoFr = linesCount > 0
+              ? ' ($linesCount blocs G-code)'
+              : '';
           replyText = isEn
               ? 'I have loaded $fileName, generated the collision-free 5-axis finishing toolpath$blocksInfo, and opened it in the 3D viewer. The program is loaded in the CNC controller—tap Confirm whenever you are ready to start machining.'
               : "J'ai chargé la pièce $fileName, généré le parcours de finition 5 axes garanti sans collision$blocksInfoFr et ouvert le tracé 3D. Le programme est chargé dans le contrôleur — appuyez sur Confirmer dès que vous êtes prêt à lancer l'usinage.";
         }
 
-        _addMessage(AiChatMessage(
-          role: 'assistant',
-          text: replyText,
-          timestamp: DateTime.now(),
-        ));
-        _ref.read(aiInboxProvider.notifier).pushAlert(replyText, problem: failed);
+        _addMessage(
+          AiChatMessage(
+            role: 'assistant',
+            text: replyText,
+            timestamp: DateTime.now(),
+          ),
+        );
+        _ref
+            .read(aiInboxProvider.notifier)
+            .pushAlert(replyText, problem: failed);
 
         _contents
           ..add({
@@ -5769,7 +4887,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   Future<void> _confirmDomePending(AiPendingToolCall pending) async {
     final epoch = _epoch;
-    final isEn = pending.id.endsWith('_en') ||
+    final isEn =
+        pending.id.endsWith('_en') ||
         (_replyLanguageFor(_lastUserText()) == 'en');
     state = state.copyWith(isProcessing: true, clearPendingConfirmation: true);
 
@@ -5786,33 +4905,31 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (_epoch != epoch) return;
 
     final ok = result.startsWith('OK');
-    final offline = _ref.read(machineRepositoryProvider).currentState.status ==
+    final offline =
+        _ref.read(machineRepositoryProvider).currentState.status ==
         MachineStatus.offline;
     final String reply = ok
         ? (isEn
-            ? (offline
-                ? '5-axis dome machining started in the 3D Digital Twin simulator! ForceGuard is actively monitoring the simultaneous X, Y, Z, A, and C axes.'
-                : '5-axis dome machining is now running on the CNC! ForceGuard is actively monitoring the trajectory in real time.')
-            : (offline
-                ? "L'usinage du dôme 5 axes est lancé dans le Jumeau Numérique 3D ! ForceGuard surveille activement les axes simultanés X, Y, Z, A et C."
-                : "L'usinage du dôme 5 axes est en cours sur la machine ! ForceGuard surveille activement la trajectoire en temps réel."))
+              ? (offline
+                    ? '5-axis dome machining started in the 3D Digital Twin simulator! ForceGuard is actively monitoring the simultaneous X, Y, Z, A, and C axes.'
+                    : '5-axis dome machining is now running on the CNC! ForceGuard is actively monitoring the trajectory in real time.')
+              : (offline
+                    ? "L'usinage du dôme 5 axes est lancé dans le Jumeau Numérique 3D ! ForceGuard surveille activement les axes simultanés X, Y, Z, A et C."
+                    : "L'usinage du dôme 5 axes est en cours sur la machine ! ForceGuard surveille activement la trajectoire en temps réel."))
         : (isEn
-            ? 'Machining could not start: $result'
-            : "L'usinage n'a pas pu démarrer : $result");
+              ? 'Machining could not start: $result'
+              : "L'usinage n'a pas pu démarrer : $result");
 
     state = state.copyWith(
       isProcessing: false,
       clearRunningTool: true,
       clearTurnStartedAt: true,
     );
-    _addMessage(AiChatMessage(
-      role: 'assistant',
-      text: reply,
-      timestamp: DateTime.now(),
-    ));
+    _addMessage(
+      AiChatMessage(role: 'assistant', text: reply, timestamp: DateTime.now()),
+    );
     _ref.read(aiInboxProvider.notifier).pushAlert(reply, problem: !ok);
     unawaited(_persist());
-
   }
 
   /// Le résultat d'un outil, vu du backoffice. Un refus d'un garde-fou
@@ -5828,7 +4945,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
     required String origin,
   }) {
     final ms = DateTime.now().difference(startedAt).inMilliseconds;
-    final failed = result.startsWith('Erreur') ||
+    final failed =
+        result.startsWith('Erreur') ||
         result.startsWith('ERREUR') ||
         result.startsWith('REFUS');
     final guarded = failed && _looksLikeGuardRefusal(result);
@@ -5837,7 +4955,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
       guarded
           ? '$toolName refusé par un garde-fou : ${_preview(result, 140)}'
           : '$toolName → ${failed ? 'ÉCHEC' : 'ok'} en $ms ms'
-              '${failed ? ' : ${_preview(result, 120)}' : ''}',
+                '${failed ? ' : ${_preview(result, 120)}' : ''}',
       source: guarded ? BackofficeSource.garde : BackofficeSource.ia,
       severity: failed ? BackofficeSeverity.warning : BackofficeSeverity.info,
       details: {
@@ -5863,7 +4981,8 @@ class AiAgentController extends StateNotifier<AiChatState> {
   }
 
   void _rejectDomePending(AiPendingToolCall pending) {
-    final isEn = pending.id.endsWith('_en') ||
+    final isEn =
+        pending.id.endsWith('_en') ||
         (_replyLanguageFor(_lastUserText()) == 'en');
     final reply = isEn
         ? 'Understood, I will not start the program yet. The 5-axis dome toolpath remains loaded in the 3D simulator whenever you need it.'
@@ -5873,16 +4992,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
       clearPendingConfirmation: true,
       clearTurnStartedAt: true,
     );
-    _addMessage(AiChatMessage(
-      role: 'assistant',
-      text: reply,
-      timestamp: DateTime.now(),
-    ));
+    _addMessage(
+      AiChatMessage(role: 'assistant', text: reply, timestamp: DateTime.now()),
+    );
     unawaited(_persist());
   }
 
   void clearConversation() {
-
     stopGeneration();
 
     _ref.read(aiArtifactsProvider.notifier).clear();
@@ -5902,27 +5018,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _autoRetryTimer?.cancel();
 
     state = AiChatState(
-
       conversations: List.of(_conversations),
 
       activeId: _activeId,
-
     );
 
     unawaited(_clearStorage());
-
   }
 
-
-
   Future<void> _clearStorage() async {
-
     final id = _activeId;
 
     if (id == null) return;
 
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.remove(_payloadKey(id));
@@ -5930,29 +5039,24 @@ class AiAgentController extends StateNotifier<AiChatState> {
       final index = _conversations.indexWhere((c) => c.id == id);
 
       if (index >= 0) {
-
-        _conversations[index] = _conversations[index]
-
-            .copyWith(title: kDefaultTitle, messageCount: 0);
+        _conversations[index] = _conversations[index].copyWith(
+          title: kDefaultTitle,
+          messageCount: 0,
+        );
 
         state = state.copyWith(conversations: List.of(_conversations));
 
-        await prefs.setString(_kIndexKey,
+        await prefs.setString(
+          _kIndexKey,
 
-            jsonEncode(_conversations.map((c) => c.toJson()).toList()));
-
+          jsonEncode(_conversations.map((c) => c.toJson()).toList()),
+        );
       }
-
     } catch (_) {}
-
   }
 
-
-
   @override
-
   void dispose() {
-
     _autoRetryTimer?.cancel();
 
     _translator?.cancel();
@@ -5960,22 +5064,13 @@ class AiAgentController extends StateNotifier<AiChatState> {
     _service?.dispose();
 
     super.dispose();
-
   }
-
 }
 
-
-
 final aiAgentControllerProvider =
-
     StateNotifierProvider<AiAgentController, AiChatState>((ref) {
-
-  return AiAgentController(ref);
-
-});
-
-
+      return AiAgentController(ref);
+    });
 
 /// Lecture vocale (TTS) des réponses de l'agent : activée par défaut (démo,
 /// usage mains libres à l'atelier) et mémorisée d'un lancement à l'autre.
@@ -5984,22 +5079,28 @@ const _kTtsEnabledKey = 'ai_tts_enabled';
 class AiTtsEnabledNotifier extends Notifier<bool> {
   @override
   bool build() {
-    unawaited(SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getBool(_kTtsEnabledKey);
-      if (saved != null && saved != state) super.state = saved;
-    }).catchError((_) {}));
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((prefs) {
+            final saved = prefs.getBool(_kTtsEnabledKey);
+            if (saved != null && saved != state) super.state = saved;
+          })
+          .catchError((_) {}),
+    );
     return true;
   }
 
   @override
   set state(bool value) {
     super.state = value;
-    unawaited(SharedPreferences.getInstance()
-        .then((prefs) => prefs.setBool(_kTtsEnabledKey, value))
-        .catchError((_) => false));
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((prefs) => prefs.setBool(_kTtsEnabledKey, value))
+          .catchError((_) => false),
+    );
   }
 }
 
-final aiTtsEnabledProvider =
-    NotifierProvider<AiTtsEnabledNotifier, bool>(AiTtsEnabledNotifier.new);
-
+final aiTtsEnabledProvider = NotifierProvider<AiTtsEnabledNotifier, bool>(
+  AiTtsEnabledNotifier.new,
+);

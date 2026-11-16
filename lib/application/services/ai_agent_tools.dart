@@ -351,7 +351,7 @@ class AiToolCatalog {
       inputSchema: const {'type': 'object', 'properties': {}},
       category: null,
       execute: (input, ref) async {
-        final folder = ref.read(workFolderProvider);
+        final folder = await ref.read(workFolderProvider.notifier).ensureLoaded();
         if (folder == null || folder.isEmpty) {
           return 'Aucun dossier de travail sélectionné (écran Espace de '
               'travail → onglet Dossier).';
@@ -390,6 +390,8 @@ class AiToolCatalog {
       execute: (input, ref) async {
         final name = (input['name'] as String?)?.trim() ?? '';
         if (name.isEmpty) return 'ERREUR: nom de fichier manquant.';
+        await ref.read(workFolderProvider.notifier).ensureLoaded();
+        ref.read(workFilesRefreshProvider.notifier).state++;
         final files = ref.read(workFilesProvider);
         final match = files
             .where((f) => f.name.toLowerCase() == name.toLowerCase())
@@ -439,6 +441,8 @@ class AiToolCatalog {
         String? resolvedPath;
         String displayName = raw;
 
+        await ref.read(workFolderProvider.notifier).ensureLoaded();
+        ref.read(workFilesRefreshProvider.notifier).state++;
         final files = ref.read(workFilesProvider);
         final exact = files
             .where((f) =>
