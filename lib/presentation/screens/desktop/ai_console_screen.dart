@@ -36,6 +36,7 @@ import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/utils/clipboard_image_helper.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_ai_gyro_orb.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -921,15 +922,7 @@ class _Header extends ConsumerWidget {
               ),
             ),
           const SizedBox(width: 4),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: fc.primary.withValues(alpha: 0.14),
-            ),
-            child: Icon(Icons.auto_awesome_rounded, size: 17, color: fc.primary),
-          ),
+          const ForgeAiGyroOrb(size: 32, active: true),
           const SizedBox(width: 11),
           Expanded(
             child: Column(

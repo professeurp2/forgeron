@@ -20,6 +20,7 @@ import '../../../core/i18n/app_localizations.dart';
 import 'translation_note.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_ai_gyro_orb.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -646,29 +647,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasAlert
-                      ? null
-                      : LinearGradient(
-                          colors: [fc.primaryLight, fc.primary, fc.primaryDim],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  color: hasAlert ? Colors.white.withValues(alpha: 0.2) : null,
-                ),
-                child: Icon(
-                  hasAlert
-                      ? Icons.warning_amber_rounded
-                      : Icons.auto_awesome,
-                  color: hasAlert ? Colors.white : fc.background,
-                  size: 14,
-                ),
-              ),
+              if (hasAlert)
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                )
+              else
+                const ForgeAiGyroOrb(size: 26, active: true),
               const SizedBox(width: 9),
               Text(
                 hasAlert ? tr('Alerte machine') : 'Forgeron IA',
@@ -754,25 +749,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              fc.primaryLight,
-                              fc.primary,
-                              fc.primaryDim,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Icon(Icons.auto_awesome,
-                            size: 13, color: fc.background),
-                      ),
+                      const ForgeAiGyroOrb(size: 26, active: true),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -1418,17 +1395,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fc.primary.withValues(alpha: 0.12),
-                border: Border.all(color: fc.primary.withValues(alpha: 0.35)),
-              ),
-              child: Icon(Icons.auto_awesome, color: fc.primary, size: 20),
-            ),
+            const ForgeAiGyroOrb(size: 48, active: true),
             const SizedBox(height: 12),
             Text(
               'Forgeron IA',
