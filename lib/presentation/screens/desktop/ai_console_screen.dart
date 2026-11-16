@@ -6,7 +6,14 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart'
     show Colors, Icons, MaterialPageRoute, SelectableText, Tooltip;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, PlatformException;
+import 'package:flutter/services.dart'
+    show
+        Clipboard,
+        ClipboardData,
+        HardwareKeyboard,
+        KeyDownEvent,
+        LogicalKeyboardKey,
+        PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -26,8 +33,10 @@ import '../../../application/services/forgeron_tts_speaker.dart';
 import '../../../application/services/tool_router.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
+import '../../../core/utils/clipboard_image_helper.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_kinetic_fx.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -72,6 +81,7 @@ class _AiConsoleBody extends ConsumerStatefulWidget {
 
 class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   final _input = TextEditingController();
+  late final FocusNode _composerFocusNode;
   final _scroll = ScrollController();
   final _picker = ImagePicker();
 
@@ -99,6 +109,30 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   @override
   void initState() {
     super.initState();
+    _composerFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+        // Ctrl+V / Cmd+V : coller une image depuis le presse-papier si présente.
+        if (event.logicalKey == LogicalKeyboardKey.keyV &&
+            (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed)) {
+          _pasteClipboardImage();
+          return KeyEventResult.ignored;
+        }
+
+        // Entrée (standard ou pavé numérique) sans Maj : envoi du message.
+        if ((event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+            !HardwareKeyboard.instance.isShiftPressed) {
+          if (!ref.read(aiAgentControllerProvider).isProcessing) {
+            _send();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     final initialDraft = ref.read(aiPromptDraftProvider);
     if (initialDraft.isNotEmpty) {
       _input.text = initialDraft;
@@ -106,6 +140,16 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     _input.addListener(_onConsoleInputChanged);
     _applyVoiceLanguage();
     _scroll.addListener(_watchScroll);
+  }
+
+  Future<void> _pasteClipboardImage() async {
+    final res = await readClipboardImage();
+    if (res == null || !mounted) return;
+    if (res.bytes.length > 6 * 1024 * 1024) return;
+    setState(() {
+      _pendingImage = res.bytes;
+      _pendingImageMime = res.mimeType;
+    });
   }
 
   void _onConsoleInputChanged() {
@@ -116,6 +160,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   void dispose() {
     _input.removeListener(_onConsoleInputChanged);
     _scroll.removeListener(_watchScroll);
+    _composerFocusNode.dispose();
     _input.dispose();
     _scroll.dispose();
     _speech.stop();
@@ -470,6 +515,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
                 _Composer(
                   fc: fc,
                   controller: _input,
+                  focusNode: _composerFocusNode,
                   busy: chat.isProcessing,
                   onSend: _send,
                   onStop: () =>
@@ -876,20 +922,7 @@ class _Header extends ConsumerWidget {
               ),
             ),
           const SizedBox(width: 4),
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [fc.primaryLight, fc.primary, fc.primaryDim],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(Icons.auto_awesome, size: 15, color: fc.background),
-          ),
+          const ForgeAiGyroOrb(size: 32, active: true),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -1053,7 +1086,7 @@ class _ModelBadge extends ConsumerWidget {
           '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
           style: TextStyle(
             color: fc.lcdText,
-            fontFamily: 'JetBrainsMono',
+            fontFamily: 'JetBrains Mono',
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -1185,7 +1218,7 @@ class _MessageBubble extends StatelessWidget {
   List<Widget> _content() {
     final widgets = <Widget>[];
     final codeStyle = TextStyle(
-      fontFamily: 'JetBrainsMono',
+      fontFamily: 'JetBrains Mono',
       fontSize: 12,
       color: fc.secondary,
     );
@@ -1295,7 +1328,7 @@ class _CodeBlock extends StatelessWidget {
                     block.text.trimRight(),
                     style: TextStyle(
                       color: fc.textSecondary,
-                      fontFamily: 'JetBrainsMono',
+                      fontFamily: 'JetBrains Mono',
                       fontSize: 11.5,
                       height: 1.55,
                     ),
@@ -1396,7 +1429,7 @@ class _ConfirmationBar extends ConsumerWidget {
                         style: TextStyle(
                             color: fc.textDisabled,
                             fontSize: 10.5,
-                            fontFamily: 'JetBrainsMono')),
+                            fontFamily: 'JetBrains Mono')),
                 ] else ...[
                 Text(
                   tr('Confirmation requise : {}', [friendlyToolLabel(pending.toolName)]),
@@ -1414,7 +1447,7 @@ class _ConfirmationBar extends ConsumerWidget {
                     style: TextStyle(
                         color: fc.textSecondary,
                         fontSize: 11,
-                        fontFamily: 'JetBrainsMono'),
+                        fontFamily: 'JetBrains Mono'),
                   ),
                 ],
               ],
@@ -1486,6 +1519,7 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.fc,
     required this.controller,
+    required this.focusNode,
     required this.busy,
     required this.onSend,
     required this.onStop,
@@ -1499,6 +1533,7 @@ class _Composer extends StatelessWidget {
 
   final ForgeronColorPalette fc;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool busy;
   final VoidCallback onSend;
   final VoidCallback onStop;
@@ -1553,6 +1588,7 @@ class _Composer extends StatelessWidget {
             // pas comprimé entre six boutons.
             fluent.TextBox(
               controller: controller,
+              focusNode: focusNode,
               placeholder: listening
                   ? 'Dictée en cours…'
                   : 'Demander une action ou une analyse à l\'agent…',
@@ -2076,7 +2112,7 @@ class _StepCard extends ConsumerWidget {
             s.fileName,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrains Mono'),
           ),
           const SizedBox(height: 8),
           if (s.loading)
@@ -2154,7 +2190,7 @@ class _ToolpathCard extends ConsumerWidget {
             g.fileName,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrains Mono'),
           ),
           const SizedBox(height: 8),
           if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
@@ -2230,7 +2266,7 @@ Widget _kv(ForgeronColorPalette fc, String label, String value) {
         Text(
           value,
           style: TextStyle(
-              color: fc.lcdText, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
+              color: fc.lcdText, fontSize: 10.5, fontFamily: 'JetBrains Mono'),
         ),
       ],
     ),

@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/forge_kinetic_fx.dart';
 import '../../core/utils/chat_markdown.dart';
+import '../../core/utils/clipboard_image_helper.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
@@ -44,6 +46,7 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final _inputCtrl = TextEditingController();
+  late final FocusNode _inputFocusNode;
   final _scrollCtrl = ScrollController();
 
   /// Vue collée au dernier message : tant que c'est vrai, l'arrivée de texte
@@ -75,9 +78,39 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           defaultTargetPlatform == TargetPlatform.linux ||
           defaultTargetPlatform == TargetPlatform.macOS;
 
+  late final AiInbox _inboxNotifier;
+
   @override
   void initState() {
     super.initState();
+    _inboxNotifier = ref.read(aiInboxProvider.notifier);
+    _inputFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+        // Ctrl+V / Cmd+V : coller une image depuis le presse-papier si présente.
+        if (event.logicalKey == LogicalKeyboardKey.keyV &&
+            (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed)) {
+          _pasteClipboardImage();
+          return KeyEventResult.ignored;
+        }
+
+        // Entrée (standard ou pavé numérique) sur desktop : envoi du message.
+        // Maj+Entrée reste un saut de ligne.
+        if (_hardwareEnterSends &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+            !HardwareKeyboard.instance.isShiftPressed) {
+          final st = ref.read(aiAgentControllerProvider);
+          if (!st.isProcessing) {
+            _send();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     final initialDraft = ref.read(aiPromptDraftProvider);
     if (initialDraft.isNotEmpty) {
       _inputCtrl.text = initialDraft;
@@ -87,7 +120,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     // Écran ouvert → l'opérateur voit les messages en direct, on efface le
     // badge du bouton IA.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(aiInboxProvider.notifier).setScreenOpen(true);
+      if (!mounted) return;
+      if (_inboxNotifier.mounted) _inboxNotifier.setScreenOpen(true);
       // L'historique est restauré AVANT l'ouverture de l'écran : les bulles
       // sont déjà là au premier build, donc aucun événement « nouveau
       // message » ne déclenche le défilement. Sans ce saut, on ouvre sur la
@@ -101,13 +135,29 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     ref.read(aiPromptDraftProvider.notifier).updateDraft(_inputCtrl.text);
   }
 
+  Future<void> _pasteClipboardImage() async {
+    final res = await readClipboardImage();
+    if (res == null || !mounted) return;
+    if (res.bytes.length > 6 * 1024 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Image trop lourde (max 6 Mo)'))),
+      );
+      return;
+    }
+    setState(() {
+      _pendingImage = res.bytes;
+      _pendingImageMime = res.mimeType;
+    });
+  }
+
   @override
   void dispose() {
     _inputCtrl.removeListener(_onMobileInputChanged);
-    ref.read(aiInboxProvider.notifier).setScreenOpen(false);
+    if (_inboxNotifier.mounted) _inboxNotifier.setScreenOpen(false);
     _speech.stop();
     ForgeronTtsSpeaker.instance.stop();
     _scrollCtrl.removeListener(_onScroll);
+    _inputFocusNode.dispose();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -671,17 +721,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.smart_toy_outlined, color: fc.primary, size: 18),
+                  const ForgeAiGyroOrb(size: 24, active: true),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       tr('ASSISTANT IA'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
+                        fontFamily: 'Rajdhani',
                         color: fc.textPrimary,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.4,
+                        fontSize: 15,
                       ),
                     ),
                   ),
@@ -1052,17 +1103,9 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _avatar(ForgeronColorPalette fc) {
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      width: 28,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: fc.primary.withValues(alpha: 0.15),
-        border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
-      ),
-      child: const Text('🤖', style: TextStyle(fontSize: 14)),
+    return const Padding(
+      padding: EdgeInsets.only(top: 4),
+      child: ForgeAiGyroOrb(size: 28, active: true),
     );
   }
 
@@ -1233,13 +1276,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          Text('🤖', style: TextStyle(fontSize: 44, color: fc.primary)),
-          const SizedBox(height: 12),
+          const ForgeAiGyroOrb(size: 56, active: true),
+          const SizedBox(height: 16),
           Text(tr('Assistant Forgeron'),
               style: TextStyle(
+                  fontFamily: 'Rajdhani',
                   color: fc.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900)),
+                  fontSize: 22,
+                  letterSpacing: 0.6,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(
             tr('Pose une question ou demande une action sur ta CNC 5 axes.'),
@@ -1542,41 +1587,25 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Focus(
-                  onKeyEvent: (node, event) {
-                    if (!_hardwareEnterSends || !enabled) {
-                      return KeyEventResult.ignored;
-                    }
-                    if (event is! KeyDownEvent ||
-                        event.logicalKey != LogicalKeyboardKey.enter) {
-                      return KeyEventResult.ignored;
-                    }
-                    // Maj+Entrée = saut de ligne, Entrée seule = envoi.
-                    if (HardwareKeyboard.instance.isShiftPressed) {
-                      return KeyEventResult.ignored;
-                    }
-                    _send();
-                    return KeyEventResult.handled;
-                  },
-                  child: TextField(
-                    controller: _inputCtrl,
-                    enabled: enabled,
-                    minLines: 1,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    style: TextStyle(color: fc.textPrimary, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: hint,
-                      hintStyle: TextStyle(color: fc.textDisabled),
-                      filled: true,
-                      fillColor: fc.surfaceBright,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
+                child: TextField(
+                  controller: _inputCtrl,
+                  focusNode: _inputFocusNode,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(color: fc.textDisabled),
+                    filled: true,
+                    fillColor: fc.surfaceBright,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
