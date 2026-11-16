@@ -20,6 +20,8 @@ import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'backoffice_screen.dart';
+import 'coworking_screen.dart';
+import '../../application/services/chat_relay.dart';
 import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
@@ -151,6 +153,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     DiagnosticsScreen(),
     AiConsoleScreen(),
     BackofficeScreen(),
+    CoworkingScreen(),
   ];
 
   static const _navItems = [
@@ -162,6 +165,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     _NavDef(Icons.monitor_heart, 'DIAGNOSTICS'),
     _NavDef(Icons.smart_toy_outlined, 'AGENT IA'),
     _NavDef(Icons.admin_panel_settings_outlined, 'BACKOFFICE'),
+    _NavDef(Icons.groups_outlined, 'COWORKING'),
   ];
 
   @override
@@ -1464,6 +1468,90 @@ class _Sidebar extends StatelessWidget {
                 ],
               ),
             ),
+            // Coworking quick status badge
+            if (showLabels)
+              Consumer(
+                builder: (context, ref, _) {
+                  final host = ref.watch(chatRelayHostProvider);
+                  final client = ref.watch(remoteChatClientProvider);
+                  final isHosting = host.running;
+                  final isJoined = client.status == RemoteChatStatus.connected;
+                  final fc = context.fc;
+                  final accent = isHosting
+                      ? fc.primary
+                      : isJoined
+                          ? fc.success
+                          : fc.textSecondary;
+                  final title = isHosting
+                      ? 'Session ouverte'
+                      : isJoined
+                          ? 'Relié à ${client.host ?? 'PC'}'
+                          : 'Poste seul';
+                  final subtitle = isHosting
+                      ? 'Code : ${host.code ?? '---'} · ${host.clients} inv.'
+                      : isJoined
+                          ? 'Coworking actif'
+                          : 'Coworking fermé';
+                  return InkWell(
+                    onTap: () => onItemSelected(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: fc.surfaceBorder),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: accent.withValues(alpha: 0.12),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.45),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.tv_rounded,
+                              size: 14,
+                              color: accent,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: fc.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  subtitle,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: fc.textSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             if (showFooter) Container(
               padding:
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
