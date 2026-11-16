@@ -88,12 +88,16 @@ class ToolRouter {
       tools: {
         'run_program', 'run_gcode_program', 'send_gcode', 'get_activity_log',
         'generate_5axis_dome', 'goto_position', 'jog_axis', 'home',
+        'reset', 'unlock_alarm', 'select_wcs', 'get_wcs_offsets',
+        'list_workspace_files', 'load_gcode_file', 'analyze_gcode',
+        'open_toolpath_window',
       },
       keywords: [
-        'programme', 'program', 'lance', 'execute', 'run', 'cycle', 'g code',
+        'programme', 'program', 'lance', 'execute', 'executer', 'run', 'cycle', 'g code',
         'gcode', 'commande', 'envoie', 'send', 'demarre le', 'start the',
         'usinage', 'usiner', 'usinons', 'machine la', 'demarre la', 'démarrer',
-        'demarrer', 'fabrication', 'fabriquer', 'lancer',
+        'demarrer', 'fabrication', 'fabriquer', 'lancer', 'charge', 'charger',
+        'load', 'fichier', 'file', 'prepare', 'prépare', 'routine', 'pipeline',
         'mill', 'milling', 'carve', 'fraise', 'fraiser', 'dome', 'dôme',
         'aluminium', 'aluminum', 'brass', 'laiton', 'wood', 'bois', 'steel', 'acier',
       ],
@@ -101,7 +105,7 @@ class ToolRouter {
     'fichiers': ToolGroup(
       tools: {
         'list_workspace_files', 'read_workspace_file', 'write_workspace_file',
-        'analyze_gcode',
+        'load_gcode_file', 'analyze_gcode', 'run_program', 'open_toolpath_window',
       },
       keywords: [
         'fichier', 'file', 'dossier', 'espace de travail', 'workspace', 'lis ',

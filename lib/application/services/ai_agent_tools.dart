@@ -417,6 +417,90 @@ class AiToolCatalog {
       },
     ),
     AiTool(
+      name: 'load_gcode_file',
+      description:
+          'Charge un fichier G-code (.nc, .gcode, .tap, .ngc) de l\'espace de travail dans le contrôleur CNC et affiche son parcours 3D. '
+          'À utiliser avant analyze_gcode et run_program quand l\'opérateur demande de préparer ou d\'exécuter un fichier.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'name': {
+            'type': 'string',
+            'description': 'Nom ou chemin du fichier G-code (ex. « dome.nc »).',
+          },
+        },
+        'required': ['name'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final raw = ((input['name'] ?? input['path']) as String?)?.trim() ?? '';
+        if (raw.isEmpty) return 'ERREUR: nom de fichier manquant.';
+
+        String? resolvedPath;
+        String displayName = raw;
+
+        final files = ref.read(workFilesProvider);
+        final exact = files
+            .where((f) =>
+                f.name.toLowerCase() == raw.toLowerCase() ||
+                f.path.toLowerCase() == raw.toLowerCase())
+            .toList();
+        if (exact.isNotEmpty) {
+          resolvedPath = exact.first.path;
+          displayName = exact.first.name;
+        } else {
+          final partial = files
+              .where((f) => f.name.toLowerCase().contains(raw.toLowerCase()))
+              .toList();
+          if (partial.isNotEmpty) {
+            resolvedPath = partial.first.path;
+            displayName = partial.first.name;
+          } else if (File(raw).existsSync()) {
+            resolvedPath = raw;
+            displayName = raw.split(Platform.pathSeparator).last;
+          }
+        }
+
+        if (resolvedPath == null) {
+          final avail = files.map((f) => f.name).join(', ');
+          return 'ERREUR: fichier "$raw" introuvable dans l\'espace de travail. '
+              'Disponibles : ${avail.isEmpty ? '(aucun)' : avail}';
+        }
+
+        try {
+          final content = await FilePickerService.readWorkFile(resolvedPath);
+          if (content.trim().isEmpty) {
+            return 'ERREUR: le fichier "$displayName" est vide.';
+          }
+          await ref.read(gcodeProvider.notifier).loadFile(content);
+          final loaded = ref.read(gcodeProvider);
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+
+          final wcsMatches = RegExp(r'\bG5[4-9]\b')
+              .allMatches(content.toUpperCase())
+              .map((m) => m.group(0)!)
+              .toSet()
+              .toList();
+
+          return jsonEncode({
+            'loaded': true,
+            'name': displayName,
+            'path': resolvedPath,
+            'lines': loaded.allLines.length,
+            'toolpath_points': loaded.toolpath.length,
+            'wcs_in_program': wcsMatches,
+            'adapt_warnings': loaded.adaptWarnings,
+            'adapt_blocking': loaded.adaptBlocking,
+            'tools': [for (final t in loaded.tools) t.toString()],
+          });
+        } catch (e) {
+          return 'ERREUR: chargement impossible ($e)';
+        }
+      },
+    ),
+    AiTool(
       name: 'write_workspace_file',
       description:
           'Écrit un fichier G-code dans l\'espace de travail — typiquement pour '
@@ -747,7 +831,8 @@ class AiToolCatalog {
     AiTool(
       name: 'run_gcode_program',
       description:
-          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute, avec validation trajectoire + ForceGuard. Réservé à un programme que l\'OPÉRATEUR t\'a donné mot pour mot : jamais un programme rédigé par toi (une coordonnée fausse peut casser la machine). Remplace le programme actuellement chargé.',
+          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute immédiatement sur la machine, avec validation trajectoire + ForceGuard. '
+          'Utilisable pour un programme donné par l\'opérateur ou généré par un outil de FAO/génération. Remplace le programme actuellement chargé.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -766,7 +851,17 @@ class AiToolCatalog {
         if (why != null) return 'REFUSÉ (sécurité) : $why';
         await ref.read(gcodeProvider.notifier).loadFile(code);
         final r = await ref.read(streamingProvider.notifier).startStream();
-        if (r.isValid) return 'OK: programme chargé et exécution démarrée';
+        if (r.isValid) {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+          if (!Platform.environment.containsKey('FLUTTER_TEST') &&
+              ref.read(machineRepositoryProvider).currentState.status ==
+                  MachineStatus.offline) {
+            ref.read(simulationProvider.notifier).play(speedMultiplier: 8.0);
+          }
+          return 'OK: programme chargé et exécution démarrée';
+        }
         final line = r.errorLine != null ? ' (ligne ${r.errorLine})' : '';
         return 'REFUSÉ: ${r.errorMessage}$line';
       },

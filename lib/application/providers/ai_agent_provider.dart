@@ -2066,31 +2066,31 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       'lancer un programme sans homing, changer d\'origine en plein usinage). '
 
-      'Tu n\'écris JAMAIS toi-même un programme G-code : une coordonnée fausse '
+      'Tu es un véritable opérateur d\'usinage CNC 5 axes expérimenté. '
 
-      'peut casser la fraise ou la machine, et l\'opérateur ne peut pas la '
+      'ROUTINE OPÉRATEUR CNC 5 AXES (à exécuter étape par étape devant l\'opérateur) : '
 
-      'relire. Pour obtenir un programme, utilise run_step_pipeline sur un '
+      'Lorsque l\'opérateur démarre la machine ou te demande de préparer et lancer un fichier G-code précis (ou un programme généré), exécute cette routine complète dans l\'ordre en appelant les outils les uns après les autres (chaque appel s\'affiche en direct dans le fil pour montrer le pipeline en cours) : '
 
-      'fichier STEP, ou travaille sur un fichier DÉJÀ présent dans l\'espace de '
+      '1. DIAGNOSTIC & RECOVERY : appelle get_machine_state. Si la machine est en alarme (ou bloquée au démarrage), exécute reset (soft reset) puis unlock_alarm (\$X) et re-vérifie get_machine_state. '
 
-      'travail. Si aucun générateur ne convient, dis-le simplement et propose '
+      '2. HOMING : si la machine sort d\'une alarme d\'origine (ALARM:14 / Unhomed) ou n\'a pas encore fait son homing, exécute home (\$H) pour référencer X, Y, Z, A, C. (Si une erreur matérielle bloque comme Check startup pins / E-STOP, arrête et informe l\'opérateur.) '
 
-      'ces deux options, sans inventer de chemin de fichier. Tu peux lancer le '
+      '3. AUTO-CHARGEMENT DU FICHIER G-CODE : si le programme n\'est pas encore chargé, appelle list_workspace_files si besoin puis load_gcode_file avec le nom du fichier pour le charger dans le contrôleur et afficher le parcours 3D. '
 
-      'programme déjà chargé (run_program) ou un programme que l\'OPÉRATEUR te '
+      '4. VÉRIFICATION DU CODE : appelle analyze_gcode pour contrôler les courses machine (X 0..88 mm, Y 0..150 mm, Z -110..0 mm, A -266..-88°, C -720..0°), les avances, les collisions/Z de sécurité et M3/M5. '
 
-      'donne mot pour mot (run_gcode_program) — jamais un programme de ta '
+      '5. CHOIX DU BON WCS SÉCURISÉ : appelle get_wcs_offsets pour inspecter G54..G59, vérifie la cohérence avec le programme et sélectionne le bon WCS avec select_wcs (en vérifiant que Z est dégagé au-dessus de la pièce). '
 
-      'façon. Avant de lancer un programme ou un mouvement, vérifie/annonce les '
+      '6. EXÉCUTION IMMÉDIATE : dès que les vérifications 1→5 sont OK, appelle directement run_program (pour un fichier chargé ou un programme généré par run_step_pipeline / generate_5axis_dome) ou run_gcode_program (pour un G-code multi-lignes fourni en texte ou généré). '
 
-      'points de sécurité clés (homing fait, Z dégagé, bon WCS) et laisse '
+      'RÈGLE ANTI-BOUCLE : quand l\'opérateur demande d\'exécuter/lancer un G-code (fichier ou programme généré), APPELLE l\'outil run_program ou run_gcode_program — ne réponds JAMAIS uniquement en texte pour redemander "Voulez-vous que je lance ?". Si la sécurité exige une confirmation, l\'interface affiche automatiquement la carte de confirmation sur l\'appel d\'outil. '
 
-      'l\'utilisateur confirmer les actions gatées. '
+      'Tu peux utiliser run_step_pipeline sur un fichier STEP, generate_5axis_dome pour un dôme 5 axes, load_gcode_file sur un fichier de l\'espace de travail, ou run_gcode_program pour exécuter directement du G-code. '
 
-      'Sois concis et confirme toujours ce que tu as fait. Si une action semble '
+      'Sois concis et confirme toujours ce que tu as fait à chaque étape. Si une action semble '
 
-      'risquée ou ambiguë, explique-le et demande une précision. '
+      'risquée ou ambiguë (dépassement de course, E-STOP ouvert), explique-le clairement. '
 
       'Réponds en texte clair : tu peux utiliser du **gras** et des listes à '
 
@@ -3430,7 +3430,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (state.pendingConfirmation != null &&
         imageBytes == null &&
         RegExp(
-          r'^\s*(?:confirm|confirmed|yes|yes please|start|go ahead|ok start|confirme|confirmer|oui|lance|vas-y)\s*[.!]*\s*$',
+          r"^\s*(?:confirm|confirmed|yes(?:\s+please)?|start|go(?:\s+ahead)?|ok(?:\s+(?:start|go|vas-y|lance))?|proceed|do\s+it|run(?:\s+it)?|confirme|confirmer|oui(?:\s+(?:lance(?:-le)?|vas-y|ex[ée]cute(?:-le)?|ok))?|d'accord|dac|lance(?:-le)?|lancer|ex[ée]cute(?:-le)?|executer|d[ée]marre|demarre|vas-y|fais-le)\s*[.!]*\s*$",
           caseSensitive: false,
         ).hasMatch(trimmed)) {
       _addMessage(AiChatMessage(
@@ -4654,6 +4654,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
 
     if (needsConfirmation) {
+      _audit(
+        'ia.outil.attente',
+        'Confirmation demandée à l\'opérateur pour $toolName',
+        severity: BackofficeSeverity.notice,
+        details: {'outil': toolName, 'arguments': input, 'categorie': category.name},
+        callId: callId,
+        origin: _turnOrigin,
+      );
 
       state = state.copyWith(
 
@@ -4687,7 +4695,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// Approuve l'appel d'outil en attente et poursuit la conversation.
 
-  Future<void> confirmPendingAction({String origin = BackofficeOrigin.operateur}) async {
+  Future<void> confirmPendingAction({String origin = BackofficeOrigin.local}) async {
 
     final pending = state.pendingConfirmation;
 
@@ -4717,6 +4725,15 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
     _cancelled = false;
 
+    _audit(
+      'ia.outil.confirme',
+      'Action ${pending.toolName} confirmée',
+      severity: BackofficeSeverity.notice,
+      details: {'outil': pending.toolName, 'arguments': pending.input},
+      callId: pending.id,
+      origin: origin,
+    );
+
     state = state.copyWith(isProcessing: true, clearPendingConfirmation: true);
 
     final tool = AiToolCatalog.byName(pending.toolName);
@@ -4733,7 +4750,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       state = state.copyWith(runningTool: pending.toolName);
 
-      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input, origin: origin));
+      _collectedResults.addAll(await _executeTool(tool, pending.toolName, pending.input, callId: pending.id, origin: origin));
 
       state = state.copyWith(clearRunningTool: true);
 
@@ -4749,7 +4766,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   /// d'échec et la conversation continue sans que l'action soit exécutée.
 
-  Future<void> rejectPendingAction({String origin = BackofficeOrigin.operateur}) async {
+  Future<void> rejectPendingAction({String origin = BackofficeOrigin.local}) async {
 
     final pending = state.pendingConfirmation;
 
@@ -4761,6 +4778,16 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (pending != null && pending.id.startsWith('run_program_dome_')) {
       _rejectDomePending(pending);
       return;
+    }
+    if (pending != null) {
+      _audit(
+        'ia.outil.refuse',
+        'Action ${pending.toolName} refusée',
+        severity: BackofficeSeverity.notice,
+        details: {'outil': pending.toolName, 'arguments': pending.input},
+        callId: pending.id,
+        origin: origin,
+      );
     }
 
     final service = _service;
