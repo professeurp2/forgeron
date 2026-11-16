@@ -2080,7 +2080,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
       '4. VÉRIFICATION DU CODE : appelle analyze_gcode pour contrôler les courses machine (X 0..88 mm, Y 0..150 mm, Z -110..0 mm, A -266..-88°, C -720..0°), les avances, les collisions/Z de sécurité et M3/M5. '
 
-      '5. CHOIX DU BON WCS SÉCURISÉ : appelle get_wcs_offsets pour inspecter G54..G59, vérifie la cohérence avec le programme et sélectionne le bon WCS avec select_wcs (en vérifiant que Z est dégagé au-dessus de la pièce). '
+      '5. CHOIX DU BON WCS SÉCURISÉ : appelle get_wcs_offsets pour inspecter G54..G59, vérifie la cohérence avec le programme et sélectionne le bon WCS avec select_wcs (en vérifiant que Z est dégagé au-dessus de la pièce). Si l\'opérateur te demande de prendre la position actuelle comme zéro WCS / zéro pièce, appelle directement set_work_zero (avec `wcs` et `axes` si précisés). '
 
       '6. EXÉCUTION IMMÉDIATE : dès que les vérifications 1→5 sont OK, appelle directement run_program (pour un fichier chargé ou un programme généré par run_step_pipeline / generate_5axis_dome) ou run_gcode_program (pour un G-code multi-lignes fourni en texte ou généré). '
 

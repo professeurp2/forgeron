@@ -999,24 +999,43 @@ class AiToolCatalog {
     AiTool(
       name: 'set_work_zero',
       description:
-          'Définit la position ACTUELLE comme zéro pièce (« origine pièce », « zéro ici ») pour les axes indiqués, dans le WCS actif (G10 L20). AUCUN mouvement : la machine ne bouge pas. Absent = X, Y, Z.',
+          'Prend la position ACTUELLE comme zéro WCS / zéro pièce (« prends la position actuelle comme zéro WCS », « zéro ici ») pour les axes indiqués (G10 L20). '
+          'AUCUN mouvement : la machine ne bouge pas. Peut cibler un WCS précis (G54..G59) ou le WCS actif par défaut. Axes par défaut : X, Y, Z.',
       inputSchema: const {
         'type': 'object',
         'properties': {
+          'wcs': {
+            'type': 'string',
+            'enum': ['G54', 'G55', 'G56', 'G57', 'G58', 'G59'],
+            'description': 'WCS cible (optionnel). Absent = WCS actuellement actif (P0).',
+          },
           'axes': {
             'type': 'array',
             'items': {'type': 'string'},
-            'description': 'Ex ["X","Y","Z"]. Absent = X, Y, Z.',
+            'description': 'Ex ["X","Y","Z"] ou ["X","Y","Z","A","C"]. Absent = X, Y, Z.',
           },
         },
       },
       category: AiActionCategory.wcsTool,
       execute: (input, ref) async {
-        final axes = (input['axes'] as List?)?.cast<String>() ?? const ['X', 'Y', 'Z'];
-        if (axes.isEmpty) return 'ERREUR: liste d\'axes vide';
-        final words = axes.map((a) => '${a.toUpperCase()}0').join(' ');
-        await ref.read(machineRepositoryProvider).sendGCode('G10 L20 P0 $words');
-        return 'OK: origine posée sur $axes';
+        final rawAxes = (input['axes'] as List?)?.cast<String>() ?? const ['X', 'Y', 'Z'];
+        if (rawAxes.isEmpty) return 'ERREUR: liste d\'axes vide';
+        final axes = rawAxes.any((a) => a.toLowerCase() == 'all' || a.toLowerCase() == 'tous')
+            ? const ['X', 'Y', 'Z', 'A', 'C']
+            : rawAxes.map((a) => a.toUpperCase()).toList();
+        const wcsMap = {'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6};
+        final wcsStr = (input['wcs'] as String?)?.toUpperCase().trim();
+        final p = (wcsStr != null && wcsMap.containsKey(wcsStr)) ? wcsMap[wcsStr]! : 0;
+
+        final repo = ref.read(machineRepositoryProvider);
+        if (wcsStr != null && wcsMap.containsKey(wcsStr)) {
+          await repo.sendGCode(wcsStr);
+        }
+        final words = axes.map((a) => '${a}0').join(' ');
+        await repo.sendGCode('G10 L20 P$p $words');
+        await repo.sendGCode('\$#');
+        final targetLabel = wcsStr ?? 'WCS actif';
+        return 'OK: position actuelle enregistrée comme zéro $targetLabel sur ${axes.join(', ')} (G10 L20 P$p $words)';
       },
     ),
     AiTool(

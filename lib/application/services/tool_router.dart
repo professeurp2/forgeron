@@ -88,7 +88,7 @@ class ToolRouter {
       tools: {
         'run_program', 'run_gcode_program', 'send_gcode', 'get_activity_log',
         'generate_5axis_dome', 'goto_position', 'jog_axis', 'home',
-        'reset', 'unlock_alarm', 'select_wcs', 'get_wcs_offsets',
+        'reset', 'unlock_alarm', 'select_wcs', 'get_wcs_offsets', 'set_work_zero',
         'list_workspace_files', 'load_gcode_file', 'analyze_gcode',
         'open_toolpath_window',
       },
