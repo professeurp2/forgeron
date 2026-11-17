@@ -78,13 +78,17 @@ class ForgeronColorPalette {
   });
 }
 
+/// Palette sombre v2 — « graphite et braise ». Mêmes teintes que la v1, à
+/// deux corrections près : des surfaces un rien plus profondes et mieux
+/// étagées, et un texte discret relevé de 2,3:1 à 4,3:1 de contraste (les
+/// sous-titres et les consignes étaient illisibles dans un atelier éclairé).
 const forgeronDarkColors = ForgeronColorPalette(
-  background: Color(0xFF0D0F14),
-  sidebar: Color(0xFF10131A),
-  surface: Color(0xFF161922),
-  surfaceBright: Color(0xFF1E2230),
-  surfaceHigh: Color(0xFF252B3B),
-  surfaceBorder: Color(0xFF2A2F3E),
+  background: Color(0xFF0B0D12),
+  sidebar: Color(0xFF0F1218),
+  surface: Color(0xFF151821),
+  surfaceBright: Color(0xFF1C2130),
+  surfaceHigh: Color(0xFF272D3F),
+  surfaceBorder: Color(0xFF2B3144),
   surfaceBorderDim: Color(0x332A2F3E),
   terminalBg: Color(0xFF080A10),
   primary: Color(0xFFFF6B35),
@@ -102,8 +106,8 @@ const forgeronDarkColors = ForgeronColorPalette(
   axisA: Color(0xFFFF6B35),
   axisC: Color(0xFF00D4FF),
   textPrimary: Color(0xFFF0F2FF),
-  textSecondary: Color(0xFFA0A8C0),
-  textDisabled: Color(0xFF4A5068),
+  textSecondary: Color(0xFFAEB5CC),
+  textDisabled: Color(0xFF727A96),
   glassBorder: Color(0x22FFFFFF),
   glassSurface: Color(0x1AFFFFFF),
   lcdBackground: Color(0xFF080E04),
@@ -113,20 +117,20 @@ const forgeronDarkColors = ForgeronColorPalette(
   keyBezel: Color(0xFF181E2E),
   keyActive: Color(0xFF242D45),
   keyBorder: Color(0xFF2E3A5C),
-  panelBody: Color(0xFF0D0F14),
+  panelBody: Color(0xFF0B0D12),
   panelSection: Color(0xFF13182A),
 );
 
 const forgeronLightColors = ForgeronColorPalette(
-  background: Color(0xFFF0F2F5),
-  sidebar: Color(0xFFE8EBF2),
+  background: Color(0xFFF3F5F8),
+  sidebar: Color(0xFFFFFFFF),
   surface: Color(0xFFFFFFFF),
   surfaceBright: Color(0xFFF5F7FA),
   surfaceHigh: Color(0xFFE2E6F0),
-  surfaceBorder: Color(0xFFD0D5E0),
+  surfaceBorder: Color(0xFFD9DEE8),
   surfaceBorderDim: Color(0x1AD0D5E0),
   terminalBg: Color(0xFFF9FAFB),
-  primary: Color(0xFFFF6B35),
+  primary: Color(0xFFE8551F),
   primaryDim: Color(0xFFCC5220),
   primaryLight: Color(0xFFFF9A6C),
   secondary: Color(0xFF0099CC),
@@ -140,9 +144,9 @@ const forgeronLightColors = ForgeronColorPalette(
   axisZ: Color(0xFF2563EB),
   axisA: Color(0xFFFF6B35),
   axisC: Color(0xFF0099CC),
-  textPrimary: Color(0xFF1F2937),
+  textPrimary: Color(0xFF111827),
   textSecondary: Color(0xFF4B5563),
-  textDisabled: Color(0xFF9CA3AF),
+  textDisabled: Color(0xFF6B7280),
   glassBorder: Color(0x1A000000),
   glassSurface: Color(0x0D000000),
   lcdBackground: Color(0xFFE0E5DF),

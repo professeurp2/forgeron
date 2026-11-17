@@ -77,12 +77,20 @@ class AiAgentSettings {
   /// comportement d'avant (modèle seul + chemin rapide de l'arrêt d'urgence).
   final bool lexiconEnabled;
 
+  /// Secours : quand le serveur local ne répond pas, le tour est donné à
+  /// Gemini (si une clé est enregistrée) au lieu de rester en attente.
+  /// DÉSACTIVÉ par défaut : choisir un modèle local, c'est souvent choisir que
+  /// rien ne sorte de l'atelier — la discussion ne part chez Google que si
+  /// l'opérateur l'a demandé ici.
+  final bool cloudFallback;
+
   const AiAgentSettings({
     this.enabled = false,
     this.localBaseUrl = '',
     this.localModel = defaultLocalModel,
     this.localVisionModel = '',
     this.lexiconEnabled = true,
+    this.cloudFallback = false,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
@@ -102,6 +110,7 @@ class AiAgentSettings {
     String? localModel,
     String? localVisionModel,
     bool? lexiconEnabled,
+    bool? cloudFallback,
   }) {
     return AiAgentSettings(
       enabled: enabled ?? this.enabled,
@@ -110,6 +119,7 @@ class AiAgentSettings {
       localModel: localModel ?? this.localModel,
       localVisionModel: localVisionModel ?? this.localVisionModel,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
+      cloudFallback: cloudFallback ?? this.cloudFallback,
     );
   }
 
@@ -120,6 +130,7 @@ class AiAgentSettings {
         'localModel': localModel,
         'localVisionModel': localVisionModel,
         'lexiconEnabled': lexiconEnabled,
+        'cloudFallback': cloudFallback,
       };
 
   factory AiAgentSettings.fromJson(Map<String, dynamic> json) {
@@ -141,6 +152,7 @@ class AiAgentSettings {
       localVisionModel: json['localVisionModel'] as String? ?? '',
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
+      cloudFallback: json['cloudFallback'] as bool? ?? false,
     );
   }
 }
@@ -186,6 +198,11 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   /// Modèle local pour les images ; vide = aucun.
   void setLocalVisionModel(String value) {
     state = state.copyWith(localVisionModel: value.trim());
+    _persist();
+  }
+
+  void setCloudFallback(bool value) {
+    state = state.copyWith(cloudFallback: value);
     _persist();
   }
 

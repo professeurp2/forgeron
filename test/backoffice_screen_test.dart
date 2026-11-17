@@ -228,6 +228,9 @@ void main() {
     expect(find.text('BRANCHER'), findsOneWidget);
 
     final container = _containerOf(tester);
+    // Le pré-vol occupe le haut du panneau Santé : le bouton est sous le pli.
+    await tester.ensureVisible(find.text('BRANCHER'));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('BRANCHER'));
     await tester.pump();
     expect(tester.takeException(), isNull);

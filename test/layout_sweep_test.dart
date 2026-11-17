@@ -13,6 +13,7 @@ import 'package:forgeron/presentation/screens/app_settings_screen.dart';
 import 'package:forgeron/presentation/screens/backoffice_screen.dart';
 import 'package:forgeron/presentation/screens/cnc_panel_screen.dart';
 import 'package:forgeron/presentation/screens/connection_settings_screen.dart';
+import 'package:forgeron/presentation/screens/cowork_screen.dart';
 import 'package:forgeron/presentation/screens/limit_config_screen.dart';
 import 'package:forgeron/presentation/screens/limit_recovery_screen.dart';
 import 'package:forgeron/presentation/screens/limit_switch_test_screen.dart';
@@ -44,6 +45,9 @@ const _sizes = [
   _Size('portable 1366×768', 1366, 768),
   _Size('fenêtre basse 1024×600', 1024, 600),
   _Size('grand écran 1920×1080', 1920, 1080),
+  _Size('iPad portrait 820×1180', 820, 1180),
+  _Size('iPad paysage 1180×820', 1180, 820),
+  _Size('iPad Pro 1024×1366', 1024, 1366),
 ];
 
 const _pages = [
@@ -55,6 +59,7 @@ const _pages = [
   'Diagnostics',
   'Agent IA',
   'Backoffice',
+  'Coworking',
 ];
 
 /// Un défaut relevé : où, dans quelles conditions, et quoi.
@@ -186,6 +191,8 @@ void main() {
     'Paramètres de l\'agent': () => const AiAgentSettingsScreen(),
     'Connexion': () => const ConnectionSettingsScreen(),
     'Backoffice (mobile)': () => const BackofficeScreen(standalone: true),
+    'Coworking (invité)': () => const CoworkScreen(standalone: true, forceGuest: true),
+    'Coworking (hôte)': () => const CoworkScreen(standalone: true, forceGuest: false),
     'Pupitre CNC': () => const CncPanelScreen(),
     'Limites': () => const LimitConfigScreen(),
     'Reprise après limite': () => const LimitRecoveryScreen(),
@@ -195,7 +202,7 @@ void main() {
     'Assistant de mise en route': () => const SetupWizardScreen(),
   };
   for (final theme in [ThemeMode.dark, ThemeMode.light]) {
-    for (final size in [_sizes[0], _sizes[1], _sizes[3], _sizes[6]]) {
+    for (final size in [_sizes[0], _sizes[1], _sizes[3], _sizes[6], _sizes[7], _sizes[8]]) {
       for (final entry in standalone.entries) {
         testWidgets('${entry.key} · ${size.name} · ${theme.name}', (tester) async {
           await sweep(tester, where: entry.key, size: size, theme: theme, child: entry.value());

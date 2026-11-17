@@ -1620,15 +1620,13 @@ class AiToolCatalog {
     AiTool(
       name: 'control_simulation',
       description:
-          'Contrôle la lecture du simulateur d\'usinage 3D (play, pause, reset, '
-          'seek à un pourcentage, changement de vitesse ×1..×50), oriente la '
-          'caméra 3D via le ViewCube (ISOMETRIC, TOP, FRONT, RIGHT, LEFT, BACK), '
-          'ou passe en JUMEAU ("follow_machine") : le simulateur suit alors la '
-          'carte ESP32 réelle, rapport d\'état après rapport d\'état — position, '
-          'ligne acquittée, matière enlevée — et mesure l\'écart entre la '
-          'position réelle et le parcours. "stop_follow" arrête le suivi. '
-          'Utiliser "follow_machine" pour montrer ce que la machine fait VRAIMENT '
-          'pendant un usinage, "play" pour une prévision avant usinage.',
+          // Volontairement court : chaque caractère de description est payé
+          // à CHAQUE tour par le modèle local (voir promptOverheadTokens).
+          'Contrôle le simulateur 3D : play, pause, reset, seek, vitesse '
+          '×1..×50, vue caméra (ViewCube). "follow_machine" = JUMEAU : le '
+          'simulateur suit la carte réelle (position, ligne, matière) et '
+          'mesure l\'écart au parcours ; "stop_follow" l\'arrête. "play" '
+          'prévoit, "follow_machine" montre ce que la machine fait vraiment.',
       category: null,
       inputSchema: {
         'type': 'object',

@@ -1106,7 +1106,8 @@ class _MessageBubble extends StatelessWidget {
     for (final block in parseChatBlocks(message.text)) {
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 10));
       if (block.isCode) {
-        widgets.add(_CodeBlock(fc: fc, block: block));
+        widgets.add(_CodeBlock(
+            fc: fc, block: block, unverified: message.unverifiedGcode));
       } else {
         widgets.add(SelectableText.rich(
           TextSpan(
@@ -1125,10 +1126,15 @@ class _MessageBubble extends StatelessWidget {
 /// disque, ouvrir dans une fenêtre à part. Sans elles il faudrait re-saisir le
 /// programme à la main.
 class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.fc, required this.block});
+  const _CodeBlock(
+      {required this.fc, required this.block, this.unverified = false});
 
   final ForgeronColorPalette fc;
   final ChatBlock block;
+
+  /// Programme écrit par le modèle lui-même (voir GcodeProvenance) : averti,
+  /// et ni enregistrable ni ouvrable d'un clic.
+  final bool unverified;
 
   @override
   Widget build(BuildContext context) {
@@ -1174,7 +1180,7 @@ class _CodeBlock extends StatelessWidget {
                         Clipboard.setData(ClipboardData(text: block.text)),
                   ),
                 ),
-                if (isGcode) ...[
+                if (isGcode && !unverified) ...[
                   Tooltip(
                     message: tr('Enregistrer sous…'),
                     child: fluent.IconButton(
@@ -1198,6 +1204,25 @@ class _CodeBlock extends StatelessWidget {
               ],
             ),
           ),
+          if (unverified && isGcode)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              color: fc.warning.withValues(alpha: .12),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Écrit par le modèle, non vérifié : ne pas usiner tel quel.'),
+                    style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ]),
+            ),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 320),
             child: SingleChildScrollView(

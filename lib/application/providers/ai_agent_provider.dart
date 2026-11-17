@@ -18,6 +18,8 @@ import '../../core/net/cellular_http_client.dart';
 import '../../core/utils/command_lexicon.dart';
 import '../../core/utils/emergency_intent.dart';
 import '../../core/utils/fingerprint.dart';
+import '../../core/utils/chat_markdown.dart' show parseChatBlocks, looksLikeGcode;
+import '../../core/utils/gcode_provenance.dart';
 import '../../core/utils/gemini_context.dart';
 import 'ai_agent_settings_provider.dart';
 import 'di_providers.dart';
@@ -30,6 +32,7 @@ import 'activity_log_provider.dart';
 import 'ai_artifacts_provider.dart';
 import 'backoffice_provider.dart';
 import 'docs_provider.dart';
+import 'gcode_provider.dart';
 import 'lexicon_provider.dart';
 import 'machine_params_provider.dart';
 
@@ -44,6 +47,12 @@ class AiChatMessage {
   /// Réponse coupée en cours de route par l'opérateur (bouton « Stop ») :
   /// l'UI le signale pour qu'on ne prenne pas un texte tronqué pour complet.
   final bool interrupted;
+
+  /// La réponse contient un programme G-code que ni l'opérateur ni un outil
+  /// n'a fourni : le modèle l'a écrit lui-même, contre sa consigne. L'écran
+  /// le marque « non vérifié » et retire l'enregistrement — un programme
+  /// inventé ne doit pas finir dans l'espace de travail par un simple clic.
+  final bool unverifiedGcode;
 
   /// Miniature de l'image jointe (session uniquement, non persistée pour ne
   /// pas gonfler le stockage). Sert à l'aperçu dans l'historique.
@@ -76,6 +85,7 @@ class AiChatMessage {
     required this.text,
     required this.timestamp,
     this.interrupted = false,
+    this.unverifiedGcode = false,
     this.imageBytes,
     this.toolName,
     this.toolArgs,
@@ -135,6 +145,7 @@ class AiChatMessage {
       'text': text,
       'ts': timestamp.millisecondsSinceEpoch,
       if (interrupted) 'cut': true,
+      if (unverifiedGcode) 'ugc': true,
       if (toolName != null) 'tool': toolName,
       'args': ?encodedArgs,
       if (toolDuration != null) 'ms': toolDuration!.inMilliseconds,
@@ -175,6 +186,7 @@ class AiChatMessage {
       timestamp: DateTime.fromMillisecondsSinceEpoch(
           (j['ts'] as num?)?.toInt() ?? 0),
       interrupted: j['cut'] == true,
+      unverifiedGcode: j['ugc'] == true,
       toolName: toolName,
       toolArgs: args,
       toolResult: toolResult,
@@ -481,6 +493,40 @@ class AiAgentController extends StateNotifier<AiChatState> {
         origin: origin ?? _turnOrigin,
       );
     } catch (_) {/* le backoffice n'arrête jamais l'agent */}
+  }
+
+  /// Tout ce qui, dans la discussion, n'a PAS été écrit par le modèle : les
+  /// messages de l'opérateur et les résultats d'outils. C'est contre ces
+  /// textes qu'on vérifie la provenance d'un programme.
+  Iterable<String> _provenanceSources() sync* {
+    for (final c in _contents) {
+      if (c['role'] != 'user') continue;
+      for (final p in (c['parts'] as List? ?? const []).whereType<Map>()) {
+        final t = p['text'];
+        if (t is String) yield t;
+        final r = (p['functionResponse'] as Map?)?['response'];
+        if (r is Map) {
+          final v = r['result'] ?? r['error'];
+          if (v != null) yield '$v';
+        }
+      }
+    }
+    // Le programme déjà chargé dans l'application en fait partie : le
+    // relancer tel quel n'est pas l'inventer.
+    try {
+      yield _ref.read(gcodeProvider).allLines.join('\n');
+    } catch (_) {}
+  }
+
+  /// La réponse contient-elle un bloc G-code que le modèle a écrit seul ?
+  bool _hasInventedGcode(String text) {
+    if (!text.contains('```')) return false;
+    final blocks = [
+      for (final b in parseChatBlocks(text))
+        if (b.isCode && looksLikeGcode(b)) b.text,
+    ];
+    if (blocks.isEmpty) return false;
+    return GcodeProvenance.hasUnsourcedBlock(blocks, _provenanceSources());
   }
 
   /// Aperçu court d'un texte pour le journal (jamais le message entier).
@@ -1294,6 +1340,32 @@ class AiAgentController extends StateNotifier<AiChatState> {
 
   AiBackend? _visionService;
 
+  // ── Secours : Gemini quand le serveur local ne répond pas ────────────────
+
+  AiBackend? _fallbackService;
+
+  /// Pose un faux fournisseur de secours (tests du contrôleur).
+  @visibleForTesting
+  void debugUseFallbackBackend(AiBackend backend) => _fallbackService = backend;
+
+  /// Le fournisseur de secours, ou `null` si le réglage est coupé ou si
+  /// aucune clé n'est enregistrée. Jamais d'exception : un secours qui plante
+  /// ne doit pas aggraver la panne qu'il est censé couvrir.
+  Future<AiBackend?> _ensureFallbackService() async {
+    if (!_ref.read(aiAgentSettingsProvider).cloudFallback) return null;
+    if (_fallbackService != null) return _fallbackService;
+    try {
+      final key = await _ref.read(aiAgentSettingsProvider.notifier).readApiKey();
+      if (key == null || key.isEmpty) return null;
+      return _fallbackService = AiAgentService(
+          apiKey: key,
+          model: _ref.read(aiModelProvider).active.id,
+          client: CellularHttpClient());
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Pose un faux modèle d'images (tests du contrôleur).
   @visibleForTesting
   void debugUseVisionBackend(AiBackend backend) => _visionService = backend;
@@ -1912,10 +1984,20 @@ class AiAgentController extends StateNotifier<AiChatState> {
         // Après une recherche (fiches trouvées ou non), un refus est un refus :
         // sans « cependant » ni procédure tirée de la mémoire du modèle.
         final block = _docsBlockOrNull();
+        final inventedGcode = _hasInventedGcode(response.text);
+        if (inventedGcode) {
+          _audit('garde.gcode_invente',
+              'Le modèle a écrit un programme G-code lui-même : marqué « non vérifié », enregistrement retiré',
+              source: BackofficeSource.garde,
+              severity: BackofficeSeverity.warning,
+              details: {'modele': service.model},
+              origin: BackofficeOrigin.modele);
+        }
         _addMessage(AiChatMessage(
           role: 'assistant',
           text: block != null ? enforceNoFicheReply(response.text, block: block) : response.text,
           timestamp: DateTime.now(),
+          unverifiedGcode: inventedGcode,
         ));
         // Badge le bouton IA si l'écran n'est pas ouvert (info à présenter).
         _ref.read(aiInboxProvider.notifier).pushAlert(response.text);
@@ -1990,6 +2072,35 @@ class AiAgentController extends StateNotifier<AiChatState> {
         return;
       }
 
+      // Serveur local injoignable : si l'opérateur a autorisé le secours, le
+      // tour part chez Gemini au lieu d'attendre. Dit dans le fil, tracé dans
+      // le backoffice — jamais en silence. Le message suivant réessaiera le
+      // serveur local d'abord.
+      if (_isUnreachable(e) &&
+          !service.usesCellular &&
+          vision == null &&
+          !identical(baseService, _fallbackService)) {
+        final fallback = await _ensureFallbackService();
+        if (fallback != null && _epoch == epoch && await _reachable(fallback)) {
+          _audit('ia.bascule',
+              'Serveur local injoignable : tour donné à ${fallback.model} (secours)',
+              severity: BackofficeSeverity.warning,
+              details: {'de': service.model, 'vers': fallback.model},
+              origin: BackofficeOrigin.modele);
+          _addMessage(AiChatMessage(
+            role: 'tool',
+            text: 'secours → ${fallback.model}',
+            timestamp: DateTime.now(),
+            toolName: 'bascule_secours',
+            toolArgs: {'de': service.model, 'vers': fallback.model},
+            toolResult:
+                'Serveur local injoignable : cette réponse vient de ${fallback.model}.',
+            toolDuration: Duration.zero,
+          ));
+          return _runTurn(fallback);
+        }
+      }
+
       // Échec réseau/API → on garde le tour en mémoire pour le rejouer (le
       // message utilisateur est déjà dans _contents), et on tente une reprise
       // automatique dès que la connexion revient.
@@ -2060,6 +2171,14 @@ class AiAgentController extends StateNotifier<AiChatState> {
     if (e is CellularNetworkException) return e.toString();
     if (_isUnreachable(e)) return service.unreachableMessage;
     return e.toString();
+  }
+
+  Future<bool> _reachable(AiBackend b) async {
+    try {
+      return await b.isReachable();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Échec de joignabilité (réseau coupé, serveur éteint, délai dépassé).
@@ -2136,6 +2255,38 @@ class AiAgentController extends StateNotifier<AiChatState> {
               'aucune action sur la machine n\'est permise pour ce tour.'));
       await _processNextToolCall(service, epoch);
       return;
+    }
+
+    // Un programme à lancer doit venir de l'opérateur ou d'un outil, ligne
+    // de mouvement par ligne de mouvement (voir GcodeProvenance). Vérifié
+    // AVANT la carte de confirmation : on ne demande pas à l'opérateur
+    // d'approuver un programme inventé.
+    if (toolName == 'run_gcode_program') {
+      final missing = GcodeProvenance.unsourced(
+          '${input['gcode'] ?? ''}', _provenanceSources());
+      if (missing.isNotEmpty) {
+        final first = missing.first;
+        _audit('garde.provenance',
+            'run_gcode_program refusé : ${missing.length} ligne(s) de mouvement '
+            "que ni l'opérateur ni un outil n'a fournies (ligne ${first.$1} : ${first.$2})",
+            source: BackofficeSource.garde,
+            severity: BackofficeSeverity.warning,
+            details: {
+              'outil': toolName,
+              'lignes_inventees': missing.length,
+              'premiere': '${first.$1}: ${first.$2}',
+            },
+            callId: callId,
+            origin: BackofficeOrigin.modele);
+        _collectedResults.add(_functionResponse(toolName,
+            error: 'REFUSÉ (provenance) : ${missing.length} ligne(s) de mouvement de ce '
+                "programme ne viennent ni de l'opérateur ni d'un outil (ligne "
+                '${first.$1} : « ${first.$2} »). Tu ne dois jamais écrire un programme '
+                "toi-même. Utilise run_step_pipeline, un fichier de l'espace de "
+                "travail, ou demande à l'opérateur de coller son programme."));
+        await _processNextToolCall(service, epoch);
+        return;
+      }
     }
 
     final category = tool.category;
@@ -2419,6 +2570,7 @@ class AiAgentController extends StateNotifier<AiChatState> {
   void dispose() {
     _autoRetryTimer?.cancel();
     _service?.dispose();
+    _fallbackService?.dispose();
     super.dispose();
   }
 }

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/providers/ai_preflight_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/backoffice_provider.dart';
 import '../../application/providers/firmware_provider.dart';
@@ -953,6 +954,7 @@ class _HealthPanel extends ConsumerWidget {
         Expanded(
           child: SingleChildScrollView(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const AiPreflightSection(),
               section(tr('MODÈLE'), [
                 (tr('Agent'), settings.enabled ? tr('activé') : tr('désactivé')),
                 (tr('Fournisseur'), local ? tr('local — {}', [settings.localBaseUrl]) : 'Gemini (4G)'),
@@ -1009,6 +1011,78 @@ class _HealthPanel extends ConsumerWidget {
   static String _top(Map<String, int> m) {
     final entries = m.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     return entries.take(4).map((e) => '${e.key} ×${e.value}').join(', ');
+  }
+}
+
+/// Le pré-vol de l'assistant : chaque maillon de la chaîne, vérifié, avec le
+/// geste qui corrige quand il y a un défaut (voir `ai_preflight_provider`).
+class AiPreflightSection extends ConsumerWidget {
+  const AiPreflightSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fc = context.fc;
+    final report = ref.watch(aiPreflightProvider);
+    (IconData, Color) look(PreflightStatus s) => switch (s) {
+          PreflightStatus.ok => (Icons.check_circle_rounded, fc.success),
+          PreflightStatus.warning => (Icons.error_rounded, fc.warning),
+          PreflightStatus.failed => (Icons.cancel_rounded, fc.danger),
+          PreflightStatus.skipped => (Icons.remove_circle_outline_rounded, fc.textDisabled),
+        };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(tr('PRÉ-VOL DE L\'ASSISTANT'),
+                style: TextStyle(color: fc.textSecondary, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.6)),
+          ),
+          if (report.valueOrNull case final r?)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                  r.ready
+                      ? (r.worst == PreflightStatus.ok ? tr('PRÊT') : tr('PRÊT, AVEC LIMITES'))
+                      : tr('BLOQUÉ'),
+                  style: TextStyle(
+                      color: look(r.worst).$2, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            ),
+          InkWell(
+            onTap: () => ref.invalidate(aiPreflightProvider),
+            child: Icon(Icons.refresh_rounded, size: 14, color: fc.textSecondary),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        report.when(
+          loading: () => Text(tr('vérification en cours…'), style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+          error: (_, _) => Text(tr('pré-vol impossible'), style: TextStyle(color: fc.warning, fontSize: 10)),
+          data: (r) => Column(children: [
+            for (var i = 0; i < r.checks.length; i++)
+              AppearIn(
+                key: ValueKey('${r.at.microsecondsSinceEpoch}-${r.checks[i].id}'),
+                duration: Duration(milliseconds: 200 + i * 40),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(look(r.checks[i].status).$1, size: 13, color: look(r.checks[i].status).$2),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(r.checks[i].label,
+                            style: TextStyle(color: fc.textPrimary, fontSize: 11, fontWeight: FontWeight.w700)),
+                        Text(r.checks[i].detail, style: TextStyle(color: fc.textSecondary, fontSize: 10)),
+                        if (r.checks[i].fix != null)
+                          Text('→ ${r.checks[i].fix}',
+                              style: TextStyle(color: look(r.checks[i].status).$2, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 
