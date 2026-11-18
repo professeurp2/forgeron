@@ -132,13 +132,13 @@ class LanguageDetector {
 
   /// Mots-outils et verbes fréquents en français.
   static final RegExp _frenchWords = RegExp(
-    r"\b(je|tu|il|nous|vous|le|la|les|un|une|des|du|de|dans|pour|avec|sur|sans|est|sont|fait|faire|charge|charger|prépare|preparer|génère|generer|fichier|pièce|piece|broche|outil|alarme|erreur|pourquoi|comment|qu'est|quel|quelle|déplace|deplace|arrête|arrete|démarrer|demarrer|usinage|finition|ébauche|ebauche|origine|palpage|vitesse|avance|merci|bonjour|salut|peux|veux|vérifie|verifie|montre|ouvre)\b",
+    r"\b(je|tu|il|nous|vous|le|la|les|un|une|des|du|de|dans|pour|avec|sur|sans|est|sont|fait|faire|charge|charger|prépare|preparer|génère|generer|fichier|pièce|pièces|broche|outil|alarme|erreur|pourquoi|comment|qu'est|quel|quelle|déplace|deplace|arrête|arrete|démarrer|demarrer|usinage|finition|ébauche|ebauche|origine|palpage|vitesse|avance|merci|bonjour|salut|peux|veux|vérifie|verifie|montre|ouvre|dôme|fraiser|fraise|allume|éteins|eteins|lance|lancer)\b",
     caseSensitive: false,
   );
 
-  /// Mots-outils et structures typiques de l'anglais.
+  /// Mots-outils, verbes d'atelier et structures typiques de l'anglais.
   static final RegExp _englishWords = RegExp(
-    r'\b(the|and|with|from|this|that|what|where|when|while|attempting|encountered|please|check|unable|successfully|however|because|would|could|should|have|has|had|been|were|was|there|their|about|after|before|between|through|during|without|within|machine|spindle|toolpath|loading|generated|error|failed|file|make|sure)\b',
+    r'\b(the|and|but|or|with|without|from|into|onto|this|that|these|those|what|where|when|why|how|which|who|while|attempting|encountered|please|thank|thanks|hello|hi|check|unable|successfully|however|because|until|would|could|should|will|shall|can|may|might|must|have|has|had|having|been|being|were|was|are|is|do|does|did|done|doing|there|their|they|them|you|your|yours|we|our|ours|my|mine|his|her|its|about|after|before|between|through|during|within|under|over|again|then|once|here|now|all|off|out|up|down|left|right|for|of|at|by|machine|spindle|coolant|toolpath|endmill|workpiece|stock|loading|generated|error|failed|file|make|making|made|sure|ready|need|want|like|show|open|load|generate|create|prepare|start|stop|run|running|move|moving|jog|home|homing|probe|probing|unlock|reset|confirm|cancel|simulate|simulation|status|state|axis|axes|mill|milling|carve|carving|cut|cutting|drill|drilling|roughing|finishing|dome|aluminum|brass|steel|wood|millimeter|millimeters|degree|degrees|diameter|radius|depth|height|width|length)\b',
     caseSensitive: false,
   );
 

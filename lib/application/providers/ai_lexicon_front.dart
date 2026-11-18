@@ -54,6 +54,10 @@ class _Front {
 /// Formules sociales reconnues, par sens. Un message n'est « social » que
 /// s'il n'est fait QUE de ces formules (voir `_resolveConversationalReply`).
 final _socialPatterns = <String, RegExp>{
+  'presentation': _formule(
+      r"introduce\s+yourself|presente?s?\s+yourself|present\s+yourself|"
+      r"tell\s+(?:me|us)\s+about\s+yourself|who\s+are\s+you|what\s+is\s+forgeron|"
+      r"pr[ée]sente[- ]?toi|pr[ée]sentez[- ]?vous|qui\s+es[- ]?tu|c['’]?est\s+quoi\s+forgeron"),
   'capacites': _formule(
       r"(i|aw)\s*b[ɛe]\s*se\s*ka\s*mun\s*k[ɛe](\s*n\s*ye)?|mun\s*b[ɛe]\s*se\s*ka\s*k[ɛe]|"
       r"qu['’]?est[- ]ce\s*que\s*tu\s*(sais|peux)\s*faire|que\s*(sais|peux)[- ]tu\s*faire|"
@@ -75,7 +79,8 @@ RegExp _formule(String alternatives) =>
     RegExp('(?<!\\p{L})(?:$alternatives)(?!\\p{L})', unicode: true);
 
 /// Mots qui peuvent accompagner une formule sans en changer le sens.
-final _socialFillers = _formule(r'forgeron|ia|ai|pour|moi|toi|à|tous');
+final _socialFillers = _formule(
+    r'forgeron|ia|ai|pour|moi|toi|à|tous|please|svp|now|today|for|us|the|visitors|team');
 
 extension _LexiconFront on AiAgentController {
   /// Langue des phrases fixes en réponse à [text] — la même règle que pour
@@ -148,6 +153,12 @@ extension _LexiconFront on AiAgentController {
     // Les clés sont écrites en clair dans chaque tr() : le catalogue
     // (tool/i18n_tr_keys.py) ne voit que les chaînes littérales.
     return inLanguage(_replyLanguageFor(text), () {
+      if (found.contains('presentation')) {
+        return tr(
+            'Bonjour ! Je suis Forgeron, votre assistant d\'usinage CNC 5 axes propulsé par FluidNC sur ESP32. '
+            'Je peux générer et simuler des parcours G-code 5 axes en 3D, piloter les axes et la broche, '
+            'diagnostiquer la machine avant usinage et vous accompagner à la voix ou par écrit en français et en anglais.');
+      }
       if (found.contains('capacites')) {
         return tr("Je peux vous aider à : lire l'état de la machine, lancer "
             "la prise d'origine (\$H), analyser ou prévisualiser un programme "
@@ -212,12 +223,14 @@ extension _LexiconFront on AiAgentController {
   /// Exécute l'outil d'un appel du lexique par le chemin commun des outils et
   /// rend son résultat brut (`OK…`, `REFUSÉ…`, `ERREUR…`, ou le JSON d'une
   /// lecture).
-  Future<String> _executeLexiconTool(LexiconMatch match) async {
+  Future<String> _executeLexiconTool(LexiconMatch match,
+      {String? callId, String origin = BackofficeOrigin.lexique}) async {
     final tool = AiToolCatalog.byName(match.tool);
     if (tool == null) return 'ERREUR: outil « ${match.tool} » introuvable';
     state = state.copyWith(
         isProcessing: true, runningTool: tool.name, clearError: true);
-    final parts = await _executeTool(tool, tool.name, match.args);
+    final parts = await _executeTool(tool, tool.name, match.args,
+        callId: callId, origin: origin);
     state = state.copyWith(isProcessing: false, clearRunningTool: true);
     final response = parts.isEmpty
         ? null
@@ -256,27 +269,40 @@ extension _LexiconFront on AiAgentController {
       reasonText: inLanguage(
           lang, () => confirmReasonText(d.reasons, d.match.languages)),
     );
+    final callId = '${d.match.tool}_${_callCounter++}';
     state = state.copyWith(
       isProcessing: false,
       clearTurnStartedAt: true,
       pendingConfirmation: AiPendingToolCall(
-        id: '${d.match.tool}_${_callCounter++}',
+        id: callId,
         toolName: d.match.tool,
         input: d.match.args,
         lexicon: call,
       ),
     );
+    _audit('ia.outil.attente',
+        'Confirmation demandée à l\'opérateur pour ${d.match.tool} (lexique)',
+        severity: BackofficeSeverity.notice,
+        details: {
+          'outil': d.match.tool,
+          'arguments': d.match.args,
+          'intention': d.match.intent,
+        },
+        callId: callId,
+        origin: BackofficeOrigin.lexique);
     _logFront(front, 'lexique:confirmer:${d.match.intent}', clock);
   }
 
   /// L'opérateur a confirmé une action du lexique.
-  Future<void> _confirmLexiconPending(AiPendingToolCall pending) async {
+  Future<void> _confirmLexiconPending(AiPendingToolCall pending,
+      {String origin = BackofficeOrigin.local}) async {
     final call = pending.lexicon!;
     final clock = Stopwatch()..start();
     final epoch = _epoch;
     final lexicon = _ref.read(lexiconLoadProvider).valueOrNull?.lexicon;
     state = state.copyWith(clearPendingConfirmation: true);
-    final result = await _executeLexiconTool(call.match);
+    final result = await _executeLexiconTool(call.match,
+        callId: pending.id, origin: origin);
     if (_epoch != epoch) return;
     final reply = inLanguage(
         _replyLanguageFor(call.originalText),
@@ -400,6 +426,20 @@ extension _LexiconFront on AiAgentController {
   void _logFront(_Front front, String tag, Stopwatch clock,
       {List<String> tools = const []}) {
     final stamp = _lexiconStamp;
+    _audit(
+      'ia.lexique',
+      'Lexique fermé : $tag${tools.isEmpty ? '' : ' (${tools.join(', ')})'}',
+      severity: tag.contains(':refus:') || tag.contains(':lecture_seule:')
+          ? BackofficeSeverity.notice
+          : BackofficeSeverity.info,
+      details: {
+        'decision': tag,
+        'outils': tools,
+        'lexique': ?stamp,
+        'latence_ms': clock.elapsedMilliseconds,
+      },
+      origin: BackofficeOrigin.lexique,
+    );
     unawaited(() async {
       final journal = await _journalOrNull();
       await journal?.record(AiTurnRecord(

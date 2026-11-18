@@ -5,8 +5,8 @@ import '../../domain/models/reco3d_models.dart';
 import '../services/bundled_runtime.dart';
 import '../services/reco3d_client.dart';
 
-/// URL par défaut du service de calcul reco3d sur le PC local (actuel : 192.168.88.58).
-const kDefaultReco3dUrl = 'http://192.168.88.58:8765';
+/// URL par défaut du service de calcul reco3d sur le PC local (hotspot Windows : 192.168.137.1).
+const kDefaultReco3dUrl = 'http://192.168.137.1:8765';
 
 /// Dans l'installation Windows, reco3d tourne sur ce PC même (lancé par le
 /// superviseur, voir [BundledRuntime]) : c'est lui qu'on vise d'abord.

@@ -9,6 +9,7 @@ export 'package:speech_to_text_platform_interface/speech_to_text_platform_interf
 /// Windows implementation of the speech_to_text plugin using UWP Speech APIs
 class SpeechToTextWindows extends SpeechToTextPlatform {
   static const MethodChannel _channel = MethodChannel('speech_to_text_windows');
+  Completer<void>? _stopCompleter;
 
   /// Registers this class as the default instance of [SpeechToTextPlatform]
   static void registerWith() {
@@ -101,11 +102,19 @@ class SpeechToTextWindows extends SpeechToTextPlatform {
   @override
   Future<void> stop() async {
     try {
+      final completer = Completer<void>();
+      _stopCompleter = completer;
       await _channel.invokeMethod<void>('stop');
+      await completer.future.timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {},
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error stopping speech recognition: $e');
       }
+    } finally {
+      _stopCompleter = null;
     }
   }
 
@@ -150,6 +159,12 @@ class SpeechToTextWindows extends SpeechToTextPlatform {
         case 'notifyStatus':
           if (call.arguments is String && onStatus != null) {
             onStatus!(call.arguments);
+          }
+          if (call.arguments == 'done' || call.arguments == 'notListening') {
+            final c = _stopCompleter;
+            if (c != null && !c.isCompleted) {
+              c.complete();
+            }
           }
           break;
         case 'soundLevelChange':

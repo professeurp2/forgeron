@@ -25,6 +25,21 @@ http.Client _fakeNetwork({String host = '192.168.0.42', bool tools = true}) =>
             }),
             200);
       }
+      if (req.url.path == '/api/ps') {
+        // Seul gemma est en mémoire : 4 Go, tout sur le GPU.
+        return http.Response(
+            jsonEncode({
+              'models': [
+                {
+                  'name': 'gemma3n:latest',
+                  'size': 4000000000,
+                  'size_vram': 4000000000,
+                  'expires_at': '2026-11-12T20:00:00Z',
+                },
+              ]
+            }),
+            200);
+      }
       if (req.url.path == '/api/show') {
         final model = jsonDecode(req.body)['model'] as String;
         return http.Response(
@@ -65,6 +80,17 @@ void main() {
     final s = await _discovery(MockClient((_) async => http.Response('{"x":1}', 200)))
         .probe('http://192.168.0.9:11434');
     expect(s, isNull);
+  });
+
+  test('loaded : les modèles en mémoire, avec leur part sur le GPU', () async {
+    final d = _discovery(_fakeNetwork());
+    final loaded = await d.loaded('http://192.168.0.42:11434');
+    expect(loaded.map((m) => m.name), ['gemma3n:latest']);
+    expect(loaded.single.sizeVram, 4000000000);
+    expect(loaded.single.gpuShare, 1.0);
+    expect(loaded.single.expiresAt, isNotNull);
+    expect(await d.loaded('http://192.168.0.99:11434'), isEmpty,
+        reason: 'serveur injoignable : liste vide, pas d\'exception');
   });
 
   test('describe : sait-il appeler des outils ?', () async {

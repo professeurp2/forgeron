@@ -234,12 +234,15 @@ class _MobileTrunnionVisualizerState
 
   void _updateMachine([List<double>? overrideMPos, int? overrideIdx]) {
     final sim = ref.read(simulationProvider);
-    final useSim = overrideMPos != null ||
-        sim.isSimulating ||
-        sim.status == SimulationStatus.completed;
+    final useSim = overrideMPos != null || sim.drivesViewer;
     final pos = overrideMPos ?? (useSim ? sim.simulatedMPos : widget.mPos);
     final idx =
         overrideIdx ?? (useSim ? sim.currentToolpathIndex : widget.activeIndex);
+    // Positions RÉELLES (jumeau ou vue directe) : la page 3D glisse d'un
+    // rapport de la carte au suivant ; la lecture hors ligne, cadencée à
+    // 30 Hz, reste immédiate. L'outil ne « coupe » que si la carte exécute.
+    final smooth = sim.isLive || !useSim;
+    final cutting = sim.isLive ? sim.liveMachineStatus == 'run' : idx > 0;
     _post({
       'type': 'update_machine',
       'payload': {
@@ -248,6 +251,8 @@ class _MobileTrunnionVisualizerState
         'pivotDepth': ref.read(programPivotDepthProvider),
         'toolType': ref.read(programToolTypeProvider),
         'simulated': useSim,
+        'smooth': smooth,
+        'cutting': cutting,
       },
     });
   }
@@ -277,9 +282,8 @@ class _MobileTrunnionVisualizerState
       if (prev?.cameraCommandSeq != next.cameraCommandSeq) {
         _post({'type': 'set_camera_preset', 'payload': next.cameraPreset});
       }
-      if (next.isSimulating ||
-          next.status == SimulationStatus.completed ||
-          (prev?.isSimulating == true && !next.isSimulating)) {
+      if (next.drivesViewer ||
+          (prev?.drivesViewer == true && !next.drivesViewer)) {
         _updateMachine(next.simulatedMPos, next.currentToolpathIndex);
       }
     });

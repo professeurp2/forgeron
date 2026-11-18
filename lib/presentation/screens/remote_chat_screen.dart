@@ -9,6 +9,7 @@ import '../../application/services/chat_relay.dart';
 import '../../application/services/tool_router.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Le chat du PC, vu et piloté depuis le téléphone (voir chat_relay.dart).
 ///
@@ -17,7 +18,12 @@ import '../../core/theme/forgeron_colors.dart';
 /// lui, reste LOCAL : le bouton rouge et un « stop » tapé ici agissent par la
 /// liaison du téléphone à la machine, jamais par le PC.
 class RemoteChatScreen extends ConsumerStatefulWidget {
-  const RemoteChatScreen({super.key});
+  const RemoteChatScreen({super.key, this.embedded = false});
+
+  /// Vrai quand la discussion est un PANNEAU d'un autre écran (l'espace de
+  /// coworking) : pas de barre, pas de formulaire de liaison — seulement le
+  /// fil et la saisie, une fois relié.
+  final bool embedded;
 
   @override
   ConsumerState<RemoteChatScreen> createState() => _RemoteChatScreenState();
@@ -99,6 +105,10 @@ class _RemoteChatScreenState extends ConsumerState<RemoteChatScreen> {
     });
     final connected = remote.status == RemoteChatStatus.connected;
 
+    if (widget.embedded) {
+      return connected ? _chat(fc, remote.snapshot) : const SizedBox.shrink();
+    }
+
     return Scaffold(
       backgroundColor: fc.background,
       appBar: AppBar(
@@ -134,9 +144,14 @@ class _RemoteChatScreenState extends ConsumerState<RemoteChatScreen> {
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: connected ? _chat(fc, remote.snapshot) : _pairing(fc, remote),
+      // Largeur de lecture : sur un poste, un formulaire étiré sur 1 600 px
+      // n'est ni lisible ni crédible.
+      body: ReadableWidth(
+        maxWidth: 640,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: connected ? _chat(fc, remote.snapshot) : _pairing(fc, remote),
+        ),
       ),
     );
   }

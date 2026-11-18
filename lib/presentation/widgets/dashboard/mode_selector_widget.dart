@@ -46,8 +46,14 @@ class ModeSelectorWidget extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── En-tête : badge mode + libellé + toggle ──
-          Row(children: [
-            Container(
+          //
+          // Expanded + ellipse : le libellé prenait sa largeur naturelle,
+          // donc dans la colonne étroite de l'écran Palpage la rangée
+          // débordait — bandes jaunes et noires en bout de carte. Et sous
+          // 240 px, même le badge et le bouton ne tiennent plus côte à côte :
+          // le bouton passe dessous.
+          LayoutBuilder(builder: (context, c) {
+            final badge = Container(
               width: 38,
               height: 38,
               alignment: Alignment.center,
@@ -60,38 +66,45 @@ class ModeSelectorWidget extends ConsumerWidget {
                 color: accent,
                 size: 20,
               ),
-            ),
-            const SizedBox(width: 10),
-            // Expanded + ellipse : le libellé prenait sa largeur naturelle,
-            // donc dans la colonne étroite de l'écran Palpage la rangée
-            // débordait — bandes jaunes et noires en bout de carte.
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(mode.shortLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: accent,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          fontFamily: 'JetBrains Mono',
-                          height: 1.0)),
-                  Text(tr(mode.label),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: fc.textDisabled, fontSize: 10)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            _ModeToggle(
+            );
+            final labels = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(mode.shortLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        fontFamily: 'JetBrains Mono',
+                        height: 1.0)),
+                Text(tr(mode.label),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: fc.textDisabled, fontSize: 10)),
+              ],
+            );
+            final toggle = _ModeToggle(
               is5Ax: is5Ax,
               accent: accent,
               onChanged: (v) => _handleModeChange(context, ref, v),
-            ),
-          ]),
+            );
+            if (c.maxWidth < 240) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [badge, const SizedBox(width: 10), Expanded(child: labels)]),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: toggle),
+              ]);
+            }
+            return Row(children: [
+              badge,
+              const SizedBox(width: 10),
+              Expanded(child: labels),
+              const SizedBox(width: 8),
+              toggle,
+            ]);
+          }),
 
           const SizedBox(height: 12),
 
@@ -527,24 +540,28 @@ class _ForceStatTile extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(value,
+          // Réduit plutôt que coupé : « 240 mm/min » tronqué en « 24… » ferait
+          // lire une fausse limite. Dans une tuile étroite, tout rétrécit.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(value,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: fc.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         fontFamily: 'JetBrains Mono')),
-              ),
-              const SizedBox(width: 3),
-              Text(unit,
-                  style: TextStyle(color: fc.textDisabled, fontSize: 9)),
-            ],
+                const SizedBox(width: 3),
+                Text(unit,
+                    style: TextStyle(color: fc.textDisabled, fontSize: 9)),
+              ],
+            ),
           ),
         ],
       ),

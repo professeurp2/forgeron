@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/gcode_replay.dart';
+import '../../domain/models/machine_state.dart';
+import 'di_providers.dart';
 import 'gcode_provider.dart';
+import 'machine_provider.dart';
 
 /// État d'exécution du simulateur d'usinage 5 axes.
 enum SimulationStatus {
@@ -10,6 +13,12 @@ enum SimulationStatus {
   playing,
   paused,
   completed,
+
+  /// **Jumeau** : le simulateur ne joue plus un parcours estimé, il suit la
+  /// carte ESP32 réelle — position, ligne acquittée, matière enlevée — à
+  /// chaque rapport d'état. Rien n'est calculé à l'avance : ce qui est montré
+  /// est ce que la carte a dit.
+  live,
 }
 
 /// Forme du brut pré-usinage (comme dans l'interface Acteris : Cuboids / Cylinders).
@@ -109,6 +118,20 @@ class SimulationState {
   // Diagnostics de simulation
   final List<SimulationIssue> issues;
 
+  // ── Jumeau (status == live) ───────────────────────────────────────────────
+
+  /// Statut de la carte au dernier rapport (`run`, `hold`, `idle`…), `null`
+  /// hors mode jumeau.
+  final String? liveMachineStatus;
+
+  /// Écart (mm, XYZ) entre la position réelle et le point du parcours attendu
+  /// à la ligne acquittée ; `null` si pas mesurable (pas de parcours, machine
+  /// à l'arrêt).
+  final double? liveDeviationMm;
+
+  /// Nombre de rapports de la carte reçus depuis le début du suivi.
+  final int liveReports;
+
   const SimulationState({
     this.status = SimulationStatus.idle,
     this.speedMultiplier = 10.0,
@@ -131,16 +154,26 @@ class SimulationState {
     this.cameraCommandSeq = 0,
     this.stockResetSeq = 0,
     this.issues = const [],
+    this.liveMachineStatus,
+    this.liveDeviationMm,
+    this.liveReports = 0,
   });
 
   bool get isSimulating =>
       status == SimulationStatus.playing || status == SimulationStatus.paused;
 
+  bool get isLive => status == SimulationStatus.live;
+
+  /// Le simulateur pilote-t-il le visualiseur 3D (positions et brut) ? Vrai
+  /// en lecture, en pause, à la fin d'une lecture, et en jumeau.
+  bool get drivesViewer =>
+      isSimulating || isLive || status == SimulationStatus.completed;
+
   int get collisionCount =>
       issues.where((e) => e.severity == 'danger').length;
 
   int get warningCount =>
-      issues.where((e) => e.severity == 'warning').length;
+      issues.where((e) => e.severity == 'warning' || e.severity == 'ecart').length;
 
   String get dimensionsLabel =>
       '${stockDimensions[0].toStringAsFixed(0)} × '
@@ -169,8 +202,16 @@ class SimulationState {
     int? cameraCommandSeq,
     int? stockResetSeq,
     List<SimulationIssue>? issues,
+    String? liveMachineStatus,
+    bool clearLive = false,
+    double? liveDeviationMm,
+    bool clearLiveDeviation = false,
+    int? liveReports,
   }) {
     return SimulationState(
+      liveMachineStatus: clearLive ? null : (liveMachineStatus ?? this.liveMachineStatus),
+      liveDeviationMm: clearLive || clearLiveDeviation ? null : (liveDeviationMm ?? this.liveDeviationMm),
+      liveReports: clearLive ? 0 : (liveReports ?? this.liveReports),
       status: status ?? this.status,
       speedMultiplier: speedMultiplier ?? this.speedMultiplier,
       progressPct: progressPct ?? this.progressPct,
@@ -216,10 +257,20 @@ class SimulationController extends StateNotifier<SimulationState> {
   /// Analyse le parcours G-code courant, construit la table temporelle de
   /// chaque segment et détecte les collisions G0 dans le brut et hors-courses.
   Map<String, dynamic> analyzeCurrentProgram() {
-    _rebuildTimeline();
+    if (!state.isLive) _rebuildTimeline();
     return {
       'ok': true,
       'status': state.status.name,
+      'mode': state.isLive ? 'jumeau' : 'simulation',
+      if (state.isLive)
+        'jumeau': {
+          'statut_machine': state.liveMachineStatus,
+          'ligne_reelle': state.currentRawLineIndex + 1,
+          'rapports': state.liveReports,
+          'ecart_mm': state.liveDeviationMm == null
+              ? null
+              : (state.liveDeviationMm! * 100).round() / 100.0,
+        },
       'jobName': state.jobName,
       'batchSize': state.batchSize,
       'stockShape': state.stockShape.wire,
@@ -393,8 +444,113 @@ class SimulationController extends StateNotifier<SimulationState> {
     state = state.copyWith(speedMultiplier: multiplier.clamp(0.25, 100.0));
   }
 
+  // ── Jumeau : suivre la carte réelle ───────────────────────────────────────
+
+  ProviderSubscription<AsyncValue<MachineState>>? _liveSub;
+  DateTime? _liveStartedAt;
+
+  /// Au-delà, la position réelle est dite « à l'écart » du parcours : un
+  /// décalage d'origine, une ligne sautée, ou un pas perdu. 2 mm, c'est plus
+  /// que le pas d'interpolation d'un rapport de statut à l'avance maximale
+  /// (F1500 → 6 mm en 250 ms) divisé par… non : c'est volontairement large,
+  /// car entre deux rapports l'outil a avancé sur le segment suivant.
+  static const double liveDeviationToleranceMm = 2.0;
+
+  /// Le simulateur suit désormais la carte : la lecture estimée est arrêtée,
+  /// le brut est remis à neuf, et chaque rapport d'état de la carte déplace
+  /// l'outil du jumeau et enlève la matière au point RÉEL.
+  void followMachine() {
+    _timer?.cancel();
+    _timer = null;
+    _liveSub?.close();
+    _liveStartedAt = DateTime.now();
+    final pts = _ref.read(gcodeProvider).toolpath;
+    state = state.copyWith(
+      status: SimulationStatus.live,
+      activeTab: ConsoleRightTab.simulator,
+      progressPct: 0.0,
+      currentToolpathIndex: 0,
+      currentRawLineIndex: 0,
+      elapsedSeconds: 0.0,
+      stockResetSeq: state.stockResetSeq + 1,
+      issues: state.issues.where((i) => i.severity != 'ecart').toList(),
+      clearLive: true,
+      simulatedMPos: _ref.read(renderMPosProvider),
+    );
+    // Un parcours chargé sert de référence ; sans parcours, on suit quand
+    // même la position (jog, homing).
+    if (pts.isNotEmpty && _cumulativeTimesSec.isEmpty) _rebuildTimeline();
+    _ref.read(machineRepositoryProvider).setStatusPollInterval(const Duration(milliseconds: 250));
+    _liveSub = _ref.listen<AsyncValue<MachineState>>(
+      machineStateProvider,
+      (_, next) {
+        final s = next.valueOrNull;
+        if (s != null) _onLiveState(s);
+      },
+      fireImmediately: true,
+    );
+  }
+
+  /// Arrête le suivi de la carte (le brut garde la matière enlevée).
+  void stopFollowing() {
+    _liveSub?.close();
+    _liveSub = null;
+    if (!state.isLive) return;
+    _ref.read(machineRepositoryProvider).setStatusPollInterval(const Duration(seconds: 2));
+    state = state.copyWith(status: SimulationStatus.idle, clearLive: true);
+  }
+
+  void _onLiveState(MachineState s) {
+    if (!state.isLive) return;
+    final gcode = _ref.read(gcodeProvider);
+    final total = gcode.allLines.length;
+    final rawLine = s.activeLineIndex;
+    final idx = gcode.resolveToolpathIndex(rawLine);
+    final pct = total <= 0 ? 0.0 : (rawLine / total * 100.0).clamp(0.0, 100.0);
+
+    // Écart parcours ↔ réel, seulement quand la carte exécute le programme :
+    // à l'arrêt ou en jog, la position n'a aucune raison d'être sur le parcours.
+    double? deviation;
+    var issues = state.issues;
+    if (s.status == MachineStatus.run && idx < gcode.toolpath.length && gcode.toolpath.isNotEmpty) {
+      final expected = gcode.toolpath[idx];
+      final dx = s.wPos[0] - expected[0];
+      final dy = s.wPos[1] - expected[1];
+      final dz = s.wPos[2] - expected[2];
+      deviation = math.sqrt(dx * dx + dy * dy + dz * dz);
+      final others = issues.where((i) => i.severity != 'ecart').toList();
+      if (deviation > liveDeviationToleranceMm) {
+        others.add(SimulationIssue(
+          lineIndex: rawLine,
+          toolpathIndex: idx,
+          severity: 'ecart',
+          message: 'Écart de ${deviation.toStringAsFixed(2)} mm entre la position réelle '
+              'et le parcours à la ligne ${rawLine + 1}.',
+        ));
+      }
+      issues = others;
+    }
+
+    state = state.copyWith(
+      progressPct: pct,
+      currentToolpathIndex: idx,
+      currentRawLineIndex: rawLine,
+      simulatedMPos: _ref.read(renderMPosProvider),
+      elapsedSeconds: _liveStartedAt == null
+          ? 0.0
+          : DateTime.now().difference(_liveStartedAt!).inMilliseconds / 1000.0,
+      liveMachineStatus: s.status.name,
+      liveDeviationMm: deviation,
+      clearLiveDeviation: deviation == null,
+      liveReports: state.liveReports + 1,
+      issues: issues,
+    );
+    _ref.read(gcodeProvider.notifier).updateCurrentLine(rawLine);
+  }
+
   /// Démarre ou reprend la simulation temporelle.
   void play({double? speedMultiplier}) {
+    if (state.isLive) stopFollowing();
     if (_cumulativeTimesSec.isEmpty) {
       _rebuildTimeline();
     }
@@ -446,6 +602,7 @@ class SimulationController extends StateNotifier<SimulationState> {
   }
 
   void reset() {
+    if (state.isLive) stopFollowing();
     _timer?.cancel();
     _timer = null;
     _cursorSec = 0.0;
@@ -576,6 +733,7 @@ class SimulationController extends StateNotifier<SimulationState> {
   @override
   void dispose() {
     _timer?.cancel();
+    _liveSub?.close();
     super.dispose();
   }
 }

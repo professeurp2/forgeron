@@ -5,15 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/forge_ai_gyro_orb.dart';
 import '../../core/utils/chat_markdown.dart';
+import '../../core/utils/clipboard_image_helper.dart';
 import '../../core/utils/file_picker_service.dart';
 import '../../application/providers/ai_agent_provider.dart';
 import '../../application/providers/ai_agent_settings_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/ai_usage_provider.dart';
 import '../../application/providers/ai_model_provider.dart';
+import '../../application/services/forgeron_tts_speaker.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/i18n/waxal_voice_engine.dart';
 import '../../core/utils/speech_error_message.dart';
@@ -23,7 +25,7 @@ import '../../application/providers/workspace_provider.dart';
 import '../widgets/special_chars_row.dart';
 import 'ai_agent_settings_screen.dart';
 import 'machine_scan_screen.dart';
-import 'remote_chat_screen.dart';
+import 'cowork_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../widgets/ai/translation_note.dart';
 
@@ -44,6 +46,7 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final _inputCtrl = TextEditingController();
+  late final FocusNode _inputFocusNode;
   final _scrollCtrl = ScrollController();
 
   /// Vue collée au dernier message : tant que c'est vrai, l'arrivée de texte
@@ -59,14 +62,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   // Audio : dictée (STT) + lecture des réponses (TTS).
   final SpeechToText _speech = SpeechToText();
-  final FlutterTts _tts = FlutterTts();
   bool _listening = false;
+  bool _forceOnDeviceStt = false;
 
   /// Locale de dictée retenue pour la langue courante (null = celle du
   /// moteur). Résolue à la première écoute, invalidée à chaque
   /// changement de langue.
   String? _sttLocaleId;
-  List<String> _availableTtsVoices = const [];
 
   /// Entrée clavier physique : Entrée envoie, Maj+Entrée passe à la ligne.
   /// Réservé au desktop — sur mobile la touche « retour » du clavier logiciel
@@ -76,9 +78,39 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           defaultTargetPlatform == TargetPlatform.linux ||
           defaultTargetPlatform == TargetPlatform.macOS;
 
+  late final AiInbox _inboxNotifier;
+
   @override
   void initState() {
     super.initState();
+    _inboxNotifier = ref.read(aiInboxProvider.notifier);
+    _inputFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+        // Ctrl+V / Cmd+V : coller une image depuis le presse-papier si présente.
+        if (event.logicalKey == LogicalKeyboardKey.keyV &&
+            (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed)) {
+          _pasteClipboardImage();
+          return KeyEventResult.ignored;
+        }
+
+        // Entrée (standard ou pavé numérique) sur desktop : envoi du message.
+        // Maj+Entrée reste un saut de ligne.
+        if (_hardwareEnterSends &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+            !HardwareKeyboard.instance.isShiftPressed) {
+          final st = ref.read(aiAgentControllerProvider);
+          if (!st.isProcessing) {
+            _send();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     final initialDraft = ref.read(aiPromptDraftProvider);
     if (initialDraft.isNotEmpty) {
       _inputCtrl.text = initialDraft;
@@ -88,7 +120,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     // Écran ouvert → l'opérateur voit les messages en direct, on efface le
     // badge du bouton IA.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(aiInboxProvider.notifier).setScreenOpen(true);
+      if (!mounted) return;
+      if (_inboxNotifier.mounted) _inboxNotifier.setScreenOpen(true);
       // L'historique est restauré AVANT l'ouverture de l'écran : les bulles
       // sont déjà là au premier build, donc aucun événement « nouveau
       // message » ne déclenche le défilement. Sans ce saut, on ouvre sur la
@@ -96,20 +129,35 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       _snapToEnd();
     });
     _applyVoiceLanguage();
-    _tts.setSpeechRate(0.5);
   }
 
   void _onMobileInputChanged() {
     ref.read(aiPromptDraftProvider.notifier).updateDraft(_inputCtrl.text);
   }
 
+  Future<void> _pasteClipboardImage() async {
+    final res = await readClipboardImage();
+    if (res == null || !mounted) return;
+    if (res.bytes.length > 6 * 1024 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Image trop lourde (max 6 Mo)'))),
+      );
+      return;
+    }
+    setState(() {
+      _pendingImage = res.bytes;
+      _pendingImageMime = res.mimeType;
+    });
+  }
+
   @override
   void dispose() {
     _inputCtrl.removeListener(_onMobileInputChanged);
-    ref.read(aiInboxProvider.notifier).setScreenOpen(false);
+    if (_inboxNotifier.mounted) _inboxNotifier.setScreenOpen(false);
     _speech.stop();
-    _tts.stop();
+    ForgeronTtsSpeaker.instance.stop();
     _scrollCtrl.removeListener(_onScroll);
+    _inputFocusNode.dispose();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -125,6 +173,28 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final atEnd = _scrollCtrl.offset >=
         _scrollCtrl.position.maxScrollExtent - _bottomSlack;
     if (atEnd != _atBottom && mounted) setState(() => _atBottom = atEnd);
+  }
+
+  Future<void> _startListeningSession({required bool onDevice}) async {
+    final lang = ref.read(effectiveAiLanguageProvider);
+    await _speech.listen(
+      onResult: (r) {
+        if (!mounted) return;
+        final normalized = WaxalVoiceEngine.normalizeSttInput(
+          r.recognizedWords,
+          activeLanguageId: lang.id,
+        );
+        setState(() => _inputCtrl.text = normalized);
+        ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
+      },
+      listenOptions: SpeechListenOptions(
+        localeId: _sttLocaleId,
+        listenMode: ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+        onDevice: onDevice,
+      ),
+    );
   }
 
   /// Dictée vocale : bascule l'écoute du micro et remplit le champ de saisie.
@@ -143,6 +213,16 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           },
           onError: (e) {
             if (!mounted) return;
+            final code = e.errorMsg.trim();
+            final isNetErr = code == 'error_network' ||
+                code == 'error_network_timeout' ||
+                code == 'error_server' ||
+                code == 'error_server_disconnected';
+            if (isNetErr && !_forceOnDeviceStt) {
+              _forceOnDeviceStt = true;
+              _startListeningSession(onDevice: true);
+              return;
+            }
             setState(() => _listening = false);
             _showSpeechError(speechErrorMessage(e.errorMsg));
           },
@@ -157,29 +237,19 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       // La liste des langues reconnues dépend de l'appareil : on prend la plus
       // proche de la langue de l'agent, et on laisse le moteur choisir la
       // sienne si elle est absente plutôt que d'échouer.
-      _sttLocaleId ??= bestVoiceLocale(
-        _wantedVoiceTag,
-        (await _speech.locales()).map((l) => l.localeId),
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      final lang = ref.read(effectiveAiLanguageProvider);
-      await _speech.listen(
-        onResult: (r) {
-          if (!mounted) return;
-          final normalized = WaxalVoiceEngine.normalizeSttInput(
-            r.recognizedWords,
-            activeLanguageId: lang.id,
-          );
-          setState(() => _inputCtrl.text = normalized);
-          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
-        },
-        listenOptions: SpeechListenOptions(
-          localeId: _sttLocaleId,
-          listenMode: ListenMode.dictation,
-          cancelOnError: false,
-          partialResults: true,
-        ),
-      );
+      final wanted = _wantedVoiceTag;
+      if (wanted == 'auto') {
+        _sttLocaleId = 'auto';
+      } else {
+        _sttLocaleId = bestVoiceLocale(
+          wanted,
+          (await _speech.locales()).map((l) => l.localeId),
+          fallbacks: wanted.startsWith('en')
+              ? const ['en-US', 'en-GB', 'fr-FR']
+              : const ['fr-FR', 'en-US'],
+        );
+      }
+      await _startListeningSession(onDevice: _forceOnDeviceStt);
     } on PlatformException catch (e) {
       if (mounted) setState(() => _listening = false);
       _showSpeechError(speechErrorMessage(e.code));
@@ -198,54 +268,26 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   String get _wantedVoiceTag {
     final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return 'auto';
+    }
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
 
-  /// Aligne la synthèse vocale sur la langue de l'agent. Si l'appareil ne
-  /// connaît aucune voix pour cette langue, on garde celle en place : mieux
-  /// vaut une lecture au mauvais accent qu'un bouton muet, et le chat écrit
-  /// reste de toute façon dans la bonne langue.
+  /// Aligne la synthèse vocale sur la langue de l'agent.
   Future<void> _applyVoiceLanguage() async {
     _sttLocaleId = null; // re-résolu à la prochaine dictée
-    try {
-      final raw = await _tts.getLanguages;
-      _availableTtsVoices =
-          (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(
-        _wantedVoiceTag,
-        _availableTtsVoices,
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      if (match != null) await _tts.setLanguage(match);
-    } catch (_) {
-      // getLanguages n'est pas implémenté sur toutes les plateformes.
-    }
+    await ForgeronTtsSpeaker.instance.ensureInitialized();
   }
 
-  /// Lecture vocale d'une réponse (nettoie le markdown pour l'oral).
-  Future<void> _speak(String text) async {
+  /// Lecture vocale d'une réponse (nettoie le markdown et humanise la prosodie).
+  Future<void> _speak(String text, {bool isAutoTrigger = false}) async {
     final lang = ref.read(effectiveAiLanguageProvider);
-    if (_availableTtsVoices.isEmpty) {
-      try {
-        final raw = await _tts.getLanguages;
-        _availableTtsVoices =
-            (raw as List).map((e) => e.toString()).toList(growable: false);
-      } catch (_) {}
-    }
-    final prep = WaxalVoiceEngine.prepareForTts(
+    await ForgeronTtsSpeaker.instance.speak(
       text,
       preferredLanguageId: lang.id,
-      availableVoices: _availableTtsVoices,
+      isAutoTrigger: isAutoTrigger,
     );
-    if (prep.spokenText.isEmpty) return;
-    await _tts.stop();
-    try {
-      if (prep.selectedVoiceLocale != null) {
-        await _tts.setLanguage(prep.selectedVoiceLocale!);
-      }
-      await _tts.setSpeechRate(prep.speechRate);
-    } catch (_) {}
-    await _tts.speak(prep.spokenText);
   }
 
   void _send() {
@@ -271,7 +313,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   void _stop() {
     ref.read(aiAgentControllerProvider.notifier).stopGeneration();
-    _tts.stop();
+    ForgeronTtsSpeaker.instance.stop();
   }
 
   final ImagePicker _picker = ImagePicker();
@@ -543,8 +585,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return 'Aujourd\'hui';
-    if (diff == 1) return 'Hier';
+    if (diff == 0) return tr("Aujourd'hui");
+    if (diff == 1) return tr('Hier');
     const months = [
       'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
       'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
@@ -644,14 +686,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (grew && next.messages.isNotEmpty) {
         final last = next.messages.last;
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
-          _speak(last.text);
+          _speak(last.text, isAutoTrigger: true);
         }
       }
     });
 
     // Coupure du TTS → on stoppe toute lecture en cours.
     ref.listen(aiTtsEnabledProvider, (prev, next) {
-      if (next == false) _tts.stop();
+      if (next == false) ForgeronTtsSpeaker.instance.stop();
     });
 
     // Changement de langue de l'agent : la voix et le micro doivent suivre,
@@ -679,17 +721,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.smart_toy_outlined, color: fc.primary, size: 18),
+                  const ForgeAiGyroOrb(size: 24, active: true),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      tr('ASSISTANT IA'),
+                      'Forgeron IA',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
+                        fontFamily: 'Rajdhani',
                         color: fc.textPrimary,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.4,
+                        fontSize: 15,
                       ),
                     ),
                   ),
@@ -826,7 +869,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RemoteChatScreen()),
+              MaterialPageRoute(
+                  builder: (_) => const CoworkScreen(standalone: true)),
             ),
             tooltip: tr('Chat du PC (même discussion sur les deux appareils)'),
             iconSize: 18,
@@ -911,7 +955,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   /// Contenu rendu d'une réponse d'assistant : prose et blocs de code.
   List<Widget> _assistantContent(ForgeronColorPalette fc, String text,
-      TextStyle baseStyle) {
+      TextStyle baseStyle, {bool unverifiedGcode = false}) {
     final widgets = <Widget>[];
     for (final block in parseChatBlocks(text)) {
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
@@ -919,6 +963,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         widgets.add(_CodeBlock(
           fc: fc,
           block: block,
+          unverified: unverifiedGcode,
           onCopy: () => _copy(block.text, tr('Code copié')),
           onSave: () => _saveGcode(block.text),
         ));
@@ -963,7 +1008,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (isUser) {
         bubbleItems.add(SelectableText(m.text, style: baseStyle));
       } else {
-        bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle));
+        bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle,
+            unverifiedGcode: m.unverifiedGcode));
       }
     }
     if (m.sourceText != null) {
@@ -1060,17 +1106,9 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _avatar(ForgeronColorPalette fc) {
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      width: 28,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: fc.primary.withValues(alpha: 0.15),
-        border: Border.all(color: fc.primary.withValues(alpha: 0.4)),
-      ),
-      child: const Text('🤖', style: TextStyle(fontSize: 14)),
+    return const Padding(
+      padding: EdgeInsets.only(top: 4),
+      child: ForgeAiGyroOrb(size: 28, active: true),
     );
   }
 
@@ -1241,13 +1279,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          Text('🤖', style: TextStyle(fontSize: 44, color: fc.primary)),
-          const SizedBox(height: 12),
-          Text(tr('Assistant Forgeron'),
+          const ForgeAiGyroOrb(size: 56, active: true),
+          const SizedBox(height: 16),
+          Text('Forgeron IA',
               style: TextStyle(
+                  fontFamily: 'Rajdhani',
                   color: fc.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900)),
+                  fontSize: 22,
+                  letterSpacing: 0.6,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(
             tr('Pose une question ou demande une action sur ta CNC 5 axes.'),
@@ -1550,41 +1590,25 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Focus(
-                  onKeyEvent: (node, event) {
-                    if (!_hardwareEnterSends || !enabled) {
-                      return KeyEventResult.ignored;
-                    }
-                    if (event is! KeyDownEvent ||
-                        event.logicalKey != LogicalKeyboardKey.enter) {
-                      return KeyEventResult.ignored;
-                    }
-                    // Maj+Entrée = saut de ligne, Entrée seule = envoi.
-                    if (HardwareKeyboard.instance.isShiftPressed) {
-                      return KeyEventResult.ignored;
-                    }
-                    _send();
-                    return KeyEventResult.handled;
-                  },
-                  child: TextField(
-                    controller: _inputCtrl,
-                    enabled: enabled,
-                    minLines: 1,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    style: TextStyle(color: fc.textPrimary, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: hint,
-                      hintStyle: TextStyle(color: fc.textDisabled),
-                      filled: true,
-                      fillColor: fc.surfaceBright,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
+                child: TextField(
+                  controller: _inputCtrl,
+                  focusNode: _inputFocusNode,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  style: TextStyle(color: fc.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(color: fc.textDisabled),
+                    filled: true,
+                    fillColor: fc.surfaceBright,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
@@ -1622,11 +1646,15 @@ class _CodeBlock extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onSave;
 
+  /// Programme écrit par le modèle lui-même : averti, non enregistrable.
+  final bool unverified;
+
   const _CodeBlock({
     required this.fc,
     required this.block,
     required this.onCopy,
     required this.onSave,
+    this.unverified = false,
   });
 
   @override
@@ -1683,12 +1711,31 @@ class _CodeBlockState extends State<_CodeBlock> {
                   ),
                 ),
                 _action(fc, Icons.copy_rounded, tr('Copier'), widget.onCopy),
-                if (isGcode)
+                if (isGcode && !widget.unverified)
                   _action(fc, Icons.save_alt_rounded, tr('Enregistrer'),
                       widget.onSave),
               ],
             ),
           ),
+          if (widget.unverified && isGcode)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              color: fc.warning.withValues(alpha: .12),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Écrit par le modèle, non vérifié : ne pas usiner tel quel.'),
+                    style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ]),
+            ),
           // Code : défilement horizontal, jamais de retour à la ligne — une
           // ligne de G-code coupée en deux se lit très mal.
           Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/animated_number.dart';
 import '../../../application/providers/machine_provider.dart';
 import '../../../application/providers/ui_state_provider.dart';
 import '../../../application/providers/di_providers.dart';
@@ -55,9 +56,11 @@ class MobileWorkshopScreen extends ConsumerWidget {
               flex: 5,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
+                // Téléphone en paysage : 360 px de haut ne tiennent pas quatre
+                // rangées géantes (débordement de 196 px relevé). Le DRO
+                // rétrécit d'un bloc au lieu de se couper.
+                child: LayoutBuilder(builder: (context, c) {
+                  final rows = [
                     _GiantAxisRow('X', wPos[0], fc.axisX),
                     _GiantAxisRow('Y', wPos[1], fc.axisY),
                     _GiantAxisRow('Z', wPos[2], fc.axisZ),
@@ -68,8 +71,21 @@ class MobileWorkshopScreen extends ConsumerWidget {
                         Expanded(child: _GiantAxisRow('C', wPos[4], fc.axisC, small: true)),
                       ],
                     ),
-                  ],
-                ),
+                  ];
+                  if (c.maxHeight >= 340) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: rows,
+                    );
+                  }
+                  return FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width: c.maxWidth,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+                    ),
+                  );
+                }),
               ),
             ),
 
@@ -183,8 +199,9 @@ class _GiantAxisRow extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
-              child: Text(
-                value.toStringAsFixed(small ? 2 : 3),
+              child: AnimatedNumberText(
+                value,
+                decimals: small ? 2 : 3,
                 maxLines: 1,
                 style: TextStyle(
                   color: Colors.white,

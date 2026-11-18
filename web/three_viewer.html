@@ -913,6 +913,17 @@
             }
         }
 
+        // --- JUMEAU : INTERPOLATION ENTRE DEUX RAPPORTS DE LA CARTE ---
+        // La carte réelle donne sa position par rapports (toutes les 250 ms en
+        // mouvement). Entre deux, l'outil glisse du dernier point reçu vers le
+        // nouveau, sur la durée mesurée entre les deux rapports : le mouvement
+        // est continu, et la matière enlevée suit la trajectoire réelle, pas
+        // une suite de sauts. Le simulateur hors ligne, lui, envoie déjà ses
+        // positions à 30 Hz et garde le chemin immédiat.
+        let liveLerp = null;
+        let lastLiveUpdateAt = 0;
+        let liveCutting = false;
+
         function updateMachineStatus(payload) {
             const m = payload.mPos || [0, 0, 0, 0, 0];
             const declared = payload.pivotDepth != null ? payload.pivotDepth : null;
@@ -929,14 +940,42 @@
             if (payload.toolType === 'ball' || payload.toolType === 'flat') {
                 currentToolType = payload.toolType;
             }
-            applyMachineCoords(targetMachine, activeToolpathIndex > 0);
+            const cutting = payload.cutting !== undefined ? !!payload.cutting : activeToolpathIndex > 0;
             queueCut(activeToolpathIndex, targetMachine, payload.simulated === true);
+            if (payload.smooth) {
+                const now = performance.now();
+                const dt = lastLiveUpdateAt ? Math.min(600, Math.max(60, now - lastLiveUpdateAt)) : 120;
+                lastLiveUpdateAt = now;
+                liveLerp = {
+                    from: { ...currentMachine },
+                    to: { ...targetMachine },
+                    t0: now,
+                    duration: dt,
+                };
+                liveCutting = cutting;
+                requestRender();
+                return;
+            }
+            liveLerp = null;
+            applyMachineCoords(targetMachine, cutting);
             currentMachine.x = targetMachine.x;
             currentMachine.y = targetMachine.y;
             currentMachine.z = targetMachine.z;
             currentMachine.a = targetMachine.a;
             currentMachine.c = targetMachine.c;
             requestRender();
+        }
+
+        function stepLiveLerp(now) {
+            if (!liveLerp) return;
+            const t = Math.min(1, (now - liveLerp.t0) / liveLerp.duration);
+            const k = 1 - Math.pow(1 - t, 2);
+            for (const axis of ['x', 'y', 'z', 'a', 'c']) {
+                currentMachine[axis] = liveLerp.from[axis] + (liveLerp.to[axis] - liveLerp.from[axis]) * k;
+            }
+            applyMachineCoords(currentMachine, liveCutting);
+            needsRender = true;
+            if (t >= 1) liveLerp = null;
         }
 
         // --- CONTRÔLES BOUTONS & VIEWCUBE ---
@@ -1477,6 +1516,8 @@
 
         function animate(now) {
             requestAnimationFrame(animate);
+
+            stepLiveLerp(now);
 
             if (camTween) {
                 const elapsed = now - camTween.startTime;

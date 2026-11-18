@@ -164,11 +164,13 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         Row(children: [
           Icon(icon, color: fc.primary, size: 24),
           const SizedBox(width: 10),
-          Text(title,
-              style: TextStyle(
-                  color: fc.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900)),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    color: fc.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900)),
+          ),
         ]),
         const SizedBox(height: 8),
         Text(sub,

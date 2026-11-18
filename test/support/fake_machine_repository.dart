@@ -6,9 +6,13 @@ import 'package:forgeron/domain/repositories/machine_repository.dart';
 /// [sendSucceeds] simule l'état du Wi-Fi — `false` = la commande n'arrive
 /// jamais jusqu'à la carte, le cas que l'arrêt d'urgence doit savoir signaler.
 class FakeMachineRepository implements MachineRepository {
-  FakeMachineRepository({this.sendSucceeds = true});
+  FakeMachineRepository({this.sendSucceeds = true, this.current = const MachineState()});
 
   final bool sendSucceeds;
+
+  /// État que le dépôt rapporte (hors ligne par défaut, comme une vraie
+  /// liaison jamais établie).
+  MachineState current;
 
   int emergencyStopCalls = 0;
   int resetCalls = 0;
@@ -42,7 +46,7 @@ class FakeMachineRepository implements MachineRepository {
   @override
   Stream<String> get trafficStream => const Stream.empty();
   @override
-  MachineState get currentState => const MachineState();
+  MachineState get currentState => current;
   @override
   Future<void> sendGCodeBatch(
     List<String> lines, {
@@ -65,6 +69,9 @@ class FakeMachineRepository implements MachineRepository {
   Future<void> setSpindleOverride(int percent) async {}
   @override
   void setSimulationSpeed(double speed) {}
+  final List<Duration> pollIntervals = [];
+  @override
+  void setStatusPollInterval(Duration interval) => pollIntervals.add(interval);
   @override
   Future<void> setWcsOffset(String wcs, List<double> offset) async {}
 }

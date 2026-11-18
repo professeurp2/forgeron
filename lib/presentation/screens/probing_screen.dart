@@ -163,32 +163,39 @@ class _ProbingScreenState extends ConsumerState<ProbingScreen>
       ),
     ]);
 
-    return ResponsiveLayout(
-      mobile: Column(
-        children: [
-          Expanded(flex: 1, child: leftColumn),
-          Expanded(flex: 2, child: tabsAndControls),
-        ],
-      ),
-      tablet: ResizableSplitView(
-        initialRatio: 0.22,
-        left: leftColumn,
-        right: ResizableSplitView(
-          initialRatio: 0.55,
-          left: visualizer,
-          right: tabsAndControls,
-        ),
-      ),
-      desktop: ResizableSplitView(
-        initialRatio: 0.22,
-        left: leftColumn,
-        right: ResizableSplitView(
-          initialRatio: 0.55,
-          left: visualizer,
-          right: tabsAndControls,
-        ),
-      ),
+    final stacked = Column(
+      children: [
+        Expanded(flex: 1, child: leftColumn),
+        Expanded(flex: 2, child: tabsAndControls),
+      ],
     );
+
+    // Trois colonnes seulement quand la place RÉELLE le permet : c'est la
+    // largeur du contenu qui décide, pas le genre d'appareil. Un iPad Pro
+    // est « bureau » par son écran, mais barre latérale dépliée il ne reste
+    // que 764 px — trois colonnes y donnaient une colonne WCS de 170 px où
+    // tout débordait (balayage).
+    final wide = LayoutBuilder(
+      builder: (context, c) => c.maxWidth < 1100
+          ? Column(children: [
+              Expanded(flex: 2, child: Row(children: [
+                Expanded(child: leftColumn),
+                Expanded(child: visualizer),
+              ])),
+              Expanded(flex: 3, child: tabsAndControls),
+            ])
+          : ResizableSplitView(
+              initialRatio: 0.22,
+              left: leftColumn,
+              right: ResizableSplitView(
+                initialRatio: 0.55,
+                left: visualizer,
+                right: tabsAndControls,
+              ),
+            ),
+    );
+
+    return ResponsiveLayout(mobile: stacked, tablet: wide, desktop: wide);
   }
 
   Widget _wcsCard(String label, List<double> offset, String activeWcs) {

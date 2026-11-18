@@ -6,13 +6,19 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart'
     show Colors, Icons, MaterialPageRoute, SelectableText, Tooltip;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, PlatformException;
+import 'package:flutter/services.dart'
+    show
+        Clipboard,
+        ClipboardData,
+        HardwareKeyboard,
+        KeyDownEvent,
+        LogicalKeyboardKey,
+        PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../application/providers/ai_agent_provider.dart';
 import '../../../application/providers/ai_agent_settings_provider.dart';
@@ -23,11 +29,14 @@ import '../../../application/providers/ai_usage_provider.dart';
 import '../../../application/services/ai_agent_tools.dart';
 import '../../../application/services/chat_relay.dart';
 import '../../../application/services/ai_window_launcher.dart';
+import '../../../application/services/forgeron_tts_speaker.dart';
 import '../../../application/services/tool_router.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
+import '../../../core/utils/clipboard_image_helper.dart';
 import '../../../core/utils/speech_error_message.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_ai_gyro_orb.dart';
 import '../../../core/theme/forgeron_fluent_theme.dart';
 import '../../../core/utils/chat_markdown.dart';
 import '../../../core/utils/voice_locale.dart';
@@ -72,6 +81,7 @@ class _AiConsoleBody extends ConsumerStatefulWidget {
 
 class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   final _input = TextEditingController();
+  late final FocusNode _composerFocusNode;
   final _scroll = ScrollController();
   final _picker = ImagePicker();
 
@@ -92,22 +102,54 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   // Voix — dictée et lecture des réponses, comme sur mobile. Mêmes paquets,
   // même logique de correspondance de locale : pas un second système.
   final SpeechToText _speech = SpeechToText();
-  final FlutterTts _tts = FlutterTts();
   bool _listening = false;
+  bool _forceOnDeviceStt = false;
   String? _sttLocaleId;
-  List<String> _availableTtsVoices = const [];
 
   @override
   void initState() {
     super.initState();
+    _composerFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+        // Ctrl+V / Cmd+V : coller une image depuis le presse-papier si présente.
+        if (event.logicalKey == LogicalKeyboardKey.keyV &&
+            (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed)) {
+          _pasteClipboardImage();
+          return KeyEventResult.ignored;
+        }
+
+        // Entrée (standard ou pavé numérique) sans Maj : envoi du message.
+        if ((event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+            !HardwareKeyboard.instance.isShiftPressed) {
+          if (!ref.read(aiAgentControllerProvider).isProcessing) {
+            _send();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     final initialDraft = ref.read(aiPromptDraftProvider);
     if (initialDraft.isNotEmpty) {
       _input.text = initialDraft;
     }
     _input.addListener(_onConsoleInputChanged);
-    _tts.setSpeechRate(0.5);
     _applyVoiceLanguage();
     _scroll.addListener(_watchScroll);
+  }
+
+  Future<void> _pasteClipboardImage() async {
+    final res = await readClipboardImage();
+    if (res == null || !mounted) return;
+    if (res.bytes.length > 6 * 1024 * 1024) return;
+    setState(() {
+      _pendingImage = res.bytes;
+      _pendingImageMime = res.mimeType;
+    });
   }
 
   void _onConsoleInputChanged() {
@@ -118,10 +160,11 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   void dispose() {
     _input.removeListener(_onConsoleInputChanged);
     _scroll.removeListener(_watchScroll);
+    _composerFocusNode.dispose();
     _input.dispose();
     _scroll.dispose();
     _speech.stop();
-    _tts.stop();
+    ForgeronTtsSpeaker.instance.stop();
     super.dispose();
   }
 
@@ -133,6 +176,28 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   }
 
   // ─────────────────────────────── Voix ──────────────────────────────────
+
+  Future<void> _startListeningSession({required bool onDevice}) async {
+    final lang = ref.read(effectiveAiLanguageProvider);
+    await _speech.listen(
+      onResult: (SpeechRecognitionResult r) {
+        if (!mounted) return;
+        final normalized = WaxalVoiceEngine.normalizeSttInput(
+          r.recognizedWords,
+          activeLanguageId: lang.id,
+        );
+        setState(() => _input.text = normalized);
+        ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
+      },
+      listenOptions: SpeechListenOptions(
+        localeId: _sttLocaleId,
+        listenMode: ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+        onDevice: onDevice,
+      ),
+    );
+  }
 
   Future<void> _toggleListen() async {
     if (_listening) {
@@ -149,6 +214,16 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
           },
           onError: (e) {
             if (!mounted) return;
+            final code = e.errorMsg.trim();
+            final isNetErr = code == 'error_network' ||
+                code == 'error_network_timeout' ||
+                code == 'error_server' ||
+                code == 'error_server_disconnected';
+            if (isNetErr && !_forceOnDeviceStt) {
+              _forceOnDeviceStt = true;
+              _startListeningSession(onDevice: true);
+              return;
+            }
             setState(() => _listening = false);
             _warn(tr('Dictée vocale'), speechErrorMessage(e.errorMsg));
           },
@@ -160,29 +235,19 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     }
     setState(() => _listening = true);
     try {
-      _sttLocaleId ??= bestVoiceLocale(
-        _wantedVoiceTag,
-        (await _speech.locales()).map((l) => l.localeId),
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      final lang = ref.read(effectiveAiLanguageProvider);
-      await _speech.listen(
-        onResult: (SpeechRecognitionResult r) {
-          if (!mounted) return;
-          final normalized = WaxalVoiceEngine.normalizeSttInput(
-            r.recognizedWords,
-            activeLanguageId: lang.id,
-          );
-          setState(() => _input.text = normalized);
-          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
-        },
-        listenOptions: SpeechListenOptions(
-          localeId: _sttLocaleId,
-          listenMode: ListenMode.dictation,
-          cancelOnError: false,
-          partialResults: true,
-        ),
-      );
+      final wanted = _wantedVoiceTag;
+      if (wanted == 'auto') {
+        _sttLocaleId = 'auto';
+      } else {
+        _sttLocaleId = bestVoiceLocale(
+          wanted,
+          (await _speech.locales()).map((l) => l.localeId),
+          fallbacks: wanted.startsWith('en')
+              ? const ['en-US', 'en-GB', 'fr-FR']
+              : const ['fr-FR', 'en-US'],
+        );
+      }
+      await _startListeningSession(onDevice: _forceOnDeviceStt);
     } on PlatformException catch (e) {
       if (mounted) setState(() => _listening = false);
       await _warn(tr('Dictée vocale'), speechErrorMessage(e.code));
@@ -192,49 +257,22 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
   String get _wantedVoiceTag {
     final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
+    if (Platform.isWindows) return 'auto';
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
 
   Future<void> _applyVoiceLanguage() async {
     _sttLocaleId = null; // re-résolu à la prochaine dictée
-    try {
-      final raw = await _tts.getLanguages;
-      _availableTtsVoices =
-          (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(
-        _wantedVoiceTag,
-        _availableTtsVoices,
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      if (match != null) await _tts.setLanguage(match);
-    } catch (_) {
-      // getLanguages n'est pas implémenté sur toutes les plateformes.
-    }
+    await ForgeronTtsSpeaker.instance.ensureInitialized();
   }
 
-  Future<void> _speak(String text) async {
+  Future<void> _speak(String text, {bool isAutoTrigger = false}) async {
     final lang = ref.read(effectiveAiLanguageProvider);
-    if (_availableTtsVoices.isEmpty) {
-      try {
-        final raw = await _tts.getLanguages;
-        _availableTtsVoices =
-            (raw as List).map((e) => e.toString()).toList(growable: false);
-      } catch (_) {}
-    }
-    final prep = WaxalVoiceEngine.prepareForTts(
+    await ForgeronTtsSpeaker.instance.speak(
       text,
       preferredLanguageId: lang.id,
-      availableVoices: _availableTtsVoices,
+      isAutoTrigger: isAutoTrigger,
     );
-    if (prep.spokenText.isEmpty) return;
-    await _tts.stop();
-    try {
-      if (prep.selectedVoiceLocale != null) {
-        await _tts.setLanguage(prep.selectedVoiceLocale!);
-      }
-      await _tts.setSpeechRate(prep.speechRate);
-    } catch (_) {}
-    await _tts.speak(prep.spokenText);
   }
 
   // ───────────────────────────── Envoi ───────────────────────────────────
@@ -311,9 +349,12 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
     final path = result?.files.single.path;
     if (path == null) return; // annulé
 
+    final isEn = ref.read(effectiveAiLanguageProvider).id == 'en';
     ref.read(aiArtifactsProvider.notifier).pickNewPart(path);
     ref.read(aiAgentControllerProvider.notifier).sendUserMessage(
-          'Charge cette pièce et prépare le G-code de finition.\n\nFichier : $path',
+          isEn
+              ? 'Load this part and prepare the finishing G-code.\n\nFile: $path'
+              : 'Charge cette pièce et prépare le G-code de finition.\n\nFichier : $path',
         );
     setState(() => _atBottom = true);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
@@ -414,13 +455,13 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
       if (grew && next.messages.isNotEmpty) {
         final last = next.messages.last;
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
-          _speak(last.text);
+          _speak(last.text, isAutoTrigger: true);
         }
       }
     });
 
     ref.listen(aiTtsEnabledProvider, (prev, next) {
-      if (next == false) _tts.stop();
+      if (next == false) ForgeronTtsSpeaker.instance.stop();
     });
 
     ref.listen<AppLanguage>(effectiveAiLanguageProvider, (prev, next) {
@@ -474,6 +515,7 @@ class _AiConsoleBodyState extends ConsumerState<_AiConsoleBody> {
                 _Composer(
                   fc: fc,
                   controller: _input,
+                  focusNode: _composerFocusNode,
                   busy: chat.isProcessing,
                   onSend: _send,
                   onStop: () =>
@@ -698,10 +740,13 @@ class _ConversationRail extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(fluent.FluentIcons.add, size: 12),
                     SizedBox(width: 8),
-                    Text(tr('Nouvelle discussion')),
+                    Flexible(
+                        child: Text(tr('Nouvelle discussion'),
+                            maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                 ),
               ),
@@ -877,20 +922,7 @@ class _Header extends ConsumerWidget {
               ),
             ),
           const SizedBox(width: 4),
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [fc.primaryLight, fc.primary, fc.primaryDim],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(Icons.auto_awesome, size: 15, color: fc.background),
-          ),
+          const ForgeAiGyroOrb(size: 32, active: true),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -1054,7 +1086,7 @@ class _ModelBadge extends ConsumerWidget {
           '${useLocal ? "LOCAL" : "GEMINI"} · $modelLabel',
           style: TextStyle(
             color: fc.lcdText,
-            fontFamily: 'JetBrainsMono',
+            fontFamily: 'JetBrains Mono',
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -1186,14 +1218,15 @@ class _MessageBubble extends StatelessWidget {
   List<Widget> _content() {
     final widgets = <Widget>[];
     final codeStyle = TextStyle(
-      fontFamily: 'JetBrainsMono',
+      fontFamily: 'JetBrains Mono',
       fontSize: 12,
       color: fc.secondary,
     );
     for (final block in parseChatBlocks(message.text)) {
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 10));
       if (block.isCode) {
-        widgets.add(_CodeBlock(fc: fc, block: block));
+        widgets.add(_CodeBlock(
+            fc: fc, block: block, unverified: message.unverifiedGcode));
       } else {
         widgets.add(SelectableText.rich(
           TextSpan(
@@ -1212,10 +1245,15 @@ class _MessageBubble extends StatelessWidget {
 /// disque, ouvrir dans une fenêtre à part. Sans elles il faudrait re-saisir le
 /// programme à la main.
 class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.fc, required this.block});
+  const _CodeBlock(
+      {required this.fc, required this.block, this.unverified = false});
 
   final ForgeronColorPalette fc;
   final ChatBlock block;
+
+  /// Programme écrit par le modèle lui-même (voir GcodeProvenance) : averti,
+  /// et ni enregistrable ni ouvrable d'un clic.
+  final bool unverified;
 
   @override
   Widget build(BuildContext context) {
@@ -1261,7 +1299,7 @@ class _CodeBlock extends StatelessWidget {
                         Clipboard.setData(ClipboardData(text: block.text)),
                   ),
                 ),
-                if (isGcode) ...[
+                if (isGcode && !unverified) ...[
                   Tooltip(
                     message: tr('Enregistrer sous…'),
                     child: fluent.IconButton(
@@ -1285,6 +1323,25 @@ class _CodeBlock extends StatelessWidget {
               ],
             ),
           ),
+          if (unverified && isGcode)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              color: fc.warning.withValues(alpha: .12),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Écrit par le modèle, non vérifié : ne pas usiner tel quel.'),
+                    style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ]),
+            ),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 320),
             child: SingleChildScrollView(
@@ -1296,7 +1353,7 @@ class _CodeBlock extends StatelessWidget {
                     block.text.trimRight(),
                     style: TextStyle(
                       color: fc.textSecondary,
-                      fontFamily: 'JetBrainsMono',
+                      fontFamily: 'JetBrains Mono',
                       fontSize: 11.5,
                       height: 1.55,
                     ),
@@ -1397,7 +1454,7 @@ class _ConfirmationBar extends ConsumerWidget {
                         style: TextStyle(
                             color: fc.textDisabled,
                             fontSize: 10.5,
-                            fontFamily: 'JetBrainsMono')),
+                            fontFamily: 'JetBrains Mono')),
                 ] else ...[
                 Text(
                   tr('Confirmation requise : {}', [friendlyToolLabel(pending.toolName)]),
@@ -1415,7 +1472,7 @@ class _ConfirmationBar extends ConsumerWidget {
                     style: TextStyle(
                         color: fc.textSecondary,
                         fontSize: 11,
-                        fontFamily: 'JetBrainsMono'),
+                        fontFamily: 'JetBrains Mono'),
                   ),
                 ],
               ],
@@ -1487,6 +1544,7 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.fc,
     required this.controller,
+    required this.focusNode,
     required this.busy,
     required this.onSend,
     required this.onStop,
@@ -1500,6 +1558,7 @@ class _Composer extends StatelessWidget {
 
   final ForgeronColorPalette fc;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool busy;
   final VoidCallback onSend;
   final VoidCallback onStop;
@@ -1554,6 +1613,7 @@ class _Composer extends StatelessWidget {
             // pas comprimé entre six boutons.
             fluent.TextBox(
               controller: controller,
+              focusNode: focusNode,
               placeholder: listening
                   ? 'Dictée en cours…'
                   : 'Demander une action ou une analyse à l\'agent…',
@@ -1682,11 +1742,15 @@ class _ArtifactsSidebar extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.precision_manufacturing_rounded,
                               size: 14),
                           const SizedBox(width: 8),
-                          Text(tr('Simulateur 3D & Caméra')),
+                          Flexible(
+                              child: Text(tr('Simulateur 3D & Caméra'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     ),
@@ -2073,7 +2137,7 @@ class _StepCard extends ConsumerWidget {
             s.fileName,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrains Mono'),
           ),
           const SizedBox(height: 8),
           if (s.loading)
@@ -2151,7 +2215,7 @@ class _ToolpathCard extends ConsumerWidget {
             g.fileName,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrainsMono'),
+                color: fc.textSecondary, fontSize: 11, fontFamily: 'JetBrains Mono'),
           ),
           const SizedBox(height: 8),
           if (g.lines != null) _kv(fc, 'lignes', '${g.lines}'),
@@ -2227,7 +2291,7 @@ Widget _kv(ForgeronColorPalette fc, String label, String value) {
         Text(
           value,
           style: TextStyle(
-              color: fc.lcdText, fontSize: 10.5, fontFamily: 'JetBrainsMono'),
+              color: fc.lcdText, fontSize: 10.5, fontFamily: 'JetBrains Mono'),
         ),
       ],
     ),
