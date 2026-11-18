@@ -7,6 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forgeron/core/theme/app_theme.dart';
+import 'package:forgeron/core/theme/forgeron_colors.dart';
+import 'package:forgeron/presentation/screens/cowork_screen.dart';
+import 'support/fake_cowork.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forgeron/application/providers/discovery_provider.dart';
 import 'package:forgeron/application/providers/machine_provider.dart';
@@ -100,7 +104,7 @@ void main() {
     // Polices du SDK : Material Icons (sinon chaque icône est un carré) et
     // Roboto pour la police par défaut du thème (`RobotoMono` n'est pas
     // embarquée : sur Windows l'application retombe sur une sans-serif).
-    final sdk = Platform.environment['FLUTTER_ROOT'] ?? r'C:\srclutter';
+    final sdk = Platform.environment['FLUTTER_ROOT'] ?? 'C:/src/flutter';
     final cache = '$sdk/bin/cache/artifacts/material_fonts';
     Future<void> loadFile(String family, List<String> files) async {
       final loader = FontLoader(family);
@@ -121,7 +125,7 @@ void main() {
       final loader = FontLoader(family);
       var any = false;
       for (final f in files) {
-        final file = File(r'C:\Windows\Fonts' + f);
+        final file = File('C:/Windows/Fonts/$f');
         if (!file.existsSync()) continue;
         any = true;
         loader.addFont(file.readAsBytes().then((b) => ByteData.view(b.buffer)));
@@ -141,11 +145,15 @@ void main() {
         const MethodChannel('xyz.luan/audioplayers.global'), (_) async => null);
     messenger.setMockMethodCallHandler(
         const MethodChannel('xyz.luan/audioplayers'), (_) async => null);
+    messenger.setMockMethodCallHandler(const MethodChannel('flutter_tts'), (_) async => null);
+    messenger.setMockMethodCallHandler(
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'), (_) async => null);
     messenger.setMockStreamHandler(
         const EventChannel('xyz.luan/audioplayers.global/events'), _SilentStream());
   });
 
-  List<Override> overrides(ThemeMode theme) => [
+  List<Override> overrides(ThemeMode theme, [List<Override> extra = const []]) => [
+        ...extra,
         isSimulationModeProvider.overrideWith((ref) => true),
         machineStateProvider.overrideWith((ref) => Stream.value(_machine)),
         discoveryProvider.overrideWith(
@@ -161,6 +169,9 @@ void main() {
     Widget? child,
     void Function(ProviderContainer)? prepare,
     int? mobileTab,
+    List<Override> extra = const [],
+    TargetPlatform? platform,
+    bool forgeTheme = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -169,9 +180,16 @@ void main() {
     // Un grand écran est un poste Windows, un petit un téléphone Android :
     // la mise en page choisit sa variante d'après la plateforme.
     debugDefaultTargetPlatformOverride =
-        size.width >= 1000 ? TargetPlatform.windows : TargetPlatform.android;
+        platform ?? (size.width >= 1000 ? TargetPlatform.windows : TargetPlatform.android);
 
-    final container = ProviderContainer(overrides: overrides(theme));
+    // Le lecteur audio ouvre un canal par lecteur, au nom tiré au hasard :
+    // impossible à simuler d'avance. Son absence ne change rien à l'image.
+    final previousOnError = FlutterError.onError;
+    FlutterError.onError = (d) {
+      if (d.exception is MissingPluginException) return;
+      previousOnError?.call(d);
+    };
+    final container = ProviderContainer(overrides: overrides(theme, extra));
     // L'atelier parle français : c'est la langue dans laquelle on relit.
     await container.read(appLanguageProvider.notifier).select(appLanguageById('fr'));
     prepare?.call(container);
@@ -182,10 +200,16 @@ void main() {
           : MaterialApp(
               debugShowCheckedModeBanner: false,
               locale: const Locale('fr'),
-              theme: ThemeData(
-                  brightness: theme == ThemeMode.dark ? Brightness.dark : Brightness.light,
-                  fontFamily: 'RobotoMono'),
-              home: child,
+              theme: forgeTheme
+                  ? (theme == ThemeMode.dark ? AppTheme.darkTheme : AppTheme.lightTheme)
+                  : ThemeData(
+                      brightness: theme == ThemeMode.dark ? Brightness.dark : Brightness.light,
+                      fontFamily: 'RobotoMono'),
+              home: forgeTheme
+                  ? ForgeronTheme(
+                      colors: theme == ThemeMode.dark ? forgeronDarkColors : forgeronLightColors,
+                      child: child)
+                  : child,
             ),
     ));
     for (var i = 0; i < 6; i++) {
@@ -214,6 +238,7 @@ void main() {
     // Remis AVANT la fin du test : le banc vérifie que les variables de
     // débogage sont rendues à leur valeur d'origine.
     debugDefaultTargetPlatformOverride = null;
+    FlutterError.onError = previousOnError;
   }
 
   const desktop = Size(1600, 900);
@@ -227,6 +252,7 @@ void main() {
     'diagnostics',
     'agent-ia',
     'backoffice',
+    'coworking',
   ];
 
   for (final theme in [ThemeMode.dark, ThemeMode.light]) {
@@ -275,6 +301,57 @@ void main() {
     }, skip: !enabled);
     testWidgets('PC ${e.key}', (tester) async {
       await shoot(tester, 'pc-${e.key}', size: desktop, theme: ThemeMode.dark, child: e.value());
+    }, skip: !enabled);
+  }
+
+  // Coworking : la tablette reliée à un PC qui usine, et le PC hôte.
+  const ipad = Size(1180, 820);
+  const ipadPortrait = Size(820, 1180);
+  final session = [fakeCoworkOverride(coworkSessionState())];
+  for (final theme in [ThemeMode.dark, ThemeMode.light]) {
+    final t = theme == ThemeMode.dark ? 'sombre' : 'clair';
+    testWidgets('iPad coworking relié $t', (tester) async {
+      await shoot(tester, 'ipad-coworking-relie-$t',
+          size: ipad,
+          theme: theme,
+          platform: TargetPlatform.iOS,
+          forgeTheme: true,
+          extra: session,
+          child: const CoworkScreen(standalone: true, forceGuest: true));
+    }, skip: !enabled);
+  }
+  testWidgets('iPad portrait coworking relié', (tester) async {
+    await shoot(tester, 'ipad-portrait-coworking-relie',
+        size: ipadPortrait,
+        theme: ThemeMode.dark,
+        platform: TargetPlatform.iOS,
+        forgeTheme: true,
+        extra: session,
+        child: const CoworkScreen(standalone: true, forceGuest: true));
+  }, skip: !enabled);
+  testWidgets('iPad coworking rejoindre', (tester) async {
+    await shoot(tester, 'ipad-coworking-rejoindre',
+        size: ipad,
+        theme: ThemeMode.dark,
+        platform: TargetPlatform.iOS,
+        forgeTheme: true,
+        child: const CoworkScreen(standalone: true, forceGuest: true));
+  }, skip: !enabled);
+  testWidgets('téléphone coworking relié', (tester) async {
+    await shoot(tester, 'tel-coworking-relie',
+        size: phone,
+        theme: ThemeMode.dark,
+        forgeTheme: true,
+        extra: session,
+        child: const CoworkScreen(standalone: true, forceGuest: true));
+  }, skip: !enabled);
+  for (final e in {'tableau-de-bord': 0, 'agent-ia': 6, 'backoffice': 7}.entries) {
+    testWidgets('iPad ${e.key}', (tester) async {
+      await shoot(tester, 'ipad-${e.key}',
+          size: ipad,
+          theme: ThemeMode.dark,
+          platform: TargetPlatform.iOS,
+          prepare: (c) => c.read(selectedNavIndexProvider.notifier).state = e.value);
     }, skip: !enabled);
   }
 }

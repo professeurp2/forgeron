@@ -1002,7 +1002,7 @@ class WaxalVoiceEngine {
     String rawText, {
     String? activeLanguageId,
   }) {
-    if (rawText.trim().isEmpty) return rawText;
+    if (rawText.trim().isEmpty || rawText.contains('\n')) return rawText;
     var t = rawText;
 
     // ── 1. Répétitions bègues et bruits acoustiques de micro ──────────────

@@ -19,6 +19,10 @@ import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
 import 'backoffice_screen.dart';
+import 'cowork_screen.dart';
+import '../../core/theme/forge_tokens.dart';
+import '../../core/widgets/forge_ui.dart';
+import '../../application/services/chat_relay.dart';
 import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
@@ -146,6 +150,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     DiagnosticsScreen(),
     AiConsoleScreen(),
     BackofficeScreen(),
+    CoworkScreen(),
   ];
 
   static const _navItems = [
@@ -157,6 +162,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     _NavDef(Icons.monitor_heart, 'DIAGNOSTICS'),
     _NavDef(Icons.smart_toy_outlined, 'AGENT IA'),
     _NavDef(Icons.admin_panel_settings_outlined, 'BACKOFFICE'),
+    _NavDef(Icons.groups_2_outlined, 'COWORKING'),
   ];
 
   @override
@@ -1336,6 +1342,13 @@ class _Sidebar extends StatelessWidget {
   /// l'animation de repli, le contenu déplié dans 72 px débordait.
   static const double _labelsMinWidth = 200;
 
+  /// Index de la première entrée de chaque section → son titre.
+  static const _sections = <int, String>{
+    0: 'PRODUCTION',
+    4: 'SYSTÈME',
+    6: 'INTELLIGENCE',
+  };
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -1351,9 +1364,9 @@ class _Sidebar extends StatelessWidget {
         // Fenêtre basse : la carte opérateur cède sa place aux entrées, pour
         // que les 7 restent visibles sans défiler (à 600 de haut, « Agent
         // IA » sortait par le bas).
-        final itemHeight = showLabels ? 52.0 : 44.0;
+        final itemHeight = showLabels ? 46.0 : 44.0;
         final showFooter = constraints.maxHeight >=
-            64 + 8 + items.length * (itemHeight + 4) + 72;
+            64 + 8 + items.length * (itemHeight + 4) + _sections.length * 30 + 72;
         return Column(
           children: [
             Container(
@@ -1401,7 +1414,23 @@ class _Sidebar extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.only(top: 8),
                 children: [
-                  for (var i = 0; i < items.length; i++)
+                  for (var i = 0; i < items.length; i++) ...[
+                    // Sections : production, système, intelligence. La
+                    // barre se lit par blocs au lieu d'une liste de neuf.
+                    if (_sections.containsKey(i))
+                      showLabels
+                          ? Padding(
+                              padding: EdgeInsets.fromLTRB(22, i == 0 ? 6 : 16, 12, 6),
+                              child: Text(tr(_sections[i]!),
+                                  style: FText.overline(context.fc).copyWith(
+                                      fontSize: 10, color: context.fc.textDisabled)),
+                            )
+                          : (i == 0
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                  child: Container(height: 1, color: context.fc.surfaceBorder),
+                                )),
                     _NavItem(
                       icon: items[i].icon,
                       title: items[i].title,
@@ -1410,6 +1439,7 @@ class _Sidebar extends StatelessWidget {
                       height: itemHeight,
                       onTap: () => onItemSelected(i),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -1423,36 +1453,54 @@ class _Sidebar extends StatelessWidget {
                 mainAxisAlignment: showLabels
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
+                // La v1 affichait ici « OPÉRATEUR L01 / NIV_AUTH: ADMIN » :
+                // un opérateur et un niveau d'accès qui n'existent nulle
+                // part dans l'application. À la place, ce qui est vrai : la
+                // session de coworking de ce poste.
                 children: [
-                  CircleAvatar(
-                    backgroundColor: context.fc.surfaceBright,
-                    radius: 16,
-                    child: Icon(Icons.person,
-                        color: context.fc.textSecondary, size: 18),
-                  ),
-                  if (showLabels) ...[
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(tr('OPÉRATEUR L01'),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: context.fc.textPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10)),
-                          Text(tr('NIV_AUTH: ADMIN'),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: context.fc.primary,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'JetBrains Mono')),
-                        ],
-                      ),
-                    ),
-                  ],
+                  Consumer(builder: (context, ref, _) {
+                    final host = ref.watch(chatRelayHostProvider);
+                    final fc = context.fc;
+                    final avatar = PresenceAvatar(
+                      name: host.hostName,
+                      color: fc.primary,
+                      icon: Icons.desktop_windows_rounded,
+                      online: host.running,
+                      size: 32,
+                    );
+                    if (!showLabels) return avatar;
+                    return Expanded(
+                      child: Row(children: [
+                        avatar,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  host.running
+                                      ? tr('Session ouverte')
+                                      : tr('Poste seul'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FText.caption(fc).copyWith(
+                                      color: fc.textPrimary,
+                                      fontWeight: FontWeight.w700)),
+                              Text(
+                                  host.running
+                                      ? tr('{} invité(s) relié(s)', [host.clients])
+                                      : tr('Coworking fermé'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FText.caption(fc).copyWith(
+                                      fontSize: 11,
+                                      color: host.running
+                                          ? fc.success
+                                          : fc.textDisabled)),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -1570,13 +1618,14 @@ class _NavItemState extends State<_NavItem> {
                         // défaut au lieu de le compléter : sans famille dite
                         // ici, le libellé prenait la police de l'OS.
                         style: TextStyle(
+                          fontFamily: 'Rajdhani',
                           color: selected || _hover
                               ? fc.textPrimary
                               : fc.textSecondary,
                           fontWeight:
-                              selected ? FontWeight.w900 : FontWeight.normal,
-                          fontSize: 11,
-                          letterSpacing: 0.8,
+                              selected ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 13,
+                          letterSpacing: 1.1,
                         ),
                         child: Text(widget.title,
                             overflow: TextOverflow.ellipsis),
@@ -1624,7 +1673,7 @@ class _StatusFooter extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Text(tr('FORGERON v1.0.0'),
+          Text('FORGERON v$kForgeronVersion',
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 10,

@@ -18,7 +18,12 @@ import '../../core/widgets/readable_width.dart';
 /// lui, reste LOCAL : le bouton rouge et un « stop » tapé ici agissent par la
 /// liaison du téléphone à la machine, jamais par le PC.
 class RemoteChatScreen extends ConsumerStatefulWidget {
-  const RemoteChatScreen({super.key});
+  const RemoteChatScreen({super.key, this.embedded = false});
+
+  /// Vrai quand la discussion est un PANNEAU d'un autre écran (l'espace de
+  /// coworking) : pas de barre, pas de formulaire de liaison — seulement le
+  /// fil et la saisie, une fois relié.
+  final bool embedded;
 
   @override
   ConsumerState<RemoteChatScreen> createState() => _RemoteChatScreenState();
@@ -99,6 +104,10 @@ class _RemoteChatScreenState extends ConsumerState<RemoteChatScreen> {
       });
     });
     final connected = remote.status == RemoteChatStatus.connected;
+
+    if (widget.embedded) {
+      return connected ? _chat(fc, remote.snapshot) : const SizedBox.shrink();
+    }
 
     return Scaffold(
       backgroundColor: fc.background,

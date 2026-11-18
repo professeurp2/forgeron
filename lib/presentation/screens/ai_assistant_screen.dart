@@ -25,7 +25,7 @@ import '../../application/providers/workspace_provider.dart';
 import '../widgets/special_chars_row.dart';
 import 'ai_agent_settings_screen.dart';
 import 'machine_scan_screen.dart';
-import 'remote_chat_screen.dart';
+import 'cowork_screen.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../widgets/ai/translation_note.dart';
 
@@ -869,7 +869,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RemoteChatScreen()),
+              MaterialPageRoute(
+                  builder: (_) => const CoworkScreen(standalone: true)),
             ),
             tooltip: tr('Chat du PC (même discussion sur les deux appareils)'),
             iconSize: 18,
@@ -954,7 +955,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
 
   /// Contenu rendu d'une réponse d'assistant : prose et blocs de code.
   List<Widget> _assistantContent(ForgeronColorPalette fc, String text,
-      TextStyle baseStyle) {
+      TextStyle baseStyle, {bool unverifiedGcode = false}) {
     final widgets = <Widget>[];
     for (final block in parseChatBlocks(text)) {
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
@@ -962,6 +963,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         widgets.add(_CodeBlock(
           fc: fc,
           block: block,
+          unverified: unverifiedGcode,
           onCopy: () => _copy(block.text, tr('Code copié')),
           onSave: () => _saveGcode(block.text),
         ));
@@ -1006,7 +1008,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (isUser) {
         bubbleItems.add(SelectableText(m.text, style: baseStyle));
       } else {
-        bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle));
+        bubbleItems.addAll(_assistantContent(fc, m.text, baseStyle,
+            unverifiedGcode: m.unverifiedGcode));
       }
     }
     if (m.sourceText != null) {
@@ -1643,11 +1646,15 @@ class _CodeBlock extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onSave;
 
+  /// Programme écrit par le modèle lui-même : averti, non enregistrable.
+  final bool unverified;
+
   const _CodeBlock({
     required this.fc,
     required this.block,
     required this.onCopy,
     required this.onSave,
+    this.unverified = false,
   });
 
   @override
@@ -1704,12 +1711,31 @@ class _CodeBlockState extends State<_CodeBlock> {
                   ),
                 ),
                 _action(fc, Icons.copy_rounded, tr('Copier'), widget.onCopy),
-                if (isGcode)
+                if (isGcode && !widget.unverified)
                   _action(fc, Icons.save_alt_rounded, tr('Enregistrer'),
                       widget.onSave),
               ],
             ),
           ),
+          if (widget.unverified && isGcode)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              color: fc.warning.withValues(alpha: .12),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: fc.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Écrit par le modèle, non vérifié : ne pas usiner tel quel.'),
+                    style: TextStyle(
+                        color: fc.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ]),
+            ),
           // Code : défilement horizontal, jamais de retour à la ligne — une
           // ligne de G-code coupée en deux se lit très mal.
           Padding(

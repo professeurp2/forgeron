@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/forge_tokens.dart' show kForgeronVersion;
 import '../../core/theme/forgeron_colors.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/jog_provider.dart';
@@ -947,7 +948,7 @@ class _PanelFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(tr('FORGERON CNC-5X  v1.0'),
+          Text('FORGERON CNC-5X  v$kForgeronVersion',
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 9,
