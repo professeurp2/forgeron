@@ -1,4 +1,12 @@
 import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
+import 'package:forgeron/application/providers/ai_agent_provider.dart';
+import 'package:forgeron/application/providers/gcode_provider.dart';
+import 'package:forgeron/application/providers/machining_mode_provider.dart';
+import 'package:forgeron/application/providers/camera_provider.dart';
+import 'package:forgeron/application/providers/lexicon_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:forgeron/core/utils/gcode_critic.dart';
+import 'package:forgeron/domain/models/machining_mode.dart';
 import 'package:forgeron/core/i18n/translations/ha.dart';
 import 'dart:async';
 import 'dart:io';
@@ -643,6 +651,157 @@ Vous pouvez maintenant lancer la simulation cinématique.
 
         // Rétablissement de la locale de test
         AppLocalizations.setCurrentForTest(const {});
+      });
+    });
+
+    group('Axe 8 — Démo METI Japan (Anglais intégral, Voix Humaine SSML, STT Offline & Dôme 5 Axes)', () {
+      test('detectOperatorLanguage reconnaît "Mill a 20mm dome on aluminium" comme anglais', () {
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'Mill a 20mm dome on aluminium',
+            fallback: 'fr',
+          ),
+          equals('en'),
+        );
+        expect(
+          LanguageDetector.detectOperatorLanguage(
+            'Carve a 30mm dome in brass',
+            fallback: 'fr',
+          ),
+          equals('en'),
+        );
+      });
+
+      test('normalizeSttInput répare la dictée anglaise transcrite par un moteur STT fr-FR hors ligne', () {
+        expect(
+          WaxalVoiceEngine.normalizeSttInput(
+            'mille à 20 mm dôme en aluminium',
+            activeLanguageId: 'en',
+          ),
+          equals('Mill a 20mm dome on aluminium'),
+        );
+        expect(
+          WaxalVoiceEngine.normalizeSttInput(
+            'mill a 20 millimeter dome on aluminum',
+            activeLanguageId: 'en',
+          ),
+          equals('Mill a 20mm dome on aluminum'),
+        );
+      });
+
+      test('prepareForTts produit une lecture vocale humaine (unités compactes, décimales, SSML et respirations)', () {
+        final prepEn = WaxalVoiceEngine.prepareForTts(
+          "I've prepared the 5-axis toolpath for your 20mm dome on aluminium at 400 mm/min (±0.2 mm, 45°). Tap Confirm to start?",
+          preferredLanguageId: 'en',
+          availableVoices: const ['fr-FR'],
+        );
+        expect(prepEn.languageId, equals('en'));
+        expect(prepEn.spokenText, contains('20 millimeters'));
+        expect(prepEn.spokenText, contains('millimeters per minute'));
+        expect(prepEn.spokenText, contains('plus or minus 0.2'));
+        expect(prepEn.spokenText, contains('45 degrees'));
+        expect(prepEn.ssmlText, contains('<speak'));
+        expect(prepEn.ssmlText, contains('<prosody'));
+        expect(prepEn.conversationalChunks.length, greaterThanOrEqualTo(2));
+
+        final prepFr = WaxalVoiceEngine.prepareForTts(
+          'Parcours généré avec generate_5axis_dome pour 20mm à 0.2 mm de tolérance et 45°.',
+          preferredLanguageId: 'fr',
+          availableVoices: const ['fr-FR'],
+        );
+        expect(prepFr.spokenText, contains('20 millimètres'));
+        expect(prepFr.spokenText, contains('0,2'));
+        expect(prepFr.spokenText, contains('45 degrés'));
+        expect(prepFr.spokenText, isNot(contains('generate_5axis_dome')));
+      });
+
+      test('Scénario bout-en-bout METI Japan : "Mill a 20mm dome on aluminium" -> G-code 5 axes -> Confirm', () async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer(
+          overrides: [
+            machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
+            lexiconSourceProvider.overrideWithValue(
+              () async => File('assets/lexicon/lexique.json').readAsString(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(aiAgentControllerProvider.notifier);
+        await controller.sendUserMessage('Mill a 20mm dome on aluminium');
+
+        final st = container.read(aiAgentControllerProvider);
+        expect(st.pendingConfirmation, isNotNull);
+        expect(st.pendingConfirmation!.toolName, equals('run_program'));
+        expect(container.read(machiningModeProvider), equals(MachiningMode.fiveAxis));
+        expect(container.read(visualizerModeProvider), equals(VisualizerMode.simulation3d));
+
+        final gcodeState = container.read(gcodeProvider);
+        expect(gcodeState.allLines, isNotEmpty);
+        final rawGcode = gcodeState.allLines.join('\n');
+        expect(const GcodeCritic().review(rawGcode).usable, isTrue);
+
+        final assistantReply = st.messages.lastWhere((m) => m.role == 'assistant').text;
+        expect(assistantReply, contains('5-axis'));
+        expect(assistantReply, contains('20mm dome'));
+        expect(assistantReply, contains('Confirm'));
+
+        await controller.confirmPendingAction();
+        final afterConfirm = container.read(aiAgentControllerProvider);
+        expect(afterConfirm.pendingConfirmation, isNull);
+        expect(
+          afterConfirm.messages.last.text,
+          contains('5-axis dome machining'),
+        );
+      });
+
+      test('Anti-hallucination : présentation, homing par axe, go to, diagnostic et analyse G-code déterministes', () async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer(
+          overrides: [
+            machineRepositoryProvider.overrideWithValue(_InertMachineRepository()),
+            lexiconSourceProvider.overrideWithValue(
+              () async => File('assets/lexicon/lexique.json').readAsString(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(aiAgentControllerProvider.notifier);
+
+        // 1. Présentation humaine en anglais sans show_popup ni dérive LLM
+        await controller.sendUserMessage('Please introduce yourself');
+        var st = container.read(aiAgentControllerProvider);
+        expect(st.messages.last.text, contains('Forgeron'));
+        expect(st.messages.last.text, contains('5-axis CNC'));
+
+        // 2. Homing d'un axe avec bruit de dictée vocale ("Homez axis" -> "home Z axis")
+        await controller.sendUserMessage('Homez axis');
+        st = container.read(aiAgentControllerProvider);
+        expect(st.messages.any((m) => m.toolName == 'home'), isTrue);
+        expect(st.messages.last.text, contains(r'$HZ'));
+
+        // 3. Positionnement direct ("got to y50" -> "go to y50")
+        await controller.sendUserMessage('got to y50');
+        st = container.read(aiAgentControllerProvider);
+        expect(st.messages.any((m) => m.toolName == 'goto_position'), isTrue);
+        expect(st.messages.last.text, contains('Y = 50 mm'));
+
+        // 4. Diagnostic pré-usinage
+        await controller.sendUserMessage('Run a full pre-machining diagnostic.');
+        st = container.read(aiAgentControllerProvider);
+        expect(st.messages.any((m) => m.toolName == 'get_diagnostics'), isTrue);
+        expect(st.messages.last.text, contains('Pre-machining diagnostic complete'));
+
+        // 5. Récupération d'appels d'outils écrits en prose ("Run the get_diagnostics function now.")
+        final recovered = LocalAiAgentService.recoverTextToolCalls(
+          const [
+            {'text': 'Run the `get_diagnostics` function now.'},
+          ],
+          const {'get_diagnostics', 'analyze_gcode'},
+        );
+        expect(recovered.first['functionCall'], isNotNull);
+        expect((recovered.first['functionCall'] as Map)['name'], equals('get_diagnostics'));
       });
     });
 

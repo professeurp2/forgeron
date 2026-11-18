@@ -98,7 +98,11 @@ class DiagnosticsScreen extends ConsumerWidget {
         SizedBox(height: 12),
         Container(
           key: TutorialKeys.performanceMetrics,
-          child: GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.6, children: [
+          // Hauteur fixe des tuiles : avec un ratio, une colonne étroite
+          // (tablette) donnait des cases trop basses pour leurs trois lignes.
+          child: GridView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, mainAxisExtent: 86),
+            children: [
             _healthCard(context, 'TEMP CPU', '${temp.toStringAsFixed(0)}°C', Icons.thermostat, fc.warning),
             // RAM / Uptime / RSSI : non rapportés par FluidNC standard → « — »
             // tant que le firmware n'envoie pas de [MSG:] custom. Afficher des
@@ -122,10 +126,10 @@ class DiagnosticsScreen extends ConsumerWidget {
         child: Row(children: [
           Icon(Icons.code, color: fc.warning, size: 16),
           SizedBox(width: 8),
-          Text(tr('CONFIG.YAML'), style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
+          Flexible(child: Text(tr('CONFIG.YAML'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.textPrimary, fontSize: 12, fontWeight: FontWeight.bold))),
           SizedBox(width: 16),
           Flexible(child: Text(tr('Configuration Machine FluidNC'), style: TextStyle(color: fc.textDisabled, fontSize: 10), overflow: TextOverflow.ellipsis)),
-          const Spacer(),
+          const SizedBox(width: 8),
           OutlinedButton.icon(
             icon: Icon(Icons.copy_all_rounded, size: 14),
             label: Text(tr('COPIER'), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
@@ -304,8 +308,7 @@ class DiagnosticsScreen extends ConsumerWidget {
           child: Row(children: [
             Icon(icon, color: color, size: 18),
             SizedBox(width: 12),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900)),
-            const Spacer(),
+            Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900))),
             Icon(Icons.chevron_right, color: context.fc.textDisabled, size: 16),
           ]),
         ),
@@ -351,11 +354,11 @@ class DiagnosticsScreen extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(color: fc.surfaceBright, borderRadius: BorderRadius.circular(6), border: Border.all(color: fc.surfaceBorder)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, color: color, size: 16),
-        const Spacer(),
-        Text(value, style: TextStyle(color: fc.textPrimary, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
-        Text(label, style: TextStyle(color: fc.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.textPrimary, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'JetBrains Mono')),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.textDisabled, fontSize: 8, fontWeight: FontWeight.w900)),
       ]),
     );
   }
@@ -425,7 +428,7 @@ class _MaintenanceForecastCard extends StatelessWidget {
         Row(children: [
           Icon(Icons.engineering, color: fc.primary, size: 14),
           SizedBox(width: 8),
-          Text(tr('PRÉVISION MAINTENANCE'), style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900)),
+          Expanded(child: Text(tr('PRÉVISION MAINTENANCE'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fc.primary, fontSize: 10, fontWeight: FontWeight.w900))),
         ]),
         SizedBox(height: 12),
         _maintRow(context, tr('Graissage Vis à Billes'), 85, '12j'),

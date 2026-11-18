@@ -1,9 +1,10 @@
+import 'dart:io';
 import 'package:forgeron/application/providers/ai_prompt_draft_provider.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -13,12 +14,15 @@ import '../../../application/providers/ai_artifacts_provider.dart';
 import '../../../application/providers/ai_inbox_provider.dart';
 import '../../../application/providers/controller_memory_provider.dart';
 import '../../../application/providers/di_providers.dart';
+import '../../../application/services/forgeron_tts_speaker.dart';
 import '../../../core/i18n/app_language.dart';
 import '../../../core/i18n/app_localizations.dart';
 import 'translation_note.dart';
 import '../../../core/i18n/waxal_voice_engine.dart';
 import '../../../core/theme/forgeron_colors.dart';
+import '../../../core/widgets/forge_ai_gyro_orb.dart';
 import '../../../core/utils/chat_markdown.dart';
+import '../../../core/utils/speech_error_message.dart';
 import '../../../core/utils/voice_locale.dart';
 import '../../screens/desktop/ai_console_timeline.dart' show friendlyToolLabel;
 
@@ -130,12 +134,11 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   String? _pendingFilePath;
   String? _pendingFileName;
 
-  // Audio (STT & TTS — propulsé par WaxalVoiceEngine)
+  // Audio (STT & TTS — propulsé par WaxalVoiceEngine + ForgeronTtsSpeaker)
   final SpeechToText _speech = SpeechToText();
-  final FlutterTts _tts = FlutterTts();
   bool _listening = false;
+  bool _forceOnDeviceStt = false;
   String? _sttLocaleId;
-  List<String> _availableTtsVoices = const [];
 
   @override
   void initState() {
@@ -146,7 +149,6 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     }
     _inputCtrl.addListener(_onInputChanged);
     _scrollCtrl.addListener(_onScroll);
-    _tts.setSpeechRate(0.5);
     _applyVoiceLanguage();
   }
 
@@ -161,7 +163,9 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     _speech.stop();
-    _tts.stop();
+    if (!widget.hideOverlay) {
+      ForgeronTtsSpeaker.instance.stop();
+    }
     super.dispose();
   }
 
@@ -199,47 +203,55 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
   String get _wantedVoiceTag {
     final language = ref.read(effectiveAiLanguageProvider);
     if (!language.isAuto) return language.voiceTag;
+    if (!kIsWeb && Platform.isWindows) return 'auto';
     return WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
   }
 
   Future<void> _applyVoiceLanguage() async {
     _sttLocaleId = null;
-    try {
-      final raw = await _tts.getLanguages;
-      _availableTtsVoices =
-          (raw as List).map((e) => e.toString()).toList(growable: false);
-      final match = bestVoiceLocale(
-        _wantedVoiceTag,
-        _availableTtsVoices,
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      if (match != null) await _tts.setLanguage(match);
-    } catch (_) {}
+    await ForgeronTtsSpeaker.instance.ensureInitialized();
   }
 
-  Future<void> _speak(String text) async {
+  Future<void> _speak(String text, {bool isAutoTrigger = false}) async {
     final lang = ref.read(effectiveAiLanguageProvider);
-    if (_availableTtsVoices.isEmpty) {
-      try {
-        final raw = await _tts.getLanguages;
-        _availableTtsVoices =
-            (raw as List).map((e) => e.toString()).toList(growable: false);
-      } catch (_) {}
-    }
-    final prep = WaxalVoiceEngine.prepareForTts(
+    await ForgeronTtsSpeaker.instance.speak(
       text,
       preferredLanguageId: lang.id,
-      availableVoices: _availableTtsVoices,
+      isAutoTrigger: isAutoTrigger,
     );
-    if (prep.spokenText.isEmpty) return;
-    await _tts.stop();
-    try {
-      if (prep.selectedVoiceLocale != null) {
-        await _tts.setLanguage(prep.selectedVoiceLocale!);
-      }
-      await _tts.setSpeechRate(prep.speechRate);
-    } catch (_) {}
-    await _tts.speak(prep.spokenText);
+  }
+
+  void _showSpeechSnack(String message) {
+    if (!mounted) return;
+    final m = ScaffoldMessenger.maybeOf(context);
+    m
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+      ));
+  }
+
+  Future<void> _startListeningSession({required bool onDevice}) async {
+    final lang = ref.read(effectiveAiLanguageProvider);
+    await _speech.listen(
+      onResult: (SpeechRecognitionResult r) {
+        if (!mounted) return;
+        final normalized = WaxalVoiceEngine.normalizeSttInput(
+          r.recognizedWords,
+          activeLanguageId: lang.id,
+        );
+        setState(() => _inputCtrl.text = normalized);
+        ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
+      },
+      listenOptions: SpeechListenOptions(
+        localeId: _sttLocaleId,
+        listenMode: ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+        onDevice: onDevice,
+      ),
+    );
   }
 
   Future<void> _toggleListen() async {
@@ -248,45 +260,60 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
       if (mounted) setState(() => _listening = false);
       return;
     }
-    final ok = _speech.isAvailable ||
-        await _speech.initialize(
+    var ok = _speech.isAvailable;
+    if (!ok) {
+      try {
+        ok = await _speech.initialize(
           onStatus: (s) {
             if ((s == 'notListening' || s == 'done') && mounted) {
               setState(() => _listening = false);
             }
           },
-          onError: (_) {
-            if (mounted) setState(() => _listening = false);
+          onError: (e) {
+            if (!mounted) return;
+            final code = e.errorMsg.trim();
+            final isNetErr = code == 'error_network' ||
+                code == 'error_network_timeout' ||
+                code == 'error_server' ||
+                code == 'error_server_disconnected';
+            if (isNetErr && !_forceOnDeviceStt) {
+              _forceOnDeviceStt = true;
+              _startListeningSession(onDevice: true);
+              return;
+            }
+            setState(() => _listening = false);
+            _showSpeechSnack(speechErrorMessage(code));
           },
         );
-    if (!ok) return;
+      } catch (e) {
+        _showSpeechSnack(speechErrorMessage('$e'));
+        return;
+      }
+    }
+    if (!ok) {
+      _showSpeechSnack(
+        speechInitFailedMessage(windows: !kIsWeb && Platform.isWindows),
+      );
+      return;
+    }
     setState(() => _listening = true);
     try {
-      _sttLocaleId ??= bestVoiceLocale(
-        _wantedVoiceTag,
-        (await _speech.locales()).map((l) => l.localeId),
-        fallbacks: const ['fr-FR', 'en-US'],
-      );
-      final lang = ref.read(effectiveAiLanguageProvider);
-      await _speech.listen(
-        onResult: (SpeechRecognitionResult r) {
-          if (!mounted) return;
-          final normalized = WaxalVoiceEngine.normalizeSttInput(
-            r.recognizedWords,
-            activeLanguageId: lang.id,
-          );
-          setState(() => _inputCtrl.text = normalized);
-          ref.read(aiPromptDraftProvider.notifier).updateDraft(normalized);
-        },
-        listenOptions: SpeechListenOptions(
-          localeId: _sttLocaleId,
-          listenMode: ListenMode.dictation,
-          cancelOnError: false,
-          partialResults: true,
-        ),
-      );
-    } catch (_) {
+      final wanted = _wantedVoiceTag;
+      if (wanted == 'auto') {
+        _sttLocaleId = 'auto';
+      } else {
+        _sttLocaleId = bestVoiceLocale(
+          wanted,
+          (await _speech.locales()).map((l) => l.localeId),
+          fallbacks: wanted.startsWith('en')
+              ? const ['en-US', 'en-GB', 'fr-FR']
+              : const ['fr-FR', 'en-US'],
+        );
+      }
+      await _startListeningSession(onDevice: _forceOnDeviceStt);
+    } catch (e) {
       if (mounted) setState(() => _listening = false);
+      _showSpeechSnack(speechErrorMessage('$e'));
     }
   }
 
@@ -344,12 +371,15 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
     }
 
     if (_pendingFilePath != null && _pendingFileName != null) {
+      final isEn = ref.read(effectiveAiLanguageProvider).id == 'en';
       if (trimmed.isEmpty) {
-        trimmed =
-            'Charge et analyse ce fichier ($_pendingFileName) : $_pendingFilePath';
+        trimmed = isEn
+            ? 'Load this part and prepare the finishing G-code.\n\nFile: $_pendingFilePath'
+            : 'Charge et analyse ce fichier ($_pendingFileName) : $_pendingFilePath';
       } else {
-        trimmed =
-            '$trimmed\n\nFichier associé ($_pendingFileName) : $_pendingFilePath';
+        trimmed = isEn
+            ? '$trimmed\n\nAttached file ($_pendingFileName): $_pendingFilePath'
+            : '$trimmed\n\nFichier associé ($_pendingFileName) : $_pendingFilePath';
       }
     }
 
@@ -386,7 +416,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
         await ref.read(machineRepositoryProvider).sendGCode(s.directGcode!);
       } catch (_) {}
     }
-    await _sendPrompt(s.prompt);
+    await _sendPrompt(tr(s.prompt));
   }
 
   @override
@@ -419,13 +449,18 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
 
         final diag = next.activeDiagnosis;
         if (diag != null) {
+          final activeLang = ref.read(effectiveAiLanguageProvider);
+          final isEn = activeLang.id == 'en';
+          final causeLabel = isEn ? 'Probable cause' : 'Cause probable';
+          final pinLabel = isEn ? 'Input / GPIO pin' : 'Entrée / broche';
+          final actionLabel = isEn ? 'Immediate action' : 'À faire';
           ref
               .read(aiAgentControllerProvider.notifier)
               .postProactiveAssistantMessage(
-                '**${diag.headline}**\n\n'
-                '- **Cause probable** : ${diag.probableHardwareCause}\n'
-                '- **Entrée / broche** : ${diag.gpioPinDetail}\n'
-                '- **À faire** : ${diag.immediateOperatorSteps}',
+                '**${tr(diag.headline)}**\n\n'
+                '- **$causeLabel** : ${tr(diag.probableHardwareCause)}\n'
+                '- **$pinLabel** : ${tr(diag.gpioPinDetail)}\n'
+                '- **$actionLabel** : ${tr(diag.immediateOperatorSteps)}',
               );
           _scrollToBottom();
         }
@@ -454,16 +489,16 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
         }
       }
       final grew = (prev?.messages.length ?? 0) < next.messages.length;
-      if (grew && next.messages.isNotEmpty) {
+      if (!widget.hideOverlay && grew && next.messages.isNotEmpty) {
         final last = next.messages.last;
         if (last.role == 'assistant' && ref.read(aiTtsEnabledProvider)) {
-          _speak(last.text);
+          _speak(last.text, isAutoTrigger: true);
         }
       }
     });
 
     ref.listen<bool>(aiTtsEnabledProvider, (prev, next) {
-      if (next == false) _tts.stop();
+      if (next == false) ForgeronTtsSpeaker.instance.stop();
     });
 
     ref.listen<AppLanguage>(effectiveAiLanguageProvider, (prev, next) {
@@ -612,29 +647,23 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasAlert
-                      ? null
-                      : LinearGradient(
-                          colors: [fc.primaryLight, fc.primary, fc.primaryDim],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  color: hasAlert ? Colors.white.withValues(alpha: 0.2) : null,
-                ),
-                child: Icon(
-                  hasAlert
-                      ? Icons.warning_amber_rounded
-                      : Icons.auto_awesome,
-                  color: hasAlert ? Colors.white : fc.background,
-                  size: 14,
-                ),
-              ),
+              if (hasAlert)
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                )
+              else
+                const ForgeAiGyroOrb(size: 26, active: true),
               const SizedBox(width: 9),
               Text(
                 hasAlert ? tr('Alerte machine') : 'Forgeron IA',
@@ -720,25 +749,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              fc.primaryLight,
-                              fc.primary,
-                              fc.primaryDim,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Icon(Icons.auto_awesome,
-                            size: 13, color: fc.background),
-                      ),
+                      const ForgeAiGyroOrb(size: 26, active: true),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -1384,17 +1395,7 @@ class _OmnipresentAiShellState extends ConsumerState<OmnipresentAiShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fc.primary.withValues(alpha: 0.12),
-                border: Border.all(color: fc.primary.withValues(alpha: 0.35)),
-              ),
-              child: Icon(Icons.auto_awesome, color: fc.primary, size: 20),
-            ),
+            const ForgeAiGyroOrb(size: 48, active: true),
             const SizedBox(height: 12),
             Text(
               'Forgeron IA',

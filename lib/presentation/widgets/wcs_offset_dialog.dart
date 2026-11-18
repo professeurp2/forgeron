@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/di_providers.dart';
+import '../../application/providers/machine_provider.dart';
 import '../../core/theme/forgeron_colors.dart';
 import '../../core/i18n/app_localizations.dart';
 
@@ -110,10 +111,19 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
     return buildWcsOffsetCommand(widget.wcs, v, widget.axisLabels);
   }
 
+  void _fillFromCurrentMachinePos(List<double> mPos) {
+    for (var i = 0; i < 5 && i < mPos.length; i++) {
+      _ctrls[i].text = mPos[i].toStringAsFixed(3);
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final fc = context.fc;
     final command = _command;
+    final machineState = ref.watch(machineStateProvider).valueOrNull;
+    final mPos = machineState?.mPos;
 
     return AlertDialog(
       backgroundColor: fc.surface,
@@ -136,7 +146,32 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
               style:
                   TextStyle(color: fc.textSecondary, fontSize: 11, height: 1.4),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: mPos == null || mPos.length < 5
+                    ? null
+                    : () => _fillFromCurrentMachinePos(mPos),
+                icon: Icon(Icons.my_location, size: 16, color: fc.primary),
+                label: Text(
+                  'Position actuelle → zéro ${widget.wcs}',
+                  style: TextStyle(
+                    color: fc.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: fc.primary.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
 
             for (var i = 0; i < 5; i++) ...[
               Padding(
@@ -216,7 +251,9 @@ class _WcsOffsetDialogState extends ConsumerState<WcsOffsetDialog> {
           onPressed: command == null
               ? null
               : () {
-                  ref.read(machineRepositoryProvider).sendGCode(command);
+                  final repo = ref.read(machineRepositoryProvider);
+                  repo.sendGCode(command);
+                  repo.sendGCode('\$#');
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(tr('Décalage {} enregistré', [widget.wcs])),

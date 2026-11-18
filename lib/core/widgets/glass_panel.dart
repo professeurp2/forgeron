@@ -1,8 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../theme/forge_tokens.dart';
 import '../theme/forgeron_colors.dart';
 
-/// Conteneur réutilisable style "Glassmorphism Industriel".
+/// Panneau de données de l'application (nom historique : « verre »).
 /// Utilisé partout dans l'app pour les panneaux de données.
 class GlassPanel extends StatelessWidget {
   final Widget child;
@@ -24,7 +24,7 @@ class GlassPanel extends StatelessWidget {
     this.width,
     this.height,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = 12.0, // Un peu plus arrondi pour un look moderne
+    this.borderRadius = FRadius.lg,
     this.borderColor,
     this.backgroundColor,
     this.title,
@@ -48,52 +48,20 @@ class GlassPanel extends StatelessWidget {
       ],
     );
 
+    // Design v2 : surface pleine, filet fin, ombre courte. La v1 posait un
+    // flou d'arrière-plan (BackdropFilter) et une ombre de 16 px sur CHAQUE
+    // panneau : coûteux sur un téléphone d'atelier, et moins net à lire.
     return Container(
       width: width,
       height: height,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
+        color: bg,
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          // Ombre portée sombre et diffuse
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-          // Halo subtil de couleur primaire
-          BoxShadow(
-            color: context.fc.primary.withValues(alpha: 0.03),
-            blurRadius: 24,
-            spreadRadius: -4,
-          ),
-        ],
+        border: Border.all(color: border),
+        boxShadow: FShadow.card(context.fc),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              // Gradient de fond translucide (effet verre)
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  bg.withValues(alpha: 0.55),
-                  bg.withValues(alpha: 0.85),
-                ],
-              ),
-              // Bordure biseautée ultra-fine
-              border: Border.all(
-                color: border.withValues(alpha: 0.6),
-                width: 1.2,
-              ),
-            ),
-            child: content,
-          ),
-        ),
-      ),
+      child: content,
     );
   }
 
@@ -111,12 +79,7 @@ class GlassPanel extends StatelessWidget {
           Expanded(
             child: Text(
               title!.toUpperCase(),
-              style: TextStyle(
-                color: context.fc.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
+              style: FText.overline(context.fc).copyWith(color: context.fc.textPrimary),
               overflow: TextOverflow.ellipsis,
             ),
           ),

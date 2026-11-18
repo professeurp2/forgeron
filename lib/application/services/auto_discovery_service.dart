@@ -50,7 +50,7 @@ class AutoDiscoveryService {
 
   AutoDiscoveryService({
     http.Client? client,
-    Duration timeout = const Duration(milliseconds: 1500),
+    Duration timeout = const Duration(milliseconds: 3500),
     int concurrency = 20,
   })  : _client = client ?? http.Client(),
         _timeout = timeout,
@@ -69,32 +69,48 @@ class AutoDiscoveryService {
   Future<DiscoveredDevice?> probeIp(String ip, {int port = 80}) async {
     try {
       final sw = Stopwatch()..start();
+      // Requête directe sur /command?plain=$I (225 octets au lieu de 6,8 Ko sur /)
+      // pour éviter la double requête sur les hotspots à forte latence.
+      final cmdUri = Uri(
+        scheme: 'http',
+        host: ip,
+        port: port,
+        path: '/command',
+        queryParameters: {'plain': r'$I'},
+      );
+      final cmdResp = await _client.get(cmdUri).timeout(_timeout);
+      sw.stop();
+
+      final cmdKind = cmdResp.headers['x-forgeron-device']?.toLowerCase();
+      final cmdBody = cmdResp.body.toLowerCase();
+      if (cmdKind == 'camera' || cmdBody.contains('forgeron-device')) {
+        return null;
+      }
+      if (cmdResp.statusCode < 300) {
+        final fw = _firmwareIn(cmdBody) ?? (cmdBody.contains('[ver:') ? 'GRBL' : null);
+        if (fw != null) {
+          return DiscoveredDevice(
+            ip: ip,
+            httpPort: port,
+            wsPort: 80,
+            firmwareInfo: fw,
+            responseTime: sw.elapsed,
+          );
+        }
+      }
+
+      // Repli sur GET / si /command n'a pas suffi
       final uri = Uri.parse('http://$ip:$port/');
       final response = await _client.get(uri).timeout(_timeout);
       sw.stop();
 
       if (response.statusCode < 500) {
         final body = response.body.toLowerCase();
-
-        // La caméra de surveillance répond elle aussi en HTTP sur le port 80.
-        // Sans ce filtre elle serait listée comme un contrôleur — et comme le
-        // scan d'ouverture s'auto-connecte au PREMIER appareil trouvé,
-        // l'application pourrait croire la machine connectée alors qu'elle
-        // parle à un appareil sans moteurs.
-        //
-        // Le firmware caméra s'annonce de deux façons (cf.
-        // `hardware/firmware/esp32cam_forgeron/`) : un en-tête sur toutes ses
-        // réponses, et un marqueur dans sa page d'accueil.
         final deviceKind = response.headers['x-forgeron-device']?.toLowerCase();
         if (deviceKind == 'camera' || body.contains('forgeron-device')) {
           return null;
         }
-        // Répondre en HTTP ne fait pas un contrôleur : une box ou une imprimante
-        // répondent aussi, et le scan s'auto-connecte au premier trouvé. On exige
-        // que l'appareil se dise FluidNC ou GRBL. La page d'accueil peut ne pas le
-        // dire (interface compressée) : dans ce cas, on lui demande sa version.
-        final firmware =
-            _firmwareIn(body) ?? await _askFirmware(ip, port);
+        final firmware = _firmwareIn(body);
         if (firmware == null) return null;
 
         return DiscoveredDevice(
@@ -117,25 +133,6 @@ class AutoDiscoveryService {
     return null;
   }
 
-  /// `$I` : lecture seule, le contrôleur répond par sa version sans rien bouger.
-  Future<String?> _askFirmware(String ip, int port) async {
-    try {
-      final uri = Uri(
-        scheme: 'http',
-        host: ip,
-        port: port,
-        path: '/command',
-        queryParameters: {'plain': r'$I'},
-      );
-      final response = await _client.get(uri).timeout(_timeout);
-      if (response.statusCode >= 300) return null;
-      final body = response.body.toLowerCase();
-      return _firmwareIn(body) ?? (body.contains('[ver:') ? 'GRBL' : null);
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// Lance un scan complet du réseau local.
   ///
   /// Phase 1 : IPs favorites (rapide, < 2s)
@@ -154,6 +151,10 @@ class AutoDiscoveryService {
 
     final priorityIps = <String>{
       if (lastKnownIp != null && lastKnownIp.isNotEmpty) lastKnownIp,
+      'FORGERON.local',  // mDNS FluidNC (suit automatiquement l'IP DHCP)
+      '192.168.137.100', // Hotspot Windows (FluidNC ESP32 par défaut)
+      '192.168.137.50',  // Hotspot Windows (ESP32-CAM)
+      '192.168.137.1',   // Hotspot Windows Gateway
       '192.168.1.1',
       '192.168.1.100',
       '192.168.2.50',
@@ -178,16 +179,19 @@ class AutoDiscoveryService {
       }
     }
 
-    // Si on a trouvé un appareil en phase 1, on le signale immédiatement
+    // Si on a trouvé un appareil en phase 1, on s'arrête sans saturer le hotspot
     if (found.isNotEmpty) {
+      _isScanning = false;
       _scanStateController.add(ScanState.found);
+      debugPrint('[AutoDiscovery] Scan complete (Phase 1): ${found.length} device(s) found');
+      return found;
     }
 
     // ── Phase 2 : Scan du sous-réseau ──────────────────────────────────
     _scanStateController.add(ScanState.scanning);
 
     // Déterminer le préfixe du sous-réseau
-    final prefix = subnetPrefix ?? await _detectSubnet() ?? '192.168.1';
+    final prefix = subnetPrefix ?? await _detectSubnet() ?? '192.168.137';
     debugPrint('[AutoDiscovery] Phase 2: Scanning $prefix.0/24...');
 
     // Scanner par rafales de [_concurrency] IPs en parallèle
@@ -231,6 +235,7 @@ class AutoDiscoveryService {
   }
 
   /// Détecte le sous-réseau local via les interfaces réseau.
+  /// Priorise le sous-réseau du hotspot Windows (192.168.137.x) s'il est actif.
   Future<String?> _detectSubnet() async {
     try {
       if (kIsWeb) return null; // Pas d'accès réseau direct en web
@@ -239,6 +244,7 @@ class AutoDiscoveryService {
         type: InternetAddressType.IPv4,
       );
 
+      String? fallbackPrefix;
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           final ip = addr.address;
@@ -248,10 +254,18 @@ class AutoDiscoveryService {
           final parts = ip.split('.');
           if (parts.length == 4) {
             final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
-            debugPrint('[AutoDiscovery] Detected subnet: $prefix.0/24 (via ${iface.name})');
-            return prefix;
+            // Si c'est le sous-réseau Hotspot Windows, priorité absolue
+            if (prefix == '192.168.137') {
+              debugPrint('[AutoDiscovery] Detected hotspot subnet: $prefix.0/24 (via ${iface.name})');
+              return prefix;
+            }
+            fallbackPrefix ??= prefix;
           }
         }
+      }
+      if (fallbackPrefix != null) {
+        debugPrint('[AutoDiscovery] Detected subnet: $fallbackPrefix.0/24');
+        return fallbackPrefix;
       }
     } catch (e) {
       debugPrint('[AutoDiscovery] Subnet detection failed: $e');

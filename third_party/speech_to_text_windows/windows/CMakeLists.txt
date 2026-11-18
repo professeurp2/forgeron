@@ -80,7 +80,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
 add_executable(forgeron_dictation "dictation_helper.cpp")
 target_compile_definitions(forgeron_dictation PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
 target_compile_options(forgeron_dictation PRIVATE /utf-8)
-target_link_libraries(forgeron_dictation PRIVATE ole32 oleaut32 uuid sapi)
+target_link_libraries(forgeron_dictation PRIVATE ole32 oleaut32 uuid sapi winmm)
 add_dependencies(${PLUGIN_NAME} forgeron_dictation)
 
 # Copié à côté de l'exécutable de l'application, où le plugin le cherche.

@@ -384,6 +384,40 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                             });
                           },
                         ),
+                        // Secours vers Gemini : un choix, pas un automatisme.
+                        // Coupé par défaut — un modèle local, c'est souvent
+                        // la garantie que rien ne sort de l'atelier.
+                        if (usingLocal) ...[
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(tr('Secours Gemini si le serveur ne répond pas'),
+                                      style: TextStyle(
+                                          color: fc.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    tr('Le tour en cours part alors chez Gemini (clé requise), et c\'est dit dans la discussion. Coupé : l\'agent attend le retour du serveur, rien ne sort de l\'atelier.'),
+                                    style: TextStyle(
+                                        color: fc.textSecondary, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: ref.watch(aiAgentSettingsProvider
+                                  .select((s) => s.cloudFallback)),
+                              activeThumbColor: fc.primary,
+                              onChanged: ref
+                                  .read(aiAgentSettingsProvider.notifier)
+                                  .setCloudFallback,
+                            ),
+                          ]),
+                        ],
                         Theme(
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(

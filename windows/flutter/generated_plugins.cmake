@@ -6,8 +6,10 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   desktop_multi_window
   file_selector_windows
+  flutter_libserialport
   flutter_secure_storage_windows
   flutter_tts
+  pasteboard
   permission_handler_windows
   speech_to_text_windows
   webview_windows

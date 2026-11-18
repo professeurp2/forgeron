@@ -18,6 +18,11 @@ import 'tool_table_screen.dart';
 import 'file_manager_screen.dart';
 import 'mdi_terminal_screen.dart';
 import 'diagnostics_screen.dart';
+import 'backoffice_screen.dart';
+import 'cowork_screen.dart';
+import '../../core/theme/forge_tokens.dart';
+import '../../core/widgets/forge_ui.dart';
+import '../../application/services/chat_relay.dart';
 import 'ai_assistant_screen.dart';
 import 'desktop/ai_console_screen.dart';
 import 'ai_agent_settings_screen.dart';
@@ -38,6 +43,7 @@ import '../../application/providers/streaming_provider.dart';
 import '../../application/providers/stream_progress_provider.dart';
 import '../../application/providers/activity_log_provider.dart';
 import '../../application/providers/critical_event_provider.dart';
+import '../../application/providers/backoffice_provider.dart' show backofficeProbesProvider;
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/ai_inbox_provider.dart';
 import '../../application/providers/viewer_snapshot_provider.dart';
@@ -95,6 +101,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     ref.read(activityLogProvider);
     // Démarre le veilleur d'évènements critiques (alarme, E-STOP, surchauffe).
     ref.read(criticalEventWatcherProvider);
+    // Sondes du backoffice (trafic carte, état machine, flux d'usinage) : à
+    // brancher dès le démarrage, comme le veilleur, sinon rien n'est vu tant
+    // que l'écran Backoffice n'a pas été ouvert.
+    ref.read(backofficeProbesProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Le mobile a son propre parcours : les étapes desktop visent une barre
       // latérale et un pied de page qui n'existent pas ici. Même critère que
@@ -139,6 +149,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     MDITerminalScreen(),
     DiagnosticsScreen(),
     AiConsoleScreen(),
+    BackofficeScreen(),
+    CoworkScreen(),
   ];
 
   static const _navItems = [
@@ -149,6 +161,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     _NavDef(Icons.terminal, 'TERMINAL MDI'),
     _NavDef(Icons.monitor_heart, 'DIAGNOSTICS'),
     _NavDef(Icons.smart_toy_outlined, 'AGENT IA'),
+    _NavDef(Icons.admin_panel_settings_outlined, 'BACKOFFICE'),
+    _NavDef(Icons.groups_2_outlined, 'COWORKING'),
   ];
 
   @override
@@ -283,7 +297,14 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         backgroundColor: fc.surface,
         elevation: 0,
         titleSpacing: 12,
-        title: Row(
+        // Logo + nom + badge : à 360 px, avec trois actions à droite, la
+        // rangée débordait de 97 px. Elle rétrécit d'un bloc plutôt que de
+        // perdre le badge d'état, qui est l'information de sécurité.
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const ForgeronLogoGlow(height: 26),
             SizedBox(width: 10),
@@ -324,6 +345,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               ),
             ),
           ],
+          ),
         ),
         actions: [
           IconButton(
@@ -588,6 +610,13 @@ class _AiAssistantPage extends ConsumerWidget {
               onPressed: () => ref.read(aiTtsEnabledProvider.notifier).state = !ttsOn,
             );
           }),
+          IconButton(
+            icon: Icon(Icons.admin_panel_settings_outlined, color: fc.textSecondary, size: 20),
+            tooltip: tr('Backoffice (supervision)'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BackofficeScreen(standalone: true)),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.settings_outlined, color: fc.textSecondary, size: 20),
             tooltip: tr('Paramètres de l\'agent'),
@@ -1018,8 +1047,10 @@ class _HeaderBar extends ConsumerWidget {
       // lettres, adresse IP, second badge), JAMAIS le bouton d'arrêt
       // d'urgence — à 960 px il était coupé de 60 px (vu à l'écran).
       child: LayoutBuilder(builder: (context, constraints) {
-        final compact = constraints.maxWidth < 1200;
-        final tight = constraints.maxWidth < 900;
+        // Seuils mesurés par le balayage : à 1 280 px, nom en toutes lettres
+        // et adresse IP débordaient encore de 41 px.
+        final compact = constraints.maxWidth < 1340;
+        final tight = constraints.maxWidth < 960;
         return Row(
         children: [
           IconButton(
@@ -1311,6 +1342,13 @@ class _Sidebar extends StatelessWidget {
   /// l'animation de repli, le contenu déplié dans 72 px débordait.
   static const double _labelsMinWidth = 200;
 
+  /// Index de la première entrée de chaque section → son titre.
+  static const _sections = <int, String>{
+    0: 'PRODUCTION',
+    4: 'SYSTÈME',
+    6: 'INTELLIGENCE',
+  };
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -1326,9 +1364,9 @@ class _Sidebar extends StatelessWidget {
         // Fenêtre basse : la carte opérateur cède sa place aux entrées, pour
         // que les 7 restent visibles sans défiler (à 600 de haut, « Agent
         // IA » sortait par le bas).
-        final itemHeight = showLabels ? 52.0 : 44.0;
+        final itemHeight = showLabels ? 46.0 : 44.0;
         final showFooter = constraints.maxHeight >=
-            64 + 8 + items.length * (itemHeight + 4) + 72;
+            64 + 8 + items.length * (itemHeight + 4) + _sections.length * 30 + 72;
         return Column(
           children: [
             Container(
@@ -1376,7 +1414,23 @@ class _Sidebar extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.only(top: 8),
                 children: [
-                  for (var i = 0; i < items.length; i++)
+                  for (var i = 0; i < items.length; i++) ...[
+                    // Sections : production, système, intelligence. La
+                    // barre se lit par blocs au lieu d'une liste de neuf.
+                    if (_sections.containsKey(i))
+                      showLabels
+                          ? Padding(
+                              padding: EdgeInsets.fromLTRB(22, i == 0 ? 6 : 16, 12, 6),
+                              child: Text(tr(_sections[i]!),
+                                  style: FText.overline(context.fc).copyWith(
+                                      fontSize: 10, color: context.fc.textDisabled)),
+                            )
+                          : (i == 0
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                  child: Container(height: 1, color: context.fc.surfaceBorder),
+                                )),
                     _NavItem(
                       icon: items[i].icon,
                       title: items[i].title,
@@ -1385,6 +1439,7 @@ class _Sidebar extends StatelessWidget {
                       height: itemHeight,
                       onTap: () => onItemSelected(i),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -1398,36 +1453,54 @@ class _Sidebar extends StatelessWidget {
                 mainAxisAlignment: showLabels
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
+                // La v1 affichait ici « OPÉRATEUR L01 / NIV_AUTH: ADMIN » :
+                // un opérateur et un niveau d'accès qui n'existent nulle
+                // part dans l'application. À la place, ce qui est vrai : la
+                // session de coworking de ce poste.
                 children: [
-                  CircleAvatar(
-                    backgroundColor: context.fc.surfaceBright,
-                    radius: 16,
-                    child: Icon(Icons.person,
-                        color: context.fc.textSecondary, size: 18),
-                  ),
-                  if (showLabels) ...[
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(tr('OPÉRATEUR L01'),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: context.fc.textPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10)),
-                          Text(tr('NIV_AUTH: ADMIN'),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: context.fc.primary,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'JetBrains Mono')),
-                        ],
-                      ),
-                    ),
-                  ],
+                  Consumer(builder: (context, ref, _) {
+                    final host = ref.watch(chatRelayHostProvider);
+                    final fc = context.fc;
+                    final avatar = PresenceAvatar(
+                      name: host.hostName,
+                      color: fc.primary,
+                      icon: Icons.desktop_windows_rounded,
+                      online: host.running,
+                      size: 32,
+                    );
+                    if (!showLabels) return avatar;
+                    return Expanded(
+                      child: Row(children: [
+                        avatar,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  host.running
+                                      ? tr('Session ouverte')
+                                      : tr('Poste seul'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FText.caption(fc).copyWith(
+                                      color: fc.textPrimary,
+                                      fontWeight: FontWeight.w700)),
+                              Text(
+                                  host.running
+                                      ? tr('{} invité(s) relié(s)', [host.clients])
+                                      : tr('Coworking fermé'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FText.caption(fc).copyWith(
+                                      fontSize: 11,
+                                      color: host.running
+                                          ? fc.success
+                                          : fc.textDisabled)),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -1541,14 +1614,18 @@ class _NavItemState extends State<_NavItem> {
                     Expanded(
                       child: AnimatedDefaultTextStyle(
                         duration: d,
+                        // AnimatedDefaultTextStyle remplace le style par
+                        // défaut au lieu de le compléter : sans famille dite
+                        // ici, le libellé prenait la police de l'OS.
                         style: TextStyle(
+                          fontFamily: 'Rajdhani',
                           color: selected || _hover
                               ? fc.textPrimary
                               : fc.textSecondary,
                           fontWeight:
-                              selected ? FontWeight.w900 : FontWeight.normal,
-                          fontSize: 11,
-                          letterSpacing: 0.8,
+                              selected ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 13,
+                          letterSpacing: 1.1,
                         ),
                         child: Text(widget.title,
                             overflow: TextOverflow.ellipsis),
@@ -1596,7 +1673,7 @@ class _StatusFooter extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Text(tr('FORGERON v1.0.0'),
+          Text('FORGERON v$kForgeronVersion',
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 10,
