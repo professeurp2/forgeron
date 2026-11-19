@@ -119,6 +119,11 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
 
   /// Sélectionne un appareil découvert et configure la connexion.
   Future<void> selectDevice(DiscoveredDevice device) async {
+    // Auto-connexion uniquement si le transport actif est Wi-Fi (ne jamais
+    // écraser une connexion USB active).
+    if (_ref.read(connectionTransportProvider) == ConnectionTransport.usb) {
+      return;
+    }
     _ref.read(espIpProvider.notifier).state = device.ip;
     _ref.read(wsPortProvider.notifier).state = device.wsPort;
     _ref.read(isSimulationModeProvider.notifier).state = false;
