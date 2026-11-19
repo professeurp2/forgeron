@@ -272,6 +272,35 @@ void main() {
       expect(completed, isTrue);
       expect(stalled, isFalse);
     });
+
+    test(
+        'ignore les lignes de pur commentaire (...) et préserve les indices de lignes originaux',
+        () {
+      final progressIndices = <int>[];
+      var completed = false;
+      svc.streamLines(
+        [
+          '( 06 - PERCAGE GRILLE 3x3 )',
+          'G21 G90 G94 G17',
+          '( --- Trou 1 : X0 Y0 --- )',
+          'G0 X0 Y0 (Positionnement rapide)',
+          'M30',
+        ],
+        onProgress: progressIndices.add,
+        onComplete: () => completed = true,
+      );
+
+      // Seules les 3 vraies lignes G-code doivent partir sur le fil (sans commentaires).
+      expect(conn.gcodeLines, ['G21 G90 G94 G17\n', 'G0 X0 Y0\n', 'M30\n']);
+
+      svc.handleAck();
+      svc.handleAck();
+      svc.handleAck();
+
+      expect(completed, isTrue);
+      // Les indices remontés à l'UI correspondent aux lignes du fichier original (1, 3, 4).
+      expect(progressIndices, [1, 3, 4]);
+    });
   });
 }
 

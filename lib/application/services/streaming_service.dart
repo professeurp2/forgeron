@@ -32,13 +32,22 @@ class GCodeStreamingService {
   static final RegExp _programPauseRegex =
       RegExp(r'(?:^|\s)M0?[01](?![0-9])', caseSensitive: false);
   static final RegExp _parenCommentRegex = RegExp(r'\([^)]*\)');
+  static final RegExp _multiSpaceRegex = RegExp(r'\s+');
+
+  /// Nettoie une ligne G-code de ses commentaires (`;` et `(...)`) avant envoi
+  /// sur la liaison série/WebSocket. Les lignes de pur commentaire deviennent
+  /// vides et ne gaspillent pas le buffer RX de 127 octets de l'ESP32.
+  @visibleForTesting
+  static String stripComments(String line) {
+    final noSemi = line.split(';').first;
+    final noParen = noSemi.replaceAll(_parenCommentRegex, ' ');
+    return noParen.replaceAll(_multiSpaceRegex, ' ').trim();
+  }
 
   /// Vrai si [line] contient une commande `M0` ou `M1` hors commentaire.
   @visibleForTesting
   static bool isProgramPauseLine(String line) {
-    final noSemi = line.split(';').first;
-    final noParen = noSemi.replaceAll(_parenCommentRegex, ' ');
-    return _programPauseRegex.hasMatch(noParen.trim());
+    return _programPauseRegex.hasMatch(stripComments(line));
   }
 
   final Queue<int> _sentByteCounts = Queue<int>();
@@ -135,8 +144,7 @@ class GCodeStreamingService {
     // ───────────────────────────────────────────────────────────────────────
 
     for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final clean = line.split(';')[0].trim();
+      final clean = stripComments(lines[i]);
       if (clean.isNotEmpty) {
         _pendingLines.add('$clean\n');
         _pendingLineIndices.add(i);
@@ -217,6 +225,10 @@ class GCodeStreamingService {
 
       // Algorithme Character-Counting : on ne dépasse jamais 127 octets
       if (_bytesInFlight + lineSize <= _maxRxBufferSize) {
+        if (!_connection.sendRaw(line)) {
+          // Échec d'émission : ne pas comptabiliser la ligne en vol.
+          break;
+        }
         _pendingLines.removeFirst();
         final originalIndex = _pendingLineIndices.removeFirst();
         _sentLineIndices.add(originalIndex);
@@ -229,7 +241,6 @@ class GCodeStreamingService {
         final isPauseLine = isProgramPauseLine(line);
         _sentPauseFlags.add(isPauseLine);
         if (isPauseLine) _pausesInFlight++;
-        _connection.sendRaw(line);
         _startWatchdog();
       } else {
         // Buffer FluidNC plein, on attend le prochain 'ok'

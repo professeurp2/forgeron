@@ -106,21 +106,27 @@ class FluidNCConnection {
   }
 
   void _handleIncomingMessage(dynamic message) {
-    String msg;
+    String raw;
     if (message is List<int>) {
       // L'ESP32 FluidNC envoie des frames binaires WebSocket — convertir en UTF-8
-      msg = String.fromCharCodes(message).trim();
+      raw = String.fromCharCodes(message);
     } else {
-      msg = message.toString().trim();
+      raw = message.toString();
     }
 
-    if (msg.isEmpty) return;
+    if (raw.trim().isEmpty) return;
     _lastResponseTime = DateTime.now();
-    debugPrint('[FORGERON RX] $msg');
-    _trafficController.add('RX: $msg');
 
-    // Détection des acquittements déléguée au GCodeStreamingService via le repository.
-    _messageController.add(msg);
+    // Une trame WebSocket peut contenir plusieurs lignes accolées
+    // (ex: "ok\r\nok\r\n" ou "<Run|...>\r\nok\r\n"). On découpe ligne par
+    // ligne pour qu'aucun 'ok' ne soit perdu.
+    for (final rawLine in raw.split('\n')) {
+      final msg = rawLine.replaceAll('\r', '').trim();
+      if (msg.isEmpty) continue;
+      debugPrint('[FORGERON RX] $msg');
+      _trafficController.add('RX: $msg');
+      _messageController.add(msg);
+    }
   }
 
   /// Période du `?` de statut. 2 s au repos ; le dépôt la descend à 250 ms
