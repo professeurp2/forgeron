@@ -84,6 +84,7 @@ String? interpretMachineCommand(String d) {
   if (u.startsWith('\$H')) return 'Homing des axes (\$H)';
   if (u.startsWith('\$BYE')) return 'Redémarrage ESP32';
   if (u == '\$X') return 'Déverrouillage alarme (\$X)';
+  if (u.startsWith('\$/') && u.contains('/HARD_LIMITS=')) return null;
   if (u.startsWith('\$/')) return 'Réglage FluidNC : $d';
   if (u.startsWith('\$') || u.startsWith('[ESP')) return null; // requêtes
   if (RegExp(r'^G5[4-9]').hasMatch(u)) {
