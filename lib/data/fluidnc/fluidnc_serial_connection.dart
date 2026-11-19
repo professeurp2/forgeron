@@ -73,26 +73,15 @@ class FluidNCSerialConnection implements FluidNCConnection {
   @override
   Duration get heartbeatPeriod => _heartbeatPeriod;
 
-  /// Liste les ports série disponibles sans laisser aucun handle ouvert.
+  /// Liste les ports série disponibles sans ouvrir de handle de périphérique
+  /// (évite tout blocage du thread UI sur les ports Bluetooth COM3/COM4 ou un
+  /// port COM déjà ouvert par FluidNCSerialConnection).
   static List<SerialPortInfo> listAvailablePorts() {
     try {
       final names = SerialPort.availablePorts;
-      return names.map((name) {
-        String? desc;
-        String? mfg;
-        SerialPort? sp;
-        try {
-          sp = SerialPort(name);
-          desc = sp.description;
-          mfg = sp.manufacturer;
-        } catch (_) {
-        } finally {
-          try {
-            sp?.dispose();
-          } catch (_) {}
-        }
-        return SerialPortInfo(name: name, description: desc, manufacturer: mfg);
-      }).toList();
+      return names
+          .map((name) => SerialPortInfo(name: name))
+          .toList();
     } catch (e) {
       debugPrint('[FORGERON USB] Erreur énumération ports: $e');
       return const [];
