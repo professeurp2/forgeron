@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart';
 import '../../domain/models/machine_state.dart';
 import '../../core/utils/kinematics_service.dart';
+import '../../data/fluidnc/fluidnc_serial_connection.dart';
 import 'di_providers.dart';
 import 'machining_mode_provider.dart' show trunnionConfigProvider;
 
@@ -15,9 +16,10 @@ const kDefaultSerialBaudRate = 115200;
 /// Mode de transport physique vers FluidNC : Wi-Fi (WebSocket/HTTP) ou Câble USB (Série COM).
 enum ConnectionTransport { wifi, usb }
 
-/// Transport actif vers la carte FluidNC.
+/// Transport actif vers la carte FluidNC (USB par défaut sur poste fixe pour
+/// éviter toute latence ou micro-coupure Wi-Fi).
 final connectionTransportProvider =
-    StateProvider<ConnectionTransport>((ref) => ConnectionTransport.wifi);
+    StateProvider<ConnectionTransport>((ref) => ConnectionTransport.usb);
 
 /// Port série USB sélectionné (ex: 'COM5' sur Windows, '/dev/ttyUSB0' sur Linux).
 final serialPortProvider = StateProvider<String>((ref) => 'COM5');
@@ -73,13 +75,38 @@ Future<void> loadNetworkPreferences(WidgetRef ref) async {
   final prefs = await SharedPreferences.getInstance();
   final ip = prefs.getString('esp_ip') ?? '192.168.137.100';
   final wsPort = prefs.getInt('ws_port') ?? kDefaultWsPort;
-  final transportName = prefs.getString('connection_transport') ?? 'wifi';
-  final serialPort = prefs.getString('serial_port') ?? 'COM5';
+  final savedTransport = prefs.getString('connection_transport');
+  var serialPort = prefs.getString('serial_port') ?? 'COM5';
   final baud = prefs.getInt('serial_baud') ?? kDefaultSerialBaudRate;
+
+  // Si un port série USB (CP210x / CH340 / ESP32) est branché sur le PC,
+  // privilégier automatiquement l'USB et sélectionner le bon port COM.
+  final ports = FluidNCSerialConnection.listAvailablePorts();
+  final usbPort = ports.where((p) {
+    final d = '${p.description ?? ''} ${p.manufacturer ?? ''}'.toLowerCase();
+    return d.contains('cp210') ||
+        d.contains('ch340') ||
+        d.contains('silicon labs') ||
+        d.contains('usb') ||
+        d.contains('uart') ||
+        d.contains('serial');
+  }).firstOrNull;
+
+  ConnectionTransport transport;
+  if (usbPort != null) {
+    transport = ConnectionTransport.usb;
+    if (!ports.any((p) => p.name == serialPort)) {
+      serialPort = usbPort.name;
+    }
+  } else {
+    transport = savedTransport == 'wifi'
+        ? ConnectionTransport.wifi
+        : ConnectionTransport.usb;
+  }
+
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;
-  ref.read(connectionTransportProvider.notifier).state =
-      transportName == 'usb' ? ConnectionTransport.usb : ConnectionTransport.wifi;
+  ref.read(connectionTransportProvider.notifier).state = transport;
   ref.read(serialPortProvider.notifier).state = serialPort;
   ref.read(serialBaudRateProvider.notifier).state = baud;
 }

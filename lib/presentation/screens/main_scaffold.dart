@@ -112,12 +112,15 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       final isMobile = ResponsiveLayout.isMobile(context);
       ref.read(tutorialProvider.notifier).checkAutoStart(isMobile: isMobile);
       
-      // 1. Charge la dernière adresse IP connue
+      // 1. Charge la dernière adresse IP / le transport (USB ou Wi-Fi) connu
       await loadNetworkPreferences(ref);
       await loadCameraPreferences(ref);
 
-      // 2. Lance la découverte réseau avec auto-connexion sur le premier ESP32 trouvé
-      ref.read(discoveryProvider.notifier).scan(autoConnect: true);
+      // 2. Lance la découverte réseau UNIQUEMENT en mode Wi-Fi (jamais en USB,
+      //    sinon un scan Wi-Fi basculerait la connexion hors du câble USB).
+      if (ref.read(connectionTransportProvider) == ConnectionTransport.wifi) {
+        ref.read(discoveryProvider.notifier).scan(autoConnect: true);
+      }
 
       // 3. Si l'activité Android a été recréée pendant la prise de photo Scan 3D, rouvrir l'écran
       try {
@@ -1034,7 +1037,13 @@ class _HeaderBar extends ConsumerWidget {
     final isOnline = status != null && status != MachineStatus.offline;
     final statusLabel = status?.name.toUpperCase() ?? 'HORS LIGNE';
     final statusColor = _statusColor(context, status ?? MachineStatus.offline);
+    final transport = ref.watch(connectionTransportProvider);
     final ip = ref.watch(espIpProvider);
+    final serialPort = ref.watch(serialPortProvider);
+    final serialBaud = ref.watch(serialBaudRateProvider);
+    final endpointLabel = transport == ConnectionTransport.usb
+        ? 'USB $serialPort @ $serialBaud'
+        : ip;
 
     return Container(
       height: 72,
@@ -1083,7 +1092,7 @@ class _HeaderBar extends ConsumerWidget {
           if (!compact) ...[
             SizedBox(width: 12),
             Text(
-              ip,
+              endpointLabel,
               style: TextStyle(
                   color: context.fc.textDisabled,
                   fontSize: 10,
@@ -1663,6 +1672,8 @@ class _StatusFooter extends ConsumerWidget {
     final spindle = state?.spindleSpeed.toStringAsFixed(0) ?? '0';
     final isOnline = state?.status != null &&
         state?.status != MachineStatus.offline;
+    final isUsb =
+        ref.watch(connectionTransportProvider) == ConnectionTransport.usb;
 
     return Container(
       height: 32,
@@ -1703,13 +1714,17 @@ class _StatusFooter extends ConsumerWidget {
                         fontFamily: 'JetBrains Mono')),
                 const SizedBox(width: 24),
                 Icon(
-                  isOnline ? Icons.wifi : Icons.wifi_off,
+                  isUsb
+                      ? (isOnline ? Icons.usb_rounded : Icons.usb_off_rounded)
+                      : (isOnline ? Icons.wifi : Icons.wifi_off),
                   color: isOnline ? context.fc.success : context.fc.error,
                   size: 12,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isOnline ? 'ESP32 CONNECTÉ' : 'DÉCONNECTÉ',
+                  isOnline
+                      ? (isUsb ? 'ESP32 USB CONNECTÉ' : 'ESP32 CONNECTÉ')
+                      : 'DÉCONNECTÉ',
                   style: TextStyle(
                       color: isOnline ? context.fc.success : context.fc.error,
                       fontSize: 10,
