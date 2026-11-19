@@ -42,6 +42,7 @@ class FluidNCMachineRepository implements MachineRepository {
             // radio pendant le homing ou l'usinage.
             _connection.sendRaw('\$WiFi/Mode=Off\n');
           }
+          _disableNoisyHardLimits();
           _connection.sendRaw('?');      // Statut immédiat (<Idle|MPos:...>)
           _connection.sendRaw('\$G\n');  // État modal
           _connection.sendRaw('\$#\n');  // Offsets de travail
@@ -61,11 +62,41 @@ class FluidNCMachineRepository implements MachineRepository {
     });
   }
 
+  /// Désactive `hard_limits` en RAM sur X, Y, Z, A pour immuniser l'usinage
+  /// contre les parasites électromagnétiques (EMI) de la broche DC (`M3` sur
+  /// relais GPIO21) qui déclenchaient de fausses « ALARM:1 Hard Limit » sur les
+  /// entrées fins de course (pull-up interne ~45 kΩ) dès la mise en route de la
+  /// broche.
+  ///
+  /// SÉCURITÉ CONSERVÉE :
+  ///  - Le homing (`$H`) utilise toujours les capteurs physiques (`limit_all_pin`).
+  ///  - Les limites logicielles (`soft_limits: true`) protègent toutes les courses.
+  ///  - L'arrêt d'urgence matériel (`estop_pin: gpio.15`) reste actif.
+  void _disableNoisyHardLimits() {
+    for (final axis in const ['x', 'y', 'z', 'a']) {
+      _connection.sendRaw('\$/axes/$axis/motor0/hard_limits=false\n');
+    }
+  }
+
   void _handleMessage(String message) {
     if (_stateController.isClosed) return;
 
-    if (message.trim() == 'ok' || message.startsWith('error:')) {
+    final trimmed = message.trim();
+    if (trimmed == 'ok' || trimmed.startsWith('error:')) {
       if (_streamingService.isStreaming) _streamingService.handleAck();
+    } else if (trimmed.startsWith('ALARM:')) {
+      // Arrêter immédiatement le streaming dès la ligne `ALARM:N` sans attendre
+      // le prochain rapport `<Alarm|...>`.
+      if (_streamingService.isStreaming) _streamingService.stop();
+    } else if (trimmed.startsWith('Grbl ') || trimmed.startsWith('FluidNC')) {
+      // Après un soft-reset (Ctrl-X) ou redémarrage de l'ESP32, réappliquer
+      // `hard_limits=false` en RAM.
+      if (_streamingService.isStreaming) _streamingService.stop();
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
+        if (_connection.isConnected && !_stateController.isClosed) {
+          _disableNoisyHardLimits();
+        }
+      });
     }
 
     final prevStatus = _currentState.status;
