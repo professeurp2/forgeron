@@ -79,6 +79,7 @@ class FluidNCMachineRepository implements MachineRepository {
           prevStatus != MachineStatus.alarm) {
         _streamingService.stop();
       }
+      _streamingService.setMachineHold(newState.status == MachineStatus.hold);
       if (newState.status == MachineStatus.run ||
           newState.status == MachineStatus.home ||
           newState.status == MachineStatus.hold) {
@@ -174,11 +175,17 @@ class FluidNCMachineRepository implements MachineRepository {
   @override
   Future<void> resume() async {
     _connection.sendRaw('~'); // Cycle Start
+    if (_streamingService.isStreaming) {
+      _streamingService.resume();
+    }
   }
 
   @override
   Future<void> pause() async {
     _connection.sendRaw('!'); // Feed Hold
+    if (_streamingService.isStreaming) {
+      _streamingService.pause();
+    }
   }
 
   @override

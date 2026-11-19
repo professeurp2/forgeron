@@ -15,11 +15,40 @@ class GCodeStreamingService {
   // Configuration du buffer GRBL (FluidNC)
   static const int _maxRxBufferSize = 127;
 
+  /// Détection des commandes de pause programme (`M0` / `M00` / `M1` / `M01`).
+  ///
+  /// CRITIQUE : lorsqu'une ligne contient `M0` ou `M1`, GRBL/FluidNC passe en
+  /// `Hold:0` et **retient son `ok`** jusqu'à ce que l'opérateur envoie `~`
+  /// (Cycle Start). Si l'opérateur met plus de 5 secondes à changer l'outil et
+  /// à reprendre, le watchdog expirait pendant le `Hold`, mettait `_isPaused = true`,
+  /// et appelait `_onStall` dès que la machine repassait en `Idle` après le `~`.
+  ///
+  /// Solution :
+  ///  1. Barrière de sérialisation sur `M0`/`M1` : on n'envoie aucune ligne
+  ///     suivante tant que la pause `M0`/`M1` n'a pas été acquittée par `ok`
+  ///     (après le `~` de reprise).
+  ///  2. Tant qu'un `M0`/`M1` est en vol (ou que la machine est en `Hold`), le
+  ///     watchdog est mis en veille légitime, puis réarmé proprement à la reprise.
+  static final RegExp _programPauseRegex =
+      RegExp(r'(?:^|\s)M0?[01](?![0-9])', caseSensitive: false);
+  static final RegExp _parenCommentRegex = RegExp(r'\([^)]*\)');
+
+  /// Vrai si [line] contient une commande `M0` ou `M1` hors commentaire.
+  @visibleForTesting
+  static bool isProgramPauseLine(String line) {
+    final noSemi = line.split(';').first;
+    final noParen = noSemi.replaceAll(_parenCommentRegex, ' ');
+    return _programPauseRegex.hasMatch(noParen.trim());
+  }
+
   final Queue<int> _sentByteCounts = Queue<int>();
   final Queue<String> _pendingLines = Queue<String>();
   final Queue<int> _pendingLineIndices = Queue<int>();
   final Queue<int> _sentLineIndices = Queue<int>();
+  final Queue<bool> _sentPauseFlags = Queue<bool>();
   int _bytesInFlight = 0;
+  int _pausesInFlight = 0;
+  bool _machineInHold = false;
   bool _isPaused = false;
   bool _active = false;
 
@@ -121,11 +150,14 @@ class GCodeStreamingService {
   void _resetBuffers() {
     _isPaused = false;
     _active = false;
+    _machineInHold = false;
     _pendingLines.clear();
     _pendingLineIndices.clear();
     _sentLineIndices.clear();
     _sentByteCounts.clear();
+    _sentPauseFlags.clear();
     _bytesInFlight = 0;
+    _pausesInFlight = 0;
     _sentDwellMs.clear();
     _dwellMsInFlight = 0;
     _watchdogTimer?.cancel();
@@ -137,6 +169,9 @@ class GCodeStreamingService {
       final lastSentSize = _sentByteCounts.removeFirst();
       _bytesInFlight -= lastSentSize;
       if (_sentDwellMs.isNotEmpty) _dwellMsInFlight -= _sentDwellMs.removeFirst();
+      if (_sentPauseFlags.isNotEmpty && _sentPauseFlags.removeFirst()) {
+        if (_pausesInFlight > 0) _pausesInFlight--;
+      }
       if (_sentLineIndices.isNotEmpty) {
         final ackedIndex = _sentLineIndices.removeFirst();
         _onProgress?.call(ackedIndex);
@@ -172,6 +207,11 @@ class GCodeStreamingService {
     if (_isPaused) return;
 
     while (_pendingLines.isNotEmpty) {
+      // Barrière M0/M1 : tant qu'une pause programme est en vol (en attente du
+      // Cycle Start `~` de l'opérateur), on ne pousse aucune ligne suivante
+      // dans le buffer RX de l'ESP32.
+      if (_pausesInFlight > 0) break;
+
       final line = _pendingLines.first;
       final lineSize = line.length;
 
@@ -186,6 +226,9 @@ class GCodeStreamingService {
         final dwellMs = dwellMsOf(line);
         _sentDwellMs.add(dwellMs);
         _dwellMsInFlight += dwellMs;
+        final isPauseLine = isProgramPauseLine(line);
+        _sentPauseFlags.add(isPauseLine);
+        if (isPauseLine) _pausesInFlight++;
         _connection.sendRaw(line);
         _startWatchdog();
       } else {
@@ -197,6 +240,10 @@ class GCodeStreamingService {
 
   void _startWatchdog() {
     _watchdogTimer?.cancel();
+    // Si une pause programme (M0/M1) est en attente de reprise opérateur ou que
+    // la machine est en Hold, l'attente est légitime et de durée indéterminée :
+    // on désarme le watchdog jusqu'à la reprise.
+    if (_pausesInFlight > 0 || _machineInHold) return;
     // Le silence d'une temporisation en cours est légitime : on lui accorde sa
     // durée EN PLUS du timeout, sinon un `G4` plus long que celui-ci passe
     // pour un blocage.
@@ -204,6 +251,22 @@ class GCodeStreamingService {
       milliseconds: _watchdogTimeout.inMilliseconds + _dwellMsInFlight,
     );
     _watchdogTimer = Timer(budget, _handleStall);
+  }
+
+  /// Notifie le streamer de l'état `Hold` de la carte (Feed Hold `!` ou `M0`).
+  /// Tant que la carte est en `Hold`, le watchdog ne doit pas déclencher un
+  /// faux blocage. Dès la sortie de `Hold` (reprise `~`), le flux reprend.
+  void setMachineHold(bool inHold) {
+    if (_machineInHold == inHold) return;
+    _machineInHold = inHold;
+    if (!_active) return;
+    if (inHold) {
+      _watchdogTimer?.cancel();
+    } else {
+      _isPaused = false;
+      _attemptSend();
+      if (_bytesInFlight > 0) _startWatchdog();
+    }
   }
 
   /// Signal « la machine est vivante et bouge » (rapport de statut Run/Jog/Home
@@ -219,6 +282,7 @@ class GCodeStreamingService {
   /// Gère une perte de synchronisation ou de réseau (aucun acquittement NI
   /// mouvement pendant le timeout → machine réellement muette/bloquée).
   void _handleStall() {
+    if (_pausesInFlight > 0 || _machineInHold) return;
     _isPaused = true;
     _connection.sendRaw('?');
     const reason =
@@ -229,11 +293,14 @@ class GCodeStreamingService {
 
   void resume() {
     _isPaused = false;
+    _machineInHold = false;
     _attemptSend();
+    if (_bytesInFlight > 0) _startWatchdog();
   }
 
   void pause() {
     _isPaused = true;
+    _watchdogTimer?.cancel();
   }
 
   /// Purge le flux (arrêt manuel, E-STOP, ou perte de liaison).

@@ -201,6 +201,78 @@ void main() {
           reason: 'aucun renvoi après la purge d\'alarme');
     });
   });
+
+  group('Pause programme M0/M1 (changement d\'outil) et Hold', () {
+    test('isProgramPauseLine détecte M0/M1 hors commentaires', () {
+      expect(
+        GCodeStreamingService.isProgramPauseLine(
+          'M0 (CHANGEMENT OUTIL T1 - MONTER OUTIL PUIS REPRENDRE)\n',
+        ),
+        isTrue,
+      );
+      expect(GCodeStreamingService.isProgramPauseLine('M00\n'), isTrue);
+      expect(GCodeStreamingService.isProgramPauseLine('M1\n'), isTrue);
+      expect(
+        GCodeStreamingService.isProgramPauseLine('(PAS DE M0 ICI)\n'),
+        isFalse,
+      );
+      expect(GCodeStreamingService.isProgramPauseLine('G0 Z5 ; M0\n'), isFalse);
+      expect(GCodeStreamingService.isProgramPauseLine('M3 S3000\n'), isFalse);
+    });
+
+    test(
+        'barrière M0 : retient les lignes suivantes tant que M0 n\'est pas acquitté, '
+        'et ne déclenche pas le watchdog pendant l\'attente opérateur',
+        () async {
+      var stalled = false;
+      var completed = false;
+      svc.streamLines(
+        [
+          'G21 G90 G94 G17',
+          'G54',
+          'M5 (ARRET BROCHE - CHANGEMENT OUTIL)',
+          'M0 (CHANGEMENT OUTIL T1 - MONTER OUTIL PUIS REPRENDRE)',
+          'G43.1 Z0',
+          'S3000 M3',
+          'G0 Z5',
+        ],
+        onStall: (_) => stalled = true,
+        onComplete: () => completed = true,
+      );
+
+      // Seules les 4 premières lignes (jusqu'au M0 inclus) doivent partir.
+      // G43.1 Z0, S3000 M3 et G0 Z5 restent retenues derrière la barrière M0.
+      expect(conn.gcodeLines.length, 4);
+      expect(conn.gcodeLines.last, contains('M0'));
+
+      // L'ESP32 acquitte les 3 lignes avant M0, puis entre en Hold sur M0.
+      svc.handleAck(); // G21...
+      svc.handleAck(); // G54
+      svc.handleAck(); // M5
+      svc.setMachineHold(true);
+
+      // Toujours aucune ligne envoyée après M0 tant que M0 n'a pas reçu son ok.
+      expect(conn.gcodeLines.length, 4);
+
+      // L'opérateur met > 5 s (timeout du watchdog) à changer l'outil :
+      // aucun faux blocage ne doit se déclencher.
+      await Future<void>.delayed(const Duration(seconds: 6));
+      expect(stalled, isFalse,
+          reason: 'Le watchdog ne doit pas expirer pendant une pause M0 / Hold');
+
+      // L'opérateur reprend (~) : FluidNC sort de Hold et acquitte M0 ('ok').
+      svc.setMachineHold(false);
+      svc.handleAck(); // ok du M0
+
+      // Les 3 lignes suivantes partent immédiatement.
+      expect(conn.gcodeLines.length, 7);
+      svc.handleAck(); // G43.1 Z0
+      svc.handleAck(); // S3000 M3
+      svc.handleAck(); // G0 Z5
+      expect(completed, isTrue);
+      expect(stalled, isFalse);
+    });
+  });
 }
 
 /// Détection des temporisations `G4 P…` par le watchdog de streaming.
