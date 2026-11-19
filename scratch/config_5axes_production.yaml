@@ -3,6 +3,26 @@ name: Forgeron CNC 5-Axes Trunnion (X,Y,Z,A,C) — ESP32 DevKit V1 + TB6600
 meta: PFE ENI — Configuration production pour 5 drivers TB6600
 
 # =============================================================================
+# CONNECTIVITÉ RÉSEAU (FluidNC v3.x) :
+# Note : FluidNC stocke les réglages WiFi en mémoire NVS (non volatile) et NON
+# dans le fichier config.yaml. Pour connecter cet ESP32 au hotspot du PC :
+#   SSID : Professeur20
+#   Mot de passe : 00000000
+#
+# Commandes console FluidNC (via FluidTerm, WebUI ou terminal série) :
+#   $WiFi/Mode=STA
+#   $Sta/SSID=Professeur20
+#   $Sta/Password=00000000
+#   $Sta/IPMode=Static
+#   $Sta/IP=192.168.137.100
+#   $Sta/Gateway=192.168.137.1
+#   $Sta/Netmask=255.255.255.0
+#   $Bye
+#
+# (Alternative DHCP : $Sta/IPMode=DHCP puis $Bye)
+# =============================================================================
+
+# =============================================================================
 # MOTEUR PAS A PAS : TB6600
 # Câblage : PUL+ → GPIO, PUL- → GND | DIR+ → GPIO, DIR- → GND
 # ENA partagé : ENA+ → GPIO22, ENA- → GND (HIGH = désactivé, LOW = activé)

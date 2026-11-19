@@ -175,13 +175,30 @@ final renderToolpathProvider = Provider<List<List<double>>>((ref) {
   if (!usesRotary) return raw;
 
   final config = ref.watch(trunnionConfigProvider);
-  final kinematics =
+  // Un programme qui déclare son pivot sait mieux que la config où est son zéro.
+  final header = ref.read(gcodeProvider).allLines.take(30).join('\n');
+  final kinematics = KinematicsService.fromProgramHeader(header) ??
       KinematicsService(pivotToTableOffset: config.pivotToTableOffset);
 
   return [
     for (final p in raw)
       _transformPoint(kinematics, p),
   ];
+});
+
+/// Distance du pivot A sous le zéro pièce, si le programme chargé la déclare.
+/// Le visualiseur s'en sert pour placer le brut là où le programme l'attend.
+final programPivotDepthProvider = Provider<double?>((ref) {
+  final lines = ref.watch(gcodeProvider.select((s) => s.allLines));
+  return KinematicsService.fromProgramHeader(lines.take(30).join('\n'))
+      ?.pivotToTableOffset;
+});
+
+/// Forme de l'outil annoncée par le programme : fraise boule si l'en-tête le dit,
+/// fraise plate sinon (cas des programmes CAM du dépôt).
+final programToolTypeProvider = Provider<String>((ref) {
+  final lines = ref.watch(gcodeProvider.select((s) => s.allLines));
+  return lines.take(30).join('\n').toUpperCase().contains('BOULE') ? 'ball' : 'flat';
 });
 
 List<double> _transformPoint(KinematicsService kinematics, List<double> p) {

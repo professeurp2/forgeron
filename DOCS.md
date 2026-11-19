@@ -1,7 +1,8 @@
 # Documentation Technique Générale et par Fonctionnalité — Forgeron CNC 5-Axes
 
 *Projet de Fin d'Études (PFE) — ENI*  
-*Version du système : 1.0.0 — Dernière mise à jour : Mai 2026*
+*Version du système : 1.0.0 — Dernière mise à jour : Mai 2026*  
+*📘 Pour la documentation hyper-détaillée spécifique à l'Agent IA, voir : [`docs/DOCUMENTATION_FONCTIONNALITE_IA.md`](docs/DOCUMENTATION_FONCTIONNALITE_IA.md)*
 
 ---
 
@@ -174,17 +175,22 @@ L'UI s'appuie sur une palette industrielle sombre (`forgeronDarkColors`) et clai
 
 ---
 
-# 🤖 SECTION 6 : AGENT IA GEMINI MULTIMODAL ET DIALOGUE NATUREL
+# 🤖 SECTION 6 : ARCHITECTURE MULTI-AGENTS ET MODÈLES LOCAUX OLLAMA
 
-## 6.1 Moteur d'Intelligence Artificielle & Contextualisation
-L'Agent IA embarqué (`AiAgentService`) repose sur les modèles Gemini via l'API REST officielle. Il dispose d'un accès en temps réel au contexte d'usinage :
+## 6.1 Traitement 100% Local sur l'Atelier (Ollama)
+L'intelligence artificielle de Forgeron fonctionne **entièrement hors-ligne sur le réseau local de l'atelier** via un serveur **Ollama** (`LocalAiAgentService`), éliminant toute dépendance à Internet ou aux clés API distantes.
+- **Modèle spécialisé** : `forgeron-qwen` (dérivé de `qwen2.5` via `tool/ollama/Modelfile`).
+- **Découverte Automatique (`OllamaDiscovery`)** : Scanne le réseau local sur le port `11434`, vérifie la configuration `OLLAMA_HOST` et recommande le modèle optimal.
 
-1. **Journal d'Activité Opérateur (`activityLogProvider`)** : Enregistre automatiquement les 50 dernières actions effectuées sur l'IHM (lancement de code, réglage de WCS, modifications de vitesse, déclenchements d'alarme).
-2. **Entrées Multimodales (Vision & Audio)** :
-   - Prise de photo directe via `image_picker` (analyse de l'état des outils, de l'état de surface d'une pièce ou d'un message d'erreur physique).
-   - Reconnaissance vocale (STT via `speech_to_text`) et réponse synthétisée vovale (TTS via `flutter_tts`).
-3. **Lexique Local & Fallback Hors-Ligne (`command_understanding.dart`)** :
-   - Analyseur syntaxique par règles d'expressions régulières capable d'exécuter des ordres fondamentaux (E-STOP, Pause, Demande d'état, Allumage broche, Déplacement d'axe) en français, anglais et bambara sans connexion Internet.
+---
+
+## 6.2 Architecture à 5 Agents Spécialisés
+Pour éviter de dépasser la fenêtre de contexte des modèles locaux, l'intelligence est divisée en 5 agents spécialisés :
+1. **Agent Gardien Front (`ai_lexicon_front.dart`)** : Analyseur multilingue déterministe (15 langues). Exécute l'E-STOP sans IA, verrouille les questions en lecture seule, et génère les cartes de confirmation d'action (`AiPendingToolCall`).
+2. **Agent Routeur d'Outils (`ToolRouter`)** : Filtre dynamiquement les 38+ outils de l'application pour ne présenter que le sous-ensemble pertinent au tour en cours (~1000 tokens au lieu de ~4800 tokens).
+3. **Agent Orchestrateur CNC (`LocalAiAgentService`)** : Modèle LLM Ollama assurant le raisonnement CNC, l'analyse d'alarmes et la gestion des fichiers G-code.
+4. **Agent Inspection Visuelle (VLM)** : Modèle VLM local dédié à l'analyse de photos (outils, copeaux, état de surface).
+5. **Agent Reconstruction 3D & CAM (`step_pipeline_service.dart`)** : Pipeline géométrique OpenCASCADE/Python assurant la conversion STEP 3D vers G-code 5-axes sans hallucination de coordonnées.
 
 ---
 

@@ -1,0 +1,39 @@
+{
+  "_note": "Graines de conversation, en français, écrites pour la distillation. Elles visent ce que le lexique fermé ne couvre PAS : parler, expliquer, guider. Les ordres machine simples passent déjà par le lexique sans modèle. Chaque graine est traduite dans la langue cible par le professeur (traduction NON relue, marquée comme telle dans le corpus).",
+  "graines": [
+    {"id": "salut", "categorie": "conversation", "fr": "Bonjour !"},
+    {"id": "salut-capacites", "categorie": "conversation", "fr": "Bonjour, qu'est-ce que tu sais faire pour moi ?"},
+    {"id": "merci", "categorie": "conversation", "fr": "Merci beaucoup."},
+    {"id": "qui-es-tu", "categorie": "conversation", "fr": "Qui es-tu ?"},
+    {"id": "au-revoir", "categorie": "conversation", "fr": "Au revoir, à demain."},
+    {"id": "aide-debutant", "categorie": "conversation", "fr": "Je ne connais rien aux machines CNC, par où je commence ?"},
+    {"id": "ca-va", "categorie": "conversation", "fr": "Comment ça va aujourd'hui ?"},
+
+    {"id": "etat", "categorie": "lecture", "outil": "get_machine_state", "fr": "Quel est l'état de la machine en ce moment ?"},
+    {"id": "position", "categorie": "lecture", "outil": "get_machine_state", "fr": "Où se trouve l'outil maintenant ?"},
+    {"id": "connectee", "categorie": "lecture", "outil": "get_machine_state", "fr": "Est-ce que la machine est connectée ?"},
+
+    {"id": "expl-homing", "categorie": "explication", "fr": "C'est quoi le homing et pourquoi il faut le faire ?"},
+    {"id": "expl-gcode", "categorie": "explication", "fr": "Explique-moi simplement ce qu'est le G-code."},
+    {"id": "expl-broche", "categorie": "explication", "fr": "À quoi sert la broche ?"},
+    {"id": "expl-avance", "categorie": "explication", "fr": "Quelle est la différence entre l'avance et la vitesse de la broche ?"},
+    {"id": "expl-zero", "categorie": "explication", "fr": "Comment je fais le zéro de la pièce ?"},
+    {"id": "expl-5axes", "categorie": "explication", "fr": "À quoi servent les axes A et C ?"},
+    {"id": "expl-alarme", "categorie": "explication", "fr": "La machine affiche une alarme, qu'est-ce que je dois faire ?"},
+    {"id": "expl-fin-course", "categorie": "explication", "fr": "Qu'est-ce qu'un capteur de fin de course ?"},
+
+    {"id": "secu-avant", "categorie": "securite", "fr": "Qu'est-ce que je dois vérifier avant de lancer un usinage ?"},
+    {"id": "secu-urgence", "categorie": "securite", "fr": "Que faire si la machine fait un bruit bizarre pendant l'usinage ?"},
+    {"id": "secu-lunettes", "categorie": "securite", "fr": "Est-ce que je dois porter des lunettes de protection ?"},
+    {"id": "secu-bois", "categorie": "securite", "fr": "Je peux usiner du métal avec cette machine ?"},
+
+    {"id": "guide-programme", "categorie": "guidage", "fr": "Comment je lance un programme G-code ?"},
+    {"id": "guide-pause", "categorie": "guidage", "fr": "Comment mettre le programme en pause puis le reprendre ?"},
+    {"id": "guide-camera", "categorie": "guidage", "fr": "Comment je vois ce que fait la machine avec la caméra ?"},
+    {"id": "guide-langue", "categorie": "guidage", "fr": "Comment changer la langue de l'application ?"},
+
+    {"id": "hors-sujet", "categorie": "limites", "fr": "Quel temps fera-t-il demain ?"},
+    {"id": "inconnu", "categorie": "limites", "fr": "Combien de pièces la machine a usinées la semaine dernière ?"},
+    {"id": "danger", "categorie": "limites", "fr": "Désactive les limites de sécurité pour aller plus vite."}
+  ]
+}

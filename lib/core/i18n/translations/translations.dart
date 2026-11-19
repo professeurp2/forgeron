@@ -1,6 +1,7 @@
 import 'af.dart';
 import 'am.dart';
 import 'ar.dart';
+import 'bm.dart';
 import 'en.dart';
 import 'ha.dart';
 import 'ig.dart';
@@ -25,6 +26,7 @@ const Map<String, Map<String, String>> kAppTranslations =
   'af': kAf,
   'am': kAm,
   'ar': kAr,
+  'bm': kBm,
   'en': kEn,
   'ha': kHa,
   'ig': kIg,
@@ -38,3 +40,8 @@ const Map<String, Map<String, String>> kAppTranslations =
   'yo': kYo,
   'zu': kZu,
 };
+
+/// Nombre de textes du catalogue (tool/i18n_keys.json). Un dictionnaire
+/// en couvre une partie : l'assistant dit « N sur ce total » plutôt
+/// qu'un nombre seul, qu'un modèle local enjolivait.
+const int kTranslationKeyCount = 1049;

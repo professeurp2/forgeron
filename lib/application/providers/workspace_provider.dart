@@ -15,13 +15,26 @@ const _kWorkFolderKey = 'work_folder_path';
 /// Chemin du **dossier de travail** choisi par l'utilisateur, persisté dans les
 /// préférences pour rester disponible aux prochains lancements.
 class WorkFolderNotifier extends StateNotifier<String?> {
+  late final Future<String?> _loadFuture;
+
   WorkFolderNotifier() : super(null) {
-    _load();
+    _loadFuture = _load();
   }
 
-  Future<void> _load() async {
+  Future<String?> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    state = prefs.getString(_kWorkFolderKey);
+    final saved = prefs.getString(_kWorkFolderKey);
+    if (state == null && saved != null && saved.isNotEmpty) {
+      state = saved;
+    }
+    return state;
+  }
+
+  /// Garantit que le dossier persisté a fini d'être relu depuis SharedPreferences
+  /// avant qu'un outil IA (ex: `list_workspace_files`, `load_gcode_file`) ne le lise.
+  Future<String?> ensureLoaded() async {
+    if (state != null && state!.isNotEmpty) return state;
+    return await _loadFuture;
   }
 
   Future<void> _persist(String? path) async {

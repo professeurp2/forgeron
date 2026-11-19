@@ -41,6 +41,9 @@ class MockMachineRepository implements MachineRepository {
     _simulationSpeedMultiplier = speed;
   }
 
+  @override
+  void setStatusPollInterval(Duration interval) {} // pas de carte à interroger
+
   void _startSimulation() {
     _simulationTimer?.cancel();
     _simulationTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {

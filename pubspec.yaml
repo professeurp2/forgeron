@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: ^3.10.0
@@ -83,6 +83,8 @@ dependencies:
   # AiWindowLauncher) s'appuie sur cette API classique.
   desktop_multi_window: 0.2.1
   fl_chart: ^1.2.0
+  flutter_libserialport: ^0.6.0
+  pasteboard: ^0.5.0
   # window_manager retiré : plus aucun appelant, et sa présence seule
   # posait problème. Il s'attache à UNE fenêtre native — celle qu'il trouve à
   # son initialisation. Initialisé dans le second moteur Flutter d'une fenêtre
@@ -105,6 +107,9 @@ dependencies:
 dependency_overrides:
   webview_windows:
     path: third_party/webview_windows
+  # Dictée Windows : copie corrigée (résultats perdus, voir son README-FORGERON.md).
+  speech_to_text_windows:
+    path: third_party/speech_to_text_windows
 
 dev_dependencies:
   flutter_test:
@@ -152,6 +157,8 @@ flutter:
     - web/three_viewer.html
     - web/js/three.min.js
     - web/js/OrbitControls.js
+    - web/js/dexel_stock.js
+    - web/js/part_model.js
     - assets/logo.png
     - assets/images/tools/
     - assets/audio/

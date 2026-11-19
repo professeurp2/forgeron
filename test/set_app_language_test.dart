@@ -93,14 +93,17 @@ void main() {
       final j = await appelle('bm');
       // Le nombre vient du dictionnaire chargé, pas d'une promesse : c'est ce
       // qui permet à l'agent de prévenir que le reste restera en français.
-      expect(j['libelles_traduits'], isA<int>());
+      // Avec le total : un nombre seul, le modèle local l'enjolivait.
+      expect('${j['libelles_traduits']}',
+          matches(RegExp(r'^\d+ sur \d+ ; les autres restent en français$')));
       expect(j['relu_par_un_locuteur'], isFalse);
       expect('${j['retour_arriere']}', contains('Paramètres'));
     });
 
     test('le français est annoncé comme la langue source', () async {
       final j = await appelle('fr');
-      expect(j['libelles_traduits'], 'source');
+      // « source » seul faisait inventer « 1676 libellés traduits ».
+      expect('${j['libelles_traduits']}', startsWith('tous'));
     });
 
     test('le changement laisse une trace dans le journal machine', () async {

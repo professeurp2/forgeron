@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/machine_state.dart';
 import '../../domain/repositories/machine_repository.dart';
 import 'fluidnc_connection.dart';
+import 'fluidnc_serial_connection.dart';
 import 'grbl_parser.dart';
 import '../../application/services/streaming_service.dart';
 
@@ -14,6 +15,7 @@ import '../../application/services/streaming_service.dart';
 ///  - Heartbeat pour la surveillance du lien WiFi.
 class FluidNCMachineRepository implements MachineRepository {
   final FluidNCConnection _connection;
+  final bool _ownsConnection;
   final _stateController = StreamController<MachineState>.broadcast();
   MachineState _currentState = const MachineState(status: MachineStatus.offline);
 
@@ -22,7 +24,8 @@ class FluidNCMachineRepository implements MachineRepository {
   late final GCodeStreamingService _streamingService;
   int _lastProgressEmitMs = 0;
 
-  FluidNCMachineRepository(this._connection) {
+  FluidNCMachineRepository(this._connection, {bool ownsConnection = true})
+      : _ownsConnection = ownsConnection {
     _streamingService = GCodeStreamingService(_connection);
     _connection.connect();
 
@@ -35,10 +38,17 @@ class FluidNCMachineRepository implements MachineRepository {
         _stateController.add(_currentState);
       } else {
         Future.delayed(const Duration(milliseconds: 500), () {
+          if (_connection is FluidNCSerialConnection) {
+            // En mode USB, couper le Wi-Fi de l'ESP32 pour éviter tout scan/reconnexion
+            // radio pendant le homing ou l'usinage.
+            _connection.sendRaw('\$WiFi/Mode=Off\n');
+          }
           _connection.sendRaw('\$G\n');   // État modal
           _connection.sendRaw('\$#\n');   // Offsets de travail
           _connection.sendRaw('\$I\n');   // Build info firmware (VER/OPT)
-          _connection.sendRaw('[ESP110]\n'); // WiFi info
+          if (_connection is! FluidNCSerialConnection) {
+            _connection.sendRaw('[ESP110]\n'); // WiFi info
+          }
         });
       }
     });
@@ -57,10 +67,19 @@ class FluidNCMachineRepository implements MachineRepository {
       _currentState = newState;
       _stateController.add(_currentState);
 
+      // La machine bouge : on l'interroge quatre fois par seconde au lieu
+      // d'une fois toutes les deux secondes, pour que ce qui est affiché (DRO,
+      // jumeau 3D, enlèvement de matière) soit ce que la carte fait, pas ce
+      // qu'elle faisait il y a deux secondes.
+      if (newState.status != prevStatus) {
+        _connection.setHeartbeatPeriod(pollIntervalFor(newState.status));
+      }
+
       if (newState.status == MachineStatus.alarm &&
           prevStatus != MachineStatus.alarm) {
         _streamingService.stop();
       }
+      _streamingService.setMachineHold(newState.status == MachineStatus.hold);
       if (newState.status == MachineStatus.run ||
           newState.status == MachineStatus.home ||
           newState.status == MachineStatus.hold) {
@@ -156,11 +175,17 @@ class FluidNCMachineRepository implements MachineRepository {
   @override
   Future<void> resume() async {
     _connection.sendRaw('~'); // Cycle Start
+    if (_streamingService.isStreaming) {
+      _streamingService.resume();
+    }
   }
 
   @override
   Future<void> pause() async {
     _connection.sendRaw('!'); // Feed Hold
+    if (_streamingService.isStreaming) {
+      _streamingService.pause();
+    }
   }
 
   @override
@@ -177,6 +202,23 @@ class FluidNCMachineRepository implements MachineRepository {
 
   @override
   void setSimulationSpeed(double speed) {} // Ignored for real hardware
+
+  /// Cadence du `?` selon l'état : rapide dès que des axes peuvent bouger.
+  static const Duration fastPoll = Duration(milliseconds: 250);
+  static const Duration idlePoll = Duration(seconds: 2);
+
+  static Duration pollIntervalFor(MachineStatus status) => switch (status) {
+        MachineStatus.run ||
+        MachineStatus.home ||
+        MachineStatus.hold ||
+        MachineStatus.check =>
+          fastPoll,
+        _ => idlePoll,
+      };
+
+  @override
+  void setStatusPollInterval(Duration interval) =>
+      _connection.setHeartbeatPeriod(interval);
 
   static const Map<String, int> _wcsToP = {
     'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6,
@@ -200,6 +242,8 @@ class FluidNCMachineRepository implements MachineRepository {
     _statusSub?.cancel();
     _stateController.close();
     _streamingService.dispose();
-    _connection.dispose();
+    if (_ownsConnection) {
+      _connection.dispose();
+    }
   }
 }

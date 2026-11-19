@@ -63,11 +63,27 @@ pipeline/*.stp
 # Rapports de Forgeron-Bench (copier les rapports retenus dans docs/addis/evidence/)
 /eval_reports/
 
-# Service reco3d : images et r�sultats des jobs
+# Service reco3d : images et resultats des jobs
 tool/reco3d/storage/
-
-
 tool/reco3d/bin/
 
 # Dossiers temporaires de pytest (tool/reco3d)
 .pytest_temp/
+
+dist/*
+!dist/README.md
+!dist/README.txt
+!dist/INSTALL.txt
+!dist/INSTALL.md
+
+installer/redist/
+
+third_party/**/pubspec.lock
+
+# Modèles 3D d'essai (implant crânien, dents NIH 3D, turbine...) : ~480 Mo,
+# dont un STEP de 248 Mo que GitHub refuse (limite 100 Mo par fichier).
+# Ce sont des entrées de test, pas du code : ils restent sur le disque.
+scratch/3D/
+
+# Corpus de distillation : données générées, NON relues (tool/distill/)
+/distill_data/

@@ -103,6 +103,11 @@ def machine_to_piece(
     return _rz(-c_deg) @ inner
 
 
+def tool_axis_in_piece(a_deg: float, c_deg: float) -> np.ndarray:
+    """Axe de la broche (vers le haut) vu depuis le repère pièce."""
+    return _rz(-c_deg) @ _rx(-a_deg) @ np.array([0.0, 0.0, 1.0])
+
+
 def tool_position(
     contact: np.ndarray,
     normal: np.ndarray,

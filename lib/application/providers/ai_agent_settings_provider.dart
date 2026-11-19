@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/bundled_runtime.dart';
 import '../services/local_ai_agent_service.dart';
+import '../services/local_translator.dart';
 
 /// Catégories d'actions que l'agent IA peut exécuter sur la machine.
 /// La lecture seule (état machine, diagnostics) et l'arrêt d'urgence ne sont
@@ -56,10 +58,21 @@ class AiAgentSettings {
   /// Adresse du serveur IA **local** (Ollama, llama.cpp, LM Studio…) sur le
   /// réseau de l'atelier. Vide = on interroge Gemini.
   ///
-  /// C'est ce seul champ qui choisit le fournisseur : renseigné, tout passe en
-  /// local et l'agent n'a plus besoin d'Internet — donc plus besoin de la 4G
-  /// pendant que le téléphone est joint à l'AP de l'ESP32.
+  /// Renseigné, l'agent peut tourner en local, sans Internet — donc sans 4G
+  /// pendant que le téléphone est joint à l'AP de l'ESP32. Le choix effectif
+  /// est [usesLocal].
   final String localBaseUrl;
+
+  /// Choix explicite de Gemini alors qu'un serveur local est configuré.
+  ///
+  /// Avant, seul [localBaseUrl] choisissait le fournisseur : passer en ligne
+  /// obligeait à effacer l'adresse (dans un réglage « avancé »), et revenir au
+  /// local à tout reconfigurer. L'opérateur jugeait le basculement cassé.
+  final bool preferOnline;
+
+  /// Fournisseur effectif : le serveur local, s'il est configuré et que
+  /// l'opérateur n'a pas choisi Gemini.
+  bool get usesLocal => !preferOnline && localBaseUrl.isNotEmpty;
 
   /// Nom du modèle servi à cette adresse, tel que le serveur le connaît.
   final String localModel;
@@ -70,6 +83,17 @@ class AiAgentSettings {
   /// une image vont au premier, sans outils ; tous les autres au second.
   final String localVisionModel;
 
+  /// Modèle local qui TRADUIT la réponse finale vers une langue que
+  /// [localModel] n'écrit pas (swahili, haoussa : voir `LocalTranslator`).
+  /// Vide = aucune traduction, l'opérateur reçoit le français simple. Absent
+  /// du serveur : la traduction échoue et le français reste affiché.
+  final String localTranslatorModel;
+
+  /// Interrupteur du traducteur, distinct du nom de modèle : le couper ne
+  /// fait pas oublier quel modèle traduisait. Coupé, l'opérateur reçoit le
+  /// français simple du pilote, sans attente de ~20 s.
+  final bool localTranslatorEnabled;
+
   /// Compréhension des commandes par lexique fermé (`assets/lexicon`), AVANT le
   /// modèle : compréhension multilingue sans réseau, arrêt d'urgence dans
   /// toutes les langues du lexique, restriction à la lecture sur les questions
@@ -77,12 +101,23 @@ class AiAgentSettings {
   /// comportement d'avant (modèle seul + chemin rapide de l'arrêt d'urgence).
   final bool lexiconEnabled;
 
+  /// Secours : quand le serveur local ne répond pas, le tour est donné à
+  /// Gemini (si une clé est enregistrée) au lieu de rester en attente.
+  /// DÉSACTIVÉ par défaut : choisir un modèle local, c'est souvent choisir que
+  /// rien ne sorte de l'atelier — la discussion ne part chez Google que si
+  /// l'opérateur l'a demandé ici.
+  final bool cloudFallback;
+
   const AiAgentSettings({
     this.enabled = false,
     this.localBaseUrl = '',
     this.localModel = defaultLocalModel,
     this.localVisionModel = '',
+    this.localTranslatorModel = LocalTranslator.defaultModel,
+    this.localTranslatorEnabled = true,
     this.lexiconEnabled = true,
+    this.preferOnline = false,
+    this.cloudFallback = false,
     this.autonomy = const {
       AiActionCategory.movement: AiAutonomyLevel.requireConfirmation,
       AiActionCategory.spindleCoolant: AiAutonomyLevel.requireConfirmation,
@@ -101,7 +136,11 @@ class AiAgentSettings {
     String? localBaseUrl,
     String? localModel,
     String? localVisionModel,
+    String? localTranslatorModel,
+    bool? localTranslatorEnabled,
     bool? lexiconEnabled,
+    bool? preferOnline,
+    bool? cloudFallback,
   }) {
     return AiAgentSettings(
       enabled: enabled ?? this.enabled,
@@ -109,7 +148,12 @@ class AiAgentSettings {
       localBaseUrl: localBaseUrl ?? this.localBaseUrl,
       localModel: localModel ?? this.localModel,
       localVisionModel: localVisionModel ?? this.localVisionModel,
+      localTranslatorModel: localTranslatorModel ?? this.localTranslatorModel,
+      localTranslatorEnabled:
+          localTranslatorEnabled ?? this.localTranslatorEnabled,
       lexiconEnabled: lexiconEnabled ?? this.lexiconEnabled,
+      preferOnline: preferOnline ?? this.preferOnline,
+      cloudFallback: cloudFallback ?? this.cloudFallback,
     );
   }
 
@@ -119,7 +163,11 @@ class AiAgentSettings {
         'localBaseUrl': localBaseUrl,
         'localModel': localModel,
         'localVisionModel': localVisionModel,
+        'localTranslatorModel': localTranslatorModel,
+        'localTranslatorEnabled': localTranslatorEnabled,
         'lexiconEnabled': lexiconEnabled,
+        'preferOnline': preferOnline,
+        'cloudFallback': cloudFallback,
       };
 
   factory AiAgentSettings.fromJson(Map<String, dynamic> json) {
@@ -139,8 +187,14 @@ class AiAgentSettings {
       localBaseUrl: json['localBaseUrl'] as String? ?? '',
       localModel: json['localModel'] as String? ?? defaultLocalModel,
       localVisionModel: json['localVisionModel'] as String? ?? '',
+      // Réglages enregistrés avant le traducteur : le modèle conseillé.
+      localTranslatorModel: json['localTranslatorModel'] as String? ??
+          LocalTranslator.defaultModel,
+      localTranslatorEnabled: json['localTranslatorEnabled'] as bool? ?? true,
       // Réglages enregistrés avant le lexique : activé, c'est le défaut voulu.
       lexiconEnabled: json['lexiconEnabled'] as bool? ?? true,
+      preferOnline: json['preferOnline'] as bool? ?? false,
+      cloudFallback: json['cloudFallback'] as bool? ?? false,
     );
   }
 }
@@ -159,6 +213,16 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
     final data = prefs.getString(_storageKey);
     if (data != null) {
       state = AiAgentSettings.fromJson(jsonDecode(data) as Map<String, dynamic>);
+    } else if (BundledRuntime.instance.hasOllama) {
+      // Premier lancement de l'installation Windows : Ollama et ses modèles
+      // sont embarqués sur ce PC, on les propose d'office plutôt que Gemini.
+      // Rien n'est enregistré tant que l'opérateur ne touche à rien.
+      final bundle = BundledRuntime.instance;
+      state = state.copyWith(
+        localBaseUrl: BundledRuntime.ollamaUrl,
+        localModel: bundle.defaultChatModel,
+        localVisionModel: bundle.defaultVisionModel,
+      );
     }
   }
 
@@ -186,6 +250,29 @@ class AiAgentSettingsNotifier extends StateNotifier<AiAgentSettings> {
   /// Modèle local pour les images ; vide = aucun.
   void setLocalVisionModel(String value) {
     state = state.copyWith(localVisionModel: value.trim());
+    _persist();
+  }
+
+  /// Modèle local traducteur ; vide = aucune traduction.
+  void setLocalTranslatorModel(String value) {
+    state = state.copyWith(localTranslatorModel: value.trim());
+    _persist();
+  }
+
+  void setLocalTranslatorEnabled(bool value) {
+    state = state.copyWith(localTranslatorEnabled: value);
+    _persist();
+  }
+
+  /// Bascule entre le serveur local et Gemini, sans rien effacer.
+  void setPreferOnline(bool value) {
+    state = state.copyWith(preferOnline: value);
+    _persist();
+  }
+
+  /// Secours Gemini si le serveur local tombe (désactivé par défaut).
+  void setCloudFallback(bool value) {
+    state = state.copyWith(cloudFallback: value);
     _persist();
   }
 

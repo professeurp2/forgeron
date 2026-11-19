@@ -1,12 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Directory, File, Platform;
+import 'dart:math' as math;
+import 'package:vector_math/vector_math_64.dart';
+import '../../core/utils/kinematics_service.dart';
+import '../../domain/models/machining_mode.dart';
+import '../providers/machining_mode_provider.dart';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/fluidnc/grbl_parser.dart';
 import '../providers/reco3d_provider.dart';
+import '../providers/machine_provider.dart';
 import '../providers/simulation_provider.dart';
+import '../providers/viewer_snapshot_provider.dart';
 import '../providers/ai_agent_settings_provider.dart';
 import '../providers/ai_artifacts_provider.dart';
 import '../providers/camera_provider.dart';
@@ -30,6 +37,7 @@ import '../../core/utils/gcode_command_guard.dart';
 import '../../domain/models/machine_state.dart';
 import 'ai_window_launcher.dart';
 import 'cam_pipeline_service.dart';
+import 'medical_implant_service.dart';
 import 'prismatic_pipeline_service.dart';
 import 'step_pipeline_service.dart';
 import 'step_preview_service.dart';
@@ -37,17 +45,31 @@ import 'step_preview_service.dart';
 /// État de la machine tel que l'agent le lit. Partagé par l'outil
 /// `get_machine_state` et par le bloc « état actuel » du prompt : les deux
 /// montrent exactement la même chose, ou le modèle recevrait deux vérités.
-Map<String, dynamic> machineStateMap(MachineState s) => {
-      'status': s.status.name,
-      'wPos': s.wPos,
-      'mPos': s.mPos,
-      'activeWCS': s.activeWCS,
-      'activeToolNum': s.activeToolNum,
-      'feedrate': s.feedrate,
-      'spindleSpeed': s.spindleSpeed,
-      'overrides': s.overrides,
-      'alarmCode': s.alarmCode,
-    };
+///
+/// Hors ligne, AUCUNE valeur : l'état par défaut porte des zéros partout, et
+/// le modèle les recopiait comme une lecture (« X: 0.0 mm… » alors que rien
+/// n'avait été lu — banc de conversation, 5 nov. 2026). Le prompt disait
+/// pourtant « hors ligne, aucune lecture » : l'outil le contredisait.
+Map<String, dynamic> machineStateMap(MachineState s) =>
+    s.status == MachineStatus.offline
+        ? const {
+            'status': 'offline',
+            'lecture': 'aucune',
+            'note': 'Machine hors ligne : aucune position, avance, vitesse de '
+                'broche, origine ni alarme n\'a été lue. N\'en annonce aucune, '
+                'et ne présente jamais 0 comme une position.',
+          }
+        : {
+            'status': s.status.name,
+            'wPos': s.wPos,
+            'mPos': s.mPos,
+            'activeWCS': s.activeWCS,
+            'activeToolNum': s.activeToolNum,
+            'feedrate': s.feedrate,
+            'spindleSpeed': s.spindleSpeed,
+            'overrides': s.overrides,
+            'alarmCode': s.alarmCode,
+          };
 
 /// Une action que l'agent IA peut exécuter, exposée à Gemini comme une
 /// "function declaration" (function calling). [category] détermine la porte
@@ -329,7 +351,7 @@ class AiToolCatalog {
       inputSchema: const {'type': 'object', 'properties': {}},
       category: null,
       execute: (input, ref) async {
-        final folder = ref.read(workFolderProvider);
+        final folder = await ref.read(workFolderProvider.notifier).ensureLoaded();
         if (folder == null || folder.isEmpty) {
           return 'Aucun dossier de travail sélectionné (écran Espace de '
               'travail → onglet Dossier).';
@@ -368,6 +390,8 @@ class AiToolCatalog {
       execute: (input, ref) async {
         final name = (input['name'] as String?)?.trim() ?? '';
         if (name.isEmpty) return 'ERREUR: nom de fichier manquant.';
+        await ref.read(workFolderProvider.notifier).ensureLoaded();
+        ref.read(workFilesRefreshProvider.notifier).state++;
         final files = ref.read(workFilesProvider);
         final match = files
             .where((f) => f.name.toLowerCase() == name.toLowerCase())
@@ -391,6 +415,92 @@ class AiToolCatalog {
           });
         } catch (e) {
           return 'ERREUR: lecture impossible ($e)';
+        }
+      },
+    ),
+    AiTool(
+      name: 'load_gcode_file',
+      description:
+          'Charge un fichier G-code (.nc, .gcode, .tap, .ngc) de l\'espace de travail dans le contrôleur CNC et affiche son parcours 3D. '
+          'À utiliser avant analyze_gcode et run_program quand l\'opérateur demande de préparer ou d\'exécuter un fichier.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'name': {
+            'type': 'string',
+            'description': 'Nom ou chemin du fichier G-code (ex. « dome.nc »).',
+          },
+        },
+        'required': ['name'],
+      },
+      category: null,
+      execute: (input, ref) async {
+        final raw = ((input['name'] ?? input['path']) as String?)?.trim() ?? '';
+        if (raw.isEmpty) return 'ERREUR: nom de fichier manquant.';
+
+        String? resolvedPath;
+        String displayName = raw;
+
+        await ref.read(workFolderProvider.notifier).ensureLoaded();
+        ref.read(workFilesRefreshProvider.notifier).state++;
+        final files = ref.read(workFilesProvider);
+        final exact = files
+            .where((f) =>
+                f.name.toLowerCase() == raw.toLowerCase() ||
+                f.path.toLowerCase() == raw.toLowerCase())
+            .toList();
+        if (exact.isNotEmpty) {
+          resolvedPath = exact.first.path;
+          displayName = exact.first.name;
+        } else {
+          final partial = files
+              .where((f) => f.name.toLowerCase().contains(raw.toLowerCase()))
+              .toList();
+          if (partial.isNotEmpty) {
+            resolvedPath = partial.first.path;
+            displayName = partial.first.name;
+          } else if (File(raw).existsSync()) {
+            resolvedPath = raw;
+            displayName = raw.split(Platform.pathSeparator).last;
+          }
+        }
+
+        if (resolvedPath == null) {
+          final avail = files.map((f) => f.name).join(', ');
+          return 'ERREUR: fichier "$raw" introuvable dans l\'espace de travail. '
+              'Disponibles : ${avail.isEmpty ? '(aucun)' : avail}';
+        }
+
+        try {
+          final content = await FilePickerService.readWorkFile(resolvedPath);
+          if (content.trim().isEmpty) {
+            return 'ERREUR: le fichier "$displayName" est vide.';
+          }
+          await ref.read(gcodeProvider.notifier).loadFile(content);
+          final loaded = ref.read(gcodeProvider);
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+
+          final wcsMatches = RegExp(r'\bG5[4-9]\b')
+              .allMatches(content.toUpperCase())
+              .map((m) => m.group(0)!)
+              .toSet()
+              .toList();
+
+          return jsonEncode({
+            'loaded': true,
+            'name': displayName,
+            'path': resolvedPath,
+            'lines': loaded.allLines.length,
+            'toolpath_points': loaded.toolpath.length,
+            'wcs_in_program': wcsMatches,
+            'adapt_warnings': loaded.adaptWarnings,
+            'adapt_blocking': loaded.adaptBlocking,
+            'tools': [for (final t in loaded.tools) t.toString()],
+          });
+        } catch (e) {
+          return 'ERREUR: chargement impossible ($e)';
         }
       },
     ),
@@ -707,7 +817,17 @@ class AiToolCatalog {
       category: AiActionCategory.streaming,
       execute: (input, ref) async {
         final r = await ref.read(streamingProvider.notifier).startStream();
-        if (r.isValid) return 'OK: exécution démarrée';
+        if (r.isValid) {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+          if (!Platform.environment.containsKey('FLUTTER_TEST') &&
+              ref.read(machineRepositoryProvider).currentState.status ==
+                  MachineStatus.offline) {
+            ref.read(simulationProvider.notifier).play(speedMultiplier: 8.0);
+          }
+          return 'OK: exécution démarrée';
+        }
         final line = r.errorLine != null ? ' (ligne ${r.errorLine})' : '';
         return 'REFUSÉ: ${r.errorMessage}$line';
       },
@@ -715,7 +835,8 @@ class AiToolCatalog {
     AiTool(
       name: 'run_gcode_program',
       description:
-          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute, avec validation trajectoire + ForceGuard. Réservé à un programme que l\'OPÉRATEUR t\'a donné mot pour mot : jamais un programme rédigé par toi (une coordonnée fausse peut casser la machine). Remplace le programme actuellement chargé.',
+          'Charge le programme G-code fourni (plusieurs lignes) PUIS l\'exécute immédiatement sur la machine, avec validation trajectoire + ForceGuard. '
+          'Utilisable pour un programme donné par l\'opérateur ou généré par un outil de FAO/génération. Remplace le programme actuellement chargé.',
       inputSchema: const {
         'type': 'object',
         'properties': {
@@ -734,7 +855,17 @@ class AiToolCatalog {
         if (why != null) return 'REFUSÉ (sécurité) : $why';
         await ref.read(gcodeProvider.notifier).loadFile(code);
         final r = await ref.read(streamingProvider.notifier).startStream();
-        if (r.isValid) return 'OK: programme chargé et exécution démarrée';
+        if (r.isValid) {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(visualizerModeProvider.notifier).state =
+              VisualizerMode.simulation3d;
+          if (!Platform.environment.containsKey('FLUTTER_TEST') &&
+              ref.read(machineRepositoryProvider).currentState.status ==
+                  MachineStatus.offline) {
+            ref.read(simulationProvider.notifier).play(speedMultiplier: 8.0);
+          }
+          return 'OK: programme chargé et exécution démarrée';
+        }
         final line = r.errorLine != null ? ' (ligne ${r.errorLine})' : '';
         return 'REFUSÉ: ${r.errorMessage}$line';
       },
@@ -872,24 +1003,43 @@ class AiToolCatalog {
     AiTool(
       name: 'set_work_zero',
       description:
-          'Définit la position ACTUELLE comme zéro pièce (« origine pièce », « zéro ici ») pour les axes indiqués, dans le WCS actif (G10 L20). AUCUN mouvement : la machine ne bouge pas. Absent = X, Y, Z.',
+          'Prend la position ACTUELLE comme zéro WCS / zéro pièce (« prends la position actuelle comme zéro WCS », « zéro ici ») pour les axes indiqués (G10 L20). '
+          'AUCUN mouvement : la machine ne bouge pas. Peut cibler un WCS précis (G54..G59) ou le WCS actif par défaut. Axes par défaut : X, Y, Z.',
       inputSchema: const {
         'type': 'object',
         'properties': {
+          'wcs': {
+            'type': 'string',
+            'enum': ['G54', 'G55', 'G56', 'G57', 'G58', 'G59'],
+            'description': 'WCS cible (optionnel). Absent = WCS actuellement actif (P0).',
+          },
           'axes': {
             'type': 'array',
             'items': {'type': 'string'},
-            'description': 'Ex ["X","Y","Z"]. Absent = X, Y, Z.',
+            'description': 'Ex ["X","Y","Z"] ou ["X","Y","Z","A","C"]. Absent = X, Y, Z.',
           },
         },
       },
       category: AiActionCategory.wcsTool,
       execute: (input, ref) async {
-        final axes = (input['axes'] as List?)?.cast<String>() ?? const ['X', 'Y', 'Z'];
-        if (axes.isEmpty) return 'ERREUR: liste d\'axes vide';
-        final words = axes.map((a) => '${a.toUpperCase()}0').join(' ');
-        await ref.read(machineRepositoryProvider).sendGCode('G10 L20 P0 $words');
-        return 'OK: origine posée sur $axes';
+        final rawAxes = (input['axes'] as List?)?.cast<String>() ?? const ['X', 'Y', 'Z'];
+        if (rawAxes.isEmpty) return 'ERREUR: liste d\'axes vide';
+        final axes = rawAxes.any((a) => a.toLowerCase() == 'all' || a.toLowerCase() == 'tous')
+            ? const ['X', 'Y', 'Z', 'A', 'C']
+            : rawAxes.map((a) => a.toUpperCase()).toList();
+        const wcsMap = {'G54': 1, 'G55': 2, 'G56': 3, 'G57': 4, 'G58': 5, 'G59': 6};
+        final wcsStr = (input['wcs'] as String?)?.toUpperCase().trim();
+        final p = (wcsStr != null && wcsMap.containsKey(wcsStr)) ? wcsMap[wcsStr]! : 0;
+
+        final repo = ref.read(machineRepositoryProvider);
+        if (wcsStr != null && wcsMap.containsKey(wcsStr)) {
+          await repo.sendGCode(wcsStr);
+        }
+        final words = axes.map((a) => '${a}0').join(' ');
+        await repo.sendGCode('G10 L20 P$p $words');
+        await repo.sendGCode('\$#');
+        final targetLabel = wcsStr ?? 'WCS actif';
+        return 'OK: position actuelle enregistrée comme zéro $targetLabel sur ${axes.join(', ')} (G10 L20 P$p $words)';
       },
     ),
     AiTool(
@@ -1025,22 +1175,28 @@ class AiToolCatalog {
     AiTool(
       name: 'run_step_pipeline',
       description:
-          'Lit un fichier STEP et génère le G-code : pipeline de révolution d\'abord (ébauche 3 axes + finition 5 axes), sinon FreeCAD CAM (contour, perçages, poches par heuristique). Le rapport donne (\'pipeline\' : \'revolution\' ou \'freecad_prismatique\') et \'duree_a_vide_min\' (temps d\'ébauche passé à tourner dans le vide faute de connaître le barreau) : s\'il est non nul, le dire à l\'opérateur et proposer de relancer avec stockRadius. Refuse si le fichier ne correspond à aucun cas géré.',
+          'Lit un fichier STEP ou STL et génère le G-code : pièces de révolution, prismatiques ou implants médicaux sur mesure (ébauche 3 axes + finition 5 axes). Charge automatiquement le programme dans la machine. Le rapport donne (\'pipeline\', \'gcode_path\', \'lignes_gcode\'). Prêt à être exécuté immédiatement sur la machine avec run_program.',
       inputSchema: const {
         'type': 'object',
         'properties': {
-          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
-          'toolDiameter': {'type': 'number', 'description': 'Diamètre de la fraise boule, mm — pipeline révolution uniquement (défaut 6)'},
-          'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm — pipeline révolution uniquement (défaut 0.2). Plafond VIBRATOIRE : ne jamais proposer plus sans que l\'opérateur le demande explicitement.'},
-          'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm — pipeline révolution uniquement (défaut 0.5). Plafond VIBRATOIRE : même règle que ap.'},
-          'stepover': {'type': 'number', 'description': 'Pas de finition sur la surface, mm — pipeline révolution uniquement (défaut 0.4)'},
-          'stockRadius': {'type': 'number', 'description': 'Rayon du barreau brut, mm (la moitié du diamètre annoncé par l\'opérateur). Sans lui, l\'ébauche balaie toute l\'enveloppe de dégagement par sécurité et coupe de l\'air — sur la pièce de référence, un tiers du temps total. À demander systématiquement.'},
+          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp ou .stl'},
+          'toolDiameter': {'type': 'number', 'description': 'Diamètre de la fraise boule, mm (défaut 6)'},
+          'ap': {'type': 'number', 'description': 'Profondeur de passe ébauche, mm (défaut 0.2, 0.15 en PEEK). Plafond vibratoire machine.'},
+          'ae': {'type': 'number', 'description': 'Engagement radial ébauche, mm (défaut 0.5)'},
+          'stepover': {'type': 'number', 'description': 'Pas de finition sur la surface, mm (défaut 0.4)'},
+          'stockRadius': {'type': 'number', 'description': 'Rayon du barreau brut, mm (optionnel pour les pièces de révolution).'},
         },
         'required': ['stepPath'],
       },
       category: null,
       execute: (input, ref) async {
-        final stepPath = input['stepPath'] as String;
+        final stepPath = ((input['stepPath'] ??
+                input['file_path'] ??
+                input['filePath'] ??
+                input['path']) as String?)
+            ?.trim() ??
+            '';
+        if (stepPath.isEmpty) return 'Erreur: argument stepPath manquant.';
         try {
           final report = await CamPipelineService.run(
             stepPath,
@@ -1050,16 +1206,29 @@ class AiToolCatalog {
             stepover: (input['stepover'] as num?)?.toDouble() ?? 0.4,
             stockRadius: (input['stockRadius'] as num?)?.toDouble(),
           );
-          // L'écran ne devine plus ce qui existe en relisant le texte des
-          // résultats : la pièce et le programme sont déclarés ici, et les
-          // boutons d'aperçu 3D s'allument d'eux-mêmes.
           final artifacts = ref.read(aiArtifactsProvider.notifier);
           artifacts.setGcodeFromReport(report);
           unawaited(artifacts.loadStep(stepPath));
-          return jsonEncode(report);
+
+          // Charger le programme G-code fini dans le contrôleur de la machine
+          // pour permettre son exécution immédiate (run_program) en langage naturel.
+          final gcodePath = report['gcode_path'] as String?;
+          if (gcodePath != null && File(gcodePath).existsSync()) {
+            final content = await File(gcodePath).readAsString();
+            await ref.read(gcodeProvider.notifier).loadFile(content);
+          }
+
+          return jsonEncode({
+            ...report,
+            'programme_charge_dans_machine': true,
+            'action_suivante': 'Le programme G-code est chargé dans la machine. '
+                'L\'opérateur peut demander son exécution (run_program) en langage naturel quand il est prêt.',
+          });
         } on StepPipelineException catch (e) {
           return 'Erreur: $e';
         } on PrismaticPipelineException catch (e) {
+          return 'Erreur: $e';
+        } on MedicalImplantException catch (e) {
           return 'Erreur: $e';
         }
       },
@@ -1074,17 +1243,23 @@ class AiToolCatalog {
     AiTool(
       name: 'preview_step_file',
       description:
-          'Affiche l\'aperçu 3D d\'un fichier STEP dans un panneau à côté de la discussion (desktop uniquement) : la pièce est facettisée puis affichée telle quelle, AVANT tout usinage. À utiliser dès qu\'un fichier STEP est mentionné, pour que l\'opérateur voie ce qui a été chargé — et pour vérifier soi-même que le fichier contient bien la pièce attendue. Retourne l\'encombrement, le volume et le nombre de triangles.',
+          'Affiche l\'aperçu 3D d\'un fichier STEP ou STL dans un panneau à côté de la discussion (desktop uniquement) : la pièce est facettisée puis affichée telle quelle, AVANT tout usinage. À utiliser dès qu\'un fichier 3D est mentionné, pour que l\'opérateur voie ce qui a été chargé — et pour vérifier soi-même que le fichier contient bien la pièce attendue. Retourne l\'encombrement, le volume et le nombre de triangles.',
       inputSchema: const {
         'type': 'object',
         'properties': {
-          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp'},
+          'stepPath': {'type': 'string', 'description': 'Chemin absolu du fichier .step/.stp ou .stl'},
         },
         'required': ['stepPath'],
       },
       category: null,
       execute: (input, ref) async {
-        final path = input['stepPath'] as String;
+        final path = ((input['stepPath'] ??
+                input['file_path'] ??
+                input['filePath'] ??
+                input['path']) as String?)
+            ?.trim() ??
+            '';
+        if (path.isEmpty) return 'Erreur: argument stepPath manquant.';
         try {
           final preview = await StepPreviewService.run(path);
           // `loadStep` retrouve le maillage dans le cache disque que vient de
@@ -1117,7 +1292,13 @@ class AiToolCatalog {
       },
       category: null,
       execute: (input, ref) async {
-        final gcodePath = input['gcodePath'] as String;
+        final gcodePath = ((input['gcodePath'] ??
+                input['path'] ??
+                input['file_path'] ??
+                input['filePath']) as String?)
+            ?.trim() ??
+            '';
+        if (gcodePath.isEmpty) return 'Erreur: argument gcodePath manquant.';
         final artifacts = ref.read(aiArtifactsProvider.notifier);
         artifacts.setGcodePath(gcodePath);
         artifacts.dock(AiDockedViewer.toolpath);
@@ -1252,6 +1433,9 @@ class AiToolCatalog {
         ref.read(activityLogProvider.notifier).log(
             'Agent IA : langue de l\'interface ${avant.id} → ${apres.id}');
 
+        // Un nombre seul invitait le modèle à broder (« 1676 libellés » pour
+        // le français, qui n'a pas de dictionnaire) : on lui donne la phrase
+        // complète, avec le total, qu'il n'a plus qu'à reprendre.
         final traduites = kAppTranslations[apres.id]?.length ?? 0;
         return jsonEncode({
           'ok': true,
@@ -1260,8 +1444,14 @@ class AiToolCatalog {
           'langue': apres.id,
           'libelle': apres.label,
           // Le français est la langue source : il n'a pas de dictionnaire.
-          'libelles_traduits': apres.id == 'fr' ? 'source' : traduites,
+          'libelles_traduits': apres.id == 'fr'
+              ? 'tous : le français est la langue d\'origine de l\'interface'
+              : '$traduites sur $kTranslationKeyCount ; les autres restent '
+                  'en français',
           'relu_par_un_locuteur': false,
+          // Sans cette ligne, le modèle ajoutait « redémarrez l'application »
+          // (banc du 5 nov. 2026) : l'interface change sur-le-champ.
+          'effet': 'immédiat, sans redémarrage',
           'retour_arriere': 'Paramètres > Langue',
         });
       },
@@ -1359,7 +1549,7 @@ class AiToolCatalog {
           },
           'cameraUrl': {
             'type': 'string',
-            'description': 'URL HTTP de la caméra ESP32-CAM (ex. http://192.168.0.50/capture). Si omise, utilise le flux de capture réseau ou la simulation.'
+            'description': 'URL HTTP de la caméra ESP32-CAM (ex. http://192.168.137.50/capture). Si omise, utilise le flux de capture réseau ou la simulation.'
           },
           'synthetic': {
             'type': 'boolean',
@@ -1620,16 +1810,20 @@ class AiToolCatalog {
     AiTool(
       name: 'control_simulation',
       description:
-          'Contrôle la lecture du simulateur d\'usinage 3D (play, pause, reset, '
-          'seek à un pourcentage, changement de vitesse ×1..×50) ou oriente la '
-          'caméra 3D via le ViewCube (ISOMETRIC, TOP, FRONT, RIGHT, LEFT, BACK).',
+          // Volontairement court : chaque caractère de description est payé
+          // à CHAQUE tour par le modèle local (voir promptOverheadTokens).
+          'Contrôle le simulateur 3D : play, pause, reset, seek, vitesse '
+          '×1..×50, vue caméra (ViewCube). "follow_machine" = JUMEAU : le '
+          'simulateur suit la carte réelle (position, ligne, matière) et '
+          'mesure l\'écart au parcours ; "stop_follow" l\'arrête. "play" '
+          'prévoit, "follow_machine" montre ce que la machine fait vraiment.',
       category: null,
       inputSchema: {
         'type': 'object',
         'properties': {
           'action': {
             'type': 'string',
-            'enum': ['play', 'pause', 'reset', 'seek', 'set_speed', 'set_view'],
+            'enum': ['play', 'pause', 'reset', 'seek', 'set_speed', 'set_view', 'follow_machine', 'stop_follow'],
             'description': 'Action à exécuter sur le simulateur 3D.',
           },
           'progress': {
@@ -1678,6 +1872,20 @@ class AiToolCatalog {
             final preset = (args['camera_preset'] as String?) ?? 'ISOMETRIC';
             sim.setCameraPreset(preset);
             break;
+          case 'follow_machine':
+            final status = ref.read(machineRepositoryProvider).currentState.status;
+            if (status == MachineStatus.offline) {
+              return jsonEncode({
+                'ok': false,
+                'action': action,
+                'raison': 'La carte est hors ligne : rien à suivre. Connecte la machine d\'abord.',
+              });
+            }
+            sim.followMachine();
+            break;
+          case 'stop_follow':
+            sim.stopFollowing();
+            break;
         }
 
         final st = ref.read(simulationProvider);
@@ -1685,9 +1893,18 @@ class AiToolCatalog {
           'ok': true,
           'action': action,
           'status': st.status.name,
+          'mode': st.isLive ? 'jumeau' : 'simulation',
           'progress_percent': double.parse(st.progressPct.toStringAsFixed(1)),
           'speed_multiplier': st.speedMultiplier,
           'camera_preset': st.cameraPreset,
+          if (st.isLive)
+            'jumeau': {
+              'statut_machine': st.liveMachineStatus,
+              'ligne_reelle': st.currentRawLineIndex + 1,
+              'ecart_mm': st.liveDeviationMm == null
+                  ? null
+                  : double.parse(st.liveDeviationMm!.toStringAsFixed(2)),
+            },
         });
       },
     ),
@@ -1721,6 +1938,515 @@ class AiToolCatalog {
         return jsonEncode({
           'ok': true,
           'active_tab': isCam ? 'camera' : 'simulator',
+        });
+      },
+    ),
+
+    AiTool(
+      name: 'generate_5axis_dome',
+      description:
+          'Génère automatiquement un programme G-code 5 axes continus (RTCP X/Y/Z/A/C) '
+          'pour usiner un dôme hémisphérique sur la matière demandée (ex: aluminium, '
+          'laiton, bois, plastique, acier) avec le diamètre souhaité (ex: 20 mm), '
+          'charge ce programme dans le contrôleur, bascule en mode 5 axes et ouvre '
+          'le Simulateur 3D. À utiliser dès que l\'opérateur demande d\'usiner ou '
+          'de fraiser un dôme (ex: "Mill a 20mm dome on aluminium", "Usine un dôme '
+          'de 20 mm en aluminium").',
+      category: null,
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'diameter_mm': {
+            'type': 'number',
+            'description': 'Diamètre du dôme en mm (défaut: 20).',
+          },
+          'material': {
+            'type': 'string',
+            'description':
+                'Matière à usiner : "aluminium", "brass", "wood", "plastic", "steel" (défaut: "aluminium").',
+          },
+          'tool_diameter_mm': {
+            'type': 'number',
+            'description':
+                'Diamètre de la fraise hémisphérique en mm (défaut: 6).',
+          },
+        },
+      },
+      execute: (args, ref) async {
+        final rawDiam = (args['diameter_mm'] as num?)?.toDouble() ?? 20.0;
+        final diameter = rawDiam.clamp(6.0, 50.0);
+        final radius = diameter / 2.0;
+        final rawTool = (args['tool_diameter_mm'] as num?)?.toDouble() ?? 6.0;
+        final toolDiam = rawTool.clamp(2.0, 12.0);
+        final toolRad = toolDiam / 2.0;
+        final rawMat =
+            ((args['material'] as String?) ?? 'aluminium').trim().toLowerCase();
+
+        final bool isSteel = rawMat.contains('steel') || rawMat.contains('acier');
+        final bool isBrass = rawMat.contains('brass') || rawMat.contains('laiton');
+        final bool isWoodOrPlastic = rawMat.contains('wood') ||
+            rawMat.contains('bois') ||
+            rawMat.contains('plastic') ||
+            rawMat.contains('plastique') ||
+            rawMat.contains('peek') ||
+            rawMat.contains('pmma');
+
+        final double cutFeed = isSteel
+            ? 250.0
+            : (isBrass ? 420.0 : (isWoodOrPlastic ? 500.0 : 400.0));
+        final double plungeFeed = (cutFeed * 0.35).clamp(80.0, 180.0);
+        final int spindleRpm = isSteel ? 10000 : 12000;
+        final String matLabel = isSteel
+            ? 'steel'
+            : (isBrass ? 'brass' : (isWoodOrPlastic ? 'wood' : 'aluminium'));
+
+        const double pivotDepth = 20.0;
+        final kin = KinematicsService(
+          pivotToTableOffset: pivotDepth,
+          pivot: Vector3(0, 0, -pivotDepth),
+        );
+
+        final buf = StringBuffer()
+          ..writeln(
+            '(FORGERON - DOME 5 AXES CONTINU - DIAM ${diameter.toStringAsFixed(1)} MM - ${matLabel.toUpperCase()})',
+          )
+          ..writeln(
+            '(OUTIL : FRAISE BOULE DIAM ${toolDiam.toStringAsFixed(3)} MM)',
+          )
+          ..writeln(
+            '(COORDONNEES MACHINE COMPENSEES : FLUIDNC CARTESIEN, CINEMATIQUE TRUNNION A/C)',
+          )
+          ..writeln(
+            '(PIVOT A ${pivotDepth.toStringAsFixed(3)} MM SOUS LE ZERO PIECE, SUR L AXE C)',
+          )
+          ..writeln('G21 G90 G94 G17 G40')
+          ..writeln('G54')
+          ..writeln('M3 S$spindleRpm')
+          ..writeln('G0 Z5.000')
+          ..writeln('G0 A0.000 C0.000')
+          ..writeln('(=== ETAPE 1 : EBAUCHE 3 AXES ===)');
+
+        for (final levelRatio in const [0.45, 0.90]) {
+          final zCut = -radius * levelRatio;
+          final rCut = radius * 0.95;
+          buf.writeln('G0 X${(-rCut).toStringAsFixed(3)} Y0.000');
+          buf.writeln(
+            'G1 Z${zCut.toStringAsFixed(3)} F${plungeFeed.toStringAsFixed(0)}',
+          );
+          const int ringSteps = 16;
+          for (int s = 1; s <= ringSteps; s++) {
+            final ang = (2 * math.pi * s) / ringSteps;
+            final px = -rCut * math.cos(ang);
+            final py = rCut * math.sin(ang);
+            buf.writeln(
+              'G1 X${px.toStringAsFixed(3)} Y${py.toStringAsFixed(3)} F${cutFeed.toStringAsFixed(0)}',
+            );
+          }
+          buf.writeln('G0 Z5.000');
+        }
+
+        buf.writeln('(=== ETAPE 2 : FINITION 5 AXES CONTINU ===)');
+        const int petals = 6;
+        final int arcSteps = 10;
+        for (int p = 0; p < petals; p++) {
+          final double baseC = -140.0 + (280.0 * p) / (petals - 1);
+          final double azRad = baseC * math.pi / 180.0;
+          final double startPsi = -math.pi * 0.42;
+          final double startA = -16.0;
+          final double startC = baseC - 4.0;
+          final double rEff = radius + toolRad;
+          final Vector3 wStart = Vector3(
+            rEff * math.sin(startPsi) * math.cos(azRad),
+            rEff * math.sin(startPsi) * math.sin(azRad),
+            -radius + rEff * math.cos(startPsi) - toolRad,
+          );
+          final Vector3 mStart = kin.inverseRTCP(wStart, startA, startC);
+          buf.writeln('G0 Z5.000');
+          buf.writeln(
+            'G0 A${startA.toStringAsFixed(3)} C${startC.toStringAsFixed(3)}',
+          );
+          buf.writeln(
+            'G0 X${mStart.x.toStringAsFixed(3)} Y${mStart.y.toStringAsFixed(3)}',
+          );
+          buf.writeln(
+            'G1 Z${mStart.z.toStringAsFixed(3)} F${plungeFeed.toStringAsFixed(0)}',
+          );
+
+          for (int k = 1; k <= arcSteps; k++) {
+            final double u = k / arcSteps;
+            final double psi = -math.pi * 0.42 + (math.pi * 0.84) * u;
+            final double tiltA = -16.0 + 32.0 * u;
+            final double rotC = baseC - 4.0 + 8.0 * u;
+            final double phi = azRad + (rotC - baseC) * math.pi / 180.0;
+            final Vector3 wPt = Vector3(
+              rEff * math.sin(psi) * math.cos(phi),
+              rEff * math.sin(psi) * math.sin(phi),
+              -radius + rEff * math.cos(psi) - toolRad,
+            );
+            final Vector3 mPt = kin.inverseRTCP(wPt, tiltA, rotC);
+            buf.writeln(
+              'G1 X${mPt.x.toStringAsFixed(3)} Y${mPt.y.toStringAsFixed(3)} '
+              'Z${mPt.z.toStringAsFixed(3)} A${tiltA.toStringAsFixed(3)} '
+              'C${rotC.toStringAsFixed(3)} F${cutFeed.toStringAsFixed(0)}',
+            );
+          }
+        }
+        buf
+          ..writeln('G0 Z5.000')
+          ..writeln('G0 A0.000 C0.000')
+          ..writeln('G0 X0.000 Y0.000')
+          ..writeln('M5')
+          ..writeln('M30');
+
+        final gcodeText = buf.toString();
+        final fileName =
+            'dome_5axis_${diameter.toInt()}mm_$matLabel.nc';
+        String savedPath = 'scratch/$fileName';
+        try {
+          final scratchDir = Directory('scratch');
+          if (!scratchDir.existsSync()) {
+            scratchDir.createSync(recursive: true);
+          }
+          final outFile = File(savedPath);
+          await outFile.writeAsString(gcodeText);
+        } catch (_) {}
+
+        ref.read(machiningModeProvider.notifier).state = MachiningMode.fiveAxis;
+        await ref.read(gcodeProvider.notifier).loadFile(gcodeText);
+
+        final sim = ref.read(simulationProvider.notifier);
+        final stockD = (diameter + 12.0).clamp(30.0, 80.0);
+        final stockH = (radius + 15.0).clamp(25.0, 60.0);
+        sim.configureJob(
+          jobName: '5-Axis Dome Ø${diameter.toStringAsFixed(0)}mm ($matLabel)',
+          batchSize: 1,
+          stockShape: StockShape.cylinder,
+          stockDimensions: <double>[stockD, stockD, stockH],
+          toolDiameter: toolDiam,
+        );
+
+        final artifacts = ref.read(aiArtifactsProvider.notifier);
+        artifacts.setGcodePath(savedPath);
+        artifacts.dock(AiDockedViewer.toolpath);
+        ref.read(visualizerModeProvider.notifier).state =
+            VisualizerMode.simulation3d;
+
+        final lineCount = gcodeText.trim().split('\n').length;
+        ref.read(activityLogProvider.notifier).log(
+              'Agent IA : dôme 5 axes Ø${diameter.toStringAsFixed(0)} mm ($matLabel) généré ($lineCount lignes)',
+            );
+
+        return jsonEncode({
+          'ok': true,
+          'status': 'ready_for_confirmation',
+          'part': '5-axis hemispherical dome',
+          'diameter_mm': diameter,
+          'radius_mm': radius,
+          'material': matLabel,
+          'tool_diameter_mm': toolDiam,
+          'spindle_rpm': spindleRpm,
+          'feedrate_mm_min': cutFeed,
+          'plunge_feedrate_mm_min': plungeFeed,
+          'axes': ['X', 'Y', 'Z', 'A', 'C'],
+          'lines_count': lineCount,
+          'gcode_file': savedPath,
+          'simulator_3d': 'opened_and_loaded',
+          'next_step':
+              'Present the generated 5-axis toolpath warmly and naturally to the operator, and ask for confirmation before starting the machining with run_program.',
+        });
+      },
+    ),
+
+    AiTool(
+      name: 'capture_workspace_view',
+      description:
+          'Prend une capture d\'écran visuelle (image PNG/JPEG + télémesures exactes) '
+          'pour voir ce qui se passe réellement dans le simulateur 3D d\'usinage '
+          '("simulator"), le tracé 3D du parcours d\'outil ("toolpath"), l\'aperçu 3D '
+          'de la pièce CAO ("part"), la caméra physique ESP32-CAM ("camera") ou '
+          'l\'écran complet de l\'application ("screen"). Permet d\'orienter la vue '
+          '3D via camera_preset avant la capture.',
+      category: null,
+      producesImage: true,
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'target': {
+            'type': 'string',
+            'enum': ['auto', 'simulator', 'toolpath', 'part', 'camera', 'screen'],
+            'description':
+                'Cible à capturer : "simulator" (jumeau 5 axes + brut voxelisé + outil), '
+                '"toolpath" (tracé G0/G1 isolé sans cabine), "part" (maillage CAO STEP/STL), '
+                '"camera" (caméra atelier ESP32-CAM), "screen" (interface Flutter), '
+                'ou "auto" (choisit la vue active la plus pertinente).',
+          },
+          'camera_preset': {
+            'type': 'string',
+            'enum': ['ISOMETRIC', 'TOP', 'FRONT', 'RIGHT', 'LEFT', 'BACK'],
+            'description':
+                'Orientation optionnelle de la caméra 3D avant la prise de vue '
+                '(ex: TOP pour centrage XY, FRONT/RIGHT pour dégagements Z, ISOMETRIC pour vue globale).',
+          },
+        },
+      },
+      execute: (args, ref) async {
+        final rawTarget = ((args['target'] as String?) ?? 'auto').trim().toLowerCase();
+        final rawPreset = (args['camera_preset'] as String?)?.trim().toUpperCase();
+        final validPreset = (rawPreset != null && CameraPreset.values.contains(rawPreset))
+            ? rawPreset
+            : null;
+
+        final snapshotSvc = ref.read(viewerSnapshotServiceProvider);
+        final gcode = ref.read(gcodeProvider);
+        final sim = ref.read(simulationProvider);
+        final artifacts = ref.read(aiArtifactsProvider);
+        final machine = ref.read(machineRepositoryProvider).currentState;
+
+        final String effectiveTarget;
+        if (rawTarget == 'auto') {
+          if (gcode.toolpath.isNotEmpty || sim.isSimulating) {
+            effectiveTarget = 'simulator';
+          } else if (artifacts.step?.preview != null) {
+            effectiveTarget = 'part';
+          } else if (snapshotSvc.has3dHandle) {
+            effectiveTarget = 'simulator';
+          } else {
+            effectiveTarget = 'screen';
+          }
+        } else {
+          effectiveTarget = rawTarget;
+        }
+
+        // Calcul des bornes exactes du parcours d'outil chargé (s'il existe)
+        Map<String, dynamic> buildToolpathSummary() {
+          final pts = gcode.toolpath;
+          if (pts.isEmpty) {
+            return {
+              'loaded': false,
+              'pointsCount': 0,
+              'linesCount': gcode.allLines.length,
+              'tools': const <Map<String, dynamic>>[],
+            };
+          }
+          double minX = pts.first[0], maxX = pts.first[0];
+          double minY = pts.first[1], maxY = pts.first[1];
+          double minZ = pts.first[2], maxZ = pts.first[2];
+          double minA = pts.first.length > 3 ? pts.first[3] : 0.0;
+          double maxA = minA;
+          double minC = pts.first.length > 4 ? pts.first[4] : 0.0;
+          double maxC = minC;
+          int rapidCount = 0;
+          int cutCount = 0;
+
+          for (int i = 0; i < pts.length; i++) {
+            final p = pts[i];
+            if (p[0] < minX) minX = p[0];
+            if (p[0] > maxX) maxX = p[0];
+            if (p[1] < minY) minY = p[1];
+            if (p[1] > maxY) maxY = p[1];
+            if (p[2] < minZ) minZ = p[2];
+            if (p[2] > maxZ) maxZ = p[2];
+            if (p.length > 3) {
+              if (p[3] < minA) minA = p[3];
+              if (p[3] > maxA) maxA = p[3];
+            }
+            if (p.length > 4) {
+              if (p[4] < minC) minC = p[4];
+              if (p[4] > maxC) maxC = p[4];
+            }
+            if (i > 0) {
+              final isRapid = (p.length > 5 ? p[5] : 1.0) == 0.0;
+              if (isRapid) {
+                rapidCount++;
+              } else {
+                cutCount++;
+              }
+            }
+          }
+
+          double r1(double v) => (v * 10).roundToDouble() / 10.0;
+          return {
+            'loaded': true,
+            'fileName': artifacts.gcode?.fileName,
+            'linesCount': gcode.allLines.length,
+            'pointsCount': pts.length,
+            'rapidSegmentsG0': rapidCount,
+            'cuttingSegmentsG1': cutCount,
+            'boundsMm': {
+              'x': [r1(minX), r1(maxX)],
+              'y': [r1(minY), r1(maxY)],
+              'z': [r1(minZ), r1(maxZ)],
+              'aDeg': [r1(minA), r1(maxA)],
+              'cDeg': [r1(minC), r1(maxC)],
+            },
+            'tools': gcode.tools
+                .map((t) => {
+                      'toolNumber': t.number,
+                      if (t.description != null) 'description': t.description,
+                      if (t.diameterMm != null) 'diameterMm': t.diameterMm,
+                    })
+                .toList(),
+          };
+        }
+
+        final simAnalysis = gcode.toolpath.isNotEmpty
+            ? ref.read(simulationProvider.notifier).analyzeCurrentProgram()
+            : <String, dynamic>{
+                'status': sim.status.name,
+                'progressPct': sim.progressPct,
+                'stockShape': sim.stockShape.wire,
+                'stockDimensionsMm': sim.stockDimensions,
+                'toolDiameterMm': sim.toolDiameter,
+                'collisions': sim.collisionCount,
+                'warnings': sim.warningCount,
+              };
+
+        Uint8List? imageBytes;
+        String imageMime = 'image/png';
+        String source = 'telemetry_only';
+        Map<String, dynamic> sceneMetrics = const {};
+        String? cameraDiagnostic;
+
+        if (effectiveTarget == 'camera') {
+          ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+          ref.read(simulationProvider.notifier).setActiveTab(ConsoleRightTab.camera);
+          ref.read(visualizerModeProvider.notifier).state = VisualizerMode.camera;
+
+          final isSimMode = ref.read(isSimulationModeProvider);
+          final camEnabled = ref.read(cameraEnabledProvider);
+          if (camEnabled) {
+            try {
+              imageBytes = await ref.read(cameraRepositoryProvider).snapshot();
+              imageMime = 'image/jpeg';
+              source = 'esp32_camera';
+            } catch (e) {
+              cameraDiagnostic = 'Échec de capture ESP32-CAM : $e';
+            }
+          } else {
+            final feed = ref.read(cameraFeedProvider);
+            if (feed.hasFrame && feed.frame != null) {
+              imageBytes = feed.frame;
+              imageMime = 'image/jpeg';
+              source = 'esp32_camera_cached';
+              cameraDiagnostic = 'Dernière trame caméra mise en cache (flux direct interrompu).';
+            } else {
+              cameraDiagnostic = isSimMode
+                  ? 'Mode simulation actif : aucune caméra physique ESP32-CAM connectée.'
+                  : 'Caméra ESP32-CAM (${ref.read(cameraIpProvider)}) hors ligne ou non détectée.';
+              final fallbackScreen = await snapshotSvc.captureScreen();
+              if (fallbackScreen != null) {
+                imageBytes = fallbackScreen.pngBytes;
+                imageMime = 'image/png';
+                source = 'flutter_screen_camera_offline';
+                sceneMetrics = fallbackScreen.metrics;
+              }
+            }
+          }
+        } else if (effectiveTarget == 'screen') {
+          final snap = await snapshotSvc.captureScreen();
+          if (snap != null) {
+            imageBytes = snap.pngBytes;
+            source = snap.source;
+            sceneMetrics = snap.metrics;
+          }
+        } else {
+          // Cible 3D : 'simulator', 'toolpath' ou 'part'
+          if (effectiveTarget == 'part' && artifacts.step?.preview != null) {
+            ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.step);
+          } else {
+            ref.read(aiArtifactsProvider.notifier).dock(AiDockedViewer.toolpath);
+            ref.read(simulationProvider.notifier).setActiveTab(ConsoleRightTab.simulator);
+            ref.read(visualizerModeProvider.notifier).state = VisualizerMode.simulation3d;
+          }
+
+          if (validPreset != null) {
+            ref.read(simulationProvider.notifier).setCameraPreset(validPreset);
+          }
+
+          final Map<String, dynamic>? tempScene = switch (effectiveTarget) {
+            'toolpath' => const {
+                'machine': false,
+                'workpiece': false,
+                'part': false,
+                'toolpath': true,
+              },
+            'part' => const {
+                'machine': false,
+                'workpiece': false,
+                'toolpath': false,
+                'part': true,
+              },
+            _ => null,
+          };
+
+          final latestSim = ref.read(simulationProvider);
+          final pos = (latestSim.isSimulating || latestSim.status == SimulationStatus.completed)
+              ? latestSim.simulatedMPos
+              : machine.mPos;
+          final labelTarget = switch (effectiveTarget) {
+            'toolpath' => 'PARCOURS 3D',
+            'part' => 'PIÈCE CAO 3D',
+            _ => 'SIMULATEUR 5X',
+          };
+          final presetLabel = validPreset ?? latestSim.cameraPreset;
+          final hudBanner =
+              '$labelTarget | VUE $presetLabel | '
+              'X:${pos[0].toStringAsFixed(1)} Y:${pos[1].toStringAsFixed(1)} Z:${pos[2].toStringAsFixed(1)} '
+              'A:${(pos.length > 3 ? pos[3] : 0.0).toStringAsFixed(1)}° '
+              'C:${(pos.length > 4 ? pos[4] : 0.0).toStringAsFixed(1)}° | '
+              'SIM:${latestSim.progressPct.toStringAsFixed(0)}%';
+
+          var snap = await snapshotSvc.capture3d(
+            target: effectiveTarget,
+            cameraPreset: validPreset,
+            temporaryScene: tempScene,
+            hudBanner: hudBanner,
+          );
+          snap ??= await snapshotSvc.captureScreen();
+
+          if (snap != null) {
+            imageBytes = snap.pngBytes;
+            source = snap.source;
+            sceneMetrics = snap.metrics;
+          }
+        }
+
+        if (imageBytes != null && imageBytes.isNotEmpty) {
+          ref.read(aiToolImageProvider.notifier).state = AiToolImage(
+            bytes: imageBytes,
+            mimeType: imageMime,
+          );
+        }
+
+        final latestSim = ref.read(simulationProvider);
+        final stepPreview = artifacts.step?.preview;
+        return jsonEncode({
+          'ok': true,
+          'captured': imageBytes != null && imageBytes.isNotEmpty,
+          'target': effectiveTarget,
+          'source': source,
+          if (imageBytes != null) 'imageSizeBytes': imageBytes.length,
+          'cameraDiagnostic': ?cameraDiagnostic,
+          'machine': machineStateMap(machine),
+          'simulation': {
+            ...simAnalysis,
+            'progressPct': (latestSim.progressPct * 10).roundToDouble() / 10.0,
+            'simulatedMPos': latestSim.simulatedMPos,
+            'cameraPreset': validPreset ?? latestSim.cameraPreset,
+            'activeTab': latestSim.activeTab.name,
+          },
+          'toolpath': buildToolpathSummary(),
+          if (stepPreview != null)
+            'part': {
+              'fileName': artifacts.step!.fileName,
+              'sizeLabel': stepPreview.sizeLabel,
+              'volumeMm3': stepPreview.volume.round(),
+              'triangles': stepPreview.triangles,
+            },
+          if (sceneMetrics.isNotEmpty) 'scene3d': sceneMetrics,
+          'note': imageBytes != null
+              ? 'Capture visuelle jointe à ce tour avec ses télémesures.'
+              : 'Rendu graphique hors-écran non monté : utilise les télémesures exactes ci-dessus.',
         });
       },
     ),

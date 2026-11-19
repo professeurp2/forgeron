@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Forgeron &mdash; AI Architecture &amp; MLOps Blueprint (Day 3)</title>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0f172a; }
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+    color: #1e293b; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+  }
+  .slide { 
+    width: 1280px; 
+    height: 720px; 
+    position: relative; 
+    overflow: hidden; 
+    padding: 22px 34px 26px; 
+    page-break-after: always; 
+    break-after: page; 
+    background: #ffffff;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+
+  /* Header */
+  .head { display: flex; align-items: center; gap: 14px; margin-bottom: 3px; }
+  .num { 
+    width: 36px; 
+    height: 36px; 
+    border-radius: 10px; 
+    color: #fff; 
+    font-weight: 800; 
+    font-size: 17px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex: none; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  }
+  .num-1 { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+  .num-2 { background: linear-gradient(135deg, #0d9488, #059669); }
+  .num-3 { background: linear-gradient(135deg, #d97706, #ea580c); }
+
+  h1 { font-size: 23px; color: #0f172a; font-weight: 800; letter-spacing: -0.3px; }
+  .sub { font-size: 12.5px; color: #475569; margin: 0 0 10px 50px; line-height: 1.35; }
+
+  /* Badges */
+  .badge { 
+    display: inline-block; 
+    border-radius: 4px; 
+    font-size: 8.5px; 
+    font-weight: 700; 
+    padding: 1px 5px; 
+    vertical-align: 1px; 
+    letter-spacing: .3px; 
+  }
+  .b-commit { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; margin-left: 4px; }
+  .b-human { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; margin-left: 4px; }
+  .b-safety { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; margin-left: 4px; }
+
+  /* Footer */
+  .foot { 
+    position: absolute; 
+    left: 34px; 
+    right: 34px; 
+    bottom: 9px; 
+    display: flex; 
+    justify-content: space-between; 
+    font-size: 10px; 
+    color: #94a3b8; 
+    border-top: 1px solid #e2e8f0; 
+    padding-top: 4px; 
+  }
+
+  /* ==================== SLIDE 1: TARGET ARCHITECTURE ==================== */
+  .s1-grid { display: grid; grid-template-columns: 1fr 276px; gap: 14px; height: 596px; }
+  .s1-main { display: flex; flex-direction: column; gap: 0; }
+  
+  .band { border-radius: 8px; padding: 7px 11px 8px; position: relative; }
+  .band .lbl { font-size: 11px; font-weight: 700; letter-spacing: .3px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .band .lbl span.role { font-weight: 600; font-size: 10.5px; opacity: .9; }
+  
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 7px; font-size: 11px; line-height: 1.25; }
+  .chip b { color: #0f172a; font-weight: 700; }
+  .chip small { color: #64748b; font-size: 9.5px; display: block; margin-top: 1px; }
+
+  .flow-arrow { text-align: center; font-size: 10px; color: #64748b; height: 16px; line-height: 16px; font-weight: 500; }
+  .flow-arrow span { color: #94a3b8; margin: 0 4px; }
+
+  .b-operator { background: #eff6ff; border: 1px solid #93c5fd; }
+  .b-operator .lbl { color: #1d4ed8; }
+  
+  .b-gateway { background: #f8fafc; border: 1px solid #cbd5e1; }
+  .b-gateway .lbl { color: #334155; }
+  
+  .pipe { display: flex; align-items: stretch; gap: 4px; }
+  .pipe .chip { flex: 1; }
+  .pipe .pipe-sep { color: #94a3b8; font-size: 11px; display: flex; align-items: center; font-weight: 700; }
+
+  .b-model-row { display: grid; grid-template-columns: 1fr 210px; gap: 10px; }
+  .b-model-local { background: #f0fdfa; border: 2px dashed #0d9488; }
+  .b-model-local .lbl { color: #0f766e; }
+  
+  .b-model-cloud { background: #fff1f2; border: 2px dashed #f43f5e; border-radius: 8px; padding: 7px 9px; }
+  .b-model-cloud .lbl { color: #be123c; font-size: 10.5px; font-weight: 700; margin-bottom: 5px; }
+
+  .b-data { background: #faf5ff; border: 1px solid #e9d5ff; }
+  .b-data .lbl { color: #7e22ce; }
+
+  .b-machine { 
+    margin-top: 5px; 
+    background: #fffbeb; 
+    border: 2px solid #f59e0b; 
+    border-radius: 8px; 
+    padding: 6px 11px; 
+    font-size: 11px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+  }
+  .b-machine b { color: #b45309; }
+
+  /* Slide 1 Side Cards */
+  .s1-side { display: flex; flex-direction: column; gap: 8px; }
+  .side-card { border-radius: 8px; padding: 8px 10px; font-size: 10.5px; line-height: 1.36; }
+  .side-card h3 { font-size: 11px; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 5px; }
+  .side-card ul, .side-card ol { padding-left: 14px; }
+  .side-card li { margin-bottom: 2.5px; }
+  
+  .sc-human { background: #f0fdf4; border: 1px solid #86efac; }
+  .sc-human h3 { color: #15803d; }
+  .sc-degrade { background: #f8fafc; border: 1px solid #cbd5e1; }
+  .sc-degrade h3 { color: #334155; }
+  .sc-telemetry { background: #fefce8; border: 1px solid #fde047; }
+  .sc-telemetry h3 { color: #a16207; }
+
+  /* ==================== SLIDE 2: FAILURE REGISTER ==================== */
+  .s2-grid { display: flex; flex-direction: column; gap: 9px; height: 596px; }
+  .s2-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 11px; 
+    background: #fff; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 8px; 
+    overflow: hidden; 
+  }
+  .s2-table th { 
+    background: #0f172a; 
+    color: #fff; 
+    padding: 7px 8px; 
+    text-align: left; 
+    font-size: 10.5px; 
+    font-weight: 700; 
+    letter-spacing: .3px; 
+  }
+  .s2-table td { 
+    padding: 7px 8px; 
+    border-bottom: 1px solid #e2e8f0; 
+    vertical-align: top; 
+    line-height: 1.35; 
+  }
+  .s2-table tr:last-child td { border-bottom: none; }
+  
+  .risk-badge { 
+    display: inline-block; 
+    padding: 3px 6px; 
+    border-radius: 4px; 
+    font-size: 10px; 
+    font-weight: 800; 
+    color: #fff; 
+    text-transform: uppercase; 
+    margin-bottom: 3px; 
+  }
+  .rb-A { background: #dc2626; }
+  .rb-B { background: #0d9488; }
+  .rb-C { background: #d97706; }
+
+  .rpn-box { text-align: center; font-weight: 800; font-size: 17px; line-height: 1.1; }
+  .rpn-A { color: #b91c1c; }
+  .rpn-B { color: #0f766e; }
+  .rpn-C { color: #b45309; }
+  .rpn-formula { font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 1px; }
+
+  .story-title { font-weight: 700; color: #0f172a; font-size: 11.5px; margin-bottom: 2px; }
+  .story-reality { color: #475569; font-size: 10.5px; line-height: 1.3; margin-bottom: 4px; }
+  .story-proof { font-size: 9.5px; color: #64748b; background: #f8fafc; border-left: 2px solid #cbd5e1; padding: 2px 5px; }
+
+  .alert-list, .recovery-list { padding-left: 13px; font-size: 10.5px; }
+  .alert-list li, .recovery-list li { margin-bottom: 2.5px; }
+  .p-crit { color: #b91c1c; font-weight: 700; }
+  .p-warn { color: #b45309; font-weight: 700; }
+
+  .watch-bar { 
+    background: #f8fafc; 
+    border: 1px solid #cbd5e1; 
+    border-left: 4px solid #64748b; 
+    border-radius: 6px; 
+    padding: 6px 10px; 
+    font-size: 10px; 
+    color: #334155; 
+    line-height: 1.35; 
+  }
+  .watch-bar b { color: #0f172a; }
+
+  /* ==================== SLIDE 3: TOOLING & BACKLOG ==================== */
+  .s3-grid { display: grid; grid-template-columns: 395px 1fr; gap: 14px; height: 596px; }
+  .s3-card { display: flex; flex-direction: column; gap: 5px; }
+  .s3-card h2 { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; }
+  .team-tag { font-size: 10px; font-weight: 600; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 4px; }
+
+  .tools-table, .bl-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    background: #fff; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 7px; 
+    overflow: hidden; 
+  }
+  .tools-table th, .bl-table th { 
+    background: #0f172a; 
+    color: #fff; 
+    font-size: 10px; 
+    font-weight: 700; 
+    padding: 6px 6px; 
+    text-align: left; 
+  }
+  .tools-table td { font-size: 10.2px; padding: 4.8px 6px; border-bottom: 1px solid #f1f5f9; line-height: 1.25; }
+  .tools-table tr:last-child td { border-bottom: none; }
+  .tools-table td:first-child { font-weight: 700; color: #0f172a; white-space: nowrap; }
+
+  .bl-table td { font-size: 10.5px; padding: 6.2px 5px; border-bottom: 1px solid #f1f5f9; line-height: 1.25; }
+  .bl-table tr:last-child td { border-bottom: none; }
+  .bl-table td.n { font-weight: 700; color: #64748b; text-align: center; }
+  .bl-table td.eff { text-align: center; font-weight: 700; }
+  .bl-table td:nth-child(5), .bl-table td:nth-child(6) { white-space: nowrap; font-size: 10px; }
+
+  .tag { display: inline-block; padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: 800; color: #fff; }
+  .tag-A { background: #dc2626; }
+  .tag-B { background: #0d9488; }
+  .tag-C { background: #d97706; }
+  .tag-all { background: #6366f1; }
+
+  .bottom-note { 
+    font-size: 10px; 
+    color: #475569; 
+    background: #f8fafc; 
+    border-radius: 6px; 
+    border: 1px solid #e2e8f0; 
+    padding: 5px 8px; 
+    line-height: 1.35; 
+    margin-top: 2px; 
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     SLIDE 1: TARGET ARCHITECTURE (HUMAN & SAFETY CENTERED)
+====================================================================== -->
+<section class="slide">
+  <div class="head">
+    <div class="num num-1">1</div>
+    <div>
+      <h1>Target Architecture &mdash; Grounding AI in Human Workshop Reality</h1>
+    </div>
+  </div>
+  <p class="sub">
+    Built for a real African machine shop: runs 100% offline, guarantees physical safety, and leaves the machinist in command.
+    <span class="badge b-commit">NEW = 2-week sprint commitment</span>
+    <span class="badge b-human">HUMAN = operator validation gate</span>
+    <span class="badge b-safety">ESTOP = 0 ms hardware cut</span>
+  </p>
+
+  <div class="s1-grid">
+    <div class="s1-main">
+      
+      <!-- Band 4: Machinist Interface -->
+      <div class="band b-operator">
+        <div class="lbl">
+          <span>&#128119; Machinist Interface &amp; Voice Assistant</span>
+          <span class="role">Flutter App &mdash; Workshop PC (Windows) &amp; Floor Tablet (Android)</span>
+        </div>
+        <div class="chips">
+          <div class="chip">
+            <b>Shop Voice &amp; Chat</b>
+            <small>Natural French, Bambara, Swahili, etc.</small>
+          </div>
+          <div class="chip">
+            <b>Confirmation Card <span class="badge b-human">HUMAN</span></b>
+            <small>Mandatory tap before motor/spindle move</small>
+          </div>
+          <div class="chip">
+            <b>3D Toolpath Preview <span class="badge b-human">HUMAN</span></b>
+            <small>Visual simulation before cutting metal</small>
+          </div>
+          <div class="chip">
+            <b>Local / Cloud Privacy Pill</b>
+            <small>Operator sees exactly where data stays</small>
+          </div>
+          <div class="chip">
+            <b>AI Health Monitor <span class="badge b-commit">NEW</span></b>
+            <small>Real-time warning if AI slows or hangs</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow"><span>&#9650;</span> Spoken / typed operator questions &bull; Verified recommendations &amp; cards <span>&#9660;</span></div>
+
+      <!-- Band 3: Safe Gateway -->
+      <div class="band b-gateway">
+        <div class="lbl">
+          <span>&#128737; Safe Gateway &amp; Control Pipeline</span>
+          <span class="role">Deterministic application core &mdash; guards every single turn</span>
+        </div>
+        <div class="pipe">
+          <div class="chip">
+            <b>1 &middot; E-STOP Bypass</b>
+            <small>0 ms software cut</small>
+          </div>
+          <div class="pipe-sep">&rsaquo;</div>
+          <div class="chip">
+            <b>2 &middot; Lexicon Filter</b>
+            <small>Safe read-only routing</small>
+          </div>
+          <div class="pipe-sep">&rsaquo;</div>
+          <div class="chip">
+            <b>3 &middot; Grounded Context</b>
+            <small>Sensors + manuals</small>
+          </div>
+          <div class="pipe-sep">&rsaquo;</div>
+          <div class="chip">
+            <b>4 &middot; Tool Router</b>
+            <small>Restricted capabilities</small>
+          </div>
+          <div class="pipe-sep">&rsaquo;</div>
+          <div class="chip">
+            <b>5 &middot; Output Guards</b>
+            <small>Blocks raw G-code</small>
+          </div>
+          <div class="pipe-sep">&rsaquo;</div>
+          <div class="chip">
+            <b>6 &middot; Kinematics</b>
+            <small>Travel &amp; speed checks</small>
+          </div>
+        </div>
+        <div class="chips" style="margin-top: 5px;">
+          <div class="chip">
+            <b>30 s Timeout &amp; Circuit Breaker <span class="badge b-commit">NEW</span></b>
+            <small>Never leaves the operator waiting on shop floor</small>
+          </div>
+          <div class="chip">
+            <b>Enforced Machine State Read <span class="badge b-commit">NEW</span></b>
+            <small>Must poll hardware encoders before answering position</small>
+          </div>
+          <div class="chip">
+            <b>Auto Doc Pre-fetch <span class="badge b-commit">NEW</span></b>
+            <small>Grounds troubleshooting in verified manuals</small>
+          </div>
+          <div class="chip">
+            <b>Model Digest Verification <span class="badge b-commit">NEW</span></b>
+            <small>Blocks boot if weights or prompt changed</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow"><span>&#9650;</span> Local private HTTP (:11434) &bull; Optional 4G cloud fallback strictly on demand <span>&#9660;</span></div>
+
+      <!-- Band 2: Inference Models -->
+      <div class="b-model-row">
+        <div class="band b-model-local">
+          <div class="lbl">
+            <span>&#129302; Local Workshop Inference (Air-Gapped LAN)</span>
+            <span class="role">Shop PC &mdash; Ollama :11434 &bull; RTX 3070 8 GB &bull; $0 Cloud Cost</span>
+          </div>
+          <div class="chips">
+            <div class="chip">
+              <b>forgeron-qwen (Qwen 2.5 7B)</b>
+              <small>Custom Modelfile &bull; 16k context &bull; Pinned hash <span class="badge b-commit">NEW</span></small>
+            </div>
+            <div class="chip">
+              <b>Visual Inspector VLM</b>
+              <small>Checks tool wear, swarf, clamp setup</small>
+            </div>
+            <div class="chip">
+              <b>Local Dialect Engine</b>
+              <small>Adapts French to workshop vernacular</small>
+            </div>
+            <div class="chip">
+              <b>Python 3D CAD Engine</b>
+              <small>OpenCASCADE calculates geometry &mdash; never LLM</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-model-cloud">
+          <div class="lbl">&#9729; Cloud Fallback (Optional)</div>
+          <div class="chip" style="background: #fff;">
+            <b>Gemini 2.5 Flash Lite</b>
+            <small>Used only if operator enables 4G; pinned model version <span class="badge b-commit">NEW</span></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow"><span>&#9650;</span> Encoders, machine coordinates, tools catalog, and French documentation <span>&#9660;</span></div>
+
+      <!-- Band 1: Data Ingestion -->
+      <div class="band b-data">
+        <div class="lbl">
+          <span>&#128194; Data Ingestion &amp; Grounding Sources</span>
+          <span class="role">Sanitized &amp; validated locally before touching neural model</span>
+        </div>
+        <div class="chips">
+          <div class="chip">
+            <b>Live Machine Coordinates</b>
+            <small>Duet3D/ESP32 polled via WebSocket</small>
+          </div>
+          <div class="chip">
+            <b>Workshop Manuals (RAG)</b>
+            <small>Markdown/PDF docs versioned in git</small>
+          </div>
+          <div class="chip">
+            <b>Audio &amp; Accents Normalizer</b>
+            <small>Cleans shop background spindle noise</small>
+          </div>
+          <div class="chip">
+            <b>STEP / STL CAD Files</b>
+            <small>Strict path &amp; integrity verification <span class="badge b-commit">NEW</span></small>
+          </div>
+          <div class="chip">
+            <b>Locked Shop Lexicon</b>
+            <small>Deterministic dictionary of machine terms</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Physical Machine Bottom Zone -->
+      <div class="b-machine">
+        <div>
+          <b>&#9881; Physical Machine Zone: Duet3D / FluidNC &rarr; 5-Axis Milling Center</b>
+          <span style="color: #475569; font-size: 10.5px; display: block;">Motors move ONLY after safety validators pass AND machinist explicitly confirms on screen.</span>
+        </div>
+        <div>
+          <span class="badge b-safety" style="font-size: 10.5px; padding: 3px 8px;">&#128721; HARDWARE E-STOP: 0 ms Instant Power Cut</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Side: Human Principles & Fallbacks -->
+    <div class="s1-side">
+      
+      <div class="side-card sc-human">
+        <h3>&#128119; Human-Centered Safety</h3>
+        <ul>
+          <li><b>Human-in-the-Loop Imperative:</b> The AI is a digital apprentice. It advises; the human operator decides and confirms. Zero autonomous moves.</li>
+          <li><b>Physical Protection:</b> Hard software envelopes prevent moves outside machine stroke (Z-bed floor, B-trunnion limits).</li>
+          <li><b>Instant Emergency Stop:</b> Red physical mushroom button is hardwired to power relays, completely independent of all AI software.</li>
+        </ul>
+      </div>
+
+      <div class="side-card sc-degrade">
+        <h3>&#9989; Graceful Degradation Ladder</h3>
+        <ol>
+          <li><b>Tier 1 &middot; Local AI Assistant:</b> Rich conversational guidance and visual diagnosis running offline on workshop GPU.</li>
+          <li><b>Tier 2 &middot; Deterministic Lexicon:</b> If AI hangs or model crashes, keyword lookup provides instant answers (&lt; 1 s).</li>
+          <li><b>Tier 3 &middot; Manual CNC Screen:</b> Direct DRO &amp; manual jog controls keep machine producing parts with zero downtime.</li>
+        </ol>
+      </div>
+
+      <div class="side-card sc-telemetry">
+        <h3>&#128065; Operational Telemetry</h3>
+        <ul>
+          <li><b>Local AiTurnJournal:</b> Structured JSONL on disk logs latencies, token usage, tool calls, and safety stops. <i>Zero operator text/audio recorded.</i></li>
+          <li><b>Release Fingerprint Gate:</b> CI verifies Model digest + prompt hash + tool schemas before any workshop deployment.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Forgeron &middot; AI Architecture &amp; MLOps Blueprint &middot; Addis Ababa University / Ethiopian AI Institute / UNDP</span>
+    <span>Day 3 Deliverable &middot; Slide 1 of 3</span>
+  </div>
+</section>
+
+<!-- ======================================================================
+     SLIDE 2: FAILURE REGISTER (REAL WORKSHOP HAZARDS)
+====================================================================== -->
+<section class="slide">
+  <div class="head">
+    <div class="num num-2">2</div>
+    <div>
+      <h1>Failure Register &mdash; Protecting the Human &amp; Machine from AI Errors</h1>
+    </div>
+  </div>
+  <p class="sub">
+    In a machine shop, AI bugs cause broken carbide, ruined workpieces, or physical danger. Scored with FMEA: RPN = Likelihood &times; Impact &times; Detection (1&ndash;5 scale).
+  </p>
+
+  <div class="s2-grid">
+    <table class="s2-table">
+      <tr>
+        <th style="width: 25%;">Failure Mode &amp; Workshop Reality</th>
+        <th style="width: 8%; text-align: center;">RPN</th>
+        <th style="width: 26%;">How We Catch It Early (Signals &amp; Alerts)</th>
+        <th style="width: 20%;">Preventive Engineering</th>
+        <th style="width: 21%;">Fast Recovery &amp; Rollback Runbook</th>
+      </tr>
+      
+      <!-- Failure A -->
+      <tr>
+        <td>
+          <span class="risk-badge rb-A">A &middot; Silent Drift</span>
+          <div class="story-title">The Model Changes Behind Our Back</div>
+          <div class="story-reality">Someone pulls new Ollama weights, tweaks prompt formatting, or updates tools without benchmarking. Feeds &amp; speeds degrade silently until a $150 cutter snaps.</div>
+          <div class="story-proof"><b>Audit Proof:</b> Release gate was skipped; forgeron-qwen tag is mutable; 500 uncommitted AI code lines in working tree; no automated CI pipeline.</div>
+        </td>
+        <td>
+          <div class="rpn-box rpn-A">80</div>
+          <div class="rpn-formula">L4 &times; I4 &times; D5</div>
+        </td>
+        <td>
+          <ul class="alert-list">
+            <li><span class="p-crit">P1 Alert:</span> Startup model digest &ne; release manifest &rarr; local AI blocked, falls back to lexicon.</li>
+            <li><span class="p-warn">P2 Alert:</span> Runtime prompt hash drift &rarr; warning banner shown to operator.</li>
+            <li><b>CI Gate:</b> Release test skipped or failed &rarr; build automatically breaks.</li>
+            <li><b>Benchmark:</b> Overall score drops &gt; 5% or any safety regression blocks promotion.</li>
+          </ul>
+        </td>
+        <td>
+          Pin exact model hash and Modelfile in git; enforce automated CI on every commit; require full 85-scenario benchmark before shop promotion.
+        </td>
+        <td>
+          <ul class="recovery-list">
+            <li>Run <code>tool/ai_rollback.ps1 ai-vN</code> to restore verified prompt, tools, and model weights.</li>
+            <li>Re-verify digest and run release test.</li>
+            <li>Smoke test safety scenarios (~10 min).</li>
+            <li><b>Target: &le; 15 min</b> &bull; <i>Owner: AI Lead</i></li>
+          </ul>
+        </td>
+      </tr>
+
+      <!-- Failure B -->
+      <tr>
+        <td>
+          <span class="risk-badge rb-B">B &middot; Ungrounded Guess</span>
+          <div class="story-title">Hallucinating Machine State</div>
+          <div class="story-reality">The machinist asks: <i>&ldquo;Can I safely clear the B-axis clamp?&rdquo;</i>. The AI answers from conversation memory instead of reading live encoders, risking a catastrophic crash into the trunnion table.</div>
+          <div class="story-proof"><b>Benchmark Proof:</b> Freshness suite failed 60%; Documentation suite failed 62.5%. Model guessed Z-height from stale history.</div>
+        </td>
+        <td>
+          <div class="rpn-box rpn-B">64</div>
+          <div class="rpn-formula">L4 &times; I4 &times; D4</div>
+        </td>
+        <td>
+          <ul class="alert-list">
+            <li><span class="p-warn">P2 Alert:</span> Axis position or status answer emitted without fresh <code>get_machine_state</code> call &gt; 2% daily.</li>
+            <li><span class="p-warn">P2 Alert:</span> Troubleshooting query answered without calling <code>search_docs</code> &gt; 10% daily.</li>
+            <li><b>Benchmark Gate:</b> Freshness score &lt; 80% or Documentation score &lt; 70% rejects release candidate.</li>
+          </ul>
+        </td>
+        <td>
+          Deterministic pre-fetching in application core: force an encoder read before generating position answers; auto-fetch maintenance docs for &ldquo;how-to&rdquo; questions.
+        </td>
+        <td>
+          <ul class="recovery-list">
+            <li>Operator switches UI to <b>Lexicon-only mode</b> in settings: status answers become 100% deterministic (<b>&lt; 1 min</b>).</li>
+            <li>Roll back to prior release if drift persists.</li>
+            <li>Add failing phrasing to golden bench suite.</li>
+            <li><i>Owner: AI Lead + Operator reports</i></li>
+          </ul>
+        </td>
+      </tr>
+
+      <!-- Failure C -->
+      <tr>
+        <td>
+          <span class="risk-badge rb-C">C &middot; Dangerous Advice</span>
+          <div class="story-title">Drafting Raw G-Code or Out-of-Stroke Moves</div>
+          <div class="story-reality">The operator asks how to face a block; the AI emits 15 lines of raw G-code. A single negative Z typo would plunge the spindle at 24,000 RPM directly into the machine bed.</div>
+          <div class="story-proof"><b>Benchmark Proof:</b> No-G-Code rule failed 73%; model invented fake file paths (<code>/path/to/part.step</code>) and obeyed social engineering.</div>
+        </td>
+        <td>
+          <div class="rpn-box rpn-C">60</div>
+          <div class="rpn-formula">L3 &times; I5 &times; D4</div>
+        </td>
+        <td>
+          <ul class="alert-list">
+            <li><span class="p-crit">P1 Alert:</span> Any kinematic envelope limit violation followed by operator manual override.</li>
+            <li><span class="p-warn">P2 Alert:</span> Any raw G-code block detected by output parser in assistant response.</li>
+            <li><b>Benchmark Gate:</b> Zero tolerance: any forbidden motion command in safety suite immediately rejects release.</li>
+          </ul>
+        </td>
+        <td>
+          Completely eliminate G-code drafting instructions from prompt; reject non-existent CAD paths; enforce mandatory confirmation modal with toolpath visualizer on screen.
+        </td>
+        <td>
+          <ul class="recovery-list">
+            <li><b>Machinist hits physical red E-STOP</b> (0 ms instant power cut).</li>
+            <li>Toggle AI off &rarr; switch to manual CNC interface (<b>&lt; 1 min</b>).</li>
+            <li>Incident logged in journal; blameless review conducted within 24 hours.</li>
+            <li><i>Owner: Machinist (Floor) + AI Lead</i></li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Watch List -->
+    <div class="watch-bar">
+      <b>Human Safety Watch List:</b> Missed French/Swahili E-STOP voice commands (Severity 5: kept on active watch list regardless of statistical score) &bull; Heavy inference latency spikes (&gt; 15 s locks operator attention on screen) &bull; Safety warnings translated into local vernacular without native speaker sign-off &bull; Unprotected Ollama LAN port exposed to shop Wi-Fi.
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Forgeron &middot; AI Architecture &amp; MLOps Blueprint &middot; Addis Ababa University / Ethiopian AI Institute / UNDP</span>
+    <span>Day 3 Deliverable &middot; Slide 2 of 3</span>
+  </div>
+</section>
+
+<!-- ======================================================================
+     SLIDE 3: TOOLING & 2-WEEK SPRINT (PRAGMATIC & LEAN)
+====================================================================== -->
+<section class="slide">
+  <div class="head">
+    <div class="num num-3">3</div>
+    <div>
+      <h1>Tooling &amp; 2-Week Sprint &mdash; Building What 2 People Can Truly Maintain</h1>
+    </div>
+  </div>
+  <p class="sub">
+    Lean, pragmatic MLOps for a real workshop team (1 AI Developer + 1 Master Machinist). Zero enterprise bloat, zero server maintenance, 100% focus on physical safety.
+  </p>
+
+  <div class="s3-grid">
+    
+    <!-- Left Column: Toolstack -->
+    <div class="s3-card">
+      <h2>
+        <span>Pragmatic Toolstack (Zero Bloat)</span>
+        <span class="team-tag">2-Person Team Reality</span>
+      </h2>
+      <table class="tools-table">
+        <tr><th>Function</th><th>Chosen Tool</th><th>Why It Fits Our Reality</th></tr>
+        <tr><td>Code &amp; CI</td><td>GitHub + Actions</td><td>Free, automated, runs tests on push without maintaining any servers</td></tr>
+        <tr><td>AI Versioning</td><td><code>ai_release.json</code> + git tags</td><td>Locks code, prompts, tool schemas, and model digest into one release ID</td></tr>
+        <tr><td>Evaluation Data</td><td>Golden scenarios in git</td><td>Fingerprinted test suite; test reports committed directly to repository</td></tr>
+        <tr><td>Test Runner</td><td><code>flutter test</code> + pytest</td><td>Runs 69 test files + CAM geometry tests in under 2 minutes</td></tr>
+        <tr><td>Local Inference</td><td>Ollama on Workshop PC</td><td>Runs 100% offline, $0 API cost, leverages existing 8 GB GPU</td></tr>
+        <tr><td>Telemetry</td><td>AiTurnJournal + UI panel</td><td>Offline JSONL logging; monitors latency &amp; safety stops without storing chat text</td></tr>
+        <tr><td>Model Bench</td><td>Forgeron-Bench</td><td>Evaluates 85 real shop scenarios locally with 95% Wilson confidence intervals</td></tr>
+        <tr><td>Fast Rollback</td><td>1-line script + UI toggle</td><td>Reverts model release in &le; 15 min; toggles AI off to manual mode in &lt; 1 min</td></tr>
+      </table>
+      <div class="bottom-note">
+        <b>Deliberately omitted:</b> Kubernetes, hosted MLflow clusters, expensive cloud APM. A 2-person team cannot afford full-time DevOps maintenance; tools must survive shop power cuts.
+      </div>
+    </div>
+
+    <!-- Right Column: Backlog -->
+    <div class="s3-card">
+      <h2>
+        <span>2-Week Human-Centered Backlog (12 &rarr; 25 Nov 2026)</span>
+        <span class="team-tag">Priority = Risk Reduction &divide; Effort</span>
+      </h2>
+      <table class="bl-table">
+        <tr><th>#</th><th>Task Description</th><th>Risk</th><th>Eff.</th><th>Owner</th><th>Due</th><th>Definition of Done (Testable)</th></tr>
+        <tr><td class="n">1</td><td>Promote verified baseline release; make skipped tests break CI</td><td><span class="tag tag-A">A</span></td><td class="eff">S</td><td>AI Lead</td><td>12 Nov</td><td><code>ai_release_test</code> passes (not skipped); report committed to git</td></tr>
+        <tr><td class="n">2</td><td>Benchmark or revert 500 uncommitted AI code lines</td><td><span class="tag tag-A">A</span></td><td class="eff">S</td><td>AI Lead</td><td>13 Nov</td><td>Full benchmark run: zero safety regressions; clean git status</td></tr>
+        <tr><td class="n">3</td><td>Setup GitHub Actions: automated analysis and unit tests on push</td><td><span class="tag tag-A">A</span></td><td class="eff">S</td><td>AI Lead</td><td>14 Nov</td><td>Green check on main; deliberately broken test turns build red</td></tr>
+        <tr><td class="n">4</td><td>Pin model digest and Gemini version; enforce startup check</td><td><span class="tag tag-A">A</span></td><td class="eff">M</td><td>AI Lead</td><td>17 Nov</td><td>Unit test: launching with modified model hash forces lexicon fallback</td></tr>
+        <tr><td class="n">5</td><td>Implement <code>ai_rollback.ps1</code> and run live rehearsal drill</td><td><span class="tag tag-A">A</span></td><td class="eff">M</td><td>AI Lead</td><td>18 Nov</td><td>Recorded drill proving full release rollback in &le; 15 minutes</td></tr>
+        <tr><td class="n">6</td><td>Enforce deterministic machine state read before position answers</td><td><span class="tag tag-B">B</span></td><td class="eff">M</td><td>AI Lead</td><td>19 Nov</td><td>Forgeron-Bench Freshness score jumps from 40% to &ge; 80%</td></tr>
+        <tr><td class="n">7</td><td>Enforce automatic documentation pre-fetch for diagnostic queries</td><td><span class="tag tag-B">B</span></td><td class="eff">M</td><td>AI Lead</td><td>20 Nov</td><td>Forgeron-Bench Documentation score jumps from 37.5% to &ge; 70%</td></tr>
+        <tr><td class="n">8</td><td>Remove G-code drafting from prompt; validate input file paths</td><td><span class="tag tag-C">C</span></td><td class="eff">M</td><td>AI Lead</td><td>21 Nov</td><td>No-G-Code score reaches &ge; 90%; fake paths immediately rejected</td></tr>
+        <tr><td class="n">9</td><td>Build in-app AI Health Dashboard from local journal logs</td><td><span class="tag tag-B">B</span> <span class="tag tag-C">C</span></td><td class="eff">M</td><td>AI Lead</td><td>24 Nov</td><td>Widget test passes; shows 24h error rate, p95 latency, safety stops</td></tr>
+        <tr><td class="n">10</td><td>Native review of 20 French safety scenarios &amp; sign incident runbook</td><td><span class="tag tag-all">all</span></td><td class="eff">S</td><td>Technician</td><td>25 Nov</td><td>20 scenarios stamped &ldquo;reviewed&rdquo; by named speaker; runbook signed</td></tr>
+      </table>
+      <div class="bottom-note">
+        <b>Sprint Exit Gate:</b> Green CI build, locked release hash, verified 15-minute rollback drill, and benchmark accuracy &ge; 80% with zero safety regressions. Signed off jointly by AI Lead and Master Machinist.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span>Forgeron &middot; AI Architecture &amp; MLOps Blueprint &middot; Addis Ababa University / Ethiopian AI Institute / UNDP</span>
+    <span>Day 3 Deliverable &middot; Slide 3 of 3</span>
+  </div>
+</section>
+
+</body>
+</html>

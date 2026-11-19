@@ -51,7 +51,55 @@ class _Front {
       };
 }
 
+/// Formules sociales reconnues, par sens. Un message n'est « social » que
+/// s'il n'est fait QUE de ces formules (voir `_resolveConversationalReply`).
+final _socialPatterns = <String, RegExp>{
+  'presentation': _formule(
+      r"introduce\s+yourself|presente?s?\s+yourself|present\s+yourself|"
+      r"tell\s+(?:me|us)\s+about\s+yourself|who\s+are\s+you|what\s+is\s+forgeron|"
+      r"pr[ée]sente[- ]?toi|pr[ée]sentez[- ]?vous|qui\s+es[- ]?tu|c['’]?est\s+quoi\s+forgeron"),
+  'capacites': _formule(
+      r"(i|aw)\s*b[ɛe]\s*se\s*ka\s*mun\s*k[ɛe](\s*n\s*ye)?|mun\s*b[ɛe]\s*se\s*ka\s*k[ɛe]|"
+      r"qu['’]?est[- ]ce\s*que\s*tu\s*(sais|peux)\s*faire|que\s*(sais|peux)[- ]tu\s*faire|"
+      r"tu\s*(sais|peux)\s*faire\s*quoi|quelles\s*sont\s*tes\s*fonctions|"
+      r"me\s*za\s*ka\s*iya\s*yi(\s*mini)?|unaweza\s*(kunisaidia|kufanya)\s*nini|"
+      r"what\s*can\s*you\s*(do|help\s*(me\s*)?with)|aide[- ]?moi|aide|help"),
+  'matin': _formule(r"(i|aw)\s*ni\s*sogoma|inisogoma|ina\s*kwana|"
+      r"habari\s*za\s*asubuhi|good\s*morning|bonjour"),
+  'salut': _formule(
+      r"(i|aw)\s*ni\s*(ce|tile|wula|su)|(ini|awni)\s*(ce|tile|wula|su)|"
+      r"inice|sannu|salut|coucou|hello|hi|habari|jambo"),
+  'merci': _formule(
+      r"merci(\s*beaucoup)?|na\s*gode|asante(\s*sana)?|thank\s*you|thanks"),
+};
+
+/// Formule entourée de non-lettres. `\b` de Dart ne connaît que l'ASCII :
+/// pour lui, « ɛ » n'est pas une lettre, et « hi » se trouve dans « machine ».
+RegExp _formule(String alternatives) =>
+    RegExp('(?<!\\p{L})(?:$alternatives)(?!\\p{L})', unicode: true);
+
+/// Mots qui peuvent accompagner une formule sans en changer le sens.
+final _socialFillers = _formule(
+    r'forgeron|ia|ai|pour|moi|toi|à|tous|please|svp|now|today|for|us|the|visitors|team');
+
 extension _LexiconFront on AiAgentController {
+  /// Langue des phrases fixes en réponse à [text] — la même règle que pour
+  /// le modèle (`AppLanguage.replyLanguage`) : langue imposée si l'opérateur
+  /// en a choisi une, sinon celle de son message, sinon celle de son message
+  /// précédent. `null` : rien ne tranche, on garde la langue de l'interface.
+  ///
+  /// Avant le 5 nov. 2026, ces phrases suivaient l'interface : un opérateur
+  /// qui écrivait « Home all axes » sur un téléphone en français recevait
+  /// « Homing lancé… ».
+  String? _replyLanguageFor(String text) {
+    final lang = _ref.read(effectiveAiLanguageProvider);
+    if (!lang.isAuto) return lang.id;
+    final detected =
+        LanguageDetector.detectOperatorLanguage(text, fallback: '');
+    final code = detected.isNotEmpty ? detected : _operatorLanguageCode();
+    return code == null ? null : lang.replyLanguage(code).id;
+  }
+
   /// `version/empreinte` du lexique chargé — inscrite dans le journal, pour
   /// savoir QUEL lexique a compris (ou refusé) un message.
   String? get _lexiconStamp {
@@ -79,6 +127,57 @@ extension _LexiconFront on AiAgentController {
     }
   }
 
+  /// Réponse fixe à un message PUREMENT social — salutation, remerciement,
+  /// « que sais-tu faire ? » — sans appel au modèle. `null` dès que le
+  /// message contient autre chose : « Bonjour, allume la broche » est un
+  /// ordre, pas une salutation (avant le 5 nov. 2026, ce routeur passait
+  /// avant le lexique et répondait « Bonjour ! » en perdant l'ordre ; tout
+  /// message contenant « merci » ou « aide » subissait le même sort).
+  ///
+  /// Les phrases passent par le catalogue de traductions (`tr`) : toutes les
+  /// langues traduites en profitent, les autres reçoivent le français.
+  String? _resolveConversationalReply(String text) {
+    var rest = text.toLowerCase();
+    final found = <String>{};
+    for (final e in _socialPatterns.entries) {
+      if (e.value.hasMatch(rest)) {
+        found.add(e.key);
+        rest = rest.replaceAll(e.value, ' ');
+      }
+    }
+    if (found.isEmpty) return null;
+    rest = rest.replaceAll(_socialFillers, ' ');
+    // Il reste des mots : le message dit autre chose qu'une politesse.
+    if (RegExp(r'\p{L}', unicode: true).hasMatch(rest)) return null;
+
+    // Les clés sont écrites en clair dans chaque tr() : le catalogue
+    // (tool/i18n_tr_keys.py) ne voit que les chaînes littérales.
+    return inLanguage(_replyLanguageFor(text), () {
+      if (found.contains('presentation')) {
+        return tr(
+            'Bonjour ! Je suis Forgeron, votre assistant d\'usinage CNC 5 axes propulsé par FluidNC sur ESP32. '
+            'Je peux générer et simuler des parcours G-code 5 axes en 3D, piloter les axes et la broche, '
+            'diagnostiquer la machine avant usinage et vous accompagner à la voix ou par écrit en français et en anglais.');
+      }
+      if (found.contains('capacites')) {
+        return tr("Je peux vous aider à : lire l'état de la machine, lancer "
+            "la prise d'origine (\$H), analyser ou prévisualiser un programme "
+            'G-code, piloter le jog et diagnostiquer les alarmes.');
+      }
+      if (found.contains('matin')) {
+        return tr("Bonjour ! Comment puis-je vous aider sur la machine "
+            "aujourd'hui ?");
+      }
+      if (found.contains('salut')) {
+        return tr('Bonjour ! Forgeron IA est à votre service. Souhaitez-vous '
+            "vérifier l'état machine, faire un homing ou analyser un "
+            'programme ?');
+      }
+      return tr("Avec plaisir ! N'hésitez pas si vous avez d'autres "
+          'opérations à effectuer sur la machine.');
+    });
+  }
+
   /// Applique la décision. `true` = le tour est soldé ici (le modèle n'est pas
   /// appelé) ; `false` = le modèle prend la suite, éventuellement restreint à
   /// la lecture (`_readOnlyTurn`).
@@ -88,6 +187,19 @@ extension _LexiconFront on AiAgentController {
     required bool allowModel,
   }) async {
     final clock = Stopwatch()..start();
+
+    // Traitement déterministe immédiat des salutations, remerciements et questions de capacités
+    // afin d'éviter toute hallucination stochastique sur les modèles locaux légers.
+    final conversational = _resolveConversationalReply(text);
+    if (conversational != null) {
+      final epoch = _epoch;
+      _addMessage(AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
+      if (_epoch != epoch) return true;
+      _addMessage(AiChatMessage(role: 'assistant', text: conversational, timestamp: DateTime.now()));
+      _logFront(front, 'lexique:conversation:${_replyLanguageFor(text)}', clock);
+      return true;
+    }
+
     switch (front.decision) {
       case RunNow d:
         await _runLexiconNow(text, front, d, clock);
@@ -111,12 +223,14 @@ extension _LexiconFront on AiAgentController {
   /// Exécute l'outil d'un appel du lexique par le chemin commun des outils et
   /// rend son résultat brut (`OK…`, `REFUSÉ…`, `ERREUR…`, ou le JSON d'une
   /// lecture).
-  Future<String> _executeLexiconTool(LexiconMatch match) async {
+  Future<String> _executeLexiconTool(LexiconMatch match,
+      {String? callId, String origin = BackofficeOrigin.lexique}) async {
     final tool = AiToolCatalog.byName(match.tool);
     if (tool == null) return 'ERREUR: outil « ${match.tool} » introuvable';
     state = state.copyWith(
         isProcessing: true, runningTool: tool.name, clearError: true);
-    final parts = await _executeTool(tool, tool.name, match.args);
+    final parts = await _executeTool(tool, tool.name, match.args,
+        callId: callId, origin: origin);
     state = state.copyWith(isProcessing: false, clearRunningTool: true);
     final response = parts.isEmpty
         ? null
@@ -131,8 +245,10 @@ extension _LexiconFront on AiAgentController {
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
     final result = await _executeLexiconTool(d.match);
     if (_epoch != epoch) return; // discussion changée pendant l'appel
-    final reply = lexiconReply(
-        match: d.match, toolResult: result, lexicon: front.lexicon);
+    final reply = inLanguage(
+        _replyLanguageFor(text),
+        () => lexiconReply(
+            match: d.match, toolResult: result, lexicon: front.lexicon));
     _addMessage(AiChatMessage(
         role: 'assistant', text: reply, timestamp: DateTime.now()));
     _recordLexiconHistory(text, d.match, result, reply);
@@ -144,37 +260,54 @@ extension _LexiconFront on AiAgentController {
       String text, _Front front, AskConfirmation d, Stopwatch clock) {
     _addMessage(
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
+    final lang = _replyLanguageFor(text);
     final call = AiLexiconCall(
       match: d.match,
       originalText: text,
       reasons: d.reasons,
-      label: lexiconActionLabel(d.match),
-      reasonText: confirmReasonText(d.reasons, d.match.languages),
+      label: inLanguage(lang, () => lexiconActionLabel(d.match)),
+      reasonText: inLanguage(
+          lang, () => confirmReasonText(d.reasons, d.match.languages)),
     );
+    final callId = '${d.match.tool}_${_callCounter++}';
     state = state.copyWith(
       isProcessing: false,
       clearTurnStartedAt: true,
       pendingConfirmation: AiPendingToolCall(
-        id: '${d.match.tool}_${_callCounter++}',
+        id: callId,
         toolName: d.match.tool,
         input: d.match.args,
         lexicon: call,
       ),
     );
+    _audit('ia.outil.attente',
+        'Confirmation demandée à l\'opérateur pour ${d.match.tool} (lexique)',
+        severity: BackofficeSeverity.notice,
+        details: {
+          'outil': d.match.tool,
+          'arguments': d.match.args,
+          'intention': d.match.intent,
+        },
+        callId: callId,
+        origin: BackofficeOrigin.lexique);
     _logFront(front, 'lexique:confirmer:${d.match.intent}', clock);
   }
 
   /// L'opérateur a confirmé une action du lexique.
-  Future<void> _confirmLexiconPending(AiPendingToolCall pending) async {
+  Future<void> _confirmLexiconPending(AiPendingToolCall pending,
+      {String origin = BackofficeOrigin.local}) async {
     final call = pending.lexicon!;
     final clock = Stopwatch()..start();
     final epoch = _epoch;
     final lexicon = _ref.read(lexiconLoadProvider).valueOrNull?.lexicon;
     state = state.copyWith(clearPendingConfirmation: true);
-    final result = await _executeLexiconTool(call.match);
+    final result = await _executeLexiconTool(call.match,
+        callId: pending.id, origin: origin);
     if (_epoch != epoch) return;
-    final reply =
-        lexiconReply(match: call.match, toolResult: result, lexicon: lexicon);
+    final reply = inLanguage(
+        _replyLanguageFor(call.originalText),
+        () => lexiconReply(
+            match: call.match, toolResult: result, lexicon: lexicon));
     _addMessage(AiChatMessage(
         role: 'assistant', text: reply, timestamp: DateTime.now()));
     _recordLexiconHistory(call.originalText, call.match, result, reply);
@@ -214,15 +347,19 @@ extension _LexiconFront on AiAgentController {
       toolResult: 'non exécuté ($why)',
       toolDuration: Duration.zero,
     ));
+    final lang = _replyLanguageFor(call.originalText);
     final reply = quiet
         ? null
-        : tr('D\'accord, je n\'exécute pas : {}.', [call.label.toLowerCase()]);
+        : inLanguage(
+            lang,
+            () => tr('D\'accord, je n\'exécute pas : {}.',
+                [call.label.toLowerCase()]));
     if (reply != null) {
       _addMessage(AiChatMessage(
           role: 'assistant', text: reply, timestamp: DateTime.now()));
     }
     _recordLexiconHistory(call.originalText, call.match, 'Action non exécutée ($why).',
-        reply ?? tr('D\'accord.'),
+        reply ?? inLanguage(lang, () => tr('D\'accord.')),
         failed: true);
     final stamp = _lexiconStamp;
     unawaited(() async {
@@ -246,12 +383,15 @@ extension _LexiconFront on AiAgentController {
       {bool disabled = false}) {
     _addMessage(
         AiChatMessage(role: 'user', text: text, timestamp: DateTime.now()));
-    final help = lexiconHelp(refusal);
+    final answer = inLanguage(_replyLanguageFor(text), () {
+      final help = lexiconHelp(refusal);
+      return disabled
+          ? '${tr('L\'assistant IA est désactivé (Paramètres > Agent IA).')} $help'
+          : help;
+    });
     _addMessage(AiChatMessage(
       role: 'assistant',
-      text: disabled
-          ? '${tr('L\'assistant IA est désactivé (Paramètres > Agent IA).')} $help'
-          : help,
+      text: answer,
       timestamp: DateTime.now(),
     ));
   }
@@ -286,6 +426,20 @@ extension _LexiconFront on AiAgentController {
   void _logFront(_Front front, String tag, Stopwatch clock,
       {List<String> tools = const []}) {
     final stamp = _lexiconStamp;
+    _audit(
+      'ia.lexique',
+      'Lexique fermé : $tag${tools.isEmpty ? '' : ' (${tools.join(', ')})'}',
+      severity: tag.contains(':refus:') || tag.contains(':lecture_seule:')
+          ? BackofficeSeverity.notice
+          : BackofficeSeverity.info,
+      details: {
+        'decision': tag,
+        'outils': tools,
+        'lexique': ?stamp,
+        'latence_ms': clock.elapsedMilliseconds,
+      },
+      origin: BackofficeOrigin.lexique,
+    );
     unawaited(() async {
       final journal = await _journalOrNull();
       await journal?.record(AiTurnRecord(

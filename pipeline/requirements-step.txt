@@ -17,3 +17,5 @@
 # mêmes bindings (module `OCP`) sur PyPI pour Python 3.12, avec vtk et
 # matplotlib en dépendances (visualisation, inutilisées par ce pipeline).
 cadquery-ocp==8.0.1.0.0
+numba>=0.60
+pyclipper>=1.3

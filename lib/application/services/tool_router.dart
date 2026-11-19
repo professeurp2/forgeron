@@ -66,9 +66,9 @@ class ToolRouter {
       keywords: [
         'avance l', 'avance x', 'avance y', 'avance z', 'avance a', 'avance c',
         'recule', 'monte', 'descend', 'deplace', 'bouge', 'va en', 'va a',
-        'aller', 'jog', 'move', 'home', 'homing', 'origine', 'zero', 'palpe',
+        'aller', 'jog', 'move', 'go to', 'goto', 'home', 'homing', 'origine', 'zero', 'palpe',
         'probe', 'g54', 'g55', 'g56', 'g57', 'g58', 'g59', 'wcs',
-        'systeme de coordonnees', 'coordinate', 'axe', 'axis', 'tourne',
+        'systeme de coordonnees', 'coordinate', 'axe', 'axis', 'axes', 'tourne',
         'rotate', 'degre', 'degree', 'millimetre', 'millimeter', 'deverrouille',
         'unlock', 'reset', 'rapide', 'rapid', 'sogeza', 'mhimili',
       ],
@@ -87,16 +87,25 @@ class ToolRouter {
     'programme': ToolGroup(
       tools: {
         'run_program', 'run_gcode_program', 'send_gcode', 'get_activity_log',
+        'generate_5axis_dome', 'goto_position', 'jog_axis', 'home',
+        'reset', 'unlock_alarm', 'select_wcs', 'get_wcs_offsets', 'set_work_zero',
+        'list_workspace_files', 'load_gcode_file', 'analyze_gcode',
+        'open_toolpath_window',
       },
       keywords: [
-        'programme', 'program', 'lance', 'execute', 'run', 'cycle', 'g code',
+        'programme', 'program', 'lance', 'execute', 'executer', 'run', 'cycle', 'g code',
         'gcode', 'commande', 'envoie', 'send', 'demarre le', 'start the',
+        'usinage', 'usiner', 'usinons', 'machine la', 'demarre la', 'démarrer',
+        'demarrer', 'fabrication', 'fabriquer', 'lancer', 'charge', 'charger',
+        'load', 'fichier', 'file', 'prepare', 'prépare', 'routine', 'pipeline',
+        'mill', 'milling', 'carve', 'fraise', 'fraiser', 'dome', 'dôme',
+        'aluminium', 'aluminum', 'brass', 'laiton', 'wood', 'bois', 'steel', 'acier',
       ],
     ),
     'fichiers': ToolGroup(
       tools: {
         'list_workspace_files', 'read_workspace_file', 'write_workspace_file',
-        'analyze_gcode',
+        'load_gcode_file', 'analyze_gcode', 'run_program', 'open_toolpath_window',
       },
       keywords: [
         'fichier', 'file', 'dossier', 'espace de travail', 'workspace', 'lis ',
@@ -108,15 +117,21 @@ class ToolRouter {
       tools: {
         'run_step_pipeline', 'preview_step_file', 'open_toolpath_window',
         'open_gcode_window', 'open_chart_window', 'show_popup',
-        'list_workspace_files', 'analyze_gcode',
+        'list_workspace_files', 'analyze_gcode', 'run_program',
         'get_reco3d_status', 'start_machine_scan', 'get_scan_job_status',
         'download_scan_result',
         'run_machining_simulation', 'control_simulation',
+        'capture_workspace_view', 'generate_5axis_dome',
       },
       keywords: [
         'step', 'stp', 'apercu', 'preview', '3d', 'parcours', 'toolpath',
         'genere', 'generer', 'generate', 'usinage', 'cao', 'cam', 'piece',
         'graphique', 'chart', 'courbe', 'fenetre', 'window',
+        'implant', 'medical', 'chirurgical', 'dicom', 'peek', 'pmma', 'uhmwpe',
+        'prothese', 'cranien', 'biocompatible',
+        'dome', 'dôme', 'sphere', 'hemisphere', 'mill', 'milling', 'carve',
+        'fraise', 'fraiser', 'aluminium', 'aluminum', 'brass', 'laiton',
+        'wood', 'bois', 'steel', 'acier', '5 axis', '5 axes',
       ],
     ),
     'simulation': ToolGroup(
@@ -124,6 +139,7 @@ class ToolRouter {
         'run_machining_simulation',
         'control_simulation',
         'switch_simulator_camera_tab',
+        'capture_workspace_view', 'generate_5axis_dome',
         'analyze_gcode',
       },
       keywords: [
@@ -133,10 +149,16 @@ class ToolRouter {
       ],
     ),
     'camera': ToolGroup(
-      tools: {'get_camera_snapshot', 'switch_simulator_camera_tab'},
+      tools: {
+        'get_camera_snapshot',
+        'capture_workspace_view', 'generate_5axis_dome',
+        'switch_simulator_camera_tab',
+      },
       keywords: [
         'camera', 'photo', 'image', 'zone de coupe', 'montre', 'vois', 'regarde',
         'snapshot', 'cutting area', 'show me',
+        'capture', 'screenshot', 'ecran', 'screen', 'visuel', 'visuellement',
+        'que se passe', 'ce qui se passe', 'inspecte',
       ],
     ),
     'scan': ToolGroup(
@@ -197,11 +219,12 @@ class ToolRouter {
     }
 
     final active = {...matched, ...recentGroups};
+    final nextGroups = matched.isNotEmpty ? matched : recentGroups;
     final selected = <String>{
       ...core,
       for (final g in active) ...?groups[g]?.tools,
     }.intersection(all);
-    return Routing(selected, active, routed: true);
+    return Routing(selected, nextGroups, routed: true);
   }
 
   /// Un mot-clé court (« log », « m3 ») ne doit pas se trouver au milieu d'un

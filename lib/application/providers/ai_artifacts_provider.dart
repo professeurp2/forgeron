@@ -145,6 +145,13 @@ class AiArtifactsNotifier extends StateNotifier<AiArtifacts> {
     }
   }
 
+  /// L'opérateur choisit une autre pièce : l'ancien programme ne la concerne plus,
+  /// la fiche « parcours » ne doit plus le présenter comme le sien.
+  Future<void> pickNewPart(String path) {
+    if (state.step?.path != path) state = state.copyWith(clearGcode: true);
+    return loadStep(path);
+  }
+
   /// Déclare le programme produit par le pipeline, d'après son rapport JSON.
   void setGcodeFromReport(Map<String, dynamic> report) {
     final path = report['gcode_path'] as String?;

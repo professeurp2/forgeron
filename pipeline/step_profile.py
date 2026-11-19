@@ -83,10 +83,20 @@ def _face_axis(face: TopoDS_Face) -> tuple[gp_Pnt, gp_Dir] | None:
 def _revolution_faces(shape: TopoDS_Shape) -> list[TopoDS_Face]:
     """Les faces dont la surface porte un axe de révolution — ni les plans,
     ni les surfaces libres. Ce sont les seules qui décrivent une paroi
-    tournée ; un fond plat n'en est pas une (voir `extract_profile`)."""
+    tournée ; un fond plat n'en est pas une (voir `extract_profile`).
+
+    Si la pièce comporte un nombre excessif de faces (> 150), il s'agit d'un
+    maillage facettisé, d'une géométrie complexe ou d'un implant médical/organique,
+    et non d'une pièce élémentaire de révolution tournée. On retourne immédiatement
+    une liste vide pour éviter de bloquer OpenCASCADE pendant plusieurs minutes.
+    """
     faces: list[TopoDS_Face] = []
     explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    total_faces = 0
     while explorer.More():
+        total_faces += 1
+        if total_faces > 150:
+            return []
         face = TopoDS.Face(explorer.Current())
         if _face_axis(face) is not None:
             faces.append(face)

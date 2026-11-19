@@ -70,15 +70,21 @@ class AppLanguage {
             'change avec lui. Si la langue est indécidable (message très '
             'court, G-code seul), réponds en français.'
         : writesPoorly
-            ? "L'opérateur a choisi le $promptName. Tu le COMPRENDS, mais tu "
+            ? "L'opérateur s'exprime en $promptName. Tu le COMPRENDS, mais tu "
                 "l'écris mal : une réponse en $promptName serait "
                 'incompréhensible, et dangereuse pour une consigne de sécurité. '
                 'Réponds donc en FRANÇAIS SIMPLE : phrases courtes, mots de '
                 "tous les jours, une idée par phrase, sans jargon. N'écris "
                 "jamais de $promptName."
-            : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
-                "langue dans laquelle l'opérateur écrit — y compris pour les "
-                "avertissements de sécurité et les confirmations d'action.";
+            : lowResource
+                ? 'Réponds en $promptName en appliquant impérativement le PARLER D\'ATELIER : '
+                    'les salutations, la politesse et la structure en $promptName, '
+                    'mais TOUS les termes techniques CNC, pièces, outils, commandes, '
+                    'coordonnées et alarmes en FRANÇAIS D\'ATELIER CLAIR. '
+                    'Ne forge JAMAIS de mots imaginaires en $promptName.'
+                : 'Réponds SYSTÉMATIQUEMENT en $promptName, quelle que soit la '
+                    "langue dans laquelle l'opérateur écrit — y compris pour les "
+                    "avertissements de sécurité et les confirmations d'action.";
 
     return '=== LANGUE DE RÉPONSE ===\n'
         '$head\n'
@@ -90,18 +96,72 @@ class AppLanguage {
         'Dans le G-code lui-même, le séparateur décimal reste TOUJOURS le '
         'point (X14.25) ; dans ta prose, utilise le séparateur usuel de la '
         'langue employée.\n'
-        "L'interface de Forgeron est en français : quand tu renvoies "
-        "l'opérateur vers un écran ou un bouton, cite son libellé français "
-        'exact, puis traduis-le entre parenthèses si tu réponds dans une '
-        'autre langue.\n'
+        "Quand tu renvoies l'opérateur vers un écran ou un bouton, cite "
+        "son libellé tel que l'interface l'affiche (la langue de "
+        "l'interface est indiquée plus bas) ; si elle n'est pas dans la "
+        'langue de ta réponse, traduis-le entre parenthèses.\n'
         "Si un terme technique CNC n'a pas d'équivalent courant dans la "
         'langue de réponse, garde le terme français ou anglais et explique-le '
         'une fois entre parenthèses plutôt que de forger une traduction que '
         "l'opérateur ne reconnaîtra pas."
-        '$_atelierRule';
+        '$atelierRule';
   }
 
-  /// Règle du parler d'atelier, pour les langues peu dotées.
+  /// Langue dans laquelle l'agent doit répondre à ce tour, selon la langue
+  /// détectée du dernier message de l'opérateur (`LanguageDetector`).
+  ///
+  /// Langue imposée : elle-même, quel que soit le message. Automatique : la
+  /// langue détectée si l'application la connaît, le français sinon (message
+  /// indécidable, ou langue absente du catalogue comme le chinois).
+  AppLanguage replyLanguage(String? detectedLanguageCode) {
+    if (!isAuto) return this;
+    final detected = appLanguageById(detectedLanguageCode);
+    return detected.isAuto ? appLanguageById('fr') : detected;
+  }
+
+  /// Rappel court placé en toute fin de prompt système (« sandwich ») pour
+  /// que les modèles locaux (Qwen2.5-7B…) n'oublient pas la consigne de
+  /// langue après un long bloc d'état machine ou un JSON d'outil.
+  ///
+  /// Il dit la MÊME langue que le bloc du milieu ([replyLanguage]) : le
+  /// 5 nov. 2026, le banc de conversation a trouvé un prompt qui disait
+  /// « réponds en bambara » au milieu et « réponds en français » à la fin —
+  /// le bambara était forcé en français ici, contre la décision du
+  /// 27/10/2026 de faire répondre l'agent en bambara.
+  String trailingPromptAnchor({String? detectedLanguageCode}) =>
+      anchorFor(replyLanguage(detectedLanguageCode));
+
+  /// Cette langue, pour un modèle qui ne sait pas l'écrire : il la comprend,
+  /// mais répond en français simple (voir `WritesLanguages`). Le drapeau
+  /// dépend du MODÈLE, pas de la langue : Gemini écrit le bambara, Qwen 2.5
+  /// 7B non.
+  AppLanguage get writingPoorly => writesPoorly
+      ? this
+      : AppLanguage(id, label, promptName, voiceTag,
+          lowResource: lowResource, writesPoorly: true, note: note);
+
+  /// Consigne de fin pour une langue de réponse déjà résolue.
+  static String anchorFor(AppLanguage resolved) {
+    if (resolved.writesPoorly) {
+      return '=== CONSIGNE FINALE DE LANGUE & ANTI-HALLUCINATION (IMPÉRATIF) ===\n'
+          'Réponds EXCLUSIVEMENT en FRANÇAIS SIMPLE (phrases courtes, sans '
+          "jargon). N'utilise JAMAIS l'anglais ni le chinois, même après "
+          "un résultat d'outil JSON.\n"
+          "ANTI-HALLUCINATION : Ne fabrique AUCUNE coordonnée ni aucun état machine imaginaire.";
+    }
+    final targetName = resolved.promptName ?? 'français';
+    final forbidEnglish = resolved.id != 'en'
+        ? " Ne bascule JAMAIS en anglais après l'exécution d'un outil."
+        : '';
+    final lowResourceRule = resolved.lowResource
+        ? "\nRÈGLE ANTI-HALLUCINATION ATELIER : Exprime les termes techniques CNC, axes et coordonnées en français d'atelier simple. Ne forge AUCUN mot imaginaire en $targetName et n'invente AUCUNE coordonnée."
+        : "\nANTI-HALLUCINATION : Reste strictement ancré sur les données réelles de la machine.";
+    return '=== CONSIGNE FINALE DE LANGUE & ANTI-HALLUCINATION (IMPÉRATIF) ===\n'
+        'Réponds en $targetName.$forbidEnglish$lowResourceRule '
+        "N'utilise aucun caractère chinois (CJK).";
+  }
+
+  /// Règle du parler d'atelier, pour les langues peu dotées (vide sinon).
   ///
   /// Mesuré dans l'étude (§4.1) : en bambara pur le modèle ne comprend que
   /// 19 % des ordres, mais **83 %** dès que les mots d'atelier sont en
@@ -109,15 +169,18 @@ class AppLanguage {
   /// parle réellement devant la machine. Lui dire de s'y attendre vaut mieux
   /// que lui faire deviner, et lui dire de garder ces mots en français
   /// l'empêche d'inventer un vocabulaire technique que personne n'emploie.
-  String get _atelierRule => !lowResource
+  ///
+  /// Publique : en mode automatique, le prompt l'ajoute pour la langue
+  /// détectée, puisque la directive « auto » ne nomme aucune langue.
+  String get atelierRule => !lowResource
       ? ''
-      : "\nPARLER D'ATELIER : en $promptName, les mots techniques se disent "
+      : "\nPARLER D'ATELIER & ANTI-HALLUCINATION : en $promptName, les mots techniques se disent "
           'en français — broche, jog, homing, origine, palpage, avance, '
-          'arrosage, programme, fichier, outil, axe, alarme, offset. '
+          'arrosage, programme, fichier, outil, axe, alarme, offset, positions DRO. '
           "Attends-toi à les recevoir en français au milieu d'une phrase en "
-          '$promptName, et garde-les en français dans ta réponse : '
-          "c'est ce que l'opérateur reconnaît. Ne forge jamais de mot "
-          'technique en $promptName.';
+          '$promptName, et garde-les TOUJOURS en français dans ta réponse : '
+          "c'est ce que l'opérateur reconnaît. Ne forge JAMAIS de mot "
+          "technique en $promptName et n'invente AUCUNE coordonnée. INSTRUCTION DIRECTE : Réponds DIRECTEMENT à l'opérateur. Ne lui récite ni n'explique JAMAIS ces règles de traduction. Ne commence jamais par commenter la langue.";
 }
 
 /// Langues proposées : automatique, français, anglais, puis les langues
@@ -203,3 +266,50 @@ class AppLanguageNotifier extends StateNotifier<AppLanguage> {
 final appLanguageProvider =
     StateNotifierProvider<AppLanguageNotifier, AppLanguage>(
         (ref) => AppLanguageNotifier());
+
+/// Alias explicite pour la langue d'affichage de l'interface (UI).
+final uiLanguageProvider = appLanguageProvider;
+
+/// Préférence optionnelle permettant de dissocier la langue parlée/écrite par
+/// l'Agent IA de la langue d'affichage de l'interface (`null` = suit l'UI).
+class AiLanguageOverrideNotifier extends StateNotifier<AppLanguage?> {
+  static const _key = 'ai_agent_language_override';
+
+  AiLanguageOverrideNotifier() : super(null) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw != null && raw.isNotEmpty) {
+        state = appLanguageById(raw);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> select(AppLanguage? language) async {
+    state = language;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (language == null) {
+        await prefs.remove(_key);
+      } else {
+        await prefs.setString(_key, language.id);
+      }
+    } catch (_) {}
+  }
+}
+
+final aiLanguageOverrideProvider =
+    StateNotifierProvider<AiLanguageOverrideNotifier, AppLanguage?>(
+        (ref) => AiLanguageOverrideNotifier());
+
+/// Langue effective utilisee par l'Agent IA et la synthese vocale :
+/// prend la surcharge dediee si definie, sinon suit ppLanguageProvider.
+final effectiveAiLanguageProvider = Provider<AppLanguage>((ref) {
+  final override = ref.watch(aiLanguageOverrideProvider);
+  final uiLang = ref.watch(appLanguageProvider);
+  return override ?? uiLang;
+});

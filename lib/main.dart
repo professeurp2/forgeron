@@ -1,5 +1,5 @@
 import 'dart:async' show unawaited;
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Directory, File, FileMode;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'application/providers/ai_artifacts_provider.dart';
 import 'application/services/ai_window_channel.dart';
+import 'application/services/bundled_runtime.dart';
 import 'core/i18n/app_language.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/fallback_localizations.dart';
@@ -22,53 +23,132 @@ import 'presentation/desktop/ai_sub_window_app.dart';
 bool get _isDesktopPlatform =>
     !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  if (_isDesktopPlatform && args.length >= 3 && args.first == 'multi_window') {
-    // Une fenêtre ouverte par l'agent IA (graphique, G-code détaché, rapport)
-    // relance ce même point d'entrée avec un second moteur Flutter, qui reçoit
-    // ["multi_window", windowId, arguments] — desktop_multi_window 0.2.1 n'a
-    // pas d'autre façon de choisir quoi afficher (pas de
-    // `WindowController.fromCurrentEngine()`, voir `AiWindowChannel`). La
-    // fenêtre principale, elle, démarre sans arguments : c'est ce qui la
-    // distingue d'une fenêtre secondaire.
-    final windowId = int.tryParse(args[1]);
-    if (windowId != null) AiWindowChannel.bindCurrentWindow(windowId);
-    final rawArguments = args[2];
-    if (rawArguments.isNotEmpty) {
-      runApp(AiSubWindowApp(rawArguments: rawArguments));
-      return;
+void _logStartup(String message) {
+  try {
+    if (!kIsWeb && Platform.isWindows) {
+      final localAppData = Platform.environment['LOCALAPPDATA'];
+      if (localAppData != null) {
+        final dir = Directory('$localAppData\\Forgeron\\logs');
+        if (!dir.existsSync()) dir.createSync(recursive: true);
+        final file = File('${dir.path}\\startup.log');
+        final now = DateTime.now().toIso8601String();
+        file.writeAsStringSync('[$now] [Dart] $message\r\n',
+            mode: FileMode.append);
+      }
     }
+  } catch (_) {
+    // Ne jamais planter sur l'écriture du journal
   }
+}
+
+Future<void> main(List<String> args) async {
+  _logStartup('Entrée dans main(), arguments: $args');
+
+  FlutterError.onError = (details) {
+    _logStartup(
+        'FlutterError: ${details.exceptionAsString()}\r\n${details.stack}');
+    FlutterError.presentError(details);
+  };
 
   PlatformDispatcher.instance.onError = (error, stack) {
+    _logStartup('PlatformDispatcher error: $error\r\n$stack');
     debugPrint('🛑 [CRITICAL ERROR] $error\n$stack');
     return true; // Empêche l'application de crasher complètement
   };
 
-  // Une copie saine des préférences doit exister — et remplacer un fichier
-  // corrompu — AVANT que quoi que ce soit ne les lise (voir PrefsFileGuard :
-  // un arrêt brutal du PC avait vidé tout le profil le 21 octobre 2026).
-  final prefsReport = _isDesktopPlatform ? await installPrefsGuard() : null;
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    _logStartup('WidgetsFlutterBinding initialisé avec succès');
 
-  // Notifications système de l'agent IA (non bloquant).
-  NotificationService.instance.init();
+    if (_isDesktopPlatform &&
+        args.length >= 3 &&
+        args.first == 'multi_window') {
+      // Une fenêtre ouverte par l'agent IA (graphique, G-code détaché, rapport)
+      // relance ce même point d'entrée avec un second moteur Flutter, qui reçoit
+      // ["multi_window", windowId, arguments] — desktop_multi_window 0.2.1 n'a
+      // pas d'autre façon de choisir quoi afficher (pas de
+      // `WindowController.fromCurrentEngine()`, voir `AiWindowChannel`). La
+      // fenêtre principale, elle, démarre sans arguments : c'est ce qui la
+      // distingue d'une fenêtre secondaire.
+      final windowId = int.tryParse(args[1]);
+      if (windowId != null) AiWindowChannel.bindCurrentWindow(windowId);
+      final rawArguments = args[2];
+      if (rawArguments.isNotEmpty) {
+        _logStartup('Lancement sous-fenêtre ID: $windowId');
+        runApp(AiSubWindowApp(rawArguments: rawArguments));
+        return;
+      }
+    }
 
-  // La portée Riverpod est créée à la main, et non par un `ProviderScope`
-  // implicite : les fenêtres détachées savent rendre la main à cette
-  // fenêtre-ci, et leur message arrive par un canal de plateforme, hors de
-  // tout widget. Il faut donc pouvoir écrire dans les providers depuis là.
-  final container = ProviderContainer();
-  if (prefsReport != null) {
-    container.read(prefsRestoreNoticeProvider.notifier).state = prefsReport;
+    // Une copie saine des préférences doit exister — et remplacer un fichier
+    // corrompu — AVANT que quoi que ce soit ne les lise (voir PrefsFileGuard :
+    // un arrêt brutal du PC avait vidé tout le profil le 21 octobre 2026).
+    final prefsReport = _isDesktopPlatform ? await installPrefsGuard() : null;
+    _logStartup('installPrefsGuard terminé (rapport: $prefsReport)');
+
+    // Notifications système de l'agent IA (non bloquant).
+    NotificationService.instance.init();
+
+    // La portée Riverpod est créée à la main, et non par un `ProviderScope`
+    // implicite : les fenêtres détachées savent rendre la main à cette
+    // fenêtre-ci, et leur message arrive par un canal de plateforme, hors de
+    // tout widget. Il faut donc pouvoir écrire dans les providers depuis là.
+    final container = ProviderContainer();
+    if (prefsReport != null) {
+      container.read(prefsRestoreNoticeProvider.notifier).state = prefsReport;
+    }
+    if (_isDesktopPlatform) _listenToSubWindows(container);
+
+    // Installation Windows (installer/) : démarre Ollama et reco3d embarqués,
+    // arrêtés d'eux-mêmes à la fermeture. Sans effet en développement.
+    if (_isDesktopPlatform) unawaited(BundledRuntime.instance.startServices());
+
+    _logStartup('Lancement de runApp(ForgeronApp)');
+    runApp(UncontrolledProviderScope(
+      container: container,
+      child: const ForgeronApp(),
+    ));
+    _logStartup('runApp() configuré avec succès');
+  } catch (error, stack) {
+    _logStartup('Erreur critique attrapée dans main(): $error\r\n$stack');
+    runApp(MaterialApp(
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1E1E1E),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.orange, size: 64),
+                const SizedBox(height: 20),
+                const Text(
+                  'Une erreur est survenue lors de l\'initialisation de Forgeron',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$error',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Un rapport d\'erreur détaillé est disponible dans :\n%LOCALAPPDATA%\\Forgeron\\logs\\startup.log',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
   }
-  if (_isDesktopPlatform) _listenToSubWindows(container);
-
-  runApp(UncontrolledProviderScope(
-    container: container,
-    child: const ForgeronApp(),
-  ));
 }
 
 /// Écoute les fenêtres détachées.

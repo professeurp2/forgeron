@@ -82,6 +82,7 @@ class StepPipelineService {
           if (stockRadius != null) ...['--brut-rayon', '$stockRadius'],
         ],
         workingDirectory: pipelineDir.path,
+        environment: PipelineLocator.environment,
       ).timeout(const Duration(seconds: 120));
     } on TimeoutException {
       throw const StepPipelineException(

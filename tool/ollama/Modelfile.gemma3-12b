@@ -1,0 +1,53 @@
+# Gemma 3 12B pour l'agent Forgeron, AVEC appels d'outils.
+#
+#   ollama create forgeron-gemma3-12b -f tool/ollama/Modelfile.gemma3-12b
+#
+# Même gabarit et mêmes réglages que tool/ollama/Modelfile.gemma3 (voir les
+# raisons là-bas). Essayé le 7 nov. 2026 parce que le 4B était moins sûr que
+# Qwen 7B aux bancs (sécurité 25 %, injection 0 %) et faible en wolof et
+# haoussa.
+# 12B en Q4_K_M ≈ 8 Go : ne tient pas entier dans les 8 Go de la RTX 3070
+# Laptop, Ollama en met une partie sur le processeur (plus lent).
+FROM gemma3:12b
+TEMPLATE """
+{{- if .Tools }}<start_of_turn>user
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call><end_of_turn>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 }}
+{{- if or (eq .Role "user") (eq .Role "system") }}<start_of_turn>user
+{{ .Content }}<end_of_turn>
+{{ else if eq .Role "assistant" }}<start_of_turn>model
+{{ if .Content }}{{ .Content }}
+{{- else if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<end_of_turn>
+{{ end }}
+{{- else if eq .Role "tool" }}<start_of_turn>user
+<tool_response>
+{{ .Content }}
+</tool_response><end_of_turn>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<start_of_turn>model
+{{ end }}
+{{- end }}"""
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER stop "<end_of_turn>"

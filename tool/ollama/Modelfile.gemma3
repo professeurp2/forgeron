@@ -1,0 +1,64 @@
+# Gemma 3 4B pour l'agent Forgeron, AVEC appels d'outils.
+#
+#   ollama create forgeron-gemma3 -f tool/ollama/Modelfile.gemma3
+#
+# Pourquoi Gemma 3 : Qwen 2.5 7B écrit des phrases sans sens en bambara,
+# wolof, haoussa… et 582 exemples de distillation ne l'ont pas corrigé
+# (docs/addis/distillation-langues.md, 6 nov. 2026). Gemma 3 annonce 140
+# langues ; à mesurer au banc avant de le préférer.
+#
+# Pourquoi ce gabarit : le gemma3:4b de la bibliothèque Ollama ne déclare pas
+# la capacité « tools » (gabarit sans .Tools) : Ollama refuse alors toute
+# requête avec outils, comme pour gemma3n. Gemma 3 n'a pas de format d'appel
+# d'outil imposé ; on reprend celui de Qwen 2.5 (<tool_call>{json}</tool_call>),
+# qu'Ollama sait extraire et que l'application sait déjà récupérer en texte
+# (LocalAiAgentService.recoverTextToolCalls). Gemma n'a pas de rôle système :
+# le prompt système et les outils passent dans un tour « user », comme le
+# fait le gabarit d'origine.
+#
+# Mêmes réglages que forgeron-qwen (tool/ollama/Modelfile) : contexte 16 384
+# (le prompt + les 49 outils pèsent ~10 000 tokens), température basse pour
+# des arguments d'outil stables.
+FROM gemma3:4b
+TEMPLATE """
+{{- if .Tools }}<start_of_turn>user
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call><end_of_turn>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 }}
+{{- if or (eq .Role "user") (eq .Role "system") }}<start_of_turn>user
+{{ .Content }}<end_of_turn>
+{{ else if eq .Role "assistant" }}<start_of_turn>model
+{{ if .Content }}{{ .Content }}
+{{- else if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<end_of_turn>
+{{ end }}
+{{- else if eq .Role "tool" }}<start_of_turn>user
+<tool_response>
+{{ .Content }}
+</tool_response><end_of_turn>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<start_of_turn>model
+{{ end }}
+{{- end }}"""
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER stop "<end_of_turn>"

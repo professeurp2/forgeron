@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'bundled_runtime.dart';
+
 /// Retrouve le dossier `pipeline/` et l'interpréteur Python qui va avec.
 ///
 /// Trois services l'interrogent désormais (révolution, prismatique, aperçu
@@ -36,6 +38,8 @@ class PipelineLocator {
 
   /// Interpréteur du venv du pipeline. `.venv312` d'abord : c'est celui qui
   /// porte les bindings OpenCASCADE (voir `pipeline/requirements-step.txt`).
+  /// Dans l'installation Windows, il n'y a pas de venv : c'est le Python
+  /// embarqué (`runtime/python`, voir [BundledRuntime]) qui les porte.
   static String? python(Directory pipelineDir) {
     final candidates = Platform.isWindows
         ? ['.venv312/Scripts/python.exe', '.venv/Scripts/python.exe']
@@ -44,8 +48,13 @@ class PipelineLocator {
       final path = join(pipelineDir.path, rel.replaceAll('/', Platform.pathSeparator));
       if (File(path).existsSync()) return path;
     }
-    return null;
+    return BundledRuntime.instance.pythonExe;
   }
+
+  /// Environnement à passer à `Process.run` avec [python] : `null` (hérité)
+  /// en développement, isolé des paquets du poste dans l'installation.
+  static Map<String, String>? get environment =>
+      BundledRuntime.instance.pythonEnvironment;
 
   static String join(String a, String b) => '$a${Platform.pathSeparator}$b';
 }

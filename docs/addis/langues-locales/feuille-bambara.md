@@ -169,6 +169,11 @@ Source : dictionnaire *An ka taa* (dictionary.ankataa.com), consulté le 2026-10
 | haut / bas | yɛlɛn (monter), jigin | monter ; descendre | refus « direction » |
 | vitesse | teliya | rapidité | oui |
 | zéro | fu | zéro | non (le mot « zero » français suffit) |
+| langue | kan | (sens 2) langue, parler — consulté le 2026-11-05 | oui (« changer la langue ») |
+| changer | yɛ̀lɛ̀ma | changer, transformer ; traduire ; retourner — 2026-11-05 | oui |
+| langue bambara | bamanankan | langue bambara — 2026-11-05 | oui (nom de langue) |
+| langue française | tùbàbùkan | langue française — 2026-11-05 | oui (nom de langue) |
+| langue anglaise | — | **non trouvé** dans le dictionnaire | non : on dit « anglais » en français |
 | 30 à 90 | bisaba, binaani, biduuru, biwɔɔrɔ, biwolonwula, bisegin, bikɔnɔntɔn | (un seul mot) | oui |
 | **absents du dictionnaire** | broche, programme, homing, milimɛtɛri, santimɛtɛri, mashini | — | mots français conservés |
 

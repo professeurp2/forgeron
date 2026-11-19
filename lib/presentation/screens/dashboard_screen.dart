@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/forgeron_colors.dart';
+import '../../core/widgets/animated_number.dart';
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/ui_state_provider.dart';
 import '../../application/providers/gcode_provider.dart';
@@ -390,15 +391,39 @@ class _CenterZoneState extends ConsumerState<_CenterZone> {
                           ],
                         ),
                         child: gcodeState.allLines.isEmpty
-                            ? Text(
-                                tr('Aucun programme chargé'),
-                                style: TextStyle(
-                                  color: context.fc.textDisabled,
-                                  fontSize: 10,
-                                ),
-                              )
+                            // Même hauteur que la liste : la carte ne
+                            // s'affaisse plus en une ligne au-dessus d'un
+                            // vide de 100 px.
+                            ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.code_off_rounded,
+                                          size: 28,
+                                          color: context.fc.textDisabled),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        tr('Aucun programme chargé'),
+                                        style: TextStyle(
+                                          color: context.fc.textSecondary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        tr('Ouvre un fichier .nc ou .gcode, ou demande un parcours à l\'agent IA.'),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: context.fc.textDisabled,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
                             : SizedBox(
-                                height: 185,
+                                height: double.infinity,
                                 child: ListView.builder(
                                   controller: scrollController,
                                   itemCount: gcodeState.allLines.length,
@@ -498,22 +523,27 @@ class _DashCard extends StatelessWidget {
         border: Border.all(color: context.fc.surfaceBorder),
       ),
       padding: const EdgeInsets.all(12),
+      // La carte remplit la hauteur qu'on lui donne et son contenu prend le
+      // reste : une liste ou un état vide à hauteur fixe débordait de 34 px
+      // sur tous les postes (balayage).
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: context.fc.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: context.fc.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (action != null)
                 action!
               else
@@ -525,7 +555,7 @@ class _DashCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          child,
+          Expanded(child: child),
         ],
       ),
     );
@@ -595,7 +625,7 @@ class _RightPanel extends ConsumerWidget {
             _PanelSectionHeader(
               title: tr('POSITION DRO'),
               trailing: Text(
-                tr('W-value − Target'),
+                tr('Cotes pièce (W)'),
                 style: TextStyle(color: context.fc.textDisabled, fontSize: 9),
               ),
             ),
@@ -685,7 +715,7 @@ class _RightPanel extends ConsumerWidget {
             const SizedBox(height: 8),
 
             // ── QUICK ACTIONS ─────────────────────────────────────────
-            _PanelSectionHeader(title: tr('QUICK ACTIONS')),
+            _PanelSectionHeader(title: tr('ACTIONS RAPIDES')),
             const SizedBox(height: 8),
 
             Consumer(
@@ -695,7 +725,7 @@ class _RightPanel extends ConsumerWidget {
                 return Row(
                   children: [
                     _QAction(
-                      label: tr('CYCLE\nSTART'),
+                      label: tr('DÉPART\nCYCLE'),
                       color: context.fc.success,
                       icon: Icons.play_arrow_rounded,
                       onTap: () async {
@@ -732,7 +762,7 @@ class _RightPanel extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     _QAction(
-                      label: tr('FEED\nHOLD'),
+                      label: tr('PAUSE\nAVANCE'),
                       color: context.fc.warning,
                       icon: Icons.pause_rounded,
                       onTap: () {
@@ -754,7 +784,7 @@ class _RightPanel extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     _QAction(
-                      label: tr('JOG\nSTOP'),
+                      label: tr('STOP\nJOG'),
                       color: context.fc.primary,
                       icon: Icons.stop_rounded,
                       onTap: () {
@@ -767,6 +797,11 @@ class _RightPanel extends ConsumerWidget {
                 );
               },
             ),
+            // Respiration entre les actions rapides et le jog : les quatre
+            // boutons touchaient l'en-tête de la section suivante.
+            const SizedBox(height: 10),
+            Container(height: 1, color: context.fc.surfaceBorder),
+            const SizedBox(height: 10),
             // ── JOG CONTROL ──────────────────────────────────────────
             JogControlPanel(wPos: wPos),
 
@@ -789,18 +824,23 @@ class _PanelSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Le titre cède la place avant tout : à largeur naturelle, il débordait
+    // de 12 px dans la colonne de droite sur TOUS les postes (balayage).
     return Row(
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: context.fc.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: context.fc.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
-        const Spacer(),
         if (trailing case final t?) t,
         Icon(Icons.more_horiz, color: context.fc.textDisabled, size: 14),
       ],
@@ -829,9 +869,6 @@ class _DroBig extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final display = isRotary
-        ? '${value.toStringAsFixed(2)}°'
-        : value.toStringAsFixed(3);
     final nearEdge = TravelGaugeFill.isNearEdge(travelFraction);
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -871,9 +908,14 @@ class _DroBig extends StatelessWidget {
                 ],
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    display,
+                  // Glisse d'un rapport de la carte au suivant au lieu de
+                  // sauter : la cote reste lisible pendant un mouvement.
+                  child: AnimatedNumberText(
+                    value,
+                    decimals: isRotary ? 2 : 3,
+                    suffix: isRotary ? '°' : '',
                     textAlign: TextAlign.right,
+                    maxLines: 1,
                     style: TextStyle(
                       color: color,
                       fontSize: 26,

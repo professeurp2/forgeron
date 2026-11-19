@@ -12,6 +12,8 @@ import '../../application/providers/lexicon_provider.dart';
 import '../widgets/local_server_assistant.dart';
 import '../../application/services/command_understanding.dart' show lexiconLanguageLabel;
 import '../../application/services/local_ai_agent_service.dart';
+import '../../application/services/local_translator.dart';
+import '../../core/i18n/app_language.dart' show appLanguageById;
 import '../../core/i18n/app_localizations.dart';
 
 /// Écran de configuration de l'agent IA : activation, clé API Gemini
@@ -173,7 +175,7 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
     final settings = ref.watch(aiAgentSettingsProvider);
     // Une adresse de serveur local renseignee suffit a basculer le fournisseur :
     // pas de second interrupteur a tenir coherent avec elle.
-    final usingLocal = settings.localBaseUrl.isNotEmpty;
+    final usingLocal = settings.usesLocal;
     final notifier = ref.read(aiAgentSettingsProvider.notifier);
     final modelState = ref.watch(aiModelProvider);
     final modelNotifier = ref.read(aiModelProvider.notifier);
@@ -263,10 +265,24 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                   ),
                   const SizedBox(height: 20),
                   GlassPanel(
+                    title: tr('FOURNISSEUR DU MODÈLE'),
+                    borderColor: fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: _ProviderSwitch(fc: fc),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
                     title: tr('COMPRÉHENSION DES COMMANDES'),
                     borderColor: fc.surfaceBorder,
                     backgroundColor: fc.surface,
                     child: _LexiconSection(fc: fc),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassPanel(
+                    title: tr('TRADUCTION LOCALE'),
+                    borderColor: fc.surfaceBorder,
+                    backgroundColor: fc.surface,
+                    child: _TranslatorSection(fc: fc),
                   ),
                   const SizedBox(height: 20),
                   GlassPanel(
@@ -368,6 +384,40 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
                             });
                           },
                         ),
+                        // Secours vers Gemini : un choix, pas un automatisme.
+                        // Coupé par défaut — un modèle local, c'est souvent
+                        // la garantie que rien ne sort de l'atelier.
+                        if (usingLocal) ...[
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(tr('Secours Gemini si le serveur ne répond pas'),
+                                      style: TextStyle(
+                                          color: fc.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    tr('Le tour en cours part alors chez Gemini (clé requise), et c\'est dit dans la discussion. Coupé : l\'agent attend le retour du serveur, rien ne sort de l\'atelier.'),
+                                    style: TextStyle(
+                                        color: fc.textSecondary, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: ref.watch(aiAgentSettingsProvider
+                                  .select((s) => s.cloudFallback)),
+                              activeThumbColor: fc.primary,
+                              onChanged: ref
+                                  .read(aiAgentSettingsProvider.notifier)
+                                  .setCloudFallback,
+                            ),
+                          ]),
+                        ],
                         Theme(
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
@@ -672,6 +722,67 @@ class _AiAgentSettingsScreenState extends ConsumerState<AiAgentSettingsScreen> {
 }
 
 
+/// Interrupteur du traducteur local (`LocalTranslator`) : le modèle local
+/// répond en français simple dans les langues qu'il n'écrit pas, puis un
+/// second modèle traduit la réponse.
+class _TranslatorSection extends ConsumerWidget {
+  const _TranslatorSection({required this.fc});
+
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final enabled = settings.localTranslatorEnabled;
+    final languages = (LocalTranslator.defaultLanguages.toList()..sort())
+        .map((id) => appLanguageById(id).label)
+        .join(', ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr('Traduire les réponses du modèle local'),
+                      style: TextStyle(
+                          color: fc.textPrimary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('Langues : {}. Le modèle « {} » traduit la réponse française, en 15 à 20 s de plus. Traduction non relue par un locuteur : le français reste visible sous chaque message.',
+                        [languages, settings.localTranslatorModel]),
+                    style: TextStyle(color: fc.textSecondary, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    enabled
+                        ? (settings.usesLocal
+                            ? tr('Activée.')
+                            : tr('Activée, mais sans effet avec Gemini : Gemini écrit lui-même toutes les langues.'))
+                        : tr('Coupée : réponses en français simple, sans attente.'),
+                    style: TextStyle(
+                        color: enabled ? fc.success : fc.warning, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: enabled,
+              activeThumbColor: fc.primary,
+              onChanged: ref
+                  .read(aiAgentSettingsProvider.notifier)
+                  .setLocalTranslatorEnabled,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+
 /// Réglage et état du lexique fermé : ce que l'assistant comprend SANS modèle,
 /// dans quelles langues, et à quel point on peut s'y fier.
 class _LexiconSection extends ConsumerWidget {
@@ -782,5 +893,53 @@ class _LexiconSection extends ConsumerWidget {
         ],
       ],
     );
+  }
+}
+
+
+/// Choix du fournisseur : serveur local de l'atelier, ou Gemini en ligne.
+///
+/// Les deux gardent leur configuration : basculer n'efface rien. Les
+/// contraintes (langue de réponse, glossaire, lexique fermé, confirmations,
+/// garde-fous de réponse) sont les mêmes des deux côtés.
+class _ProviderSwitch extends ConsumerWidget {
+  const _ProviderSwitch({required this.fc});
+  final ForgeronColorPalette fc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(aiAgentSettingsProvider);
+    final hasLocal = settings.localBaseUrl.isNotEmpty;
+    final online = !settings.usesLocal;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SegmentedButton<bool>(
+        segments: [
+          ButtonSegment(
+            value: false,
+            enabled: hasLocal,
+            icon: const Icon(Icons.lan_outlined, size: 16),
+            label: Text(tr('Local (atelier)')),
+          ),
+          ButtonSegment(
+            value: true,
+            icon: const Icon(Icons.cloud_outlined, size: 16),
+            label: Text(tr('En ligne (Gemini)')),
+          ),
+        ],
+        selected: {online},
+        onSelectionChanged: (v) => ref
+            .read(aiAgentSettingsProvider.notifier)
+            .setPreferOnline(v.first),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        !hasLocal
+            ? tr('Aucun serveur local configuré : l\'agent passe par Gemini. Configure le serveur plus bas pour pouvoir basculer.')
+            : online
+                ? tr('Gemini, via Internet (4G sur le téléphone). Le serveur local reste configuré : un clic pour y revenir.')
+                : tr('Serveur local {} · modèle « {} ». Sans Internet.', [settings.localBaseUrl, settings.localModel]),
+        style: TextStyle(color: fc.textSecondary, fontSize: 11),
+      ),
+    ]);
   }
 }

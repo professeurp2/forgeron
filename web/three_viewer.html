@@ -29,6 +29,22 @@
             pointer-events: none;
             z-index: 900;
         }
+        #dev-legend {
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            z-index: 1000;
+            max-width: 260px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: rgba(14, 17, 23, 0.84);
+            color: #d9dde1;
+            font: 11px/1.5 monospace;
+        }
+        #dev-legend[hidden] { display: none; }
+        #dev-legend .dev-row { display: flex; align-items: center; gap: 6px; }
+        #dev-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        #dev-report { margin-top: 6px; white-space: pre-line; }
         #debug {
             font-size: 10px;
             font-weight: 700;
@@ -187,7 +203,18 @@
         <div id="vc-label" data-view="ISOMETRIC">ISOMETRIC</div>
     </div>
 
+    <div id="dev-legend" hidden>
+        <div class="dev-row"><i style="background:#e5484d"></i>Pénétration dans la pièce</div>
+        <div class="dev-row"><i style="background:#30a46c"></i>Conforme</div>
+        <div class="dev-row"><i style="background:#3b82f6"></i>Matière à enlever</div>
+        <div id="dev-report"></div>
+    </div>
+
     <div class="btn-container" id="floating-controls">
+        <button id="dev-btn" title="Comparer le brut usiné au modèle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+            <span>Écart</span>
+        </button>
         <button id="reset-btn" title="Réinitialiser le brut et la vue">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span>Brut</span>
@@ -207,6 +234,8 @@
 
     <script src="js/three.min.js"></script>
     <script src="js/OrbitControls.js"></script>
+    <script src="js/dexel_stock.js"></script>
+    <script src="js/part_model.js"></script>
     <script>
         const debugEl = document.getElementById('debug');
         const debug = (msg) => { if (debugEl) debugEl.innerText = msg; };
@@ -214,147 +243,136 @@
         let needsRender = true;
         function requestRender() { needsRender = true; }
 
-        // --- VOXEL WORKPIECE HAUTE PERFORMANCE (Cylindre / Cuboïde + updateRange) ---
-        class VoxelWorkpiece {
-            constructor(parent, size, res, material, shape = 'cylinder') {
-                this.parent = parent;
+        // --- BRUT : matière tri-dexel (js/dexel_stock.js) et son maillage par morceaux ---
+        const STOCK_RESOLUTION = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 96 : 160;
+
+        const matDeviation = new THREE.MeshStandardMaterial({
+            vertexColors: true, metalness: 0.05, roughness: 0.7,
+        });
+
+        // Vert sous la résolution du brut, bleu pour la matière restante (saturé à
+        // 2 mm), rouge pour une pénétration (saturé à 0,5 mm).
+        function deviationColors(positions, part, H, resolution) {
+            const tol = Math.max(0.05, resolution / 2);
+            const out = new Float32Array(positions.length);
+            const mix = (from, to, t, o) => {
+                out[o] = from[0] + (to[0] - from[0]) * t;
+                out[o + 1] = from[1] + (to[1] - from[1]) * t;
+                out[o + 2] = from[2] + (to[2] - from[2]) * t;
+            };
+            const GREEN = [0.19, 0.64, 0.42];
+            const BLUE = [0.23, 0.51, 0.96];
+            const RED = [0.9, 0.28, 0.3];
+            const GREY = [0.45, 0.47, 0.5];
+            for (let i = 0; i < positions.length; i += 3) {
+                const d = part.signed(positions[i], positions[i + 1], positions[i + 2] - H, 3);
+                if (d >= 3) mix(GREY, GREY, 0, i);
+                else if (d > tol) mix(GREEN, BLUE, Math.min(1, (d - tol) / 2), i);
+                else if (d >= -tol) mix(GREEN, GREEN, 0, i);
+                else mix(RED, RED, Math.min(1, 0.6 + (-d - tol) / 1.25), i);
+            }
+            return out;
+        }
+
+        class DexelWorkpiece {
+            constructor(parent, size, material, shape) {
                 this.material = material;
-                this.res = res;
                 this.shape = shape;
-                this.size = { x: size.x || 35, y: size.y || 35, z: size.z || 25 };
-                this.dummy = new THREE.Object3D();
-                this.matrix = new THREE.Matrix4();
-                this._buildMesh();
+                this.size = { x: size.x, y: size.y, z: size.z };
+                this.mesh = new THREE.Group();
+                parent.add(this.mesh);
+                this.chunkMeshes = new Map();
+                this._build();
             }
 
-            _buildMesh() {
-                if (this.mesh) {
-                    this.parent.remove(this.mesh);
-                    if (this.mesh.geometry) this.mesh.geometry.dispose();
-                    this.mesh = null;
+            _build() {
+                for (const m of this.chunkMeshes.values()) {
+                    this.mesh.remove(m);
+                    m.geometry.dispose();
                 }
-                const maxXY = Math.max(this.size.x, this.size.y);
-                this.voxelSize = maxXY / this.res;
-                this.nx = Math.max(4, Math.ceil(this.size.x / this.voxelSize));
-                this.ny = Math.max(4, Math.ceil(this.size.y / this.voxelSize));
-                this.nz = Math.max(4, Math.ceil(this.size.z / this.voxelSize));
-                this.count = this.nx * this.ny * this.nz;
-
-                const geo = new THREE.BoxGeometry(this.voxelSize, this.voxelSize, this.voxelSize);
-                this.mesh = new THREE.InstancedMesh(geo, this.material, this.count);
-                this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                this.states = new Uint8Array(this.count);
-                this.reset();
-                this.parent.add(this.mesh);
+                this.chunkMeshes.clear();
+                const { x, y, z } = this.size;
+                this.stock = new DexelStock({
+                    shape: this.shape,
+                    size: [x, y, z],
+                    h: Math.max(x, y, z) / STOCK_RESOLUTION,
+                });
+                requestRender();
             }
 
             configure(shape, dims) {
-                const newShape = shape || this.shape;
+                const nextShape = shape || this.shape;
                 const sx = (dims && dims[0]) ? dims[0] : this.size.x;
                 const sy = (dims && dims[1]) ? dims[1] : sx;
                 const sz = (dims && dims[2]) ? dims[2] : this.size.z;
-                const sizeChanged = Math.abs(sx - this.size.x) > 0.1 ||
-                                    Math.abs(sy - this.size.y) > 0.1 ||
-                                    Math.abs(sz - this.size.z) > 0.1;
-                this.shape = newShape;
+                const changed = nextShape !== this.shape || Math.abs(sx - this.size.x) > 0.01 ||
+                    Math.abs(sy - this.size.y) > 0.01 || Math.abs(sz - this.size.z) > 0.01;
+                this.shape = nextShape;
                 this.size = { x: sx, y: sy, z: sz };
-                if (sizeChanged) {
-                    this._buildMesh();
-                } else {
-                    this.reset();
-                }
-                requestRender();
+                if (changed) this._build(); else this.reset();
             }
 
             reset() {
-                if (!this.mesh) return;
-                let i = 0;
-                const ox = -(this.nx * this.voxelSize) / 2;
-                const oy = -(this.ny * this.voxelSize) / 2;
-                const rx = this.size.x / 2;
-                const ry = this.size.y / 2;
-                const isCyl = this.shape === 'cylinder';
-
-                for (let x = 0; x < this.nx; x++) {
-                    const px = ox + (x + 0.5) * this.voxelSize;
-                    for (let y = 0; y < this.ny; y++) {
-                        const py = oy + (y + 0.5) * this.voxelSize;
-                        const insideCyl = !isCyl || ((px * px) / (rx * rx) + (py * py) / (ry * ry) <= 1.0);
-                        for (let z = 0; z < this.nz; z++) {
-                            const pz = (z + 0.5) * this.voxelSize;
-                            if (insideCyl) {
-                                this.dummy.position.set(px, py, pz);
-                                this.dummy.scale.set(1, 1, 1);
-                                this.dummy.updateMatrix();
-                                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                                this.states[i] = 1;
-                            } else {
-                                this.matrix.makeScale(0, 0, 0);
-                                this.mesh.setMatrixAt(i, this.matrix);
-                                this.states[i] = 0;
-                            }
-                            i++;
-                        }
-                    }
-                }
-                this.mesh.instanceMatrix.updateRange.offset = 0;
-                this.mesh.instanceMatrix.updateRange.count = -1;
-                this.mesh.instanceMatrix.needsUpdate = true;
+                this.stock.reset();
                 requestRender();
             }
 
-            cut(worldToolPos, radius) {
-                if (!this.mesh || !this.mesh.visible) return;
-                const local = this.mesh.worldToLocal(worldToolPos.clone());
-                const halfX = (this.nx * this.voxelSize) / 2 + radius;
-                const halfY = (this.ny * this.voxelSize) / 2 + radius;
-                const maxZ = this.nz * this.voxelSize + radius;
-                // Court-circuit immédiat hors de la boîte englobante du brut
-                if (local.x < -halfX || local.x > halfX ||
-                    local.y < -halfY || local.y > halfY ||
-                    local.z < -radius || local.z > maxZ) {
-                    return;
-                }
-
-                const rSq = radius * radius;
-                const ox = -(this.nx * this.voxelSize) / 2;
-                const oy = -(this.ny * this.voxelSize) / 2;
-                const iMinX = Math.max(0, Math.floor((local.x - radius - ox) / this.voxelSize));
-                const iMaxX = Math.min(this.nx - 1, Math.ceil((local.x + radius - ox) / this.voxelSize));
-                const iMinY = Math.max(0, Math.floor((local.y - radius - oy) / this.voxelSize));
-                const iMaxY = Math.min(this.ny - 1, Math.ceil((local.y + radius - oy) / this.voxelSize));
-                const iMinZ = Math.max(0, Math.floor((local.z - radius) / this.voxelSize));
-                const iMaxZ = Math.min(this.nz - 1, Math.ceil((local.z + radius) / this.voxelSize));
-
-                let minChanged = this.count;
-                let maxChanged = -1;
-                for (let x = iMinX; x <= iMaxX; x++) {
-                    const dx = (ox + (x + 0.5) * this.voxelSize) - local.x;
-                    const dxSq = dx * dx;
-                    for (let y = iMinY; y <= iMaxY; y++) {
-                        const dy = (oy + (y + 0.5) * this.voxelSize) - local.y;
-                        const dxySq = dxSq + dy * dy;
-                        if (dxySq >= rSq) continue;
-                        for (let z = iMinZ; z <= iMaxZ; z++) {
-                            const idx = x * (this.ny * this.nz) + y * this.nz + z;
-                            if (this.states[idx] === 0) continue;
-                            const dz = ((z + 0.5) * this.voxelSize) - local.z;
-                            if (Math.abs(dz) < radius) {
-                                this.states[idx] = 0;
-                                this.matrix.makeScale(0, 0, 0);
-                                this.mesh.setMatrixAt(idx, this.matrix);
-                                if (idx < minChanged) minChanged = idx;
-                                if (idx > maxChanged) maxChanged = idx;
-                            }
+            // Reconstruit les morceaux touchés, dans le temps accordé. Rend true s'il en reste.
+            flush(budgetMs) {
+                const end = performance.now() + budgetMs;
+                const dirty = this.stock.dirty;
+                for (const id of dirty) {
+                    if (performance.now() > end) break;
+                    dirty.delete(id);
+                    const { positions, indices } = this.stock.extractChunk(id);
+                    let m = this.chunkMeshes.get(id);
+                    if (!indices.length) {
+                        if (m) {
+                            this.mesh.remove(m);
+                            m.geometry.dispose();
+                            this.chunkMeshes.delete(id);
                         }
+                        continue;
                     }
-                }
-                if (maxChanged >= minChanged) {
-                    this.mesh.instanceMatrix.updateRange.offset = minChanged * 16;
-                    this.mesh.instanceMatrix.updateRange.count = (maxChanged - minChanged + 1) * 16;
-                    this.mesh.instanceMatrix.needsUpdate = true;
+                    if (!m) {
+                        m = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
+                        m.castShadow = true;
+                        this.chunkMeshes.set(id, m);
+                        this.mesh.add(m);
+                    }
+                    m.geometry.dispose();
+                    m.geometry = new THREE.BufferGeometry();
+                    m.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    m.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+                    m.geometry.computeVertexNormals();
+                    if (this.deviationPart) {
+                        m.geometry.setAttribute('color', new THREE.BufferAttribute(
+                            deviationColors(positions, this.deviationPart, this.size.z, this.stock.h), 3));
+                    }
+                    m.material = this.deviationPart ? matDeviation : this.material;
                     requestRender();
                 }
+                return dirty.size > 0;
+            }
+
+            // [part] : modèle à comparer, ou null pour revenir à la couleur du brut.
+            showDeviation(part) {
+                this.deviationPart = part;
+                this.stock.markAllDirty();
+                requestRender();
+            }
+
+            getStats() {
+                const initial = this.stock.initialVolume;
+                const left = this.stock.volume();
+                return {
+                    shape: this.shape,
+                    dimensionsMm: [this.size.x, this.size.y, this.size.z],
+                    resolutionMm: this.stock.h,
+                    initialVolumeMm3: initial,
+                    remainingVolumeMm3: left,
+                    removedPct: initial > 0 ? Math.round(((initial - left) / initial) * 1000) / 10 : 0,
+                };
             }
         }
 
@@ -647,43 +665,299 @@
         cAxis.add(platter);
 
         // --- BRUT VOXELISÉ & INTERPOLATION CINÉMATIQUE ---
-        const workpiece = new VoxelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, 28, matWorkpiece, 'cylinder');
+        const workpiece = new DexelWorkpiece(cAxis, { x: 40, y: 40, z: 25 }, matWorkpiece, 'cylinder');
+
+        // --- ZÉRO PIÈCE ---
+        // Même chaîne que pipeline/kinematics.py : G54 sur le dessus du brut et sur
+        // l'axe C à A=C=0, pivot A à D sous ce zéro. Sans pivot déclaré par le
+        // programme : D = hauteur du brut + distance pivot-plateau mesurée.
+        const PIVOT_TO_TABLE_MM = 8;
+        const TOOL_TIP_BELOW_ZAXIS = 91;   // pointe du foret, dans le repère de zAxis
+        const PIVOT_Z_IN_SCENE = 10 + 6 + 40; // xAxis + trunnionBase + aAxis
+        let declaredPivotDepth = null;
+
+        function stockHeight() { return workpiece.size.z; }
+        function pivotDepth() {
+            return declaredPivotDepth != null ? declaredPivotDepth : stockHeight() + PIVOT_TO_TABLE_MM;
+        }
+        function placeStock() {
+            cAxis.position.z = pivotDepth() - stockHeight();
+            syncPieceFrame();
+        }
+
+        // Repère pièce du programme : sommet du brut sur l'axe C. Pièce et parcours y
+        // vivent, donc ils suivent le plateau et les axes A/C. Sans machine affichée,
+        // il se confond avec l'origine de la scène.
+        const pieceFrame = new THREE.Group();
+        pieceFrame.matrixAutoUpdate = false;
+        scene.add(pieceFrame);
+
+        function syncPieceFrame() {
+            if (typeof pieceFrame === 'undefined') return;
+            pieceFrame.matrix.identity();
+            if (machineGroup.visible) {
+                workpiece.mesh.updateWorldMatrix(true, false);
+                pieceFrame.matrix.copy(workpiece.mesh.matrixWorld)
+                    .multiply(new THREE.Matrix4().makeTranslation(0, 0, stockHeight()));
+            }
+            pieceFrame.matrixWorldNeedsUpdate = true;
+            requestRender();
+        }
+        placeStock();
 
         const currentMachine = { x: 0, y: 0, z: 0, a: 0, c: 0 };
         const targetMachine  = { x: 0, y: 0, z: 0, a: 0, c: 0 };
         let activeToolpathIndex = 0;
         let currentToolRadius = 3.0;
 
+        function toolTipWorld() {
+            zAxis.updateWorldMatrix(true, false);
+            return zAxis.localToWorld(new THREE.Vector3(0, 0, -TOOL_TIP_BELOW_ZAXIS));
+        }
+
+        // Pointe d'outil dans le repère pièce, lue sur le graphe de scène : c'est ce
+        // que les tests comparent au rejeu du pipeline.
+        window.forgeronTipInPiece = () => {
+            workpiece.mesh.updateWorldMatrix(true, false);
+            const p = workpiece.mesh.worldToLocal(toolTipWorld());
+            return [p.x, p.y, p.z - stockHeight()];
+        };
+
+        // --- COUPE ---
+        // Chaque bloc franchi depuis le dernier passage est coupé en entier : même à
+        // vitesse ×100, aucune passe n'est sautée. Le calcul avance par tranches de
+        // temps à chaque image, l'écran reste fluide et la file se rattrape.
+        const cutQueue = [];
+        let lastCutIndex = 0;
+        let cutCursor = null;       // dernière position coupée : x, y, z pièce, a, c
+        let currentToolType = 'ball';
+
+        function resetCut() {
+            cutQueue.length = 0;
+            lastCutIndex = 0;
+            cutCursor = null;
+            updateStockLook();
+        }
+
+        // Avant toute coupe, le brut plein cacherait la pièce : on le rend translucide.
+        function updateStockLook() {
+            const seeThrough = !!partMesh && !cutCursor && lastCutIndex === 0;
+            matWorkpiece.transparent = seeThrough;
+            matWorkpiece.opacity = seeThrough ? 0.3 : 1;
+            matWorkpiece.depthWrite = !seeThrough;
+            matWorkpiece.needsUpdate = true;
+            requestRender();
+        }
+
+        function pathPoint(i) {
+            const flat = Array.isArray(lastToolpath[0]);
+            const at = (k) => flat ? lastToolpath[i][k] : lastToolpath[i * 6 + k];
+            return [at(0), at(1), at(2), at(3) || 0, at(4) || 0];
+        }
+
+        function pathLength() {
+            if (!lastToolpath) return 0;
+            return Array.isArray(lastToolpath[0]) ? lastToolpath.length : Math.floor(lastToolpath.length / 6);
+        }
+
+        // Le parcours est en repère pièce si le programme déclare son pivot ou s'il
+        // reste à A=C=0. Sinon on ne sait pas où est son zéro, et on ne coupe que
+        // d'après la position simulée.
+        function pathIsInPieceFrame() {
+            if (declaredPivotDepth != null) return true;
+            for (let i = 0; i < pathLength(); i++) {
+                const p = pathPoint(i);
+                if (p[3] !== 0 || p[4] !== 0) return false;
+            }
+            return true;
+        }
+
+        function queueCut(index, m, simulated) {
+            if (index < lastCutIndex) {
+                workpiece.reset();
+                resetCut();
+            }
+            if (index <= 0) return;
+            const n = pathLength();
+            if (n > 0 && pathIsInPieceFrame()) {
+                if (!cutCursor) {
+                    cutCursor = pathPoint(Math.min(lastCutIndex, n - 1));
+                    updateStockLook();
+                }
+                for (let b = lastCutIndex + 1; b <= Math.min(index, n - 1); b++) {
+                    const to = pathPoint(b);
+                    cutQueue.push([cutCursor, to]);
+                    cutCursor = to;
+                }
+                lastCutIndex = Math.max(lastCutIndex, index);
+            }
+            if (simulated) {
+                const t = window.forgeronTipInPiece();
+                const live = [t[0], t[1], t[2], m.a, m.c];
+                if (cutCursor) cutQueue.push([cutCursor, live]);
+                cutCursor = live;
+            }
+        }
+
+        // --- ÉCART AU MODÈLE ---
+        let partData = null;
+        let partModel = null;
+        let deviationOn = false;
+        let deviationReportDue = false;
+
+        function setDeviationReport(text) {
+            document.getElementById('dev-report').textContent = text;
+        }
+
+        function ensurePartModel() {
+            if (!partModel && partData) partModel = new PartModel(partData.vertices, partData.indices);
+            return partModel;
+        }
+
+        function setDeviation(on) {
+            deviationOn = !!on;
+            const legend = document.getElementById('dev-legend');
+            legend.hidden = !deviationOn;
+            if (!deviationOn) {
+                workpiece.showDeviation(null);
+                return;
+            }
+            const part = ensurePartModel();
+            if (!part) {
+                workpiece.showDeviation(null);
+                setDeviationReport('Aucun modèle chargé : rien à comparer.');
+                return;
+            }
+            if (!part.inProgramFrame()) {
+                // On ne devine pas un repère : une carte fausse serait pire que pas de carte.
+                workpiece.showDeviation(null);
+                setDeviationReport('Modèle hors du repère du programme (sommet à Z=0, centré sur C) : pas de comparaison.');
+                return;
+            }
+            workpiece.showDeviation(part);
+            deviationReportDue = true;
+        }
+
+        // Bilan exact, sur les bords de matière du brut : aussi lisible par les essais.
+        window.forgeronDeviationReport = () => {
+            const part = ensurePartModel();
+            if (!part || !part.inProgramFrame()) return null;
+            return compareStock(workpiece.stock, part, { tol: Math.max(0.05, workpiece.stock.h / 2) });
+        };
+
+        function refreshDeviationReport() {
+            const r = window.forgeronDeviationReport();
+            if (!r) return;
+            const at = (p) => p ? ` (X${p[0].toFixed(1)} Y${p[1].toFixed(1)} Z${p[2].toFixed(1)})` : '';
+            const pen = r.penetrationMaxMm === null
+                ? 'Pénétration : non mesurable, modèle ouvert'
+                : `Pénétration max : ${r.penetrationMaxMm.toFixed(2)} mm${at(r.penetrationAu)}`;
+            setDeviationReport(
+                `${pen}\n` +
+                // La mesure s'arrête à 3 mm du modèle : au-delà, seul un minimum est connu.
+                (r.modeleFerme ? 'Reste max : ' : 'Écart max, sans signe : ') +
+                (r.resteMaxMm >= 2.99 ? '3 mm ou plus' : `${r.resteMaxMm.toFixed(2)} mm`) +
+                `\nTolérance : ${r.tolMm.toFixed(2)} mm, grille du brut`);
+        }
+
+        document.getElementById('dev-btn').onclick = () => setDeviation(!deviationOn);
+
+        function runCut(from, to) {
+            workpiece.stock.sweepBlock(
+                from, to, { radius: currentToolRadius, type: currentToolType }, pivotDepth());
+        }
+
+        function stockTick() {
+            const end = performance.now() + 8;
+            while (cutQueue.length && performance.now() < end) {
+                const [from, to] = cutQueue.shift();
+                runCut(from, to);
+            }
+            const moreMesh = workpiece.flush(5);
+            if (cutQueue.length) {
+                requestRender();
+                deviationReportDue = deviationOn;
+            } else if (deviationOn && deviationReportDue && !moreMesh && workpiece.deviationPart) {
+                // Le bilan ne se calcule qu'à l'arrêt de la coupe : il parcourt tout le brut.
+                deviationReportDue = false;
+                refreshDeviationReport();
+            }
+        }
+
+        // Pour les essais : tout traiter d'un coup, puis lire l'état du brut.
+        window.forgeronFinishCut = () => {
+            while (cutQueue.length) {
+                const [from, to] = cutQueue.shift();
+                runCut(from, to);
+            }
+            workpiece.flush(1e6);
+            requestRender();
+            return workpiece.getStats();
+        };
+
         function applyMachineCoords(m, isCutting) {
-            zAxis.position.z = 200 + m.z;
+            zAxis.position.z = PIVOT_Z_IN_SCENE + pivotDepth() + TOOL_TIP_BELOW_ZAXIS + m.z;
             xAxis.position.x = -m.x;
             yAxis.position.y = -m.y;
             aAxis.rotation.x = m.a * Math.PI / 180;
             cAxis.rotation.z = m.c * Math.PI / 180;
+            syncPieceFrame();
 
             if (isCutting) {
                 matLedRing.color.setHex(0xff6b35);
                 cutSpark.visible = true;
                 toolBit.rotation.z += 0.45;
-                const currentPos = new THREE.Vector3();
-                toolBit.getWorldPosition(currentPos);
-                currentPos.z -= 11;
-                workpiece.cut(currentPos, currentToolRadius);
             } else {
                 matLedRing.color.setHex(0x3fb950);
                 cutSpark.visible = false;
             }
         }
 
+        // --- JUMEAU : INTERPOLATION ENTRE DEUX RAPPORTS DE LA CARTE ---
+        // La carte réelle donne sa position par rapports (toutes les 250 ms en
+        // mouvement). Entre deux, l'outil glisse du dernier point reçu vers le
+        // nouveau, sur la durée mesurée entre les deux rapports : le mouvement
+        // est continu, et la matière enlevée suit la trajectoire réelle, pas
+        // une suite de sauts. Le simulateur hors ligne, lui, envoie déjà ses
+        // positions à 30 Hz et garde le chemin immédiat.
+        let liveLerp = null;
+        let lastLiveUpdateAt = 0;
+        let liveCutting = false;
+
         function updateMachineStatus(payload) {
             const m = payload.mPos || [0, 0, 0, 0, 0];
+            const declared = payload.pivotDepth != null ? payload.pivotDepth : null;
+            if (declared !== declaredPivotDepth) {
+                declaredPivotDepth = declared;
+                placeStock();
+            }
             targetMachine.x = m[0] || 0;
             targetMachine.y = m[1] || 0;
             targetMachine.z = m[2] || 0;
             targetMachine.a = m[3] || 0;
             targetMachine.c = m[4] || 0;
             activeToolpathIndex = payload.activeIndex || 0;
-            applyMachineCoords(targetMachine, activeToolpathIndex > 0);
+            if (payload.toolType === 'ball' || payload.toolType === 'flat') {
+                currentToolType = payload.toolType;
+            }
+            const cutting = payload.cutting !== undefined ? !!payload.cutting : activeToolpathIndex > 0;
+            queueCut(activeToolpathIndex, targetMachine, payload.simulated === true);
+            if (payload.smooth) {
+                const now = performance.now();
+                const dt = lastLiveUpdateAt ? Math.min(600, Math.max(60, now - lastLiveUpdateAt)) : 120;
+                lastLiveUpdateAt = now;
+                liveLerp = {
+                    from: { ...currentMachine },
+                    to: { ...targetMachine },
+                    t0: now,
+                    duration: dt,
+                };
+                liveCutting = cutting;
+                requestRender();
+                return;
+            }
+            liveLerp = null;
+            applyMachineCoords(targetMachine, cutting);
             currentMachine.x = targetMachine.x;
             currentMachine.y = targetMachine.y;
             currentMachine.z = targetMachine.z;
@@ -692,9 +966,22 @@
             requestRender();
         }
 
+        function stepLiveLerp(now) {
+            if (!liveLerp) return;
+            const t = Math.min(1, (now - liveLerp.t0) / liveLerp.duration);
+            const k = 1 - Math.pow(1 - t, 2);
+            for (const axis of ['x', 'y', 'z', 'a', 'c']) {
+                currentMachine[axis] = liveLerp.from[axis] + (liveLerp.to[axis] - liveLerp.from[axis]) * k;
+            }
+            applyMachineCoords(currentMachine, liveCutting);
+            needsRender = true;
+            if (t >= 1) liveLerp = null;
+        }
+
         // --- CONTRÔLES BOUTONS & VIEWCUBE ---
         document.getElementById('reset-btn').onclick = () => {
             workpiece.reset();
+            resetCut();
             setCameraPreset('ISOMETRIC');
         };
         document.getElementById('cabin-btn').onclick = () => {
@@ -704,6 +991,7 @@
         document.getElementById('mode-btn').onclick = () => {
             const m = machineGroup.visible;
             machineGroup.visible = !m;
+            syncPieceFrame();
             document.getElementById('mode-text').innerText = m ? 'Outil' : 'Machine';
             requestRender();
         };
@@ -768,7 +1056,7 @@
 
         // --- PRÉVISUALISATION DU PARCOURS D'OUTIL (ZÉRO FUITE VRAM) ---
         const toolpathGroup = new THREE.Group();
-        scene.add(toolpathGroup);
+        pieceFrame.add(toolpathGroup);
         const pathMaterial = new THREE.LineBasicMaterial({ vertexColors: true });
         let pathLines = null;
         let vectorLines = null;
@@ -791,6 +1079,7 @@
 
         function loadToolpath(pointsData) {
             lastToolpath = pointsData;
+            resetCut();
             clearToolpath();
             if (!pointsData || pointsData.length === 0) {
                 debug('PARCOURS VIDE');
@@ -877,7 +1166,7 @@
 
         // --- MAILLAGE DE PIÈCE (STEP facettisé) ---
         const partGroup = new THREE.Group();
-        scene.add(partGroup);
+        pieceFrame.add(partGroup);
         const matPart = new THREE.MeshStandardMaterial({
             color: 0xd9dde1,
             metalness: 0.35,
@@ -894,11 +1183,15 @@
             partGroup.remove(partMesh);
             partMesh.geometry.dispose();
             partMesh = null;
+            updateStockLook();
             requestRender();
         }
 
         function loadMesh(data) {
             clearMesh();
+            partData = data && data.vertices && data.vertices.length >= 9 ? data : null;
+            partModel = null;
+            if (deviationOn) setDeviation(true);
             if (!data || !data.vertices || data.vertices.length < 9) {
                 debug('MAILLAGE VIDE');
                 return;
@@ -910,7 +1203,17 @@
             }
             geo.computeVertexNormals();
             partMesh = new THREE.Mesh(geo, matPart);
+            // Un STEP brut garde les coordonnées de sa CAO : on le pose à l'affichage
+            // sur l'axe C, sommet au zéro. Seule l'image bouge : la comparaison, elle,
+            // refuse un modèle hors du repère du programme.
+            geo.computeBoundingBox();
+            const box = geo.boundingBox;
+            const cx = (box.min.x + box.max.x) / 2;
+            const cy = (box.min.y + box.max.y) / 2;
+            const inFrame = Math.abs(box.max.z) < 0.5 && Math.abs(cx) < 0.5 && Math.abs(cy) < 0.5;
+            if (!inFrame) partMesh.position.set(-cx, -cy, -box.max.z);
             partGroup.add(partMesh);
+            updateStockLook();
 
             const nTri = data.indices ? (data.indices.length / 3) : (data.vertices.length / 9);
             debug('PIÈCE CAO : ' + nTri + ' TRIANGLES');
@@ -919,8 +1222,9 @@
         }
 
         function fitCameraTo(obj) {
-            obj.geometry.computeBoundingBox();
-            const bb = obj.geometry.boundingBox;
+            syncPieceFrame();
+            pieceFrame.updateMatrixWorld(true);
+            const bb = new THREE.Box3().setFromObject(obj);
             const center = new THREE.Vector3();
             const size = new THREE.Vector3();
             bb.getCenter(center);
@@ -937,6 +1241,7 @@
             if (!s) return;
             if (typeof s.machine === 'boolean') {
                 machineGroup.visible = s.machine;
+                syncPieceFrame();
                 floorGridGroup.visible = s.machine;
             }
             if (typeof s.toolpath === 'boolean') toolpathGroup.visible = s.toolpath;
@@ -970,10 +1275,158 @@
             requestRender();
         }
 
-        document.getElementById('fs-btn').onclick = () => {
-            const msg = JSON.stringify({ type: 'toggle_fullscreen' });
+        function postHostMessage(obj) {
+            const msg = JSON.stringify(obj);
+            if (window.ForgeronChannel) window.ForgeronChannel.postMessage(msg);
             if (window.ForgeronBridge) window.ForgeronBridge.postMessage(msg);
             if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg);
+            if (window.parent && window.parent !== window) {
+                try { window.parent.postMessage(obj, '*'); } catch (_) {}
+            }
+        }
+
+        function captureSnapshot(opts) {
+            opts = opts || {};
+            const requestId = opts.requestId || ('snap_' + Date.now());
+            const tempScene = (opts.temporaryScene && typeof opts.temporaryScene === 'object')
+                ? opts.temporaryScene
+                : null;
+
+            const savedVis = tempScene ? {
+                machine: machineGroup.visible,
+                floor: floorGridGroup.visible,
+                toolpath: toolpathGroup.visible,
+                part: partGroup.visible,
+                workpiece: workpiece.mesh ? workpiece.mesh.visible : false,
+                enclosure: enclosureGroup.visible,
+                camPos: camera.position.clone(),
+                target: controls.target.clone(),
+                vcLabel: (document.getElementById('vc-label') && document.getElementById('vc-label').innerText) || 'ISOMETRIC',
+            } : null;
+
+            try {
+                if (tempScene) {
+                    applyScene(tempScene);
+                    if (!machineGroup.visible && partGroup.visible && partMesh) {
+                        fitCameraTo(partMesh);
+                    } else if (!machineGroup.visible && toolpathGroup.visible && pathLines) {
+                        fitCameraTo(pathLines);
+                    }
+                }
+
+                if (opts.cameraPreset) {
+                    setCameraPreset(opts.cameraPreset);
+                }
+                if (camTween) {
+                    camera.position.copy(camTween.endPos);
+                    camTween = null;
+                    controls.update();
+                    syncViewCube();
+                }
+
+                renderer.render(scene, camera);
+                needsRender = false;
+
+                const srcW = Math.max(1, renderer.domElement.width);
+                const srcH = Math.max(1, renderer.domElement.height);
+                const scale = Math.min(1, 1024 / Math.max(srcW, srcH));
+                const outW = Math.max(64, Math.round(srcW * scale));
+                const outH = Math.max(64, Math.round(srcH * scale));
+
+                const off = document.createElement('canvas');
+                off.width = outW;
+                off.height = outH;
+                const ctx = off.getContext('2d');
+
+                const isLight = document.body.classList.contains('light-studio');
+                const grad = ctx.createLinearGradient(0, 0, 0, outH);
+                if (isLight) {
+                    grad.addColorStop(0, '#f8fafc');
+                    grad.addColorStop(1, '#e2e8f0');
+                } else {
+                    grad.addColorStop(0, '#1e2533');
+                    grad.addColorStop(1, '#0e1117');
+                }
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, outW, outH);
+                ctx.drawImage(renderer.domElement, 0, 0, outW, outH);
+
+                const stock = workpiece.getStats();
+                const tpPts = lastToolpath
+                    ? (Array.isArray(lastToolpath[0]) ? lastToolpath.length : Math.floor(lastToolpath.length / 6))
+                    : 0;
+                const camLabel = (document.getElementById('vc-label') && document.getElementById('vc-label').innerText) || 'ISOMETRIC';
+                const hudText = opts.hudBanner || (
+                    `VUE ${camLabel} | X:${currentMachine.x.toFixed(1)} Y:${currentMachine.y.toFixed(1)} Z:${currentMachine.z.toFixed(1)} A:${currentMachine.a.toFixed(1)}° C:${currentMachine.c.toFixed(1)}°` +
+                    (tpPts > 0 ? ` | PARCOURS:${tpPts} pts` : '') +
+                    ((workpiece.mesh && workpiece.mesh.visible) ? ` | BRUT COUPÉ:${stock.removedPct}%` : '')
+                );
+
+                ctx.font = 'bold 12px monospace';
+                const textW = Math.min(outW - 24, ctx.measureText(hudText).width + 20);
+                ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.78)' : 'rgba(14, 17, 23, 0.82)';
+                ctx.fillRect(10, 10, textW, 24);
+                ctx.strokeStyle = theme.primary || '#ff6b35';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(10, 10, textW, 24);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(hudText, 20, 26, outW - 44);
+
+                const metrics = {
+                    stock,
+                    machinePos: { ...currentMachine },
+                    activeToolpathIndex,
+                    toolDiameterMm: Math.round(currentToolRadius * 200) / 100,
+                    toolpathPoints: tpPts,
+                    hasPartMesh: !!partMesh,
+                    visibleLayers: {
+                        machine: machineGroup.visible,
+                        enclosure: enclosureGroup.visible,
+                        toolpath: toolpathGroup.visible,
+                        part: partGroup.visible,
+                        workpiece: !!(workpiece.mesh && workpiece.mesh.visible),
+                    },
+                    cameraPreset: camLabel,
+                    hudBanner: hudText,
+                };
+
+                const dataUrl = off.toDataURL('image/png');
+                postHostMessage({
+                    type: 'snapshot_result',
+                    requestId,
+                    dataUrl,
+                    width: outW,
+                    height: outH,
+                    metrics,
+                });
+            } catch (err) {
+                postHostMessage({
+                    type: 'snapshot_result',
+                    requestId,
+                    error: String(err),
+                });
+            } finally {
+                if (savedVis) {
+                    machineGroup.visible = savedVis.machine;
+                    syncPieceFrame();
+                    floorGridGroup.visible = savedVis.floor;
+                    toolpathGroup.visible = savedVis.toolpath;
+                    partGroup.visible = savedVis.part;
+                    if (workpiece.mesh) workpiece.mesh.visible = savedVis.workpiece;
+                    enclosureGroup.visible = savedVis.enclosure;
+                    camera.position.copy(savedVis.camPos);
+                    controls.target.copy(savedVis.target);
+                    const lbl = document.getElementById('vc-label');
+                    if (lbl) lbl.innerText = savedVis.vcLabel;
+                    controls.update();
+                    syncViewCube();
+                    requestRender();
+                }
+            }
+        }
+
+        document.getElementById('fs-btn').onclick = () => {
+            postHostMessage({ type: 'toggle_fullscreen' });
         };
 
         window.handleMessage = window.handleFlutterMessage = (rawData) => {
@@ -1024,16 +1477,25 @@
                     break;
                 case 'configure_stock':
                     workpiece.configure(payload && payload.shape, payload && payload.dimensions);
+                    resetCut();
+                    placeStock();
                     if (payload && typeof payload.toolDiameter === 'number' && payload.toolDiameter > 0) {
                         currentToolRadius = payload.toolDiameter / 2.0;
                     }
                     break;
+                case 'set_deviation':
+                    setDeviation(typeof payload === 'boolean' ? payload : !!(payload && payload.show));
+                    break;
                 case 'reset_stock':
                     workpiece.reset();
+                    resetCut();
                     break;
                 case 'set_enclosure':
                     enclosureGroup.visible = typeof payload === 'boolean' ? payload : !!(payload && payload.show);
                     requestRender();
+                    break;
+                case 'capture_snapshot':
+                    captureSnapshot(payload);
                     break;
                 case 'reset_camera':
                     if (partGroup.visible && partMesh) {
@@ -1055,6 +1517,8 @@
         function animate(now) {
             requestAnimationFrame(animate);
 
+            stepLiveLerp(now);
+
             if (camTween) {
                 const elapsed = now - camTween.startTime;
                 const t = Math.min(1, elapsed / camTween.duration);
@@ -1070,6 +1534,8 @@
                     needsRender = true;
                 }
             }
+
+            stockTick();
 
             if (needsRender) {
                 renderer.render(scene, camera);

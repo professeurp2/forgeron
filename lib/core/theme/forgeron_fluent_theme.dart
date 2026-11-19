@@ -14,6 +14,11 @@ FluentThemeData forgeronFluentTheme(ForgeronColorPalette c) {
 
   return FluentThemeData(
     brightness: brightness,
+    // Même police que le reste de l'application (Rajdhani, embarquée) :
+    // sans cela, Fluent prenait la police de l'OS et l'écran Agent IA
+    // détonnait.
+    typography: Typography.fromBrightness(brightness: brightness, color: c.textPrimary)
+        .apply(fontFamily: 'Rajdhani'),
     accentColor: c.primary.toAccentColor(),
     scaffoldBackgroundColor: c.background,
     micaBackgroundColor: c.background,

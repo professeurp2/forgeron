@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/forge_tokens.dart' show kForgeronVersion;
 import '../../application/providers/machine_provider.dart';
 import '../../application/providers/di_providers.dart';
 
@@ -69,7 +70,7 @@ class LoggerService extends StateNotifier<List<LogEntry>> {
     final dump = {
       'system': {
         'app': 'Forgeron CNC',
-        'version': '1.0.0-industrial',
+        'version': kForgeronVersion,
         'platform': defaultTargetPlatform.name,
         'timestamp': DateTime.now().toIso8601String(),
       },

@@ -144,19 +144,60 @@ class GCodeToolExtractor {
         return [_describe(tools.first, header)];
       }
     }
+
+    // Si aucun bloc M6 n'a été détecté, mais que le programme porte un
+    // descriptif d'outil explicite en en-tête (`OUTIL :` ou `TOOL :`), il s'agit
+    // d'un programme mono-outil valide sans changement automatique (ex: CAM
+    // direct, implant médical, pièce de révolution, cycle continu).
+    if (tools.isEmpty) {
+      final header = _headerToolComment(lines);
+      if (header != null) {
+        int toolNum = 1;
+        int tLine = 0;
+        final scanLimit = lines.length < 100 ? lines.length : 100;
+        for (var i = 0; i < scanLimit; i++) {
+          final code = _stripComments(lines[i]);
+          final t = _toolNumber(code);
+          if (t != null) {
+            toolNum = t;
+            tLine = i;
+            break;
+          }
+        }
+        final speed = _findFirstSpindleSpeed(lines);
+        final base = ProgramTool(
+          number: toolNum,
+          changeLines: [tLine],
+          description: header,
+          spindleSpeed: speed,
+        );
+        return [_describe(base, header)];
+      }
+    }
+
     return tools;
   }
 
   /// Cherche dans l'en-tête un commentaire se rapportant explicitement à
   /// l'outil (`TOOL:` / `OUTIL:`). Un titre ou un nom de machine ne compte pas.
   static String? _headerToolComment(List<String> lines) {
-    final limit = lines.length < 40 ? lines.length : 40;
+    final limit = lines.length < 50 ? lines.length : 50;
     for (var i = 0; i < limit; i++) {
       for (final c in _commentsIn(lines[i])) {
-        final m = RegExp(r'^(?:TOOL|OUTIL)\s*:\s*(.+)$', caseSensitive: false)
+        final m = RegExp(r'^(?:TOOL|OUTIL)(?:\s*\d+)?\s*[:\-]\s*(.+)$', caseSensitive: false)
             .firstMatch(c.trim());
         if (m != null) return m.group(1)!.trim();
       }
+    }
+    return null;
+  }
+
+  static int? _findFirstSpindleSpeed(List<String> lines) {
+    final limit = lines.length < 50 ? lines.length : 50;
+    for (var i = 0; i < limit; i++) {
+      final code = _stripComments(lines[i]);
+      final m = RegExp(r'(?:^|[^A-Z0-9])S(\d+)(?:[^0-9]|$)').firstMatch(code);
+      if (m != null) return int.tryParse(m.group(1)!);
     }
     return null;
   }
