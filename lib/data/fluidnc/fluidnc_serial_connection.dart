@@ -145,7 +145,7 @@ class FluidNCSerialConnection implements FluidNCConnection {
         },
       );
 
-      port.write(Uint8List.fromList(utf8.encode('\$I\n?\n')));
+      port.write(Uint8List.fromList(utf8.encode('\$I\n?\n')), timeout: 500);
       return await completer.future.timeout(timeout, onTimeout: () => null);
     } catch (_) {
       return null;
@@ -291,14 +291,36 @@ class FluidNCSerialConnection implements FluidNCConnection {
   bool sendRaw(String data) {
     if (_isConnected && _port != null && _port!.isOpen) {
       try {
+        final bytes = Uint8List.fromList(utf8.encode(data));
+        // CRITIQUE (Windows / libserialport) :
+        // `_port!.write(bytes)` sans `timeout` appelle `sp_nonblocking_write`.
+        // Sur Windows (`serialport.c`), si l'écriture précédente (OVERLAPPED)
+        // n'est pas encore terminée quand la ligne suivante arrive quelques
+        // microsecondes plus tard dans la boucle `_attemptSend()`,
+        // `sp_nonblocking_write` retourne `0` et JETTE silencieusement la ligne !
+        // Le streamer comptait alors la ligne dans `_bytesInFlight`, mais
+        // l'ESP32 ne la recevait jamais et ne renvoyait donc jamais son `ok`,
+        // provoquant un faux « Flux bloqué » 5 s après la fin du programme.
+        // En passant `timeout: 1000`, `libserialport` utilise `sp_blocking_write`,
+        // qui attend la fin du transfert précédent et boucle jusqu'à écriture
+        // complète de tous les octets.
+        var offset = 0;
+        while (offset < bytes.length) {
+          final chunk =
+              offset == 0 ? bytes : Uint8List.sublistView(bytes, offset);
+          final written = _port!.write(chunk, timeout: 1000);
+          if (written <= 0) {
+            debugPrint(
+              '[FORGERON USB] ❌ Échec écriture USB ($written/${bytes.length} o) : $data',
+            );
+            _trafficController.add('TX ÉCHEC (écriture USB) : $data');
+            _handleDisconnect('Échec d\'écriture USB (written=$written)');
+            return false;
+          }
+          offset += written;
+        }
         debugPrint('[FORGERON USB TX] $data');
         _trafficController.add('TX: $data');
-        final bytes = Uint8List.fromList(utf8.encode(data));
-        final written = _port!.write(bytes);
-        if (written < 0) {
-          _handleDisconnect('Échec d\'écriture USB');
-          return false;
-        }
         return true;
       } catch (e) {
         _handleDisconnect('Erreur écriture USB: $e');
