@@ -27,8 +27,6 @@ class FluidNCMachineRepository implements MachineRepository {
   FluidNCMachineRepository(this._connection, {bool ownsConnection = true})
       : _ownsConnection = ownsConnection {
     _streamingService = GCodeStreamingService(_connection);
-    _connection.connect();
-
     _msgSub = _connection.messages.listen(_handleMessage);
     _statusSub = _connection.status.listen((isConnected) {
       if (_stateController.isClosed) return;
@@ -37,21 +35,24 @@ class FluidNCMachineRepository implements MachineRepository {
         _currentState = _currentState.copyWith(status: MachineStatus.offline);
         _stateController.add(_currentState);
       } else {
-        Future.delayed(const Duration(milliseconds: 500), () {
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (!_connection.isConnected || _stateController.isClosed) return;
           if (_connection is FluidNCSerialConnection) {
             // En mode USB, couper le Wi-Fi de l'ESP32 pour éviter tout scan/reconnexion
             // radio pendant le homing ou l'usinage.
             _connection.sendRaw('\$WiFi/Mode=Off\n');
           }
-          _connection.sendRaw('\$G\n');   // État modal
-          _connection.sendRaw('\$#\n');   // Offsets de travail
-          _connection.sendRaw('\$I\n');   // Build info firmware (VER/OPT)
+          _connection.sendRaw('?');      // Statut immédiat (<Idle|MPos:...>)
+          _connection.sendRaw('\$G\n');  // État modal
+          _connection.sendRaw('\$#\n');  // Offsets de travail
+          _connection.sendRaw('\$I\n');  // Build info firmware (VER/OPT)
           if (_connection is! FluidNCSerialConnection) {
             _connection.sendRaw('[ESP110]\n'); // WiFi info
           }
         });
       }
     });
+    _connection.connect();
   }
 
   void _handleMessage(String message) {

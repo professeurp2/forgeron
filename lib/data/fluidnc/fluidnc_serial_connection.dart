@@ -119,7 +119,9 @@ class FluidNCSerialConnection implements FluidNCConnection {
         ..bits = 8
         ..stopBits = 1
         ..parity = SerialPortParity.none
-        ..setFlowControl(SerialPortFlowControl.none);
+        ..setFlowControl(SerialPortFlowControl.none)
+        ..dtr = SerialPortDtr.off
+        ..rts = SerialPortRts.off;
       port.config = cfg;
       cfg.dispose();
 
@@ -189,7 +191,9 @@ class FluidNCSerialConnection implements FluidNCConnection {
         ..bits = 8
         ..stopBits = 1
         ..parity = SerialPortParity.none
-        ..setFlowControl(SerialPortFlowControl.none);
+        ..setFlowControl(SerialPortFlowControl.none)
+        ..dtr = SerialPortDtr.off
+        ..rts = SerialPortRts.off;
       port.config = cfg;
       cfg.dispose();
 

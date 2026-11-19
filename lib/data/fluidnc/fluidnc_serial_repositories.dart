@@ -119,7 +119,14 @@ class FluidNCSerialConfigRepository implements ConfigRepository {
 
   @override
   Future<String> getConfig() async {
-    if (_connection == null || !_connection.isConnected) {
+    if (_connection == null) {
+      return '# Impossible de charger config.yaml : liaison USB non initialisée.';
+    }
+    // Laisser le temps à l'ESP32 (CH340) de terminer sa séquence de boot USB
+    // et aux commandes d'état initiales (?, $G, $#) de passer avant d'envoyer
+    // $Config/Dump.
+    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    if (!_connection.isConnected) {
       return '# Impossible de charger config.yaml : liaison USB non connectée.';
     }
     try {
