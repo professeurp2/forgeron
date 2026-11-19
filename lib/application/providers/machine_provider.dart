@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart';
 import '../../domain/models/machine_state.dart';
 import '../../core/utils/kinematics_service.dart';
-import '../../data/fluidnc/fluidnc_serial_connection.dart';
 import 'di_providers.dart';
 import 'machining_mode_provider.dart' show trunnionConfigProvider;
 
@@ -76,33 +75,16 @@ Future<void> loadNetworkPreferences(WidgetRef ref) async {
   final ip = prefs.getString('esp_ip') ?? '192.168.137.100';
   final wsPort = prefs.getInt('ws_port') ?? kDefaultWsPort;
   final savedTransport = prefs.getString('connection_transport');
-  var serialPort = prefs.getString('serial_port') ?? 'COM5';
+  final serialPort = prefs.getString('serial_port') ?? 'COM5';
   final baud = prefs.getInt('serial_baud') ?? kDefaultSerialBaudRate;
 
-  // Si un port série USB (CP210x / CH340 / ESP32) est branché sur le PC,
-  // privilégier automatiquement l'USB et sélectionner le bon port COM.
-  final ports = FluidNCSerialConnection.listAvailablePorts();
-  final usbPort = ports.where((p) {
-    final d = '${p.description ?? ''} ${p.manufacturer ?? ''}'.toLowerCase();
-    return d.contains('cp210') ||
-        d.contains('ch340') ||
-        d.contains('silicon labs') ||
-        d.contains('usb') ||
-        d.contains('uart') ||
-        d.contains('serial');
-  }).firstOrNull;
-
-  ConnectionTransport transport;
-  if (usbPort != null) {
-    transport = ConnectionTransport.usb;
-    if (!ports.any((p) => p.name == serialPort)) {
-      serialPort = usbPort.name;
-    }
-  } else {
-    transport = savedTransport == 'wifi'
-        ? ConnectionTransport.wifi
-        : ConnectionTransport.usb;
-  }
+  // IMPORTANT : ne JAMAIS appeler SerialPort.availablePorts / listAvailablePorts()
+  // au démarrage ici, car sous Windows l'interrogation de COM3/COM4 (ports
+  // série Bluetooth) ou d'un COM5 déjà ouvert par FluidNCSerialConnection
+  // bloque le thread UI Win32 et empêche la fenêtre principale de s'afficher !
+  final transport = savedTransport == 'wifi'
+      ? ConnectionTransport.wifi
+      : ConnectionTransport.usb;
 
   ref.read(espIpProvider.notifier).state = ip;
   ref.read(wsPortProvider.notifier).state = wsPort;

@@ -52,7 +52,13 @@ class FluidNCMachineRepository implements MachineRepository {
         });
       }
     });
-    _connection.connect();
+    // Différer l'ouverture du port série / WebSocket après le rendu du premier
+    // frame Flutter afin que Win32Window::Show() s'exécute immédiatement.
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (!_stateController.isClosed) {
+        _connection.connect();
+      }
+    });
   }
 
   void _handleMessage(String message) {
